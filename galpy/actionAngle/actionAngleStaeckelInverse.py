@@ -19,6 +19,20 @@ from contextlib import contextmanager
 import numpy
 from scipy.optimize import brentq, minimize
 
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    at_least_float64,
+    concretely_true,
+    device_of,
+    get_namespace,
+    has_concrete_truth_value,
+    is_backend_array,
+    match_input_dtype,
+)
+from ..backend._namespaces import stop_gradient, under_jax_trace
+from ..backend.optimize import brentq as _backend_brentq
+from ..backend.optimize import iterate_to_fixed_point
 from ..potential import (
     IsochronePotential,
     OblateStaeckelWrapperPotential,
@@ -29,7 +43,11 @@ from ..potential import (
     vcirc,
     verticalfreq,
 )
-from ..potential.Potential import _check_potential_list_and_deprecate
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+    _evaluateRforces,
+)
 from ..util import conversion, coords, galpyWarning
 from ..util._hermite import HermiteFamily3D, slope_at_zero
 from ..util._optional_deps import _TQDM_LOADED
@@ -37,6 +55,7 @@ from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
     _IsochroneAuxiliary,
+    _ns,
     _offset_spec_coeffs,
     _progress,
     _sine_galerkin,
@@ -721,8 +740,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         the polar anomaly zeta, in closed form: the auxiliary's polar
         libration is cos(theta^A) = sqrt(c) cos(zeta) with c = sin^2 i =
         1 - L_z^2 / L^2, in which its angle relations are affine"""
-        s2 = numpy.sin(zeta) ** 2
-        return L * c * s2 / (1.0 - c * numpy.cos(zeta) ** 2)
+        xp = _ns(L, c, zeta)
+        s2 = xp.sin(zeta) ** 2
+        return L * c * s2 / (1.0 - c * xp.cos(zeta) ** 2)
 
     @staticmethod
     def _aux_vcumulative(L, c, zeta):
@@ -739,10 +759,12 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         psi with psi = arctan(tan(zeta)/s) - arctan(tan(zeta)) = arctan[c
         tan(zeta)/((1 + s)(s + tan^2 zeta))] (no branch to continue), and
         1 - s = c/(1 + s)."""
-        zeta = numpy.asarray(zeta, dtype="float")
-        s = numpy.sqrt(1.0 - c)
-        t = numpy.tan(zeta)
-        psi = numpy.arctan(c * t / ((1.0 + s) * (s + t**2)))
+        xp = _ns(L, c, zeta)
+        if xp is numpy:
+            zeta = numpy.asarray(zeta, dtype="float")
+        s = xp.sqrt(1.0 - c)
+        t = xp.tan(zeta)
+        psi = xp.arctan(c * t / ((1.0 + s) * (s + t**2)))
         A = L * (c * zeta / (1.0 + s) - s * psi)
         return A, A / L, L * (0.5 * (zeta + psi) / s - 0.5 * t / (s**2 + t**2))
 
@@ -2128,6 +2150,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         from the two librations (u, p_u, v, p_v) -> (R, v_R, z, v_z), and
         take the azimuth from the auxiliary's angle relations at the
         compensated azimuthal angle"""
+        xp = self._namespace(get_namespace(jr, jphi, jz, angler, anglephi, anglez))
+        if xp is not numpy:
+            return self._bk_xvFreqs(xp, jr, jphi, jz, angler, anglephi, anglez)
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         if jr < 0.0 or jz < 0.0:
             raise ValueError("J_R and J_z have to be non-negative")
@@ -2237,6 +2262,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         the stored action interpolants' own partials through the label
         chain (the integrator contract); for explicit tori the torus's own
         period matrix"""
+        xp = self._namespace(get_namespace(jr, jphi, jz))
+        if xp is not numpy:
+            return self._bk_Freqs(xp, jr, jphi, jz)
         jr, jphi, jz = float(jr), float(jphi), float(jz)
         Lz = jphi
         if jr == 0.0 and jz == 0.0:
@@ -2249,3 +2277,835 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             return (circ["kappa"], numpy.sign(Lz) * circ["Omc"], circ["nu"])
         Om = self._tables(jr, jz, Lz)["Om"]
         return (Om[0], Om[2], Om[1])
+
+    # ---------- evaluation on a backend (jax/torch)
+    # The evaluation above natively in jax/torch, differentiable in the actions
+    # and the angles (and, for a family built on a backend, in the potential's
+    # parameters): the label inversion and the angle solve iterate on
+    # derivative-free copies of the tables until they converge, and a final
+    # step carries the implicit-function derivative (the label's 2-D Newton
+    # step with the interpolants' own partials; the angles' nested backend
+    # brentq, tau_v(tau_u) inside tau_u). A degenerate libration (J_R = 0 or
+    # J_z = 0), decided on concrete actions, goes through its own branch; under
+    # a trace both branches run, the dead one on a stand-in torus.
+    def _namespace(self, xp):
+        """A family built on a backend evaluates there whatever the inputs"""
+        bk = getattr(self, "_bk", None)
+        return xp if bk is None else bk["xp"]
+
+    def _bk_inputs(self, xp, *args):
+        """The inputs on the family's backend and device, and in float64"""
+        bk = getattr(self, "_bk", None)
+        dev = (
+            bk["dev"]
+            if bk is not None
+            else device_of(*(a for a in args if is_backend_array(a)))
+        )
+        ins = tuple(
+            a * 1.0
+            if is_backend_array(a)
+            else asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev)
+            for a in args
+        )
+        return ins, at_least_float64(*ins)
+
+    def _bk_const(self, xp, a, ref):
+        return a if is_backend_array(a) else asarray_on_device(xp, a, device_of(ref))
+
+    def _bk_Phi(self, R):
+        """The (reference) Staeckel model's potential in the plane at R"""
+        xp = get_namespace(R)
+        flat = xp.reshape(R, (-1,))
+        return xp.reshape(
+            _evaluatePotentials(self._staeckelwrap, flat, 0.0 * flat), R.shape
+        )
+
+    def _bk_dPhi(self, R):
+        """dPhi/dR in the plane"""
+        xp = get_namespace(R)
+        flat = xp.reshape(R, (-1,))
+        return -xp.reshape(
+            _evaluateRforces(self._staeckelwrap, flat, 0.0 * flat), R.shape
+        )
+
+    def _bk_rc(self, ell):
+        """The circular radius at |L_z| = ell (0-d): in an interpolated family
+        the circular condition R^3 Phi'(R) = L_z^2 solved within the grid's own
+        range of circular radii; for explicit tori rl"""
+        xp = get_namespace(ell)
+        if not self._interp:
+            return xp.reshape(
+                rl(self._staeckelwrap, xp.reshape(ell, (1,)), use_physical=False), ()
+            )
+        rg = self._bk_grid("Rcs")
+        one = xp.reshape(0.0 * ell + 1.0, (1,))
+        return _backend_brentq(
+            lambda R, LL: R**3 * self._bk_dPhi(R) - LL**2,
+            one * (0.99 * stop_gradient(rg[0])),
+            one * (1.01 * stop_gradient(rg[-1])),
+            args=(xp.reshape(ell, (1,)),),
+            xtol=1e-14,
+            elementwise=True,
+        )[0]
+
+    def _bk_grid(self, name):
+        """A table of the grid: the backend-built one, else the numpy one"""
+        bk = getattr(self, "_bk", None)
+        if bk is not None and name in bk:
+            return bk[name]
+        if name == "Rcs":
+            if getattr(self, "_Rcs_grid", None) is None:
+                self._Rcs_grid = numpy.array(
+                    [self._circular(L)["Rc"] for L in self._Lzgrid]
+                )
+            return self._Rcs_grid
+        return {"Lzgrid": self._Lzgrid, "Phiinf": self._Phiinf}[name]
+
+    def _bk_chart(self, E, ell):
+        """The Staeckel model of the (E, |L_z|) tori on a backend: the family's
+        wrapper or, with an adaptive reference curve, the wrapper at that
+        (E, |L_z|)'s own u0 (a gauge: no derivative flows through it)"""
+        if not self._adaptive:
+            return self._staeckelwrap
+        if has_concrete_truth_value(E) and has_concrete_truth_value(ell):
+            Ef, ellf = (float(as_numpy(stop_gradient(t))) for t in (E, ell))
+            return self._chart(Ef, ellf)
+        u0 = stop_gradient(self._u0_func(E, ell))
+        return OblateStaeckelWrapperPotential(
+            pot=self._chart_pot, delta=self._delta, u0=u0
+        )
+
+    def _bk_circular(self, ell):
+        """_circular on a backend"""
+        xp = get_namespace(ell)
+        Rc = self._bk_rc(ell)
+        Rc1 = xp.reshape(Rc, (1,))
+        Ec = self._bk_Phi(Rc1)[0] + ell**2 / (2.0 * Rc**2)
+        wrap = self._bk_chart(Ec, ell)
+        return {
+            "Rc": Rc,
+            "Ec": Ec,
+            "uc": xp.asinh(Rc / self._delta),
+            "kappa": xp.reshape(epifreq(wrap, Rc1, use_physical=False), ()),
+            "nu": xp.reshape(verticalfreq(wrap, Rc1, use_physical=False), ()),
+            "Omc": ell / Rc**2,
+        }
+
+    def _bk_R0(self, E, Rlo, Rhi):
+        """_R0 on a backend (0-d)"""
+        xp = get_namespace(E)
+        one = xp.reshape(0.0 * E + 1.0, (1,))
+        return _backend_brentq(
+            lambda R, EE: self._bk_Phi(R) - EE,
+            one * Rlo,
+            one * Rhi,
+            args=(xp.reshape(E, (1,)),),
+            xtol=1e-14,
+            elementwise=True,
+        )[0]
+
+    def _bk_E_of_xL(self, x, ell, circ=None):
+        """_E_of_xL on a backend, with the edges' apocentres solved afresh"""
+        xp = get_namespace(x, ell)
+        circ = self._bk_circular(ell) if circ is None else circ
+        Emax = self._bk_grid("Phiinf") + ell**2 / (2.0 * self._Rinf**2)
+        R0c = self._bk_R0(circ["Ec"], circ["Rc"], self._Rinf + 0.0 * ell)
+        R0m = self._bk_R0(Emax, self._Rinf + 0.0 * ell, 10.0 * self._Rinf + 0.0 * ell)
+        g0c = R0c * self._bk_dPhi(xp.reshape(R0c, (1,)))[0]
+        g0m = R0m * self._bk_dPhi(xp.reshape(R0m, (1,)))[0]
+        R = R0c * (R0m / R0c) ** x
+        g = R * self._bk_dPhi(xp.reshape(R, (1,)))[0]
+        return (
+            self._bk_Phi(xp.reshape(R, (1,)))[0],
+            g * xp.log(R0m / R0c),
+            (1.0 - x) * circ["Omc"] * (g / g0c) + x * (ell / self._Rinf**2) * (g / g0m),
+        )
+
+    def _bk_check_Lz(self, ell):
+        if has_concrete_truth_value(ell):
+            self._check_Lz(float(as_numpy(stop_gradient(ell))))
+        return None
+
+    def _bk_interp_coords(self, xp, jr, jz, ell, face):
+        """_interp_coords on a backend: on a face (face = "u", J_R = 0, or "v",
+        J_z = 0) the backend brentq in w_E; inside, the 2-D Newton on the
+        total action and the vertical fraction, iterated without a derivative
+        to convergence, then one step with the interpolants' own partials,
+        which carries the implicit-function derivative"""
+        wEs, ys = self._wEs, self._ys
+        xlo, xhi, ylo, yhi = wEs[0] ** 2, wEs[-1] ** 2, ys[0], ys[-1]
+
+        def A(x, y, sg=False):
+            out = self._A_ip.ev4(x, y, ell if not sg else stop_gradient(ell))
+            return tuple(stop_gradient(o) for o in out) if sg else out
+
+        if face is not None:
+            k, f = (1, 1.0) if face == "u" else (0, 0.0)
+            jother = jz if face == "u" else jr
+            if (yhi if f == 1.0 else ylo) != f:
+                raise ValueError(
+                    f"(J_R, J_z) lies on a degenerate face that the family's grid does not reach"
+                )
+            top = A(xhi + 0.0 * ell, f + 0.0 * ell)[0][k]
+            bottom = A(xlo + 0.0 * ell, f + 0.0 * ell)[0][k]
+            tol = 1e-12 * (jr + jz)
+            if has_concrete_truth_value(jother) and concretely_true(
+                (jother > top + tol) | (jother < bottom - tol)
+            ):
+                jf, tf, bf = (
+                    float(as_numpy(stop_gradient(t))) for t in (jother, top, bottom)
+                )
+                raise ValueError(
+                    "(J_R, J_z) lies outside the interpolated family at |L_z| = "
+                    f"{float(as_numpy(stop_gradient(ell)))}: "
+                    + ("above" if jf > tf else "below")
+                    + f" the covered actions [{bf:g}, {tf:g}]"
+                    + (" (increase Rinf)" if jf > tf else "")
+                )
+            jo = xp.where(jother < bottom, bottom, xp.where(jother > top, top, jother))
+            one = xp.reshape(0.0 * ell + 1.0, (1,))
+            wE = _backend_brentq(
+                lambda ww, jj, LL: (
+                    self._A_ip.ev4(ww[0] * ww[0], f + 0.0 * LL, LL)[0][k][None] - jj
+                ),
+                one * wEs[0],
+                one * wEs[-1],
+                args=(xp.reshape(jo, (1,)), ell),
+                xtol=1e-15,
+                bracket_width=float(wEs[-1] - wEs[0]),
+            )[0]
+            return wE * wE, f + 0.0 * wE
+        jtot, frac = jr + jz, jz / (jr + jz)
+
+        def G_and_J(x, y, sg):
+            v, vx, vy, _ = A(x, y, sg)
+            tot = v[0] + v[1]
+            G = xp.stack([tot / jtot - 1.0, v[1] / tot - frac])
+            Gx = xp.stack(
+                [
+                    (vx[0] + vx[1]) / jtot,
+                    (vx[1] * tot - v[1] * (vx[0] + vx[1])) / tot**2,
+                ]
+            )
+            Gy = xp.stack(
+                [
+                    (vy[0] + vy[1]) / jtot,
+                    (vy[1] * tot - v[1] * (vy[0] + vy[1])) / tot**2,
+                ]
+            )
+            return G, Gx, Gy
+
+        jtot_sg, frac_sg = stop_gradient(jtot), stop_gradient(frac)
+
+        def step(state):
+            x, y = state[0], state[1]
+            v, vx, vy, _ = A(x, y, True)
+            tot = v[0] + v[1]
+            G = xp.stack([tot / jtot_sg - 1.0, v[1] / tot - frac_sg])
+            Gx = xp.stack(
+                [
+                    (vx[0] + vx[1]) / jtot_sg,
+                    (vx[1] * tot - v[1] * (vx[0] + vx[1])) / tot**2,
+                ]
+            )
+            Gy = xp.stack(
+                [
+                    (vy[0] + vy[1]) / jtot_sg,
+                    (vy[1] * tot - v[1] * (vy[0] + vy[1])) / tot**2,
+                ]
+            )
+            det = Gx[0] * Gy[1] - Gy[0] * Gx[1]
+            dx = -(Gy[1] * G[0] - Gy[0] * G[1]) / det
+            dy = -(-Gx[1] * G[0] + Gx[0] * G[1]) / det
+            big = xp.maximum(xp.abs(dx), xp.abs(dy))
+            lim = xp.where(big > 0.3, 0.3 / xp.where(big > 0.3, big, 1.0), 1.0)
+            xn = xp.clip(x + lim * dx, xlo, xhi)
+            yn = xp.clip(y + lim * dy, ylo, yhi)
+            done = xp.max(xp.abs(G)) < 1e-12
+            return xp.where(done, state, xp.stack([xn, yn]))
+
+        y0 = xp.clip(frac_sg, ylo + 0.02 * (yhi - ylo), yhi - 0.02 * (yhi - ylo))
+        state = iterate_to_fixed_point(
+            step, xp.stack([0.5 * (xlo + xhi) + 0.0 * y0, y0]), 60
+        )
+        G, _, _ = G_and_J(state[0], state[1], True)
+        if has_concrete_truth_value(G[0]) and not concretely_true(
+            xp.max(xp.abs(G)) < 1e-12
+        ):
+            # restart from the best point of a coarse scan (as numpy)
+            jrf, jzf = (float(as_numpy(stop_gradient(t))) for t in (jr, jz))
+            xs, yy = numpy.meshgrid(
+                numpy.linspace(xlo + 0.05 * (xhi - xlo), xhi, 12),
+                numpy.linspace(ylo, yhi, 12),
+            )
+            res = [
+                float(
+                    numpy.sum(
+                        numpy.fabs(
+                            as_numpy(A(xx + 0.0 * ell, yv + 0.0 * ell, True)[0][:2])
+                            - [jrf, jzf]
+                        )
+                    )
+                )
+                for xx, yv in zip(xs.flatten(), yy.flatten())
+            ]
+            kbest = int(numpy.argmin(res))
+            state = iterate_to_fixed_point(
+                step,
+                xp.stack(
+                    [xs.flatten()[kbest] + 0.0 * y0, yy.flatten()[kbest] + 0.0 * y0]
+                ),
+                60,
+            )
+            G, _, _ = G_and_J(state[0], state[1], True)
+            if not concretely_true(xp.max(xp.abs(G)) < 1e-12):
+                ellf = float(as_numpy(stop_gradient(ell)))
+                top = max(
+                    float(
+                        numpy.sum(
+                            as_numpy(A(xhi + 0.0 * ell, yv + 0.0 * ell, True)[0][:2])
+                        )
+                    )
+                    for yv in numpy.linspace(ylo, yhi, 33)
+                )
+                raise ValueError(
+                    f"(J_R, J_z) = ({jrf}, {jzf}) could not be matched inside the "
+                    f"interpolated family at |L_z| = {ellf}"
+                    + (
+                        f": its total action lies above the covered {top:g} (increase Rinf)"
+                        if jrf + jzf > top
+                        else ""
+                    )
+                )
+        # the implicit-function step, with the live tables and actions
+        x0, y0 = stop_gradient(state[0]), stop_gradient(state[1])
+        G, Gx, Gy = G_and_J(x0, y0, False)
+        det = Gx[0] * Gy[1] - Gy[0] * Gx[1]
+        return (
+            x0 - (Gy[1] * G[0] - Gy[0] * G[1]) / det,
+            y0 - (-Gx[1] * G[0] + Gx[0] * G[1]) / det,
+        )
+
+    def _bk_interp_tables(self, xp, jr, jz, Lz, face):
+        """_interp_tables on a backend"""
+        ell, sgn = xp.abs(Lz), xp.sign(Lz)
+        self._bk_check_Lz(ell)
+        x, y = self._bk_interp_coords(xp, jr, jz, ell, face)
+        A, Ax, Ay, AL = self._A_ip.ev4(x, y, ell)
+        det = Ax[0] * Ay[1] - Ay[0] * Ax[1]
+        n00, n01 = Ay[1] / det, -Ay[0] / det
+        n10, n11 = -Ax[1] / det, Ax[0] / det
+        zero = 0.0 * det
+        N = xp.stack(
+            [
+                xp.stack([n00, n01, -(n00 * AL[0] + n01 * AL[1]) * sgn]),
+                xp.stack([n10, n11, -(n10 * AL[0] + n11 * AL[1]) * sgn]),
+                xp.stack([zero, zero, sgn + zero]),
+            ]
+        )
+        circ = self._bk_circular(ell)
+        _, dE_dx, dE_dL = self._bk_E_of_xL(x, ell, circ)
+        tab = {
+            "Om": dE_dx * N[0] + dE_dL * N[2],
+            "uc": A[2],
+            "duc": Ax[2] * N[0] + Ay[2] * N[1] + AL[2] * N[2],
+            "circ": circ,
+        }
+        wE = xp.sqrt(x)
+        for deg, ip, s, fs, key, npt in (
+            ("u", self._U_ip, xp.sqrt(1.0 - y), -1.0, "u", self._npt),
+            ("v", self._V_ip, xp.sqrt(y), 1.0, "v", self._nptv),
+        ):
+            if face == deg:
+                tab["w" + key] = zero
+                tab["dw" + key] = xp.stack([zero] * 3)
+                tab["Dm" + key] = zero + asarray_on_device(
+                    xp, numpy.zeros(npt), device_of(det)
+                )
+                tab["dDm" + key] = zero + asarray_on_device(
+                    xp, numpy.zeros((npt, 3)), device_of(det)
+                )
+                continue
+            T, TwE, Ts, TL = ip.ev4(wE, s, ell)
+            dT = (
+                TwE[:, None] * N[0][None, :] / (2.0 * wE)
+                + Ts[:, None] * N[1][None, :] * fs / (2.0 * s)
+                + TL[:, None] * N[2][None, :]
+            )
+            tab["w" + key], tab["dw" + key] = T[0], dT[0]
+            tab["Dm" + key], tab["dDm" + key] = T[1:], dT[1:]
+        return tab
+
+    def _bk_node_tables(self, xp, dev):
+        """The explicit tori's tables in xp: the backend-built ones, or the numpy
+        ones copied over once per device"""
+        bk = getattr(self, "_bk", None)
+        if bk is not None:
+            return bk
+        key = (getattr(xp, "__name__", ""), str(dev))
+        cache = self.__dict__.setdefault("_bk_tables_on", {})
+        if key in cache:
+            return cache[key]
+        names = (
+            "jrs",
+            "jzs",
+            "Lzs",
+            "Es",
+            "I3s",
+            "Ns",
+            "ucs",
+            "wus",
+            "wvs",
+            "dsups",
+            "Dmus",
+            "Dmvs",
+            "dDmus",
+            "dDmvs",
+        )
+        out = {k: asarray_on_device(xp, getattr(self, "_" + k), dev) for k in names}
+        if not under_jax_trace(*out.values()):
+            cache[key] = out
+        return out
+
+    def _bk_match_node(self, xp, tabs, jr, jz, Lz):
+        dev = (
+            xp.abs(tabs["jrs"] - jr)
+            + xp.abs(tabs["jzs"] - jz)
+            + xp.abs(tabs["Lzs"] - Lz)
+        )
+        ii = xp.argmin(stop_gradient(dev))
+        if concretely_true(
+            dev[ii] > 1e-8 * (1.0 + xp.abs(jr) + xp.abs(jz) + xp.abs(Lz))
+        ):
+            jrf, jzf, Lzf = (float(as_numpy(stop_gradient(t))) for t in (jr, jz, Lz))
+            raise ValueError(
+                f"(J_R, J_z, L_z) = ({jrf}, {jzf}, {Lzf}) is not one of the set-up "
+                "tori; discrete mode evaluates the stored tori only (use "
+                "setup_interp=True to interpolate)"
+            )
+        return ii
+
+    def _bk_explicit_tables(self, xp, jr, jz, Lz):
+        """_explicit_tables on a backend: the node's values, with the one-node
+        family's derivative in the actions (its tables linear in the
+        departures from the node, with its exact slopes)"""
+        tabs = self._bk_node_tables(xp, device_of(jr))
+        ii = self._bk_match_node(xp, tabs, jr, jz, Lz)
+        N, dsup = tabs["Ns"][ii], tabs["dsups"][ii]
+        d = xp.stack([jr - tabs["jrs"][ii], jz - tabs["jzs"][ii], Lz - tabs["Lzs"][ii]])
+        d = d - stop_gradient(d)
+        udeg, vdeg = tabs["wus"][ii] == 0.0, tabs["wvs"][ii] == 0.0
+        # a degenerate libration's rows are NaN on numpy: zeros, before the
+        # product (a NaN behind where() would poison the derivative)
+        dsup = xp.where(xp.isfinite(dsup), dsup, 0.0)
+        dsupJ = dsup @ N  # (uc, wu, wv) x (J_R, J_z, J_phi)
+        dDmuJ, dDmvJ = tabs["dDmus"][ii] @ N, tabs["dDmvs"][ii] @ N
+        return {
+            "ii": ii,
+            "Om": N[0],
+            "uc": tabs["ucs"][ii] + dsupJ[0] @ d,
+            "duc": dsupJ[0],
+            "wu": tabs["wus"][ii] + dsupJ[1] @ d,
+            "dwu": dsupJ[1],
+            "Dmu": tabs["Dmus"][ii] + dDmuJ @ d,
+            "dDmu": dDmuJ,
+            "wv": tabs["wvs"][ii] + dsupJ[2] @ d,
+            "dwv": dsupJ[2],
+            "Dmv": tabs["Dmvs"][ii] + dDmvJ @ d,
+            "dDmv": dDmvJ,
+            "udeg": udeg,
+            "vdeg": vdeg,
+        }
+
+    def _bk_kernel_u(self, xp, tau, a, e, L, Dm, uc, wu, chains):
+        """_kernel_u in jax/torch"""
+        ms = asarray_on_device(xp, self._nforDm * 1.0, device_of(tau))
+        mt = tau[:, None] * ms[None, :]
+        smt = xp.sin(mt)
+        eta = tau + smt @ Dm
+        deta = 1.0 + xp.cos(mt) @ (ms * Dm)
+        se, ce = xp.sin(eta), xp.cos(eta)
+        rA, pA, gA = self._auxiliary_profile(a, e, eta)
+        kap = a * e / (a + self._b)
+        thetaA = eta - kap * se
+        dthetaA = (1.0 - kap * ce) * deta
+        sq = xp.sqrt(L**2 + 4.0 * self._GM * self._b)
+        c1 = xp.sqrt((1.0 + e) / (1.0 - e))
+        c2 = xp.sqrt((a * (1.0 + e) + 2.0 * self._b) / (a * (1.0 - e) + 2.0 * self._b))
+        t2 = xp.tan(0.5 * eta)
+        nwind = stop_gradient(xp.round(eta / (2.0 * numpy.pi)))
+        Lam = (
+            xp.arctan(c1 * t2)
+            + L / sq * xp.arctan(c2 * t2)
+            + numpy.pi * nwind * (1.0 + L / sq)
+        )
+        ch2, sh2 = xp.cos(0.5 * eta) ** 2, xp.sin(0.5 * eta) ** 2
+        dLam = (
+            0.5 * c1 / (ch2 + c1**2 * sh2) + 0.5 * L / sq * c2 / (ch2 + c2**2 * sh2)
+        ) * deta
+        st, ct = xp.sin(tau), xp.cos(tau)
+        u = uc - wu * ct
+        big = xp.abs(st) > 1e-12
+        sratio = xp.where(big, se / xp.where(big, st, 1.0), deta)
+        pu = pA * gA * sratio * deta / wu
+        drA_da, drA_de = self._auxiliary_radius_partials(a, e, eta)
+        comps = [
+            pA * (drA_da * da + drA_de * de + gA * se * (smt @ dDm))
+            - pu * (duc - dwu * ct)
+            for da, de, duc, dwu, dDm in chains
+        ]
+        return eta, thetaA, dthetaA, Lam, dLam, u, pu, comps
+
+    def _bk_kernel_v(self, xp, tau, L, c, Dm, wv, chains):
+        """_kernel_v in jax/torch"""
+        ms = asarray_on_device(xp, self._nforDmv * 1.0, device_of(tau))
+        mt = tau[:, None] * ms[None, :]
+        smt = xp.sin(mt)
+        zeta = tau + smt @ Dm
+        dzeta = 1.0 + xp.cos(mt) @ (ms * Dm)
+        sz, cz = xp.sin(zeta), xp.cos(zeta)
+        sinth2 = 1.0 - c * cz**2
+        fluxA = L * c * sz**2 / sinth2
+        st, ct = xp.sin(tau), xp.cos(tau)
+        v = 0.5 * numpy.pi - wv * ct
+        big = xp.abs(st) > 1e-12
+        sratio = xp.where(big, sz / xp.where(big, st, 1.0), dzeta)
+        pv = L * c * sz * sratio * dzeta / (sinth2 * wv)
+        comps = [
+            -0.5 * L * sz * cz / sinth2 * dc + fluxA * (smt @ dDm) + pv * dwv * ct
+            for dc, dwv, dDm in chains
+        ]
+        return zeta, dzeta, v, pv, comps
+
+    @staticmethod
+    def _bk_sel(xp, flag, a, b):
+        """a where the degeneracy flag holds, else b: a Python branch on a
+        concrete flag, a where() on a traced one"""
+        if isinstance(flag, bool) or has_concrete_truth_value(flag):
+            return a if bool(flag) else b
+        return xp.where(flag, a, b)
+
+    def _bk_torus_at(self, xp, tu, tv, aux, chains_u, chains_v):
+        """_torus_at in jax/torch; a degenerate libration's branch runs alone
+        when its flag is concrete, and next to the other (on stand-in tables)
+        when traced"""
+        ones = 1.0 + 0.0 * tu
+        udeg, vdeg = aux["udeg"], aux["vdeg"]
+        cu = isinstance(udeg, bool) or has_concrete_truth_value(udeg)
+        cv = isinstance(vdeg, bool) or has_concrete_truth_value(vdeg)
+        Tu = Tv = None
+        if not (cu and bool(udeg)):
+            Tu = self._bk_kernel_u(
+                xp,
+                tu,
+                aux["a_s"],
+                aux["e_s"],
+                aux["L"],
+                aux["Dmu"],
+                aux["uc"],
+                aux["wu_s"],
+                chains_u,
+            )
+        if not (cv and bool(vdeg)):
+            Tv = self._bk_kernel_v(
+                xp, tv, aux["L"], aux["c"], aux["Dmv"], aux["wv_s"], chains_v
+            )
+        zeros = [0.0 * tu] * len(chains_u)
+        if Tu is None:
+            thetaAr, dthetaAr, Lam, dLam = (
+                tu,
+                ones,
+                aux["ratio"] * tu,
+                aux["ratio"] * ones,
+            )
+            u, pu, comps_u = aux["uc"] * ones, 0.0 * tu, zeros
+        else:
+            _, tAr, dtAr, La, dLa, uu, puu, cmu = Tu
+            sel = lambda dg, other: self._bk_sel(xp, udeg, dg, other)  # noqa: E731
+            thetaAr, dthetaAr = sel(tu, tAr), sel(ones, dtAr)
+            Lam, dLam = sel(aux["ratio"] * tu, La), sel(aux["ratio"] * ones, dLa)
+            u, pu = sel(aux["uc"] * ones, uu), sel(0.0 * tu, puu)
+            comps_u = [sel(0.0 * tu, c) for c in cmu]
+        if Tv is None:
+            zeta, dzeta, v, pv = tv, ones, 0.5 * numpy.pi * ones, 0.0 * tv
+            comps_v = [0.0 * tv] * len(chains_v)
+        else:
+            ze, dze, vv, pvv, cmv = Tv
+            sel = lambda dg, other: self._bk_sel(xp, vdeg, dg, other)  # noqa: E731
+            zeta, dzeta = sel(tv, ze), sel(ones, dze)
+            v, pv = sel(0.5 * numpy.pi * ones, vv), sel(0.0 * tv, pvv)
+            comps_v = [sel(0.0 * tv, c) for c in cmv]
+        return {
+            "thetaAr": thetaAr,
+            "dthetaAr": dthetaAr,
+            "thetaAz": zeta + 0.5 * numpy.pi + aux["ratio"] * thetaAr - Lam,
+            "dthetaAz_du": aux["ratio"] * dthetaAr - dLam,
+            "dthetaAz_dv": dzeta,
+            "zeta": zeta,
+            "Lam": Lam,
+            "u": u,
+            "pu": pu,
+            "v": v,
+            "pv": pv,
+            "comps": [cu_ + cv_ for cu_, cv_ in zip(comps_u, comps_v)],
+        }
+
+    def _bk_solve_angles(self, xp, thR, thz, aux, aux_sg, chains_u, chains_v):
+        """_solve_angles in jax/torch: the triangular Newton iteration on
+        derivative-free copies of the tables (aux_sg), stopped at convergence,
+        then the nested backend brentq -- tau_v(tau_u) solving the vertical
+        relation inside the solve of the radial one -- from there, whose final
+        Newton steps carry the implicit-function derivative of both anomalies"""
+        sgc = lambda cs: [tuple(stop_gradient(t) for t in c) for c in cs]  # noqa: E731
+        cu_sg, cv_sg = sgc(chains_u), sgc(chains_v)
+        thR_sg, thz_sg = stop_gradient(thR), stop_gradient(thz)
+
+        def wrap(f):
+            return xp.remainder(f + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+
+        def resid(x, y, a, cu, cv, tR, tz):
+            T = self._bk_torus_at(xp, x, y, a, cu, cv)
+            return (
+                wrap(T["thetaAr"] + T["comps"][0] - tR),
+                wrap(T["thetaAz"] + T["comps"][1] - tz),
+                T,
+            )
+
+        x0 = thR_sg * 1.0
+        T0 = self._bk_torus_at(xp, x0, 0.0 * x0, aux_sg, [], [])
+        y0 = thz_sg - 0.5 * numpy.pi - aux_sg["ratio"] * T0["thetaAr"] + T0["Lam"]
+
+        def step(state):
+            x, y = state[0], state[1]
+            FR, Fz, T = resid(x, y, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
+            dx = xp.clip(-FR / T["dthetaAr"], -0.5, 0.5)
+            dy = xp.clip(-(Fz + T["dthetaAz_du"] * dx) / T["dthetaAz_dv"], -0.5, 0.5)
+            conv = xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol
+            return xp.where(conv, state, xp.stack([x + dx, y + dy]))
+
+        state = iterate_to_fixed_point(step, xp.stack([x0, y0]), self._maxiter)
+        xc, yc = state[0], state[1]
+        FR, Fz, _ = resid(xc, yc, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
+        done = concretely_true(
+            xp.all(xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol)
+        )
+        if done:
+            sR = sz = 1e-3 + 0.0 * xc
+            ns = 1
+        else:
+            g = numpy.linspace(0.0, 2.0 * numpy.pi, 48, endpoint=False)
+            GU, GV = (
+                asarray_on_device(xp, q.flatten(), device_of(xc))
+                for q in numpy.meshgrid(g, g)
+            )
+            Ts = self._bk_torus_at(xp, GU, GV, aux_sg, cu_sg, cv_sg)
+            sR = xp.max(xp.abs(Ts["thetaAr"] + Ts["comps"][0] - GU)) + 0.1 + 0.0 * xc
+            sz = xp.max(xp.abs(Ts["thetaAz"] + Ts["comps"][1] - GV)) + 0.1 + 0.0 * xc
+            xc, yc = thR_sg * 1.0, thz_sg * 1.0
+            ns = 24 if has_concrete_truth_value(xc[0]) else 2
+
+        def fz(yy, xx_):
+            T = self._bk_torus_at(xp, xx_, yy, aux, chains_u, chains_v)
+            return wrap(T["thetaAz"] + T["comps"][1] - thz)
+
+        def tv_of(xx):
+            return _backend_brentq(
+                fz,
+                yc - sz,
+                yc + sz,
+                args=(xx,),
+                guess=yc,
+                newton_steps=ns,
+            )
+
+        def fR(xx):
+            T = self._bk_torus_at(xp, xx, tv_of(xx), aux, chains_u, chains_v)
+            return wrap(T["thetaAr"] + T["comps"][0] - thR)
+
+        tu = _backend_brentq(
+            lambda xx: fR(xx), xc - sR, xc + sR, guess=xc, newton_steps=ns
+        )
+        return tu, tv_of(tu)
+
+    def _bk_aux(self, xp, jr, jz, Lz, tab):
+        """The auxiliary torus and the three action chains (as _xvFreqs builds
+        them), on stand-ins for a degenerate libration's divisions"""
+        udeg, vdeg = tab["udeg"], tab["vdeg"]
+        ell = xp.abs(Lz)
+        L = jz + ell
+        sgn = xp.sign(Lz)
+        a, e = self._auxiliary_orbital_params(jr, L)
+        # a shell torus (J_R = 0) has e = 0, which the chains divide by: their
+        # dead branch reads a stand-in radial action
+        jr_s = self._bk_sel(xp, udeg, 0.1 * L, jr) if not isinstance(udeg, bool) else jr
+        a_s, e_s = (a, e) if jr_s is jr else self._auxiliary_orbital_params(jr_s, L)
+        c = 1.0 - Lz**2 / L**2
+        sq = xp.sqrt(L**2 + 4.0 * self._GM * self._b)
+        wu_s = (
+            self._bk_sel(xp, udeg, 1.0 + 0.0 * L, tab["wu"])
+            if not isinstance(udeg, bool)
+            else tab["wu"]
+        )
+        wv_s = (
+            self._bk_sel(xp, vdeg, 1.0 + 0.0 * L, tab["wv"])
+            if not isinstance(vdeg, bool)
+            else tab["wv"]
+        )
+        aux = {
+            "a_s": a_s,
+            "e_s": e_s,
+            "L": L,
+            "c": c,
+            "ratio": 0.5 * (1.0 + L / sq),
+            "uc": tab["uc"],
+            "wu_s": wu_s,
+            "Dmu": tab["Dmu"],
+            "wv_s": wv_s,
+            "Dmv": tab["Dmv"],
+            "udeg": udeg,
+            "vdeg": vdeg,
+        }
+        zero, one = 0.0 * L, 1.0 + 0.0 * L
+        dL = [zero, one, sgn]
+        dc = [
+            2.0 * Lz**2 / L**3 * dL[i] - 2.0 * Lz / L**2 * (one if i == 2 else zero)
+            for i in range(3)
+        ]
+        chains_u, chains_v = [], []
+        for i in range(3):
+            if isinstance(udeg, bool) and udeg:
+                da = de = zero
+            else:
+                _, _, da, de = self._auxiliary_orbital_param_chains(
+                    jr_s, L, one if i == 0 else zero, dL[i]
+                )
+                da = (
+                    self._bk_sel(xp, udeg, zero, da)
+                    if not isinstance(udeg, bool)
+                    else da
+                )
+                de = (
+                    self._bk_sel(xp, udeg, zero, de)
+                    if not isinstance(udeg, bool)
+                    else de
+                )
+            chains_u.append((da, de, tab["duc"][i], tab["dwu"][i], tab["dDmu"][:, i]))
+            chains_v.append((dc[i], tab["dwv"][i], tab["dDmv"][:, i]))
+        return aux, chains_u, chains_v
+
+    def _bk_tables(self, xp, jr, jz, Lz):
+        """The tables of the requested torus on a backend, with its
+        degeneracy flags (Python bools for concrete actions)"""
+        cj = has_concrete_truth_value(jr) and has_concrete_truth_value(jz)
+        if self._interp:
+            if cj:
+                face = (
+                    "u"
+                    if concretely_true(jr == 0.0)
+                    else ("v" if concretely_true(jz == 0.0) else None)
+                )
+                tab = self._bk_interp_tables(xp, jr, jz, Lz, face)
+                tab["udeg"], tab["vdeg"] = face == "u", face == "v"
+                return tab
+            raise NotImplementedError(
+                "traced actions of an interpolated actionAngleStaeckelInverse family"
+            )
+        tab = self._bk_explicit_tables(xp, jr, jz, Lz)
+        if cj:
+            tab["udeg"], tab["vdeg"] = bool(tab["udeg"]), bool(tab["vdeg"])
+        return tab
+
+    def _bk_xvFreqs(self, xp, jr, jphi, jz, angler, anglephi, anglez):
+        """_xvFreqs in jax/torch: one torus, any number of angles"""
+        ins, (jr, jphi, jz, angler, anglephi, anglez) = self._bk_inputs(
+            xp, jr, jphi, jz, angler, anglephi, anglez
+        )
+        jr, jphi, jz = (xp.reshape(t, ()) for t in (jr, jphi, jz))
+        angler, anglephi, anglez = xp.broadcast_arrays(
+            *(xp.reshape(t, (-1,)) for t in (angler, anglephi, anglez))
+        )
+        Lz = jphi
+        if has_concrete_truth_value(jr) and concretely_true((jr < 0.0) | (jz < 0.0)):
+            raise ValueError("J_R and J_z have to be non-negative")
+        if has_concrete_truth_value(Lz) and concretely_true(Lz == 0.0):
+            raise ValueError("L_z = 0 is not supported")
+        thR = xp.remainder(angler, 2.0 * numpy.pi)
+        thz = xp.remainder(anglez, 2.0 * numpy.pi)
+        sgn = xp.sign(Lz)
+        if has_concrete_truth_value(jr) and concretely_true((jr == 0.0) & (jz == 0.0)):
+            if self._interp:
+                self._bk_check_Lz(xp.abs(Lz))
+                self._check_circular()
+            else:
+                self._bk_match_node(
+                    xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
+                )
+            circ = self._bk_circular(xp.abs(Lz))
+            Rc = circ["Rc"]
+            res = (
+                Rc + 0.0 * thR,
+                0.0 * thR,
+                Lz / Rc + 0.0 * thR,
+                0.0 * thR,
+                0.0 * thR,
+                xp.remainder(anglephi, 2.0 * numpy.pi),
+                circ["kappa"],
+                sgn * circ["Omc"],
+                circ["nu"],
+            )
+            return tuple(match_input_dtype(t, *ins) for t in res)
+        tab = self._bk_tables(xp, jr, jz, Lz)
+        aux, chains_u, chains_v = self._bk_aux(xp, jr, jz, Lz, tab)
+        aux_sg = {
+            k: (stop_gradient(v) if is_backend_array(v) else v) for k, v in aux.items()
+        }
+        tu, tv = self._bk_solve_angles(
+            xp, thR, thz, aux, aux_sg, chains_u[:2], chains_v[:2]
+        )
+        T = self._bk_torus_at(xp, tu, tv, aux, chains_u, chains_v)
+        L = aux["L"]
+        thetaAphi = anglephi - T["comps"][2]
+        zeta = T["zeta"]
+        phi = (
+            thetaAphi
+            - sgn * T["thetaAz"]
+            + xp.atan2(Lz / L * xp.cos(zeta), -xp.sin(zeta))
+        )
+        u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
+        sh, ch = xp.sinh(u), xp.cosh(u)
+        sn, cs = xp.sin(v), xp.cos(v)
+        den = self._delta * (sh**2 + sn**2)
+        R = self._delta * sh * sn
+        Om = tab["Om"]
+        res = (
+            R,
+            (pu * ch * sn + pv * sh * cs) / den,
+            Lz / R,
+            self._delta * ch * cs,
+            (pu * sh * cs - pv * ch * sn) / den,
+            xp.remainder(phi, 2.0 * numpy.pi),
+            Om[0],
+            Om[2],
+            Om[1],
+        )
+        return tuple(match_input_dtype(t, *ins) for t in res)
+
+    def _bk_Freqs(self, xp, jr, jphi, jz):
+        """_Freqs in jax/torch"""
+        ins, (jr, jphi, jz) = self._bk_inputs(xp, jr, jphi, jz)
+        jr, jphi, jz = (xp.reshape(t, ()) for t in (jr, jphi, jz))
+        Lz = jphi
+        if has_concrete_truth_value(jr) and concretely_true((jr == 0.0) & (jz == 0.0)):
+            if self._interp:
+                self._bk_check_Lz(xp.abs(Lz))
+                self._check_circular()
+            else:
+                self._bk_match_node(
+                    xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
+                )
+            circ = self._bk_circular(xp.abs(Lz))
+            res = (circ["kappa"], xp.sign(Lz) * circ["Omc"], circ["nu"])
+        else:
+            Om = self._bk_tables(xp, jr, jz, Lz)["Om"]
+            res = (Om[0], Om[2], Om[1])
+        return tuple(match_input_dtype(t, *ins) for t in res)
