@@ -210,13 +210,29 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         r = a * xp.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
         vr = xp.sqrt(self.amp / ab) * a * e * xp.sin(eta) / r
         taneta2 = xp.tan(eta / 2.0)
-        tan11 = xp.arctan(xp.sqrt((1.0 + e) / (1.0 - e)) * taneta2)
-        tan12 = xp.arctan(
-            xp.sqrt((a * (1.0 + e) + 2.0 * self.b) / (a * (1.0 - e) + 2.0 * self.b))
-            * taneta2
-        )
-        tan11 = xp.where(tan11 < 0.0, tan11 + numpy.pi, tan11)
-        tan12 = xp.where(tan12 < 0.0, tan12 + numpy.pi, tan12)
+        if xp is numpy:
+            tan11 = numpy.arctan(numpy.sqrt((1.0 + e) / (1.0 - e)) * taneta2)
+            tan12 = numpy.arctan(
+                numpy.sqrt(
+                    (a * (1.0 + e) + 2.0 * self.b) / (a * (1.0 - e) + 2.0 * self.b)
+                )
+                * taneta2
+            )
+            tan11 = numpy.where(tan11 < 0.0, tan11 + numpy.pi, tan11)
+            tan12 = numpy.where(tan12 < 0.0, tan12 + numpy.pi, tan12)
+        else:
+            # the arctangents continued through eta = pi without a branch,
+            # arctan(k tan(eta/2)) = eta/2 + arctan[(k - 1) t / (1 + k t^2)]
+            # with t = tan(eta/2): the backend root at angler = 0 can land a
+            # hair below eta = 0, where the branch above would add pi
+            def _cont(km1, k):
+                return eta / 2.0 + xp.arctan(km1 * taneta2 / (1.0 + k * taneta2**2))
+
+            k1 = xp.sqrt((1.0 + e) / (1.0 - e))
+            den2 = a * (1.0 - e) + 2.0 * self.b
+            k2 = xp.sqrt((a * (1.0 + e) + 2.0 * self.b) / den2)
+            tan11 = _cont(2.0 * e / ((1.0 - e) * (k1 + 1.0)), k1)
+            tan12 = _cont(2.0 * a * e / (den2 * (k2 + 1.0)), k2)
         Lambdaeta = tan11 + L / sqrtfourbkL2 * tan12
         psi = anglez - omegaz / omegar * angler + Lambdaeta
         lowerl = xp.sqrt(1.0 - jphi**2.0 / L2)
