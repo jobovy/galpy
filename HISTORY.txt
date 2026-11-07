@@ -171,7 +171,11 @@ v1.12.2 (expected around 2027-03-01)
   then the points' own range, padded by ``target_pad`` times its spread
   and at least ``target_minwidth`` of the default span wide, so that the
   same number of nodes resolves a target orbit or stream far better than
-  the default box does.
+  the default box does. An explicit torus carries the second-order tables
+  of its one-node family (the second derivatives of its turning points and
+  of both anomaly maps' coefficients and the period matrix's derivatives
+  in (E, I_3, L_z), all from the torus alone), so that the map's
+  derivatives in the actions at the torus are the true family's.
 
 v1.12.1 (2026-11-02)
 ====================
