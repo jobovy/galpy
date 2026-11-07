@@ -234,7 +234,9 @@ class EllipsoidalPotential(Potential):
         single quadrature, exactly as before. Eager jax/torch reuse it through
         ``eager_value_memo``; the traced path never touches state."""
         if xp is numpy:
-            new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+            new_hash = hashlib.md5(
+                numpy.array(numpy.broadcast_arrays(x, y, z))
+            ).hexdigest()
             if new_hash == self._force_hash:
                 return self._cached_Fx, self._cached_Fy, self._cached_Fz
         else:
@@ -307,7 +309,9 @@ class EllipsoidalPotential(Potential):
         touches state. Only used for the aligned case (the public methods raise
         for rotated frames)."""
         if xp is numpy:
-            new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+            new_hash = hashlib.md5(
+                numpy.array(numpy.broadcast_arrays(x, y, z))
+            ).hexdigest()
             if new_hash == self._2ndderiv_hash:
                 return (
                     self._cached_2nd_xx,

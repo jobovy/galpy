@@ -33,7 +33,6 @@ from ..potential.planarPotential import (
 from ..potential.Potential import (
     PotentialError,
     _check_potential_list_and_deprecate,
-    _evaluateRforces,
 )
 from ..util import quadpack
 from .actionAngle import _BACKEND_GL_ORDER, UnboundError, actionAngle
@@ -1213,20 +1212,13 @@ class actionAngleSpherical(actionAngle):
 
     def _radial_force(self):
         """The radial force in the plane at an array of radii, through the
-        planar potential; a force that stacks its coordinates and wants them
-        all of one shape (the ellipsoidal potentials) rejects the planar
-        wrapper's scalar height, and is evaluated through the wrapped
-        three-dimensional potential with an array of zero heights instead
-        (which other forces, branching on a scalar height, reject in turn)"""
+        planar potential"""
         pots = self._2dpot if isinstance(self._2dpot, list) else [self._2dpot]
 
         def _force(x):
             out = 0.0
             for pp in pots:
-                try:
-                    out = out + _evaluateplanarRforces(pp, x)
-                except ValueError:
-                    out = out + _evaluateRforces(pp._Pot, x, 0.0 * x)
+                out = out + _evaluateplanarRforces(pp, x)
             return out
 
         return _force

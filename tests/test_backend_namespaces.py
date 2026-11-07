@@ -221,6 +221,22 @@ def test_compilable_singledispatchmethod_under_torch_compile():
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_coerce_coords_numpy_float_under_torch_compile():
+    # a numpy float among the coordinates: torch >= 2.14's dynamo raised on
+    # getattr(numpy dtype, "is_floating_point", None) instead of the default
+    import array_api_compat.torch as txp
+
+    from galpy.backend._coerce import coerce_coords
+
+    c = numpy.float64(1.5)  # outside the compiled function, as a user's input
+    torch._dynamo.reset()
+    out = torch.compile(lambda x: x + coerce_coords(txp, c)[0], backend="eager")(
+        torch.ones(2)
+    )
+    assert out.tolist() == [2.5, 2.5]
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_get_namespace_all_torch_fast_path():
     # all-torch inputs resolve to the array-api-compat torch namespace without
     # array_api_compat.array_namespace (untraceable: it hashes modules into a

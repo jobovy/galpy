@@ -3816,20 +3816,27 @@ def _backend_rootbracket(func, anchor, *, lower_default=1e-5, hi0=2.0, nsteps=60
     the root. ``func`` must be monotone increasing on the relevant range (true
     for ``r*vc(r) - lz`` and for ``rE``/``zvc`` energy residuals).
     """
+    from ..backend.optimize import iterate_bracket
+
     xp = get_namespace(anchor)
     one = xp.ones_like(xp.asarray(anchor) * 1.0)
     lo = one * lower_default
     hi = xp.maximum(one * hi0, one * (10.0 * lower_default))
-    for _ in range(nsteps):
+
+    def step(b):
         # Grow hi while func(hi) <= 0 (root still above hi); shrink lo while
         # func(lo) >= 0 (root still below lo).
-        grow, shrink = func(hi) < 0.0, func(lo) > 0.0
-        done = ~(xp.any(grow) | xp.any(shrink))
-        if has_concrete_truth_value(done) and bool(done):
-            break  # eager: the remaining steps would leave the bracket unchanged
-        hi = xp.where(grow, hi * 2.0, hi)
-        lo = xp.where(shrink, lo * 0.5, lo)
-    return hi, lo
+        return xp.stack(
+            [
+                xp.where(func(b[0]) < 0.0, b[0] * 2.0, b[0]),
+                xp.where(func(b[1]) > 0.0, b[1] * 0.5, b[1]),
+            ]
+        )
+
+    # eager, it stops once a step changes nothing; traced, a lax.fori_loop
+    # instead of nsteps unrolled copies of func in the jaxpr
+    b = iterate_bracket(step, xp.stack([hi, lo]), nsteps)
+    return b[0], b[1]
 
 
 @potential_positional_arg
