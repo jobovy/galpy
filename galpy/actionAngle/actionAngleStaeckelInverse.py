@@ -2587,10 +2587,46 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         )
 
     def _bk_interp_tables(self, xp, jr, jz, Lz, face):
-        """_interp_tables on a backend"""
-        ell, sgn = xp.abs(Lz), xp.sign(Lz)
+        """_interp_tables on a backend; face is "u" (J_R = 0), "v" (J_z = 0) or
+        None for concrete actions, and "traced" for traced ones, whose face is
+        then selected by where() among the three coordinate solves, each run
+        on stand-in actions when it is not the one taken"""
+        ell = xp.abs(Lz)
         self._bk_check_Lz(ell)
-        x, y = self._bk_interp_coords(xp, jr, jz, ell, face)
+        if face != "traced":
+            x, y = self._bk_interp_coords(xp, jr, jz, ell, face)
+            return self._bk_tables_at(xp, x, y, ell, Lz, face == "u", face == "v")
+        on_u, on_v = jr == 0.0, jz == 0.0
+        wEs, ys = self._wEs, self._ys
+        xm = 0.5 * (wEs[0] ** 2 + wEs[-1] ** 2) + 0.0 * ell
+        ell_sg = stop_gradient(ell)
+
+        def Amid(y):
+            return stop_gradient(self._A_ip.ev4(xm, y + 0.0 * ell, ell_sg)[0])
+
+        mid = Amid(0.5 * (ys[0] + ys[-1]))
+        inner = on_u | on_v
+        x, y = self._bk_interp_coords(
+            xp, xp.where(inner, mid[0], jr), xp.where(inner, mid[1], jz), ell, None
+        )
+        if ys[-1] == 1.0:
+            xu, yu = self._bk_interp_coords(
+                xp, 0.0 * jr, xp.where(on_u, jz, Amid(1.0)[1]), ell, "u"
+            )
+            x, y = xp.where(on_u, xu, x), xp.where(on_u, yu, y)
+        if ys[0] == 0.0:
+            xv, yv = self._bk_interp_coords(
+                xp, xp.where(on_v, jr, Amid(0.0)[0]), 0.0 * jz, ell, "v"
+            )
+            x, y = xp.where(on_v & ~on_u, xv, x), xp.where(on_v & ~on_u, yv, y)
+        return self._bk_tables_at(xp, x, y, ell, Lz, on_u, on_v)
+
+    def _bk_tables_at(self, xp, x, y, ell, Lz, udeg, vdeg):
+        """The family's tables at the grid coordinates (x, y) (as
+        _interp_tables after its label inversion), with the degenerate
+        libration's tables zeroed: by a branch on a concrete flag, by where()
+        on a traced one (on stand-in coordinates for its divisions)"""
+        sgn = xp.sign(Lz)
         A, Ax, Ay, AL = self._A_ip.ev4(x, y, ell)
         det = Ax[0] * Ay[1] - Ay[0] * Ax[1]
         n00, n01 = Ay[1] / det, -Ay[0] / det
@@ -2610,30 +2646,44 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             "uc": A[2],
             "duc": Ax[2] * N[0] + Ay[2] * N[1] + AL[2] * N[2],
             "circ": circ,
+            "udeg": udeg,
+            "vdeg": vdeg,
         }
         wE = xp.sqrt(x)
-        for deg, ip, s, fs, key, npt in (
-            ("u", self._U_ip, xp.sqrt(1.0 - y), -1.0, "u", self._npt),
-            ("v", self._V_ip, xp.sqrt(y), 1.0, "v", self._nptv),
+        dev = device_of(det)
+        for flag, ip, sv, fs, key, npt in (
+            (udeg, self._U_ip, 1.0 - y, -1.0, "u", self._npt),
+            (vdeg, self._V_ip, y, 1.0, "v", self._nptv),
         ):
-            if face == deg:
-                tab["w" + key] = zero
-                tab["dw" + key] = xp.stack([zero] * 3)
-                tab["Dm" + key] = zero + asarray_on_device(
-                    xp, numpy.zeros(npt), device_of(det)
-                )
-                tab["dDm" + key] = zero + asarray_on_device(
-                    xp, numpy.zeros((npt, 3)), device_of(det)
-                )
-                continue
-            T, TwE, Ts, TL = ip.ev4(wE, s, ell)
-            dT = (
-                TwE[:, None] * N[0][None, :] / (2.0 * wE)
-                + Ts[:, None] * N[1][None, :] * fs / (2.0 * s)
-                + TL[:, None] * N[2][None, :]
+            zeros = (
+                zero,
+                xp.stack([zero] * 3),
+                zero + asarray_on_device(xp, numpy.zeros(npt), dev),
+                zero + asarray_on_device(xp, numpy.zeros((npt, 3)), dev),
             )
-            tab["w" + key], tab["dw" + key] = T[0], dT[0]
-            tab["Dm" + key], tab["dDm" + key] = T[1:], dT[1:]
+            concrete = isinstance(flag, bool) or has_concrete_truth_value(flag)
+            if concrete and bool(flag):
+                vals = zeros
+            else:
+                if not concrete:  # the dead branch's divisions on stand-ins
+                    sv = xp.where(flag, 0.5 + 0.0 * sv, sv)
+                    wE = xp.where(flag & (wE == 0.0), 0.5 + 0.0 * wE, wE)
+                s = xp.sqrt(sv)
+                T, TwE, Ts, TL = ip.ev4(wE, s, ell)
+                dT = (
+                    TwE[:, None] * N[0][None, :] / (2.0 * wE)
+                    + Ts[:, None] * N[1][None, :] * fs / (2.0 * s)
+                    + TL[:, None] * N[2][None, :]
+                )
+                vals = (T[0], dT[0], T[1:], dT[1:])
+                if not concrete:
+                    vals = tuple(xp.where(flag, zv, v) for zv, v in zip(zeros, vals))
+            (
+                tab["w" + key],
+                tab["dw" + key],
+                tab["Dm" + key],
+                tab["dDm" + key],
+            ) = vals
         return tab
 
     def _bk_node_tables(self, xp, dev):
@@ -2901,8 +2951,12 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             Ts = self._bk_torus_at(xp, GU, GV, aux_sg, cu_sg, cv_sg)
             sR = xp.max(xp.abs(Ts["thetaAr"] + Ts["comps"][0] - GU)) + 0.1 + 0.0 * xc
             sz = xp.max(xp.abs(Ts["thetaAz"] + Ts["comps"][1] - GV)) + 0.1 + 0.0 * xc
-            xc, yc = thR_sg * 1.0, thz_sg * 1.0
-            ns = 24 if has_concrete_truth_value(xc[0]) else 2
+            if has_concrete_truth_value(xc[0]):
+                # unconverged within maxiter: the safeguarded steps from the
+                # requested angles (as the numpy fallback)
+                xc, yc, ns = thR_sg * 1.0, thz_sg * 1.0, 24
+            else:  # traced: the iteration has run to convergence
+                ns = 2
 
         def fz(yy, xx_):
             T = self._bk_torus_at(xp, xx_, yy, aux, chains_u, chains_v)
@@ -3007,9 +3061,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 tab = self._bk_interp_tables(xp, jr, jz, Lz, face)
                 tab["udeg"], tab["vdeg"] = face == "u", face == "v"
                 return tab
-            raise NotImplementedError(
-                "traced actions of an interpolated actionAngleStaeckelInverse family"
-            )
+            return self._bk_interp_tables(xp, jr, jz, Lz, "traced")
         tab = self._bk_explicit_tables(xp, jr, jz, Lz)
         if cj:
             tab["udeg"], tab["vdeg"] = bool(tab["udeg"]), bool(tab["vdeg"])
@@ -3032,17 +3084,12 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         thR = xp.remainder(angler, 2.0 * numpy.pi)
         thz = xp.remainder(anglez, 2.0 * numpy.pi)
         sgn = xp.sign(Lz)
-        if has_concrete_truth_value(jr) and concretely_true((jr == 0.0) & (jz == 0.0)):
-            if self._interp:
-                self._bk_check_Lz(xp.abs(Lz))
-                self._check_circular()
-            else:
-                self._bk_match_node(
-                    xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
-                )
+
+        def circular():
+            # the circular orbit (as _xvFreqs)
             circ = self._bk_circular(xp.abs(Lz))
             Rc = circ["Rc"]
-            res = (
+            return (
                 Rc + 0.0 * thR,
                 0.0 * thR,
                 Lz / Rc + 0.0 * thR,
@@ -3053,7 +3100,17 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 sgn * circ["Omc"],
                 circ["nu"],
             )
-            return tuple(match_input_dtype(t, *ins) for t in res)
+
+        concrete = has_concrete_truth_value(jr) and has_concrete_truth_value(jz)
+        if concrete and concretely_true((jr == 0.0) & (jz == 0.0)):
+            if self._interp:
+                self._bk_check_Lz(xp.abs(Lz))
+                self._check_circular()
+            else:
+                self._bk_match_node(
+                    xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
+                )
+            return tuple(match_input_dtype(t, *ins) for t in circular())
         tab = self._bk_tables(xp, jr, jz, Lz)
         aux, chains_u, chains_v = self._bk_aux(xp, jr, jz, Lz, tab)
         aux_sg = {
@@ -3088,6 +3145,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             Om[2],
             Om[1],
         )
+        if not concrete:  # a traced circular orbit
+            on_c = (jr == 0.0) & (jz == 0.0)
+            res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
         return tuple(match_input_dtype(t, *ins) for t in res)
 
     def _bk_Freqs(self, xp, jr, jphi, jz):
@@ -3095,7 +3155,13 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         ins, (jr, jphi, jz) = self._bk_inputs(xp, jr, jphi, jz)
         jr, jphi, jz = (xp.reshape(t, ()) for t in (jr, jphi, jz))
         Lz = jphi
-        if has_concrete_truth_value(jr) and concretely_true((jr == 0.0) & (jz == 0.0)):
+
+        def circular():
+            circ = self._bk_circular(xp.abs(Lz))
+            return (circ["kappa"], xp.sign(Lz) * circ["Omc"], circ["nu"])
+
+        concrete = has_concrete_truth_value(jr) and has_concrete_truth_value(jz)
+        if concrete and concretely_true((jr == 0.0) & (jz == 0.0)):
             if self._interp:
                 self._bk_check_Lz(xp.abs(Lz))
                 self._check_circular()
@@ -3103,9 +3169,11 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 self._bk_match_node(
                     xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
                 )
-            circ = self._bk_circular(xp.abs(Lz))
-            res = (circ["kappa"], xp.sign(Lz) * circ["Omc"], circ["nu"])
+            res = circular()
         else:
             Om = self._bk_tables(xp, jr, jz, Lz)["Om"]
             res = (Om[0], Om[2], Om[1])
+            if not concrete:
+                on_c = (jr == 0.0) & (jz == 0.0)
+                res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
         return tuple(match_input_dtype(t, *ins) for t in res)
