@@ -181,13 +181,13 @@ v2.0.0b2 (pre-release)
   and PyTorch backends, the construction and the evaluation run natively
   (under a forced backend, or for a potential with backend parameters), so
   the tori are differentiable with respect to the actions, the angles, and
-  the potential's parameters, also under ``jax.jit`` and ``jax.vmap``; a
-  degenerate torus (circular, shell, or planar) is recognized on concrete
-  actions and selected among all branches under a trace, the fitted
-  auxiliary, the adaptive reference curves, and a target's box are held
-  fixed in the derivatives (any choice gives a canonical map), and
-  ``target=`` needs concrete potential parameters (it decides which
-  degenerate faces the grid reaches).
+  the potential's parameters, also under ``jax.jit`` (reverse mode
+  included) and ``jax.vmap``; a degenerate torus (circular, shell, or
+  planar) is recognized on concrete actions and selected among all branches
+  under a trace, the fitted auxiliary, the adaptive reference curves, and a
+  target's box are held fixed in the derivatives (any choice gives a
+  canonical map), and ``target=`` needs concrete potential parameters (it
+  decides which degenerate faces the grid reaches).
 
 - Ellipsoidal potentials (TriaxialNFWPotential, PerfectEllipsoidPotential,
   ...) failed to evaluate their forces and second derivatives, and with them
