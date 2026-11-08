@@ -12,7 +12,16 @@ from scipy.interpolate import CubicSpline
 
 from galpy.util import conversion, coords
 
-from ..backend import as_numpy, coerce_coords, get_namespace, promote_scalars
+from ..backend import (
+    as_numpy,
+    as_numpy_constant,
+    asarray_on_device,
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.interpolate import Spline1D
 from .Potential import (
@@ -119,8 +128,19 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         if self._ntab:
             if self._ntab < 4:
                 raise ValueError("ntab= must be at least 4")
-            umax = float(numpy.arcsinh(Rmax_tab / self._delta))
-            ugrid = numpy.linspace(0.0, umax, self._ntab)
+            # a backend parameter of the wrapped potential, delta or u0 keeps
+            # the tables on the backend, differentiable in it; otherwise they
+            # are host constants
+            bxp = _pot_backend_namespace(self._pot) or namespace_from_arrays(
+                (self._delta, self._u0)
+            )
+            if namespace_from_arrays((self._delta,)) is None:
+                umax = float(numpy.arcsinh(Rmax_tab / self._delta))
+                ugrid = numpy.linspace(0.0, umax, self._ntab)
+            else:  # a backend delta moves the u knots
+                ugrid = asarray_on_device(
+                    bxp, numpy.linspace(0.0, 1.0, self._ntab), device_of(self._delta)
+                ) * bxp.arcsinh(Rmax_tab / self._delta)
             vgrid = numpy.linspace(0.0, numpy.pi / 2.0, self._ntab)
             # evaluate the v functions just off the axis (exact v=0 is 0/0
             # in dVdv's R0/tan v, whose limit is finite)
@@ -129,7 +149,15 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # numpy tabulates knot by knot (byte-identical tables); a backend
             # makes one array call per table, not one eager dispatch chain per
             # knot (minutes under jax at ntab=3000)
-            if (_pot_backend_namespace(self._pot) or get_namespace(ugrid)) is numpy:
+            if bxp is not None:
+                dev = device_of(self._refpot, self._delta, self._u0)
+
+                def _tabulate(func, grid):
+                    if not is_backend_array(grid):
+                        grid = asarray_on_device(bxp, grid, dev)
+                    return func(grid)
+
+            elif get_namespace(ugrid) is numpy:
 
                 def _tabulate(func, grid):
                     return numpy.array([float(func(x)) for x in grid])
@@ -145,22 +173,18 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # force does not, and the exact d2U/du2 is the finite part of a
             # limit that diverges for a cusp, which left the splines wrong
             # over their first intervals (a third of a smooth disc's Hessian
-            # at R = 0.05 delta, at ntab=100); both build paths give host
-            # tables, so this covers numpy and the backends alike
+            # at R = 0.05 delta, at ntab=100)
             w = _lagrange_weights_at_zero(ugrid[1:4])
-            for vals in uvals[1:]:
-                vals[0] = w @ vals[1:4]
+            for i in (1, 2):
+                vals = uvals[i]
+                if bxp is None:
+                    vals[0] = numpy.array(w) @ vals[1:4]
+                else:
+                    y0 = w[0] * vals[1] + w[1] * vals[2] + w[2] * vals[3]
+                    uvals[i] = bxp.concat([bxp.reshape(y0, (1,)), vals[1:]])
             vvals = [_tabulate(f, veval) for f in (self._V, self._dVdv, self._d2Vdv2)]
-            # raw (grid, values) tables; the C side builds natural cubic
-            # splines from these with the house GSL 1D machinery at parse time
-            tab = [float(self._ntab)]
-            tab.extend(ugrid)
-            for vals in uvals:
-                tab.extend(vals)
-            tab.extend(vgrid)
-            for vals in vvals:
-                tab.extend(vals)
-            self._tabargs = tab
+            self._tables = (ugrid, uvals, vgrid, vvals)
+            self._utab_max = ugrid[-1] if is_backend_array(ugrid) else float(ugrid[-1])
             # Python evaluation interpolates the same tables: a natural
             # CubicSpline is the same mathematical object as GSL's cspline on
             # the same knots, so Python and C agree to machine precision
@@ -170,14 +194,21 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # Python and C agree), while a backend evaluates their own power-basis
             # coefficients through the namespace -- differentiably. Refitting from
             # (grid, vals) would silently give a different spline.
-            self._utab_max = float(ugrid[-1])
-            self._splines = [
-                Spline1D.from_ppoly(CubicSpline(ugrid, vals, bc_type="natural"))
-                for vals in uvals
-            ] + [
-                Spline1D.from_ppoly(CubicSpline(vgrid, vals, bc_type="natural"))
-                for vals in vvals
-            ]
+            if bxp is None:
+                self._splines = [
+                    Spline1D.from_ppoly(CubicSpline(ugrid, vals, bc_type="natural"))
+                    for vals in uvals
+                ] + [
+                    Spline1D.from_ppoly(CubicSpline(vgrid, vals, bc_type="natural"))
+                    for vals in vvals
+                ]
+            else:
+                # backend tables: the same natural splines, fitted in-backend
+                # (differentiable in the values, and in the knots for a
+                # differentiated delta)
+                self._splines = [
+                    Spline1D(ugrid, vals, bc="natural") for vals in uvals
+                ] + [Spline1D(vgrid, vals, bc="natural") for vals in vvals]
         self.hasC = True
         self._backend_compatible = True
         # Advertise the (planar and 3D) C variational capabilities
@@ -474,6 +505,17 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             dprefacdu * xp.cosh(u) * xp.sin(v) + dprefacdv * xp.sinh(u) * xp.cos(v)
         ) / self._delta
 
+    @property
+    def _tabargs(self):
+        """The raw (grid, values) tables as host floats, from which C builds
+        natural cubic splines with the house GSL 1D machinery at parse time
+        (a traced table has no values to hand it)"""
+        ugrid, uvals, vgrid, vvals = self._tables
+        tab = [float(self._ntab)]
+        for a in (ugrid, *uvals, vgrid, *vvals):
+            tab.extend(as_numpy_constant(a))
+        return tab
+
     def _evalUspline(self, u, k):
         # same semantics as evalUspline in C: u beyond the table is clamped
         xp = get_namespace(u)
@@ -621,14 +663,12 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 def _lagrange_weights_at_zero(x):
     """The weights that give the value at zero of the quadratic through the
     three nodes x (none of them zero): plain arithmetic, (3, -3, 1) on a
-    uniform grid starting at zero"""
+    uniform grid starting at zero, and backend scalars for backend nodes"""
     x1, x2, x3 = x
-    return numpy.array(
-        [
-            x2 * x3 / ((x1 - x2) * (x1 - x3)),
-            x1 * x3 / ((x2 - x1) * (x2 - x3)),
-            x1 * x2 / ((x3 - x1) * (x3 - x2)),
-        ]
+    return (
+        x2 * x3 / ((x1 - x2) * (x1 - x3)),
+        x1 * x3 / ((x2 - x1) * (x2 - x3)),
+        x1 * x2 / ((x3 - x1) * (x3 - x2)),
     )
 
 

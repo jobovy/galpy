@@ -1045,6 +1045,20 @@ def _oblate(th, which):
     return OblateStaeckelWrapperPotential(pot=_wrapped_mn(th), delta=0.5, u0=1.0)
 
 
+def _oblate_tab(th, which):
+    # tabulated (ntab=): the tables are built on the backend from a backend
+    # parameter, and a differentiated delta moves the u knots; the tabulated
+    # derivatives are 8e-8 to 4e-4 off the exact ones here, so the 1e-9 below
+    # tells the table from a fallback to the exact evaluation
+    from galpy.potential import OblateStaeckelWrapperPotential
+
+    if which == "delta":
+        return OblateStaeckelWrapperPotential(pot=_wrapped_mn(0.5), delta=th, ntab=101)
+    return OblateStaeckelWrapperPotential(
+        pot=_wrapped_mn(th), delta=0.5, u0=1.0, ntab=101
+    )
+
+
 def _cylsep(th, which):
     from galpy.potential import CylindricallySeparablePotentialWrapper
 
@@ -1055,8 +1069,14 @@ def _cylsep(th, which):
 @pytest.mark.parametrize("method", ["__call__", "Rforce", "zforce"])
 @pytest.mark.parametrize(
     "build,which,th0",
-    [(_oblate, "a", 0.5), (_oblate, "delta", 0.5), (_cylsep, "a", 0.5)],
-    ids=["oblate-a", "oblate-delta", "cylsep-a"],
+    [
+        (_oblate, "a", 0.5),
+        (_oblate, "delta", 0.5),
+        (_oblate_tab, "a", 0.5),
+        (_oblate_tab, "delta", 0.5),
+        (_cylsep, "a", 0.5),
+    ],
+    ids=["oblate-a", "oblate-delta", "oblate-ntab-a", "oblate-ntab-delta", "cylsep-a"],
 )
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_wrapper_grad_wrt_wrapped_parameter(backend, build, which, th0, method, mode):

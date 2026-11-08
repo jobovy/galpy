@@ -511,6 +511,14 @@ add_pot(
     {"amp": 1.0, "delta": 0.5, "u0": 1.0, **W},
 )
 add_pot(
+    "OblateStaeckelWrapperPotential[ntab]",
+    # tabulated: the tables are built on the backend from a backend parameter
+    lambda P: gp.OblateStaeckelWrapperPotential(
+        amp=P["amp"], pot=MN(P), delta=P["delta"], u0=P["u0"], ntab=101
+    ),
+    {"amp": 1.0, "delta": 0.5, "u0": 1.0, **W},
+)
+add_pot(
     "CylindricallySeparablePotentialWrapper",
     lambda P: gp.CylindricallySeparablePotentialWrapper(
         amp=P["amp"], pot=MN(P), Rp=P["Rp"]
