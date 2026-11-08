@@ -79,6 +79,7 @@ ROTATED = {
     "MovingObjectPotential",
     "MultipoleExpansionPotential",
     "OblateStaeckelWrapperPotential",
+    "OblateStaeckelWrapperPotential[ntab]",
     "Orbit.analytic[adiabatic]",
     "Orbit.analytic[spherical]",
     "Orbit.analytic[staeckel]",
@@ -471,6 +472,7 @@ def test_no_slow_skips():
 # ---------------------------------------------------------------------------
 VALUE_MODES = ("data", "floatcoords", "forced")
 VALUE_ROTATED = {
+    "OblateStaeckelWrapperPotential[ntab]",
     "constantbetadf",
     "evolveddiskdf",
     "impulse_deltav_general_fullplummerintegration",

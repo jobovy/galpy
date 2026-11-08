@@ -904,14 +904,19 @@ def test_oblatestaeckel_ntab_folds_v_elementwise(backend_name):
     return None
 
 
+@pytest.mark.parametrize("amp_form", ["normalize", "float"])
 @pytest.mark.parametrize("backend_name", BACKENDS)
-def test_oblatestaeckel_ntab_tables_built_on_every_backend(backend_name, monkeypatch):
+def test_oblatestaeckel_ntab_tables_built_on_every_backend(
+    backend_name, amp_form, monkeypatch
+):
     # A backend builds each table in one array call: per knot, eager jax took
     # 343 s for MWPotential2014 at ntab=3000 (9 s as arrays). numpy keeps the
-    # per-knot loop, so its tables stay byte-identical.
-    from galpy.backend import use
+    # per-knot loop, so its tables stay byte-identical. Under a forced backend,
+    # normalize= gives a backend amp and backend tables; a float amp, host ones
+    from galpy.backend import is_backend_array, use
 
     _, ref = _ntab_pair()
+    amp = {"normalize": {"normalize": 1.0}, "float": {"amp": float(ref._pot._amp)}}
     ncalls = []
     _U = OblateStaeckelWrapperPotential._U
     monkeypatch.setattr(
@@ -921,12 +926,16 @@ def test_oblatestaeckel_ntab_tables_built_on_every_backend(backend_name, monkeyp
     )
     with use(backend_name, force=True):
         tab = OblateStaeckelWrapperPotential(
-            pot=MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05),
+            pot=MiyamotoNagaiPotential(a=0.5, b=0.05, **amp[amp_form]),
             delta=0.5,
             ntab=101,
         )
     assert len(ncalls) == (101 if backend_name == "numpy" else 1), (
         f"{backend_name}: U(u) tabulated in {len(ncalls)} calls"
+    )
+    on_backend = backend_name != "numpy" and amp_form == "normalize"
+    assert is_backend_array(tab._tables[1][0]) == on_backend, (
+        f"{backend_name}, {amp_form} amp: tables built on the wrong side"
     )
     got, exp = numpy.array(tab._tabargs), numpy.array(ref._tabargs)
     if backend_name == "numpy":
@@ -1045,6 +1054,20 @@ def _oblate(th, which):
     return OblateStaeckelWrapperPotential(pot=_wrapped_mn(th), delta=0.5, u0=1.0)
 
 
+def _oblate_tab(th, which):
+    # tabulated (ntab=): the tables are built on the backend from a backend
+    # parameter, and a differentiated delta moves the u knots; the tabulated
+    # derivatives are 8e-8 to 4e-4 off the exact ones here, so the 1e-9 below
+    # tells the table from a fallback to the exact evaluation
+    from galpy.potential import OblateStaeckelWrapperPotential
+
+    if which == "delta":
+        return OblateStaeckelWrapperPotential(pot=_wrapped_mn(0.5), delta=th, ntab=101)
+    return OblateStaeckelWrapperPotential(
+        pot=_wrapped_mn(th), delta=0.5, u0=1.0, ntab=101
+    )
+
+
 def _cylsep(th, which):
     from galpy.potential import CylindricallySeparablePotentialWrapper
 
@@ -1055,8 +1078,14 @@ def _cylsep(th, which):
 @pytest.mark.parametrize("method", ["__call__", "Rforce", "zforce"])
 @pytest.mark.parametrize(
     "build,which,th0",
-    [(_oblate, "a", 0.5), (_oblate, "delta", 0.5), (_cylsep, "a", 0.5)],
-    ids=["oblate-a", "oblate-delta", "cylsep-a"],
+    [
+        (_oblate, "a", 0.5),
+        (_oblate, "delta", 0.5),
+        (_oblate_tab, "a", 0.5),
+        (_oblate_tab, "delta", 0.5),
+        (_cylsep, "a", 0.5),
+    ],
+    ids=["oblate-a", "oblate-delta", "oblate-ntab-a", "oblate-ntab-delta", "cylsep-a"],
 )
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_wrapper_grad_wrt_wrapped_parameter(backend, build, which, th0, method, mode):
