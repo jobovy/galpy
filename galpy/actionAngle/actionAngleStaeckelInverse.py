@@ -1587,12 +1587,24 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         return None
 
     # ---------- evaluation: the manifest chain
+    @property
+    def _target_hint(self):
+        """The tail of an out-of-range error for a family localized on a
+        target, whose box is the target's padded range rather than the
+        default spans"""
+        if self._target is None:
+            return ""
+        return (
+            " (the grid is localized on a target: increase target_pad, or build "
+            "the family without target=)"
+        )
+
     def _check_Lz(self, ell):
         """Raise for an angular momentum outside the family's grid"""
         if ell < self._Lzgrid[0] or ell > self._Lzgrid[-1]:
             raise ValueError(
                 f"|L_z| = {ell} outside the interpolation grid "
-                f"[{self._Lzgrid[0]}, {self._Lzgrid[-1]}]"
+                f"[{self._Lzgrid[0]}, {self._Lzgrid[-1]}]" + self._target_hint
             )
         return None
 
@@ -1627,7 +1639,12 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                         f"family at |L_z| = {ell}: "
                         + ("above" if jother > top else "below")
                         + f" the covered actions [{bottom:g}, {top:g}]"
-                        + (" (increase Rinf)" if jother > top else "")
+                        + (
+                            " (increase Rinf)"
+                            if jother > top and self._target is None
+                            else ""
+                        )
+                        + self._target_hint
                     )
                 jother = min(max(jother, bottom), top)
                 # on a face, the root is found in w_E = sqrt(x), in which a
@@ -1690,10 +1707,12 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             f"(J_R, J_z) = ({jr}, {jz}) could not be matched inside the "
             f"interpolated family at |L_z| = {ell}"
             + (
-                f": its total action lies above the covered {top:g} (increase Rinf)"
+                f": its total action lies above the covered {top:g}"
+                + (" (increase Rinf)" if self._target is None else "")
                 if jr + jz > top
                 else ""
             )
+            + self._target_hint
         )
 
     def _interp_tables(self, jr, jz, Lz):
@@ -2044,7 +2063,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         if x < xlo - 1e-10 or x > xhi + 1e-10:
             raise ValueError(
                 f"E = {E} outside the interpolation grid at |L_z| = {ell}: its energy "
-                f"variable {x:g} lies outside [{xlo:g}, {xhi:g}]"
+                f"variable {x:g} lies outside [{xlo:g}, {xhi:g}]" + self._target_hint
             )
         with self._in_chart(E, ell):
             ush = self._ushell(E, ell)
@@ -2054,6 +2073,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             raise ValueError(
                 f"I_3 = {I3} outside the interpolation grid at (E, |L_z|) = "
                 f"({E}, {ell}): [{Ipl + ylo * (Ish - Ipl)}, {Ipl + yhi * (Ish - Ipl)}]"
+                + self._target_hint
             )
         A = self._A_ip(min(max(x, xlo), xhi), min(max(y, ylo), yhi), ell)[0, 0]
         return A[0], A[1]
