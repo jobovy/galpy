@@ -92,19 +92,21 @@ double dUdu(double u,double v0,double delta,
     return *(cache+1);
   uv_to_Rz(u,v0,&R,&z0,delta);
   *cache= u;
-  // 1e-12 bc force should win the 0/0 battle;
+  // dR/du = delta cosh u sin v0 and dz/du = delta sinh u cos v0 along the
+  // reference curve, closed forms with no 0/0 (the former R / tanh u needed
+  // a guard at the axis that biased the force by 1e-12 / tanh u);
   // 2 cosh u sinh u Phi = 2 tanh(u) U(u): reuses the cached U
   return *(cache+1)= 2 * tanh(u) * U(u,v0,delta,potentialArgs)	\
     - pow(cosh(u),2) \
     * ( calcRforce(R,z0,0.,0.,potentialArgs->nwrapped,
-		  potentialArgs->wrappedPotentialArg) * R / ( tanh(u) + 1e-12)
+		  potentialArgs->wrappedPotentialArg) * delta * cosh(u) * sin(v0)
 	+ calczforce(R,z0,0.,0.,potentialArgs->nwrapped,
-		   potentialArgs->wrappedPotentialArg) * z0 * tanh(u));
+		   potentialArgs->wrappedPotentialArg) * delta * sinh(u) * cos(v0));
 }
 double d2Udu2(double u,double v0,double delta,
 	      struct potentialArg * potentialArgs){
   // mirrors OblateStaeckelWrapperPotential._d2Udu2 in Python
-  double R,z0;
+  double R,z0,dRdu,dzdu;
   double tRforce, tzforce;
   double * cache= potentialArgs->args + 9;  // last [u, d2Udu2(u)]
   if ( potentialArgs->spline1d )
@@ -117,23 +119,26 @@ double d2Udu2(double u,double v0,double delta,
   tzforce= calczforce(R,z0,0.,0.,potentialArgs->nwrapped,
 		      potentialArgs->wrappedPotentialArg);
   *cache= u;
-  // 1e-12 bc force should win the 0/0 battle (as in dUdu);
+  // dR/du and dz/du along the reference curve (as in dUdu); on the axis the
+  // in-plane second derivative of a cusped potential diverges, so the axis
+  // node of an ntab= table keeps the finite part, as it always has;
   // 2 cosh(2u) Phi = 2 cosh(2u) U(u) / cosh^2 u: reuses the cached U
+  dRdu= delta * cosh(u) * sin(v0);
+  dzdu= delta * sinh(u) * cos(v0);
   return *(cache+1)= 2 * cosh(2 * u) / pow(cosh(u),2)			\
     * U(u,v0,delta,potentialArgs)					\
     - 4 * cosh(u) * sinh(u)						\
-    * ( tRforce * R / ( tanh(u) + 1e-12 )
-	+ tzforce * z0 * tanh(u) )					\
+    * ( tRforce * dRdu + tzforce * dzdu )				\
     - pow(cosh(u),2)							\
-    * ( - calcR2deriv(R,z0,0.,0.,potentialArgs->nwrapped,
-		      potentialArgs->wrappedPotentialArg)
-	* R * R / pow( tanh(u) + 1e-12 , 2 )
+    * ( - ( u > 0. ? calcR2deriv(R,z0,0.,0.,potentialArgs->nwrapped,
+			      potentialArgs->wrappedPotentialArg)
+	    * dRdu * dRdu : 0. )
 	- 2. * calcRzderiv(R,z0,0.,0.,potentialArgs->nwrapped,
-			   potentialArgs->wrappedPotentialArg) * R * z0
+			   potentialArgs->wrappedPotentialArg) * dRdu * dzdu
 	+ tRforce * R
 	- calcz2deriv(R,z0,0.,0.,potentialArgs->nwrapped,
 		      potentialArgs->wrappedPotentialArg)
-	* z0 * z0 * pow( tanh(u) , 2 )
+	* dzdu * dzdu
 	+ tzforce * z0 );
 }
 double planardUdu(double u,double v0,double delta,
@@ -146,12 +151,12 @@ double planardUdu(double u,double v0,double delta,
     return *(cache+1);
   uv_to_Rz(u,v0,&R,&z0,delta);
   *cache= u;
-  // 1e-12 bc force should win the 0/0 battle;
+  // dR/du = delta cosh u sin v0 along the reference curve (as in dUdu);
   // 2 cosh u sinh u Phi = 2 tanh(u) U(u): reuses the cached U
   return *(cache+1)= 2 * tanh(u) * U(u,v0,delta,potentialArgs)	\
     - pow(cosh(u),2) \
     *  calcPlanarRforce(R,0.,0.,potentialArgs->nwrapped,
-			potentialArgs->wrappedPotentialArg) * R / ( tanh(u) + 1e-12);
+			potentialArgs->wrappedPotentialArg) * delta * cosh(u) * sin(v0);
 }
 double planard2Udu2(double u,double v0,double delta,
 		    struct potentialArg * potentialArgs){
@@ -160,7 +165,7 @@ double planard2Udu2(double u,double v0,double delta,
   // z0-suppressed term (zforce, Rzderiv, z2deriv) drops and only the wrapped
   // potential's in-plane Rforce/R2deriv survive (as in planardUdu); the
   // planar parser only wires the wrapped potential's planar functions.
-  double R,z0;
+  double R,z0,dRdu;
   double tRforce;
   double * cache= potentialArgs->args + 13;  // last [u, planard2Udu2(u)]
   if ( potentialArgs->spline1d )
@@ -171,15 +176,17 @@ double planard2Udu2(double u,double v0,double delta,
   tRforce= calcPlanarRforce(R,0.,0.,potentialArgs->nwrapped,
 			    potentialArgs->wrappedPotentialArg);
   *cache= u;
-  // 1e-12 bc force should win the 0/0 battle (as in dUdu);
+  // dR/du along the reference curve, and the axis node's finite part (as
+  // in d2Udu2);
   // 2 cosh(2u) Phi = 2 cosh(2u) U(u) / cosh^2 u: reuses the cached U
+  dRdu= delta * cosh(u) * sin(v0);
   return *(cache+1)= 2 * cosh(2 * u) / pow(cosh(u),2)			\
     * U(u,v0,delta,potentialArgs)					\
-    - 4 * cosh(u) * sinh(u) * tRforce * R / ( tanh(u) + 1e-12 )	\
+    - 4 * cosh(u) * sinh(u) * tRforce * dRdu				\
     - pow(cosh(u),2)							\
-    * ( - calcPlanarR2deriv(R,0.,0.,potentialArgs->nwrapped,
-			    potentialArgs->wrappedPotentialArg)
-	* R * R / pow( tanh(u) + 1e-12 , 2 )
+    * ( - ( u > 0. ? calcPlanarR2deriv(R,0.,0.,potentialArgs->nwrapped,
+				    potentialArgs->wrappedPotentialArg)
+	    * dRdu * dRdu : 0. )
 	+ tRforce * R );
 }
 double V(double v,double u0,double delta,double refpot,
