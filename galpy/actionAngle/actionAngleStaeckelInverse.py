@@ -1196,6 +1196,16 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             box = self._target_box(Lmin, Lmax)
         self._box = box
         self._Lzgrid = numpy.linspace(box[0][0], box[0][1], nLz)
+        # the energy variable's bottom apocentre is that of the planar orbit
+        # without angular momentum at the circular orbit's energy, which has
+        # to lie inside Rinf for every L_z of the grid: Phi(Rinf, 0) must
+        # exceed the circular energy of the grid's largest |L_z|
+        if self._Phiinf <= self._circular(self._Lzgrid[-1])["Ec"]:
+            raise ValueError(
+                "Rinf is too small: the planar orbit without angular momentum at "
+                "the circular orbit's energy of the grid's largest |L_z| reaches "
+                "beyond Rinf; increase Rinf"
+            )
         self._wEs = numpy.linspace(box[1][0], box[1][1], nE)
         self._wIs = numpy.linspace(box[2][0], box[2][1], nI3)
         self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
