@@ -7879,6 +7879,53 @@ def test_OblateStaeckelWrapperPotential_exact_reference_curve_derivatives_c():
     return None
 
 
+def test_OblateStaeckelWrapperPotential_ntab_axis_nodes():
+    # The axis nodes of the tabulated dU/du and d2U/du2 are extrapolated
+    # from the next three knots rather than evaluated: with the exact
+    # values there (the finite part of a divergent second derivative, and
+    # a vanishing first derivative where a cusp's force does not vanish)
+    # the tabulated Hessian of a smooth disc was off by a third at R = 0.05
+    # delta and the tabulated force of a cusp by a quarter at R = 0.02, at
+    # ntab = 100; extrapolated, both are at spline accuracy or within a few
+    # permille, against the exact wrapper
+    from galpy.potential import (
+        HernquistPotential,
+        MiyamotoNagaiPotential,
+        OblateStaeckelWrapperPotential,
+    )
+
+    pot, delta = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1), 0.4
+    exact = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
+    tab = OblateStaeckelWrapperPotential(pot=pot, delta=delta, ntab=100)
+    for R in (0.02, 0.05, 0.1):
+        for z in (0.0, 0.05):
+            for name, tol in (("R2deriv", 2e-3), ("Rzderiv", 2e-3), ("z2deriv", 2e-3)):
+                a = getattr(tab, name)(R, z, use_physical=False)
+                b = getattr(exact, name)(R, z, use_physical=False)
+                scale = max(
+                    numpy.fabs(b), numpy.fabs(exact.R2deriv(R, 0.0, use_physical=False))
+                )
+                assert numpy.fabs(a - b) < tol * scale, (
+                    "The tabulated Staeckel wrapper's %s near the axis is not the exact one's at (R, z) = (%g, %g): %g"
+                    % (name, R, z, numpy.fabs(a - b) / scale)
+                )
+    pot, delta = HernquistPotential(amp=1.0, a=0.6), 0.5
+    exact = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
+    tab = OblateStaeckelWrapperPotential(pot=pot, delta=delta, ntab=100)
+    for R, tolf, tolh in ((0.02, 1e-3, 1e-2), (0.05, 1e-4, 1e-3), (0.1, 1e-4, 1e-3)):
+        fr = exact.Rforce(R, 0.0, use_physical=False)
+        hr = exact.R2deriv(R, 0.0, use_physical=False)
+        assert numpy.fabs(tab.Rforce(R, 0.0, use_physical=False) / fr - 1.0) < tolf, (
+            "The tabulated Staeckel wrapper's force near the axis of a cusped potential is off at R = %g: %g"
+            % (R, tab.Rforce(R, 0.0, use_physical=False) / fr - 1.0)
+        )
+        assert numpy.fabs(tab.R2deriv(R, 0.0, use_physical=False) / hr - 1.0) < tolh, (
+            "The tabulated Staeckel wrapper's Hessian near the axis of a cusped potential is off at R = %g: %g"
+            % (R, tab.R2deriv(R, 0.0, use_physical=False) / hr - 1.0)
+        )
+    return None
+
+
 def test_OblateStaeckelWrapperPotential_againstKuzmin():
     # Test that wrapping a KuzminDiskPotential as an oblateStaeckelWrapper
     # behaves as expected: U(u) = -GM/Delta cosh(u) and V(v) =-GM/Delta|cos(v)|

@@ -6,7 +6,15 @@ v1.12.2 (expected around 2027-03-01)
   sin v0 and dz/du = delta sinh u cos v0 in place of a guarded R/tanh(u),
   whose guard biased the wrapper's force by a part in 1e12 / tanh(u): a part
   in 1e12 at R ~ delta, a part in 1e9 at R = 1e-3 delta. In the plane the
-  wrapper's force now equals the wrapped potential's to round-off.
+  wrapper's force now equals the wrapped potential's to round-off. The axis
+  nodes of the tabulated (``ntab=``) dU/du and d2U/du2 are now extrapolated
+  from the next three knots rather than evaluated at the axis, where the
+  exact values (a vanishing first derivative, the finite part of a second
+  derivative that diverges for a cusped potential) left the tables wrong
+  over their first intervals: at ``ntab=100`` the tabulated Hessian of a
+  smooth disc was off by a third at R = 0.05 delta and the tabulated force
+  of a cusped bulge by a quarter at R = 0.02; both are now at spline
+  accuracy for a smooth potential and within a few percent for a cusp.
 
 - Ellipsoidal potentials (TriaxialNFWPotential, PerfectEllipsoidPotential,
   ...) failed to evaluate their forces and second derivatives, and with them
