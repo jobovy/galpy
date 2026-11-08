@@ -16,6 +16,10 @@ v2.0.0b2 (pre-release)
   a smooth disc was off by a third at R = 0.05 delta and the tabulated force
   of a cusped bulge by a quarter at R = 0.02; both are now at spline
   accuracy for a smooth potential and within a few percent for a cusp.
+  Where the force vanishes at the centre, as a smooth potential's does, the
+  dU/du node keeps its exact value, zero (the extrapolation misses it by its
+  cubic term), so the tabulated force of a smooth potential is right down to
+  the axis: a part in 1e6 at R = 1e-5 at ``ntab=100``.
   On a backend, ``ntab=`` tables of a wrapped potential with a backend
   parameter (or a backend delta or u0) are now built on the backend and are
   differentiable in it (they raised before), so tabulated Staeckel models

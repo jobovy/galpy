@@ -173,14 +173,23 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # force does not, and the exact d2U/du2 is the finite part of a
             # limit that diverges for a cusp, which left the splines wrong
             # over their first intervals (a third of a smooth disc's Hessian
-            # at R = 0.05 delta, at ntab=100)
+            # at R = 0.05 delta, at ntab=100). Where the force vanishes at the
+            # centre (dU/du just off the axis at most linear in u), the dU/du
+            # node keeps its exact zero: extrapolated, it is off by the cubic
+            # term, which gave a smooth disc's force the wrong sign inside
+            # R ~ 1e-3 (at ntab=100)
             w = _lagrange_weights_at_zero(ugrid[1:4])
+            dUoff = _tabulate(self._dUdu, numpy.array([1e-9]))[0]
+            cxp = bxp or numpy
+            cored = cxp.abs(dUoff) * ugrid[1] <= 2e-9 * cxp.abs(uvals[1][1])
             for i in (1, 2):
                 vals = uvals[i]
                 if bxp is None:
-                    vals[0] = numpy.array(w) @ vals[1:4]
+                    vals[0] = 0.0 if i == 1 and cored else numpy.array(w) @ vals[1:4]
                 else:
                     y0 = w[0] * vals[1] + w[1] * vals[2] + w[2] * vals[3]
+                    if i == 1:
+                        y0 = bxp.where(cored, 0.0 * y0, y0)
                     uvals[i] = bxp.concat([bxp.reshape(y0, (1,)), vals[1:]])
             vvals = [_tabulate(f, veval) for f in (self._V, self._dVdv, self._d2Vdv2)]
             self._tables = (ugrid, uvals, vgrid, vvals)
