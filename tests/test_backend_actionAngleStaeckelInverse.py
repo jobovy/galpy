@@ -697,10 +697,16 @@ def test_adaptive_and_target():
     # the target orbit's (E, L_z, I_3), with E inside [E_c, E_max] but outside
     # the box
     E, Lz, I3 = -1.465095655583749, 1.1025, 1.8591431356904407
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    # out-of-range errors point at target_pad, not at Rinf
+    hint = r"\(the grid is localized on a target: increase target_pad"
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc.JR(E + 0.1, Lz, I3)
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc.JR(E, Lz, I3 + 0.5)
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
+        loc(jr, 0.5, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=r"above the covered [\d.]+ " + hint):
+        loc(10.0 * jr, lz, jz, 0.3, 1.0, 2.0)
     numpy.testing.assert_allclose(
         float(as_numpy(loc.JR(E, Lz, I3))), jr, rtol=0.0, atol=1e-4
     )

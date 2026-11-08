@@ -12887,12 +12887,18 @@ def test_actionAngleStaeckelInverse_target():
         loc(0.0, lz, 0.0, 0.3, 1.0, 2.0)
     with pytest.raises(ValueError, match="circular face"):
         loc.Freqs(0.0, lz, 0.0)
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    # out-of-range errors point at target_pad, not at Rinf
+    hint = r"\(the grid is localized on a target: increase target_pad"
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc(jr, 0.5, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=r"above the covered [\d.]+ " + hint):
+        loc(10.0 * jr, lz, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=f"at \\|L_z\\| = {lz} " + hint):
+        loc(0.3 * jr, lz, jz, 0.3, 1.0, 2.0)
     E, Lz, I3 = _staeckel_inverse_labels([1.05, 0.12, 1.05, 0.12, 0.06, 0.0])
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc.JR(E + 0.1, Lz, I3)
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc.JR(E, Lz, I3 + 0.5)
     with pytest.raises(ValueError, match="circular face"):
         with use("numpy", force=True):  # the numpy closed form
@@ -12959,6 +12965,10 @@ def test_actionAngleStaeckelInverse_target():
     ) and (numpy.all(numpy.isfinite(as_numpy(big(0.0, lz, jz, 0.3, 1.0, 2.0)[0])))), (
         "A generously padded target box does not reach the faces"
     )
+    with pytest.raises(
+        ValueError, match=r"above the covered actions \[0, [\d.]+\] " + hint
+    ):
+        big(0.0, lz, 50.0, 0.3, 1.0, 2.0)
     # composes with an adaptive reference curve
     fit = actionAngleStaeckelInverse(target=o(ts), u0="fit", **kw)
     assert max(miss(fit, row, lab) for row, lab in zip(rows, labels)) < 1e-6, (
