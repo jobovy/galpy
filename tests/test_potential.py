@@ -7887,12 +7887,27 @@ def test_OblateStaeckelWrapperPotential_ntab_axis_nodes():
     # the tabulated Hessian of a smooth disc was off by a third at R = 0.05
     # delta and the tabulated force of a cusp by a quarter at R = 0.02, at
     # ntab = 100; extrapolated, both are at spline accuracy or within a few
-    # permille, against the exact wrapper
+    # permille, against the exact wrapper. Where the force vanishes at the
+    # centre, the dU/du node keeps its exact zero: extrapolated, it is off by
+    # the cubic term, which gave a smooth disc's force the wrong sign inside
+    # R ~ 1e-3 (and no circular velocity there)
     from galpy.potential import (
         HernquistPotential,
+        LogarithmicHaloPotential,
         MiyamotoNagaiPotential,
+        MWPotential2014,
         OblateStaeckelWrapperPotential,
+        PlummerPotential,
+        rl,
+        vcirc,
     )
+
+    def axis_node(tab):
+        # the dU/du table's axis node, and its extrapolation from the next
+        # three (uniform) knots, from the tables C reads: ntab, u, U, dU/du, ...
+        n = int(tab._tabargs[0])
+        dU = tab._tabargs[1 + 2 * n : 1 + 3 * n]
+        return dU[0], 3.0 * dU[1] - 3.0 * dU[2] + dU[3]
 
     pot, delta = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1), 0.4
     exact = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
@@ -7903,26 +7918,86 @@ def test_OblateStaeckelWrapperPotential_ntab_axis_nodes():
                 a = getattr(tab, name)(R, z, use_physical=False)
                 b = getattr(exact, name)(R, z, use_physical=False)
                 scale = max(
-                    numpy.fabs(b), numpy.fabs(exact.R2deriv(R, 0.0, use_physical=False))
+                    numpy.fabs(b),
+                    numpy.fabs(exact.R2deriv(R, 0.0, use_physical=False)),
                 )
                 assert numpy.fabs(a - b) < tol * scale, (
                     "The tabulated Staeckel wrapper's %s near the axis is not the exact one's at (R, z) = (%g, %g): %g"
                     % (name, R, z, numpy.fabs(a - b) / scale)
                 )
+    # a smooth potential's force down to the axis, its circular velocity and
+    # its circular radius, to a relative error below R in the plane (measured
+    # 7e-7 to 5e-4)
+    for pot, delta in (
+        (MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1), 0.4),
+        (PlummerPotential(amp=1.0, b=0.5), 0.3),
+    ):
+        exact = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
+        tab = OblateStaeckelWrapperPotential(pot=pot, delta=delta, ntab=100)
+        assert axis_node(tab)[0] == 0.0, (
+            "The tabulated Staeckel wrapper's dU/du axis node of a smooth potential is not zero"
+        )
+        for R in (1e-5, 1e-4, 1e-3):
+            for z, tol in ((0.0, R), (0.01, 2e-3), (0.05, 2e-3)):
+                ft = tab.Rforce(R, z, use_physical=False)
+                fe = exact.Rforce(R, z, use_physical=False)
+                assert numpy.fabs(ft / fe - 1.0) < tol, (
+                    "The tabulated Staeckel wrapper's force of a smooth potential near the axis is off at (R, z) = (%g, %g): %g"
+                    % (R, z, ft / fe - 1.0)
+                )
+            ve = vcirc(exact, R, use_physical=False)
+            vt = vcirc(tab, R, use_physical=False)
+            assert numpy.fabs(vt / ve - 1.0) < R, (
+                "The tabulated Staeckel wrapper's circular velocity of a smooth potential near the axis is off at R = %g: %g"
+                % (R, vt / ve - 1.0)
+            )
+            re = rl(exact, R * ve, use_physical=False)
+            rt = rl(tab, R * ve, use_physical=False)
+            assert numpy.fabs(rt / re - 1.0) < R, (
+                "The tabulated Staeckel wrapper's circular radius of a smooth potential near the axis is off at R = %g: %g"
+                % (R, rt / re - 1.0)
+            )
     pot, delta = HernquistPotential(amp=1.0, a=0.6), 0.5
     exact = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
     tab = OblateStaeckelWrapperPotential(pot=pot, delta=delta, ntab=100)
+    node, ext = axis_node(tab)
+    assert numpy.fabs(node / ext - 1.0) < 1e-12, (
+        "The tabulated Staeckel wrapper's dU/du axis node of a cusped potential is not extrapolated"
+    )
     for R, tolf, tolh in ((0.02, 1e-3, 1e-2), (0.05, 1e-4, 1e-3), (0.1, 1e-4, 1e-3)):
         fr = exact.Rforce(R, 0.0, use_physical=False)
         hr = exact.R2deriv(R, 0.0, use_physical=False)
-        assert numpy.fabs(tab.Rforce(R, 0.0, use_physical=False) / fr - 1.0) < tolf, (
+        ft = tab.Rforce(R, 0.0, use_physical=False)
+        ht = tab.R2deriv(R, 0.0, use_physical=False)
+        assert numpy.fabs(ft / fr - 1.0) < tolf, (
             "The tabulated Staeckel wrapper's force near the axis of a cusped potential is off at R = %g: %g"
-            % (R, tab.Rforce(R, 0.0, use_physical=False) / fr - 1.0)
+            % (R, ft / fr - 1.0)
         )
-        assert numpy.fabs(tab.R2deriv(R, 0.0, use_physical=False) / hr - 1.0) < tolh, (
+        assert numpy.fabs(ht / hr - 1.0) < tolh, (
             "The tabulated Staeckel wrapper's Hessian near the axis of a cusped potential is off at R = %g: %g"
-            % (R, tab.R2deriv(R, 0.0, use_physical=False) / hr - 1.0)
+            % (R, ht / hr - 1.0)
         )
+    # a central force that diverges (MWPotential2014's bulge, a core-less
+    # logarithmic halo) has no finite axis value: the node stays the bounded
+    # extrapolation, and the force is that of the spline beyond the first
+    # intervals
+    for pot, delta, tols in (
+        (MWPotential2014, 0.45, (2e-2, 3e-3)),
+        (LogarithmicHaloPotential(normalize=1.0, q=0.9), 0.5, (3e-2, 3e-3)),
+    ):
+        exact = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
+        tab = OblateStaeckelWrapperPotential(pot=pot, delta=delta, ntab=100)
+        node, ext = axis_node(tab)
+        assert numpy.fabs(node / ext - 1.0) < 1e-12, (
+            "The tabulated Staeckel wrapper's dU/du axis node of a diverging central force is not extrapolated"
+        )
+        for R, tol in zip((0.05, 0.1), tols):
+            ft = tab.Rforce(R, 0.0, use_physical=False)
+            fe = exact.Rforce(R, 0.0, use_physical=False)
+            assert numpy.fabs(ft / fe - 1.0) < tol, (
+                "The tabulated Staeckel wrapper's force of a diverging central force is off at R = %g: %g"
+                % (R, ft / fe - 1.0)
+            )
     return None
 
 

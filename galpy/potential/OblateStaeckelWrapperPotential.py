@@ -132,10 +132,18 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # the tabulated Hessian at R = 0.05 delta for a smooth disc, a
             # third of the force at R = 0.02 for a cusped bulge, at ntab =
             # 100); extrapolated, the tables are at spline accuracy for a
-            # smooth potential and within a few percent for a cusp
+            # smooth potential and within a few percent for a cusp. Where the
+            # force vanishes at the centre (dU/du just off the axis at most
+            # linear in u), the dU/du node keeps its exact zero: extrapolated,
+            # it is off by the cubic term, which gave a smooth disc's force the
+            # wrong sign inside R ~ 1e-3 (at ntab = 100)
             w = _lagrange_weights_at_zero(ugrid[1:4])
             for vals in uvals[1:]:
                 vals[0] = w @ vals[1:4]
+            if numpy.fabs(float(self._dUdu(1e-9))) * ugrid[1] <= 2e-9 * numpy.fabs(
+                uvals[1][1]
+            ):
+                uvals[1][0] = 0.0
             vvals = [
                 numpy.array([float(func(x)) for x in veval])
                 for func in (self._V, self._dVdv, self._d2Vdv2)
