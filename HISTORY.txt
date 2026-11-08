@@ -8,6 +8,14 @@ v2.0.0b2 (pre-release)
   in 1e12 at R ~ delta, a part in 1e9 at R = 1e-3 delta. In the plane the
   wrapper's force now equals the wrapped potential's to round-off, and its
   dU/du and d2U/du2 are the autodiff derivatives of U and dU/du on a backend.
+  The axis nodes of the tabulated (``ntab=``) dU/du and d2U/du2 are now
+  extrapolated from the next three knots rather than evaluated at the axis,
+  where the exact values (a vanishing first derivative, the finite part of a
+  second derivative that diverges for a cusped potential) left the tables
+  wrong over their first intervals: at ``ntab=100`` the tabulated Hessian of
+  a smooth disc was off by a third at R = 0.05 delta and the tabulated force
+  of a cusped bulge by a quarter at R = 0.02; both are now at spline
+  accuracy for a smooth potential and within a few percent for a cusp.
 
 - Fixed Orbit.animate, which raised ``ValueError: unexpected '{' in field
   name`` in v2.0.0b1 (and v1.12.1).

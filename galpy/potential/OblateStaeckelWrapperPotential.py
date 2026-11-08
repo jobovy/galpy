@@ -140,6 +140,16 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                     return numpy.array(as_numpy(func(grid)), dtype=float)
 
             uvals = [_tabulate(f, ugrid) for f in (self._U, self._dUdu, self._d2Udu2)]
+            # the axis node of the two derivative tables extrapolated from the
+            # next three knots: the exact dU/du vanishes there while a cusp's
+            # force does not, and the exact d2U/du2 is the finite part of a
+            # limit that diverges for a cusp, which left the splines wrong
+            # over their first intervals (a third of a smooth disc's Hessian
+            # at R = 0.05 delta, at ntab=100); both build paths give host
+            # tables, so this covers numpy and the backends alike
+            w = _lagrange_weights_at_zero(ugrid[1:4])
+            for vals in uvals[1:]:
+                vals[0] = w @ vals[1:4]
             vvals = [_tabulate(f, veval) for f in (self._V, self._dVdv, self._d2Vdv2)]
             # raw (grid, values) tables; the C side builds natural cubic
             # splines from these with the house GSL 1D machinery at parse time
@@ -606,6 +616,20 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 - tzforce * R0z[1]
             )
         )
+
+
+def _lagrange_weights_at_zero(x):
+    """The weights that give the value at zero of the quadratic through the
+    three nodes x (none of them zero): plain arithmetic, (3, -3, 1) on a
+    uniform grid starting at zero"""
+    x1, x2, x3 = x
+    return numpy.array(
+        [
+            x2 * x3 / ((x1 - x2) * (x1 - x3)),
+            x1 * x3 / ((x2 - x1) * (x2 - x3)),
+            x1 * x2 / ((x3 - x1) * (x3 - x2)),
+        ]
+    )
 
 
 def _staeckel_prefactor(u, v):
