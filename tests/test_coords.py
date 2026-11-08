@@ -2437,6 +2437,80 @@ def test_Rz_to_coshucosv():
     return None
 
 
+def test_Rz_to_uv_near_axis_and_plane():
+    # The confocal coordinates are computed without cancellation: near the
+    # axis (small R, prolate) and near the plane (small z, oblate) the old
+    # cosh u = (d1 + d2)/(2 delta) and cos v = (d1 - d2)/(2 delta) lost the
+    # small coordinate (u was off by a part in 1e9 at R = 1e-4 delta and
+    # zero at R = 1e-12 delta; on the axis beyond a focus v was NaN). Every
+    # point, including the foci, the focal segment, the axis and the plane,
+    # round-trips through uv_to_Rz to round-off, in both conventions
+    delta = 0.45
+    pts = [
+        (1e-12, 0.0),
+        (1e-8, 0.0),
+        (1e-5, 0.0),
+        (1e-5, 0.3 * delta),
+        (1e-5, 0.9999 * delta),
+        (1e-5, 1.0001 * delta),
+        (1e-5, 5.0),
+        (0.0, 0.3 * delta),
+        (0.0, 5.0),
+        (0.0, delta),
+        (delta, 0.0),
+        (0.0, 0.0),
+        (3.0, 1e-12),
+        (3.0, 1e-5),
+        (0.3 * delta, 1e-5),
+        (0.9999 * delta, 1e-5),
+        (1.0001 * delta, 1e-5),
+        (1.0, -2.0),
+        (2.0, 0.7),
+    ]
+    for oblate in (False, True):
+        for R, z in pts:
+            if oblate and z < 0.0:
+                continue  # the oblate convention folds z < 0 onto z > 0
+            u, v = coords.Rz_to_uv(R, z, delta=delta, oblate=oblate)
+            assert numpy.isfinite(u) and numpy.isfinite(v) and u >= 0.0, (
+                "Rz_to_uv is not finite at (R, z) = (%g, %g), oblate = %s"
+                % (R, z, oblate)
+            )
+            Rb, zb = coords.uv_to_Rz(u, v, delta=delta, oblate=oblate)
+            assert numpy.fabs(Rb - R) <= 4e-16 * max(R, z, delta) and numpy.fabs(
+                zb - z
+            ) <= 4e-16 * max(R, z, delta), (
+                "Rz_to_uv does not round-trip at (R, z) = (%g, %g), oblate = %s: (%g, %g)"
+                % (R, z, oblate, Rb - R, zb - z)
+            )
+            # cosh u and cos v themselves, consistently
+            coshu, cosv = coords.Rz_to_coshucosv(R, z, delta=delta, oblate=oblate)
+            assert (
+                numpy.fabs(coshu - numpy.cosh(u)) < 4e-16 * coshu
+                and numpy.fabs(cosv - numpy.cos(v)) < 4e-16
+            ), (
+                "Rz_to_coshucosv is inconsistent with Rz_to_uv at (R, z) = ({:g}, {:g})".format(
+                    R,
+                    z,
+                )
+            )
+    # the small coordinate is exact where the old formula lost it entirely
+    u, v = coords.Rz_to_uv(1e-12, 0.0, delta=delta)
+    assert (
+        numpy.fabs(u / (1e-12 / delta) - 1.0) < 1e-15
+        and numpy.fabs(v - 0.5 * numpy.pi) < 1e-15
+    ), "Rz_to_uv loses u near the axis"
+    # arrays, mixing the branches
+    R = numpy.array([1e-5, 0.0, 3.0, 0.3 * delta, delta])
+    z = numpy.array([0.3 * delta, 5.0, 1e-5, 0.0, 0.0])
+    u, v = coords.Rz_to_uv(R, z, delta=delta)
+    Rb, zb = coords.uv_to_Rz(u, v, delta=delta)
+    assert numpy.all(numpy.fabs(Rb - R) <= 4e-16 * 5.0) and numpy.all(
+        numpy.fabs(zb - z) <= 4e-16 * 5.0
+    ), "Rz_to_uv does not round-trip for arrays mixing the branches"
+    return None
+
+
 def test_uv_to_Rz_oblate():
     u, v = numpy.arccosh(5.0 / 3.0), numpy.pi / 6.0
     R, z = coords.uv_to_Rz(u, v, delta=3.0, oblate=True)
