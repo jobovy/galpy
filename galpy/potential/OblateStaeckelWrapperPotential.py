@@ -123,7 +123,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 numpy.array([float(func(x)) for x in ugrid])
                 for func in (self._U, self._dUdu, self._d2Udu2)
             ]
-            # the axis node of the two derivative tables by cubic
+            # the axis node of the two derivative tables by quadratic
             # extrapolation from the next three knots: at the axis the
             # exact d2U/du2 is the finite part of a limit that diverges for
             # a cusped potential, and the exact dU/du vanishes there while
@@ -586,7 +586,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
 
 def _lagrange_weights_at_zero(x):
-    """The weights that give a cubic's value at zero from its values at the
+    """The weights that give the value at zero of the quadratic through the
     three nodes x (none of them zero): plain arithmetic, (3, -3, 1) on a
     uniform grid starting at zero"""
     x1, x2, x3 = x
