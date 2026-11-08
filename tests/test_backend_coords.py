@@ -917,6 +917,69 @@ def test_pupv_transforms_are_backend_native(backend_name, oblate):
     assert numpy.max(numpy.abs(as_numpy(inv[1]) - vz)) < 1e-13
 
 
+@pytest.mark.parametrize("oblate", [False, True])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_Rz_to_uv_near_axis_and_plane_on_backend(backend_name, oblate):
+    # The confocal transform without cancellation on the backend: every branch
+    # of its where()s, the foci (A = 0) included, matches numpy to round-off,
+    # and autodiff through it gives the inverse of uv_to_Rz's Jacobian to
+    # round-off near the axis and the plane, where the former arccosh/arccos
+    # forms lost it (a part in 1e4 at R = 1e-5)
+    delta = 0.45
+    R = numpy.array([1e-5, 1e-5, 1e-5, 3.0, 0.3 * delta, 1.0001 * delta, 1.0, 2.0])
+    z = numpy.array([0.3 * delta, 1.0001 * delta, 5.0, 1e-5, 1e-5, 1e-5, 2.0, 0.7])
+    # values also on the axis, in the plane and at the foci
+    Rv = numpy.concatenate((R, [0.0, 0.0, delta, 0.0]))
+    zv = numpy.concatenate((z, [5.0, delta, 0.0, 0.0]))
+    ref = coords.Rz_to_uv(Rv, zv, delta=delta, oblate=oblate)
+    with use(backend_name, force=True):
+        got = coords.Rz_to_uv(
+            _asarray(backend_name, Rv),
+            _asarray(backend_name, zv),
+            delta=delta,
+            oblate=oblate,
+        )
+    for g, r in zip(got, ref):
+        assert is_backend_array(g)
+        assert numpy.max(numpy.abs(as_numpy(g) - r)) < 1e-15
+    # [[du/dR, du/dz], [dv/dR, dv/dz]], from uv_to_Rz's derivatives
+    u, v = ref[0][: len(R)], ref[1][: len(R)]
+    su, cu, sv, cv = numpy.sinh(u), numpy.cosh(u), numpy.sin(v), numpy.cos(v)
+    if oblate:
+        dRdu, dRdv, dzdu, dzdv = su * sv, cu * cv, cu * cv, -su * sv
+    else:
+        dRdu, dRdv, dzdu, dzdv = cu * sv, su * cv, su * cv, -cu * sv
+    jac = numpy.array([[dzdv, -dRdv], [-dzdu, dRdu]]) / (
+        delta * (dRdu * dzdv - dRdv * dzdu)
+    )
+    if backend_name == "jax":
+        ad = [
+            jax.grad(
+                lambda R_, z_, k=k: jnp.sum(
+                    coords.Rz_to_uv(R_, z_, delta=delta, oblate=oblate)[k]
+                ),
+                argnums=(0, 1),
+            )(jnp.asarray(R), jnp.asarray(z))
+            for k in (0, 1)
+        ]
+    else:
+        Rt, zt = (
+            torch.tensor(R, requires_grad=True),
+            torch.tensor(z, requires_grad=True),
+        )
+        uv = coords.Rz_to_uv(Rt, zt, delta=delta, oblate=oblate)
+        ad = [
+            torch.autograd.grad(uv[k].sum(), (Rt, zt), retain_graph=True)
+            for k in (0, 1)
+        ]
+    ad = numpy.array([[as_numpy(g) for g in row] for row in ad])
+    # measured <= 3e-15 of each point's largest entry
+    scale = numpy.amax(numpy.fabs(jac), axis=(0, 1))
+    assert numpy.all(numpy.fabs(ad - jac) <= 1e-14 * scale), (
+        f"{backend_name}: the Jacobian of Rz_to_uv is off near the axis or the plane"
+    )
+
+
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_align_to_orbit_under_forced_backend(backend_name):
     # plain inputs under a forced backend: the rotation is built on the backend

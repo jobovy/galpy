@@ -981,9 +981,9 @@ def test_oblatestaeckel_reference_curve_derivatives_on_every_backend(backend_nam
     for pot, delta in _osw_cases():
         w = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
         ref = [w._dUdu(us), w._d2Udu2(us)]
-        # in the plane the wrapper is the potential, to round-off away from the
-        # axis (near it Rz_to_uv's arccosh bounds the agreement)
-        Rs = ((1e-2, 1e-12), (0.1, 1e-14), (1.0, 1e-14), (5.0, 1e-14))
+        # in the plane the wrapper is the potential, to round-off at every
+        # radius, now that Rz_to_uv is exact near the axis too
+        Rs = tuple((R, 1e-14) for R in (1e-4, 1e-3, 1e-2, 0.1, 1.0, 5.0))
         fps = [evaluateRforces(pot, R, 0.0, use_physical=False) for R, _ in Rs]
         with use(backend_name, force=True):
             got = [
