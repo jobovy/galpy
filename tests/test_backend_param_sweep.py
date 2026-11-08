@@ -100,8 +100,11 @@ ROTATED = {
     "actionAngleSpherical",
     "actionAngleSpherical[LogHalo]",
     "actionAngleSphericalInverse",
+    "actionAngleSphericalInverse[explicit]",
     "actionAngleStaeckelGrid",
     "actionAngleStaeckelInverse",
+    "actionAngleStaeckelInverse[explicit]",
+    "actionAngleStaeckelInverse[wrapped]",
     "actionAngleStaeckel[c=False]",
     "actionAngleStaeckel[c=True]",
     "actionAngleVerticalInverse",
@@ -475,7 +478,10 @@ def test_no_slow_skips():
 VALUE_MODES = ("data", "floatcoords", "forced")
 VALUE_ROTATED = {
     "OblateStaeckelWrapperPotential[ntab]",
+    "actionAngleSphericalInverse[explicit]",
     "actionAngleStaeckelInverse",
+    "actionAngleStaeckelInverse[explicit]",
+    "actionAngleStaeckelInverse[wrapped]",
     "constantbetadf",
     "evolveddiskdf",
     "impulse_deltav_general_fullplummerintegration",

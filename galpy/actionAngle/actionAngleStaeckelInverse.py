@@ -371,12 +371,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
-        # A forced backend, or a potential with jax/torch parameters, builds
-        # the family natively, differentiable in those parameters
+        # A forced backend, or a Staeckel model with jax/torch parameters (the
+        # potential's, or a delta= it is wrapped at), builds the family
+        # natively, differentiable in those parameters
         if backend() != "numpy":
             xp_bk = get_namespace()
         else:
-            xp_bk = _pot_grad_namespace(self._pot, any_backend=True)
+            xp_bk = _pot_grad_namespace(self._staeckelwrap, any_backend=True)
         self._bk = None
         if not setup_interp:
             self._Es = conversion._parse_grid_quantity(
@@ -1619,6 +1620,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             box = self._target_box(Lmin, Lmax)
         self._box = box
         self._Lzgrid = numpy.linspace(box[0][0], box[0][1], nLz)
+        # the energy variable's bottom apocentre is that of the planar orbit
+        # without angular momentum at the circular orbit's energy, which has
+        # to lie inside Rinf for every L_z of the grid: Phi(Rinf, 0) must
+        # exceed the circular energy of the grid's largest |L_z|
+        if self._Phiinf <= self._circular(self._Lzgrid[-1])["Ec"]:
+            raise ValueError(
+                "Rinf is too small: the planar orbit without angular momentum at "
+                "the circular orbit's energy of the grid's largest |L_z| reaches "
+                "beyond Rinf; increase Rinf"
+            )
         self._wEs = numpy.linspace(box[1][0], box[1][1], nE)
         self._wIs = numpy.linspace(box[2][0], box[2][1], nI3)
         self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
@@ -2904,7 +2915,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         _setup_tori do it) natively in xp, every torus at once"""
         from ..backend._input import _grad_param
 
-        par = _grad_param(self._pot)
+        par = _grad_param(self._staeckelwrap)
         probe = self._bk_Phi(
             asarray_on_device(
                 xp, numpy.ones(1), None if par is None else device_of(par)
@@ -3450,6 +3461,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # the energies (as _E_of_xL)
         Rc = rl(plane, Lzgrid, use_physical=False)
         Ec = self._bk_Phi(Rc) + Lzgrid**2 / (2.0 * Rc**2)
+        # as _setup_grid (the backend bracket would not raise)
+        if concrete and concretely_true(Phiinf <= Ec[-1]):
+            raise ValueError(
+                "Rinf is too small: the planar orbit without angular momentum at "
+                "the circular orbit's energy of the grid's largest |L_z| reaches "
+                "beyond Rinf; increase Rinf"
+            )
         Emax = Phiinf + Lzgrid**2 / (2.0 * Rinf**2)
         R0c = _backend_brentq(
             lambda R, EE: self._bk_Phi(R) - EE,

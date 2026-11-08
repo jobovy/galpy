@@ -44,8 +44,9 @@ _OMEGA = numpy.block(
 _ANGLES = numpy.array([0.0, 0.4, 1.5, numpy.pi, 4.0, 6.0])
 # in the plane (a circular orbit, the target's box) a backend evaluates the
 # Staeckel model through the potential it approximates, which it equals there;
-# numpy through the model's own force, ~1e-12 off by its tanh(u) + 1e-12
-_PLANE_ATOL = 2e-12
+# numpy through the model's own force, which since the exact dR/du of the
+# wrapper's U derivatives (#1836) agrees to round-off: measured <= 3.4e-13
+_PLANE_ATOL = 1e-12
 # (E, L_z, I_3) of the benign and the eccentric torus of test_actionAngle.py's
 # Staeckel inverse tests (from the phase-space points [1.1, 0.3, 0.9, 0.25,
 # 0.2, 0] and [1.1, 0.9, 0.35, 0.15, 0.1, 0] by the separated Hamilton-Jacobi
@@ -757,6 +758,7 @@ def test_construction_contract(backend):
 def test_backend_construction_checks(backend):
     # the construction's checks and warnings on a backend, as on numpy
     from galpy import backend as gb
+    from galpy.potential import MiyamotoNagaiPotential
     from galpy.util import galpyWarning
 
     E, Lz, I3 = _LABELS[0]
@@ -773,6 +775,20 @@ def test_backend_construction_checks(backend):
             _interp(nE=3)
         with pytest.raises(ValueError, match="Rinf has to exceed Rmax"):
             _interp(Rinf=1.0)
+        # as test_actionAngle.py's: an Rinf beyond Rmax but inside the zero-L_z
+        # apocentre at the top circular energy, where the backend bracket of
+        # that apocentre would not raise
+        with pytest.raises(ValueError, match="Rinf is too small"):
+            _interp(
+                pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3),
+                delta=0.4,
+                Rmin=0.8,
+                Rmax=1.5,
+                Rinf=2.5,
+                nE=4,
+                nLz=4,
+                nI3=4,
+            )
         with pytest.raises(TypeError, match="IsochronePotential"):
             _explicit(auxiliary=_pot())
         with pytest.warns(galpyWarning, match="not converged for the"):
