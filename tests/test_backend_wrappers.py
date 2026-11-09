@@ -1103,6 +1103,33 @@ def test_wrapper_grad_wrt_wrapped_parameter(backend, build, which, th0, method, 
         numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=1e-12)
 
 
+@pytest.mark.parametrize("cusp", [False, True], ids=["smooth", "cusp"])
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_oblatestaeckel_ntab_axis_node_grad(backend, cusp):
+    # in the first interval the tabulated force rests on the dU/du axis node:
+    # zero where the force vanishes at the centre, extrapolated for a cusp;
+    # on a backend, the same node as numpy's and differentiable through either
+    from galpy.backend import as_numpy
+
+    def build(th):
+        pot = HernquistPotential(amp=1.0, a=th) if cusp else _wrapped_mn(th)
+        return OblateStaeckelWrapperPotential(pot=pot, delta=0.5, u0=1.0, ntab=101)
+
+    R, z = 0.005, 0.0
+    fd = richardson_fd(lambda th: float(build(th).Rforce(R, z)), 0.5, 1e-3)
+    cv, ctx = input_mode(backend, "data")
+
+    def f(th):
+        with ctx():
+            return build(th).Rforce(cv(R), cv(z))
+
+    numpy.testing.assert_allclose(
+        float(as_numpy(f(cv(0.5)))), float(build(0.5).Rforce(R, z)), rtol=1e-12
+    )
+    for g in autodiff_param_grads(f, 0.5, backend):
+        numpy.testing.assert_allclose(g, fd, rtol=1e-9, atol=1e-12)
+
+
 # Orientation and offset (gap audit R-ROT): galaxy_pa, inclination, sky_pa,
 # zvec and offset build the rotation on the backend, so their gradients exist
 # in data and forced mode, under jit/vmap and on torch. A differentiated
