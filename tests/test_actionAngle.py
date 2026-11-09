@@ -13765,17 +13765,28 @@ def test_actionAngleSphericalInverse_Lspacing():
         )
         for sp in ("linear", "sqrt", "log")
     }
-    Lmin = Rmin * vcirc(hp, Rmin)
+
+    # (as floats: under a forced backend the results stay on the backend)
+    def vc(R):
+        return float(as_numpy(vcirc(hp, R)))
+
+    def Phi(R):
+        return float(as_numpy(evaluatePotentials(hp, R, 0.0)))
+
+    Lmin = Rmin * vc(Rmin)
     Ltest = numpy.sqrt(
-        Lmin * (Lmin + (Rmax * vcirc(hp, Rmax) - Lmin) / 7.0)
+        Lmin * (Lmin + (Rmax * vc(Rmax) - Lmin) / 7.0)
     )  # inside the linear grid's first cell
     Rc = 0.25
-    Ec = 0.5 * vcirc(hp, Rc) ** 2.0 + evaluatePotentials(hp, Rc, 0.0)
-    E = Ec + 0.5 * (evaluatePotentials(hp, Rinf, 0.0) - Ec)
+    Ec = 0.5 * vc(Rc) ** 2.0 + Phi(Rc)
+    E = Ec + 0.5 * (Phi(Rinf) - Ec)
     jr_exact = actionAngleSphericalInverse(
         pot=hp, Es=[E], Ls=[Ltest], mm_npt=160, progressbar=False
     ).Jr(E, Ltest)
-    err = {sp: numpy.fabs(f.Jr(E, Ltest) / jr_exact - 1.0) for sp, f in fams.items()}
+    err = {
+        sp: numpy.fabs(float(as_numpy(f.Jr(E, Ltest) / jr_exact)) - 1.0)
+        for sp, f in fams.items()
+    }
     assert err["log"] < 1e-2 * err["linear"], (
         "The 'log' spacing does not improve the innermost cell's action over the 'linear' one"
     )
@@ -13783,7 +13794,9 @@ def test_actionAngleSphericalInverse_Lspacing():
         "The 'sqrt' spacing does not improve the innermost cell's action"
     )
     for f in fams.values():
-        R, vR, vT, z, vz, phi = f(0.05, 0.6 * Ltest, 0.4 * Ltest, 0.3, 0.2, 1.1)
+        R, vR, vT, z, vz, phi = _spherical_inverse_npt(
+            f(0.05, 0.6 * Ltest, 0.4 * Ltest, 0.3, 0.2, 1.1)
+        )
         assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
             "A spaced family does not evaluate"
         )
@@ -13821,7 +13834,7 @@ def test_actionAngleStaeckelInverse_Lzspacing():
             mm_npt=48,
             Lzspacing=sp,
         )
-        out = aAS.Freqs(0.02, 0.9, 0.02)
+        out = _spherical_inverse_npt(aAS.Freqs(0.02, 0.9, 0.02))
         assert numpy.all(numpy.isfinite(out)), (
             f"A Staeckel family with Lzspacing={sp!r} does not evaluate"
         )
