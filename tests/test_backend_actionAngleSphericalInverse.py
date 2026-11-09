@@ -508,6 +508,45 @@ def test_jax_jit_and_vmap(interp, explicit):
         )
 
 
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_label_and_circular_radius_solves(interp):
+    # Under jax.jit the label u of J_r and the circular radius of L come from
+    # a few Newton steps started at guesses interpolated between the grid's
+    # nodes, where the eager solves section the bracket (a traced bisection
+    # would take ~50 sequential halvings); at and next to the family's edges
+    # both give the same frequencies to round-off, single and vmapped
+    jphi, jz = 0.55, 0.3
+    L = jphi + jz
+    jlo, jhi = (float(interp._jr_ip(x, L)[0, 0]) for x in (0.0, 1.0))
+    jrs = numpy.array(
+        [jlo + 1e-14, jlo + 1e-9, jlo + 1e-4, 0.5 * (jlo + jhi), jhi - 1e-9, jhi]
+    )
+    eager = numpy.array([_flat(interp.Freqs(j, jphi, jz)) for j in jrs])
+    f = jax.jit(lambda j: jnp.stack(interp.Freqs(j, jphi, jz)))
+    got = numpy.array([numpy.asarray(f(jnp.asarray(j))) for j in jrs])
+    numpy.testing.assert_allclose(got, eager, rtol=1e-13, atol=0.0)
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(jax.vmap(f))(jnp.asarray(jrs))),
+        eager,
+        rtol=1e-13,
+        atol=0.0,
+    )
+    # the circular orbit at a traced L, to the grid's L edges
+    Lg = numpy.linspace(0.7, 1.4, 8)
+    for Lc in (Lg[0] + 1e-12, 0.97, Lg[-1] - 1e-12):
+        jz_c = Lc - jphi
+        ref = _flat(interp.xvFreqs(0.0, jphi, jz_c, _ANGLES, 1.0, 2.0))
+        got = jax.jit(
+            lambda jp: jnp.concatenate(
+                [
+                    jnp.ravel(o)
+                    for o in interp.xvFreqs(0.0, jp, Lc - jp, _ANGLES, 1.0, 2.0)
+                ]
+            )
+        )(jnp.asarray(jphi))
+        numpy.testing.assert_allclose(numpy.asarray(got), ref, rtol=0.0, atol=1e-13)
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_torch_compile(explicit):
     # the evaluation runs under torch.compile (an explicit torus: the

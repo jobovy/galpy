@@ -13923,6 +13923,8 @@ def test_actionAngleSphericalInverse_units():
     )
 
     def _value(x, unit):
+        if not isinstance(x, units.Quantity):
+            x = as_numpy(x)
         x = numpy.atleast_1d(x)[0]
         return x.to(unit).value if isinstance(x, units.Quantity) else x
 
@@ -13949,7 +13951,9 @@ def test_actionAngleSphericalInverse_units():
         ]
     ):
         assert (
-            numpy.fabs(_value(out[ii], unit) / fac - numpy.atleast_1d(out_int[ii])[0])
+            numpy.fabs(
+                _value(out[ii], unit) / fac - numpy.atleast_1d(as_numpy(out_int[ii]))[0]
+            )
             < 1e-10
         ), (
             "actionAngleSphericalInverse method __call__ does not return the physical version of the internal-unit coordinates"
@@ -13959,7 +13963,7 @@ def test_actionAngleSphericalInverse_units():
             numpy.fabs(
                 _value(aASC.Freqs(jr * Jq, jphi * Jq, jz * Jq)[ii], 1.0 / units.Gyr)
                 / conversion.freq_in_Gyr(vo, ro)
-                - numpy.atleast_1d(aASC_int.Freqs(jr, jphi, jz)[ii])[0]
+                - numpy.atleast_1d(as_numpy(aASC_int.Freqs(jr, jphi, jz)[ii]))[0]
             )
             < 1e-10
         ), (

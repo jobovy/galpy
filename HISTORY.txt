@@ -87,6 +87,23 @@ v2.0.0b2 (pre-release)
   torus evaluates as a quadratic one-node family, so that its derivatives in
   the actions are the family's.
 
+- ``actionAngleIsochroneInverse`` carries the closed forms of the isochrone's
+  tori (energy, radial action, the orbital parameters (a, e) with their
+  first and second partials along the actions, and the radius, momentum,
+  flux and cumulative radial action in the eccentric anomaly with their
+  partials) as private methods, which ``actionAngleSphericalInverse`` uses
+  for the auxiliary tori it lifts onto; its own evaluation now takes (a, e)
+  and the radial profile from these, with the eccentricity in a product
+  form that is exact down to the circular orbit (a round-off-level change),
+  and is split at Kepler's equation so that a caller that knows the
+  eccentric anomaly already, as the spherical inverse does from its anomaly
+  map, does not solve it again.
+
+- A host constant placed on jax's default device is no longer placed
+  explicitly: under a trace that placement is a device_put, and ``jax.vmap``
+  of a jitted function whose galpy branch (``lazy_cond``) contained one
+  failed in jax's batching rule.
+
 - Fixed ``actionAngleIsochroneInverse`` on the jax and PyTorch backends at a
   radial angle of exactly zero, where the returned position could be off by
   about half an orbit in phase.
