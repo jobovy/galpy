@@ -12821,3 +12821,71 @@ def test_actionAngleStaeckelInverse_degenerate_tori():
         % (dJ, dth, dOm, dH)
     )
     return None
+
+
+def test_actionAngleSphericalInverse_auxiliary_circular():
+    # A family of one circular torus samples the rotation curve at a single
+    # radius; every isochrone scale radius fits it, and the fit must return a
+    # finite auxiliary (the isochrone with that radius as its scale radius and
+    # the target's circular speed there) rather than NaN
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import HernquistPotential, evaluatePotentials, vcirc
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    R = 1.3
+    Ec = 0.5 * vcirc(hp, R) ** 2.0 + evaluatePotentials(hp, R, 0.0)
+    aAI = actionAngleSphericalInverse(
+        pot=hp, Es=[Ec], Ls=[R * vcirc(hp, R)], mm_npt=24, progressbar=False
+    )
+    aux = aAI.auxiliary
+    assert numpy.isfinite(aux._amp) and numpy.isfinite(aux.b), (
+        "The auxiliary of a lone circular torus is not finite"
+    )
+    assert numpy.fabs(aux.b - R) < 1e-10, (
+        "The auxiliary of a lone circular torus does not keep its scale radius at that radius"
+    )
+    assert numpy.fabs(vcirc(aux, R) / vcirc(hp, R) - 1.0) < 1e-10, (
+        "The auxiliary of a lone circular torus does not match the target's circular speed there"
+    )
+    R, vR, vT, z, vz, phi = aAI(
+        0.0, 0.6 * R * vcirc(hp, R), 0.4 * R * vcirc(hp, R), 0.3, 0.2, 1.1
+    )
+    assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
+        "A lone circular torus does not evaluate"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_auxiliary_circular():
+    # A family of one planar circular torus samples the rotation curve at a
+    # single radius, which every isochrone scale radius fits: the auxiliary
+    # must be finite (it used to come out as NaN) and the torus evaluates to
+    # the circular orbit
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import evaluatePotentials, rl, vcirc
+
+    pot = _staeckel_inverse_potential()
+    Lz = 0.93
+    Rc = rl(pot, Lz, use_physical=False)
+    Ec = evaluatePotentials(pot, Rc, 0.0) + Lz**2 / (2.0 * Rc**2)
+    Ipl = Lz**2 / (2.0 * _STAECKEL_INVERSE_DELTA**2) - Ec
+    aAI = actionAngleStaeckelInverse(
+        pot=pot, Es=[Ec], Lzs=[Lz], I3s=[Ipl], progressbar=False
+    )
+    aux = aAI.auxiliary
+    assert numpy.isfinite(aux._amp) and numpy.isfinite(aux.b), (
+        "The auxiliary of a lone circular torus is not finite"
+    )
+    assert numpy.fabs(vcirc(aux, Rc) / vcirc(pot, Rc) - 1.0) < 1e-10, (
+        "The auxiliary of a lone circular torus does not match the target's circular speed at its radius"
+    )
+    angler = numpy.linspace(0.05, 6.2, 11)
+    R, vR, vT, z, vz, phi = aAI(0.0, Lz, 0.0, angler, 0.3 + angler, 0.7 + angler)
+    assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
+        "A lone circular torus does not evaluate"
+    )
+    assert (
+        numpy.amax(numpy.fabs(R / Rc - 1.0)) < 1e-10
+        and numpy.amax(numpy.fabs(vR)) < 1e-10
+    ), "A lone circular torus does not sit at the circular radius"
+    return None
