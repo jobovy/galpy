@@ -8122,13 +8122,13 @@ def test_OblateStaeckelWrapperPotential_exact_reference_curve_derivatives():
         (MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1), 0.4),
     ):
         wrap = OblateStaeckelWrapperPotential(pot=pot, delta=delta)
-        # near the axis the cylindrical-to-spheroidal transform itself loses
-        # precision (u = arccosh of a cosh close to one), which bounds the
-        # agreement there; the old guard's bias was 4.5e-10 at R = 1e-3 and
-        # 4.5e-11 at R = 1e-2
+        # to round-off at every radius, now that the cylindrical-to-spheroidal
+        # transform is exact near the axis too (the old guard's bias was 4.5e-9
+        # at R = 1e-4 and 4.5e-10 at R = 1e-3)
         for R, tol in (
-            (1e-3, 1e-10),
-            (1e-2, 1e-12),
+            (1e-4, 1e-14),
+            (1e-3, 1e-14),
+            (1e-2, 1e-14),
             (0.1, 1e-14),
             (1.0, 1e-14),
             (5.0, 1e-14),

@@ -2904,19 +2904,53 @@ def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     - 2012-11-27 - Written - Bovy (IAS)
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
     """
+    sinhu, coshu, sinv, cosv = _Rz_to_uv_parts(R, z, delta, oblate=oblate)
+    return (coshu, cosv)
+
+
+def _Rz_to_uv_parts(R, z, delta, oblate=False):
+    """sinh u, cosh u, sin v and cos v of the confocal coordinates of (R, z),
+    each in a form without cancellation. With d_1 and d_2 the distances to
+    the two foci, cosh u = (d_1 + d_2)/(2 delta) and, prolate, cos v =
+    (d_1 - d_2)/(2 delta) (oblate: sin v), whose sums and differences lose
+    the small quantities (u near the axis, v near the plane): with A = R^2 +
+    z^2 - delta^2 and S = d_1 d_2 = sqrt(A^2 + 4 delta^2 w^2), w the
+    coordinate along the symmetry axis of the foci (R prolate, z oblate),
+    sinh^2 u = (A + S)/(2 delta^2) and the complementary square (sin^2 v
+    prolate, cos^2 v oblate) is (S - A)/(2 delta^2); whichever of these
+    cancels is rationalized, 2 w^2/(S -+ A); the other trigonometric factor
+    is 2 z/(d_1 + d_2) (prolate cos v) or 2 R/(d_1 + d_2) (oblate sin v),
+    exact identities. The oblate cos v is non-negative, as before."""
     xp = get_namespace(R, z, delta)
     R, z = promote_scalars(xp, R, z)
+    d2 = delta**2.0
+    # A = R^2 + z^2 - delta^2, with the difference of squares along the
+    # foci's axis as a product, so that it does not cancel at the focal
+    # sphere (prolate) or ring (oblate)
     if oblate:
-        d12 = (R + delta) ** 2.0 + z**2.0
-        d22 = (R - delta) ** 2.0 + z**2.0
+        A = (R - delta) * (R + delta) + z**2.0
     else:
-        d12 = (z + delta) ** 2.0 + R**2.0
-        d22 = (z - delta) ** 2.0 + R**2.0
-    coshu = 0.5 / delta * (xp.sqrt(d12) + xp.sqrt(d22))
-    cosv = 0.5 / delta * (xp.sqrt(d12) - xp.sqrt(d22))
-    if oblate:  # cosv is currently really sinv
-        cosv = xp.sqrt(1.0 - cosv**2.0)
-    return (coshu, cosv)
+        A = R**2.0 + (z - delta) * (z + delta)
+    w2 = z**2.0 if oblate else R**2.0
+    S = xp.sqrt(A**2.0 + 4.0 * d2 * w2)
+    # the rationalized forms where the direct ones cancel; at a focus (A = S
+    # = 0) both direct forms are exact zeros
+    neg, pos = A < 0.0, A > 0.0
+    sinh2u = xp.where(neg, 2.0 * w2 / xp.where(neg, S - A, 1.0), (A + S) / (2.0 * d2))
+    comp2 = xp.where(pos, 2.0 * w2 / xp.where(pos, S + A, 1.0), (S - A) / (2.0 * d2))
+    if oblate:
+        d1 = xp.sqrt((R + delta) ** 2.0 + z**2.0)
+        d2_ = xp.sqrt((R - delta) ** 2.0 + z**2.0)
+        sinv = 2.0 * R / (d1 + d2_)
+        cosv = xp.sqrt(comp2)
+    else:
+        d1 = xp.sqrt((z + delta) ** 2.0 + R**2.0)
+        d2_ = xp.sqrt((z - delta) ** 2.0 + R**2.0)
+        cosv = 2.0 * z / (d1 + d2_)
+        sinv = xp.sqrt(comp2)
+    sinhu = xp.sqrt(sinh2u)
+    coshu = xp.sqrt(1.0 + sinh2u)
+    return (sinhu, coshu, sinv, cosv)
 
 
 def Rz_to_uv(R, z, delta=1.0, oblate=False):
@@ -2946,9 +2980,9 @@ def Rz_to_uv(R, z, delta=1.0, oblate=False):
 
     """
     xp = get_namespace(R, z, delta)
-    coshu, cosv = Rz_to_coshucosv(R, z, delta, oblate=oblate)
-    u = xp.arccosh(coshu)
-    v = xp.arccos(cosv)
+    sinhu, coshu, sinv, cosv = _Rz_to_uv_parts(R, z, delta, oblate=oblate)
+    u = xp.arcsinh(sinhu)
+    v = xp.arctan2(sinv, cosv)
     return (u, v)
 
 

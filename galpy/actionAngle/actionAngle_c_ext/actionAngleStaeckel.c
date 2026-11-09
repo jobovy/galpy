@@ -267,16 +267,27 @@ static inline void Rz_to_uv_vec(int ndata,
 				int ndelta,
 				double * delta){
   int ii;
-  double d12, d22, coshu, cosv,tdelta;
+  double tR, tz, tdelta, A, S, sinh2u, sin2v, d1, d2;
   int delta_stride= ndelta == 1 ? 0 : 1;
+  // sinh^2 u and sin^2 v without cancellation, as Rz_to_uv in
+  // OblateStaeckelWrapperPotential.c and galpy.util.coords
   for (ii=0; ii < ndata; ii++) {
     tdelta= *(delta+ii*delta_stride);
-    d12= (*(z+ii)+tdelta)*(*(z+ii)+tdelta)+(*(R+ii))*(*(R+ii));
-    d22= (*(z+ii)-tdelta)*(*(z+ii)-tdelta)+(*(R+ii))*(*(R+ii));
-    coshu= 0.5/tdelta*(sqrt(d12)+sqrt(d22));
-    cosv=  0.5/tdelta*(sqrt(d12)-sqrt(d22));
-    *u++= acosh(coshu);
-    *v++= acos(cosv);
+    tR= *(R+ii);
+    tz= *(z+ii);
+    A= tR * tR + ( tz - tdelta ) * ( tz + tdelta );
+    S= sqrt( A * A + 4. * tdelta * tdelta * tR * tR );
+    if ( A < 0. ) {
+      sinh2u= 2. * tR * tR / ( S - A );
+      sin2v= ( S - A ) / ( 2. * tdelta * tdelta );
+    } else {
+      sinh2u= ( A + S ) / ( 2. * tdelta * tdelta );
+      sin2v= ( S + A > 0. ) ? 2. * tR * tR / ( S + A ) : 0.;
+    }
+    d1= sqrt( ( tz + tdelta ) * ( tz + tdelta ) + tR * tR );
+    d2= sqrt( ( tz - tdelta ) * ( tz - tdelta ) + tR * tR );
+    *u++= asinh( sqrt( sinh2u ) );
+    *v++= atan2( sqrt( sin2v ) , 2. * tz / ( d1 + d2 ) );
   }
   u-= ndata;
   v-= ndata;

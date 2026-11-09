@@ -1531,9 +1531,10 @@ for _c in (False, True):
         {**MNp, "delta": 0.4},
         afa(),
         diff_coords=["R", "vz"],
-        # c=False: the numpy quadrature's ~1e-9 noise swamps a central FD at
-        # h ~ 2e-4 (d Or/d delta drifts by 2e-4 relative); larger steps
-        **({} if _c else {"fdscale": 10.0}),
+        # larger steps: the quadrature's noise (~1e-9 numpy, ~3e-13 C) swamps
+        # a central FD at h ~ 2e-4 of the small d Or/d delta (7e-4, against Or
+        # = 1.26): 2e-4 relative (numpy), 3e-6 (C)
+        fdscale=10.0,
     )
     add_aa(
         f"actionAngleAdiabatic[c={_c}]",
@@ -1759,6 +1760,7 @@ add_aa(
     oan("staeckel", methods=("rperi", "zmax", "jr", "Or")),
     group="orbit",
     covers=(),
+    fdscale=10.0,  # as actionAngleStaeckel[c=True]: C noise in d Or/d delta
 )
 add_aa(
     "Orbit.analytic[adiabatic]",
