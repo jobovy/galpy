@@ -11609,6 +11609,11 @@ def _staeckel_inverse_labels(ic, pot=None, delta=_STAECKEL_INVERSE_DELTA):
     return E, Lz, float(I3)
 
 
+def _staeckel_inverse_xv(aAI, *args):
+    # an evaluation as one numpy array (GPU tensors under a forced backend)
+    return numpy.array([as_numpy(t) for t in aAI(*args)])
+
+
 def _staeckel_inverse_forward():
     from galpy.actionAngle import actionAngleStaeckel
 
@@ -11699,8 +11704,8 @@ def test_actionAngleStaeckelInverse_nodes(staeckel_inverse_explicit):
     for key in ("benign", "eccentric"):
         ic = _STAECKEL_INVERSE_ICS[key]
         E, Lz, I3 = _staeckel_inverse_labels(ic)
-        jrf, _, jzf = (float(numpy.atleast_1d(x)[0]) for x in aAS(*ic))
-        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+        jrf, _, jzf = (float(numpy.atleast_1d(as_numpy(x))[0]) for x in aAS(*ic))
+        jr, jz = (float(as_numpy(t)) for t in (aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)))
         assert numpy.fabs(jr - jrf) < 1e-9 and numpy.fabs(jz - jzf) < 1e-9, (
             "The family's action labels are not the forward transformation's"
         )
@@ -11725,9 +11730,9 @@ def test_actionAngleStaeckelInverse_angleconventions(staeckel_inverse_explicit):
         ic = _STAECKEL_INVERSE_ICS[key]
         E, Lz, I3 = _staeckel_inverse_labels(ic)
         out = aAS.actionsFreqsAngles(*ic)
-        ar, ap, az = (numpy.asarray(out[i]).ravel() for i in (6, 7, 8))
-        rec = numpy.array(
-            aAI(aAI.JR(E, Lz, I3), Lz, aAI.Jz(E, Lz, I3), ar, ap, az)
+        ar, ap, az = (numpy.asarray(as_numpy(out[i])).ravel() for i in (6, 7, 8))
+        rec = _staeckel_inverse_xv(
+            aAI, aAI.JR(E, Lz, I3), Lz, aAI.Jz(E, Lz, I3), ar, ap, az
         ).flatten()
         diff = rec - numpy.array(ic)
         diff[5] = (diff[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
@@ -11804,14 +11809,14 @@ def test_actionAngleStaeckelInverse_interpolation(staeckel_inverse_interp):
         ((aAI._Es[ii], aAI._Lzs[ii], aAI._I3s[ii]), 1e-9, 1e-7, 1e-8),
         (_staeckel_inverse_labels([1.05, 0.25, 0.95, 0.2, 0.3, 0.0]), 1e-5, 1e-4, 1e-4),
     ):
-        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+        jr, jz = (float(as_numpy(t)) for t in (aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)))
         # the forward transformation's actions of a point on this torus:
         # the inverse's own point, at the family's accuracy
         R, vR, vT, z, vz, phi = (
-            numpy.atleast_1d(q)[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)
+            numpy.atleast_1d(as_numpy(q))[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)
         )
         jrf, _, jzf = (
-            float(numpy.atleast_1d(x)[0]) for x in aAS(R, vR, vT, z, vz, phi)
+            float(numpy.atleast_1d(as_numpy(x))[0]) for x in aAS(R, vR, vT, z, vz, phi)
         )
         assert numpy.fabs(jr - jrf) + numpy.fabs(jz - jzf) < tolJ * (jr + jz), (
             "(J_R, J_z)(E, L_z, I_3) of the family is not the forward transformation's"
@@ -11824,8 +11829,10 @@ def test_actionAngleStaeckelInverse_interpolation(staeckel_inverse_interp):
         assert dOm < tolOm, "The frequencies are not the torus's: %g" % dOm
         assert dH < tolJ, "The reconstructed torus is not at one energy: %g" % dH
         assert numpy.all(
-            numpy.array(aAI.Freqs(jr, Lz, jz))
-            == numpy.array(aAI.xvFreqs(jr, Lz, jz, 0.3, 1.0, 2.0)[6:])
+            numpy.array([as_numpy(o) for o in aAI.Freqs(jr, Lz, jz)])
+            == numpy.array(
+                [as_numpy(o) for o in aAI.xvFreqs(jr, Lz, jz, 0.3, 1.0, 2.0)[6:]]
+            )
         ), "Freqs and xvFreqs disagree"
     return None
 
@@ -12112,9 +12119,13 @@ def test_actionAngleStaeckelInverse_small_action(staeckel_inverse_interp):
     # a row of the fixture's grid in angular momentum, where the edge's
     # values and slopes are exact
     Lz = float(aAI._Lzgrid[3])
-    Rc = rl(pot, Lz)
-    kappa, Omc, nu = epifreq(pot, Rc), Lz / Rc**2, verticalfreq(pot, Rc)
-    circ = numpy.array(aAI(0.0, Lz, 0.0, 0.3, 1.0, 2.0)).flatten()
+    Rc = float(as_numpy(rl(pot, Lz)))
+    kappa, Omc, nu = (
+        float(as_numpy(epifreq(pot, Rc))),
+        Lz / Rc**2,
+        float(as_numpy(verticalfreq(pot, Rc))),
+    )
+    circ = _staeckel_inverse_xv(aAI, 0.0, Lz, 0.0, 0.3, 1.0, 2.0).flatten()
     for jr, jz in (
         (1e-16, 1e-16),
         (1e-12, 1e-12),
@@ -12122,8 +12133,8 @@ def test_actionAngleStaeckelInverse_small_action(staeckel_inverse_interp):
         (0.0, 1e-8),
         (1e-8, 1e-8),
     ):
-        Om = numpy.array(aAI.Freqs(jr, Lz, jz))
-        out = numpy.array(aAI(jr, Lz, jz, 0.3, 1.0, 2.0)).flatten()
+        Om = numpy.array([as_numpy(o) for o in aAI.Freqs(jr, Lz, jz)])
+        out = _staeckel_inverse_xv(aAI, jr, Lz, jz, 0.3, 1.0, 2.0).flatten()
         assert numpy.all(numpy.isfinite(Om)) and numpy.all(numpy.isfinite(out)), (
             "Tiny actions (J_R, J_z) = ({:g}, {:g}) give non-finite output".format(
                 jr, jz
@@ -12175,7 +12186,7 @@ def test_actionAngleStaeckelInverse_extremes():
     for key in ("near-shell", "near-planar"):
         E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[key])
         aAI = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
-        jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+        jr, jz = (float(as_numpy(t)) for t in (aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)))
         dJ = _staeckel_inverse_roundtrip(
             aAI, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS
         )[0]
@@ -12183,7 +12194,7 @@ def test_actionAngleStaeckelInverse_extremes():
             "The %s torus's actions do not round-trip through the forward transformation: %g"
             % (key, dJ)
         )
-        Om = aAI.Freqs(jr, Lz, jz)
+        Om = [float(as_numpy(o)) for o in aAI.Freqs(jr, Lz, jz)]
         ts = numpy.linspace(0.0, 5.0 * 2.0 * numpy.pi / Om[0], 501)
         R, vR, vT, z, vz, phi = (
             as_numpy(t)
@@ -12399,18 +12410,29 @@ def test_actionAngleStaeckelInverse_circular(staeckel_inverse_interp):
         assert aAI.JR(Ec, Lz, Ipl) == 0.0 and aAI.Jz(Ec, Lz, Ipl) == 0.0, (
             "The circular orbit's actions are not zero"
         )
-        Om = aAI.Freqs(0.0, Lz, 0.0)
-        assert numpy.fabs(Om[0] / epifreq(pot, Rc, use_physical=False) - 1.0) < 1e-10, (
-            "The circular orbit's radial frequency is not the epicycle frequency"
-        )
+        Om = [float(as_numpy(o)) for o in aAI.Freqs(0.0, Lz, 0.0)]
         assert (
             numpy.fabs(
-                Om[1] / (numpy.sign(Lz) * omegac(pot, Rc, use_physical=False)) - 1.0
+                Om[0] / float(as_numpy(epifreq(pot, Rc, use_physical=False))) - 1.0
+            )
+            < 1e-10
+        ), "The circular orbit's radial frequency is not the epicycle frequency"
+        assert (
+            numpy.fabs(
+                Om[1]
+                / (
+                    numpy.sign(Lz)
+                    * float(as_numpy(omegac(pot, Rc, use_physical=False)))
+                )
+                - 1.0
             )
             < 1e-10
         ), "The circular orbit's azimuthal frequency is not the circular frequency"
         assert (
-            numpy.fabs(Om[2] / verticalfreq(pot, Rc, use_physical=False) - 1.0) < 1e-10
+            numpy.fabs(
+                Om[2] / float(as_numpy(verticalfreq(pot, Rc, use_physical=False))) - 1.0
+            )
+            < 1e-10
         ), "The circular orbit's vertical frequency is not the vertical frequency"
         assert invariants(aAI, Lz) < 1e-11, (
             "The circular orbit is not at the circular radius in the plane with no radial or vertical motion"
@@ -12418,12 +12440,14 @@ def test_actionAngleStaeckelInverse_circular(staeckel_inverse_interp):
     # continuity: the map at tiny actions approaches the circular orbit as
     # the librations' amplitudes
     Lz = 0.93
-    Rc = rl(pot, Lz, use_physical=False)
-    circ = numpy.array(aAI(0.0, Lz, 0.0, angler, anglephi, anglez))
+    Rc = float(as_numpy(rl(pot, Lz, use_physical=False)))
+    circ = _staeckel_inverse_xv(aAI, 0.0, Lz, 0.0, angler, anglephi, anglez)
     for jr, jz in ((1e-6, 1e-6), (1e-8, 1e-8)):
-        near = numpy.array(aAI(jr, Lz, jz, angler, anglephi, anglez))
-        amp = numpy.sqrt(2.0 * jr / epifreq(pot, Rc, use_physical=False)) + numpy.sqrt(
-            2.0 * jz / verticalfreq(pot, Rc, use_physical=False)
+        near = _staeckel_inverse_xv(aAI, jr, Lz, jz, angler, anglephi, anglez)
+        amp = numpy.sqrt(
+            2.0 * jr / float(as_numpy(epifreq(pot, Rc, use_physical=False)))
+        ) + numpy.sqrt(
+            2.0 * jz / float(as_numpy(verticalfreq(pot, Rc, use_physical=False)))
         )
         assert numpy.amax(numpy.fabs(near - circ)) < 5.0 * amp, (
             "The map does not approach the circular orbit as the librations' amplitudes"
@@ -12451,7 +12475,9 @@ def test_actionAngleStaeckelInverse_circular(staeckel_inverse_interp):
         )
         assert (
             numpy.fabs(
-                aAD.Freqs(0.0, Lz, 0.0)[0] / epifreq(pot, Rc, use_physical=False) - 1.0
+                float(as_numpy(aAD.Freqs(0.0, Lz, 0.0)[0]))
+                / float(as_numpy(epifreq(pot, Rc, use_physical=False)))
+                - 1.0
             )
             < 1e-10
         )
@@ -12511,23 +12537,23 @@ def test_actionAngleStaeckelInverse_potentials():
         Lzs=[Lz],
         I3s=[I3],
     )
-    jr, jz = aAK.JR(E, Lz, I3), aAK.Jz(E, Lz, I3)
+    jr, jz = (float(as_numpy(t)) for t in (aAK.JR(E, Lz, I3), aAK.Jz(E, Lz, I3)))
     assert (
-        numpy.fabs(aAW.JR(E, Lz, I3) - jr) < 1e-12
-        and numpy.fabs(aAW.Jz(E, Lz, I3) - jz) < 1e-12
+        numpy.fabs(float(as_numpy(aAW.JR(E, Lz, I3))) - jr) < 1e-12
+        and numpy.fabs(float(as_numpy(aAW.Jz(E, Lz, I3))) - jz) < 1e-12
     ), (
         "A wrapped Staeckel potential does not give the same tori as the potential itself"
     )
-    xK = numpy.array(aAK(jr, Lz, jz, angler, 1.0, 2.0))
-    xW = numpy.array(aAW(jr, Lz, jz, angler, 1.0, 2.0))
+    xK = _staeckel_inverse_xv(aAK, jr, Lz, jz, angler, 1.0, 2.0)
+    xW = _staeckel_inverse_xv(aAW, jr, Lz, jz, angler, 1.0, 2.0)
     assert numpy.amax(numpy.fabs(xK - xW)) < 1e-10, (
         "A wrapped Staeckel potential does not evaluate to the same points as the potential itself"
     )
     # retrograde: the mirror image, with the sign of the azimuthal frequency
     aAR = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[-Lz], I3s=[I3])
     assert (
-        numpy.fabs(aAR.JR(E, -Lz, I3) - jr) < 1e-12
-        and numpy.fabs(aAR.Jz(E, -Lz, I3) - jz) < 1e-12
+        numpy.fabs(float(as_numpy(aAR.JR(E, -Lz, I3))) - jr) < 1e-12
+        and numpy.fabs(float(as_numpy(aAR.Jz(E, -Lz, I3))) - jz) < 1e-12
     )
     OmP, OmR = (
         numpy.array([as_numpy(o) for o in a.Freqs(jr, l, jz)])
@@ -12551,8 +12577,8 @@ def test_actionAngleStaeckelInverse_potentials():
     aAWG = actionAngleStaeckelInverse(pot=swp, Es=[E], Lzs=[Lz], I3s=[I3])
     jr, jz = (float(as_numpy(a(E, Lz, I3))) for a in (aAG.JR, aAG.Jz))
     assert (
-        numpy.fabs(aAWG.JR(E, Lz, I3) - jr) < 1e-12
-        and numpy.fabs(aAWG.Jz(E, Lz, I3) - jz) < 1e-12
+        numpy.fabs(float(as_numpy(aAWG.JR(E, Lz, I3))) - jr) < 1e-12
+        and numpy.fabs(float(as_numpy(aAWG.Jz(E, Lz, I3))) - jz) < 1e-12
     ), "delta= does not give the same tori as the explicitly wrapped potential"
     # the torus lives in the wrapped model: the forward transformation of
     # that model recovers it
@@ -12583,9 +12609,9 @@ def test_actionAngleStaeckelInverse_maxiter():
     E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
     aAN = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
     aAF = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], maxiter=0)
-    jr, jz = aAN.JR(E, Lz, I3), aAN.Jz(E, Lz, I3)
-    nt = numpy.array(aAN(jr, Lz, jz, angler, 1.0, 2.0))
-    fb = numpy.array(aAF(jr, Lz, jz, angler, 1.0, 2.0))
+    jr, jz = (float(as_numpy(t)) for t in (aAN.JR(E, Lz, I3), aAN.Jz(E, Lz, I3)))
+    nt = _staeckel_inverse_xv(aAN, jr, Lz, jz, angler, 1.0, 2.0)
+    fb = _staeckel_inverse_xv(aAF, jr, Lz, jz, angler, 1.0, 2.0)
     assert numpy.amax(numpy.fabs(fb - nt)) < 1e-9, (
         "The safeguarded fallback of the angle solve does not agree with Newton for an explicit torus: %g"
         % numpy.amax(numpy.fabs(fb - nt))
@@ -12603,8 +12629,8 @@ def test_actionAngleStaeckelInverse_maxiter():
     )
     aAN = actionAngleStaeckelInverse(**kw)
     aAF = actionAngleStaeckelInverse(maxiter=0, **kw)
-    nt = numpy.array(aAN(0.05, 1.0, 0.04, angler, 1.0, 2.0))
-    fb = numpy.array(aAF(0.05, 1.0, 0.04, angler, 1.0, 2.0))
+    nt = _staeckel_inverse_xv(aAN, 0.05, 1.0, 0.04, angler, 1.0, 2.0)
+    fb = _staeckel_inverse_xv(aAF, 0.05, 1.0, 0.04, angler, 1.0, 2.0)
     assert numpy.amax(numpy.fabs(fb - nt)) < 1e-9, (
         "The safeguarded fallback of the angle solve does not agree with Newton: %g"
         % numpy.amax(numpy.fabs(fb - nt))
@@ -12630,7 +12656,7 @@ def test_actionAngleStaeckelInverse_perfect_ellipsoid():
     for ic in ([1.0, 0.3, 1.1, 0.2, 0.25, 0.0], [1.2, 0.5, 0.8, 0.3, 0.4, 0.0]):
         E, Lz, I3 = _staeckel_inverse_labels(ic, pot=pot, delta=delta)
         aA = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3])
-        jr, jz = aA.JR(E, Lz, I3), aA.Jz(E, Lz, I3)
+        jr, jz = (float(as_numpy(t)) for t in (aA.JR(E, Lz, I3), aA.Jz(E, Lz, I3)))
         dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
             aA, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS, pot=pot
         )
@@ -12669,7 +12695,7 @@ def test_actionAngleStaeckelInverse_perfect_ellipsoid_family():
         [0.9, 0.2, 1.0, 0.4, 0.1, 0.0],
     ):
         E, Lz, I3 = _staeckel_inverse_labels(ic, pot=pot, delta=delta)
-        jr, jz = aAF.JR(E, Lz, I3), aAF.Jz(E, Lz, I3)
+        jr, jz = (float(as_numpy(t)) for t in (aAF.JR(E, Lz, I3), aAF.Jz(E, Lz, I3)))
         dJ, dth, dOm, dH = _staeckel_inverse_roundtrip(
             aAF, jr, Lz, jz, angler, anglephi, anglez, aAS=aAS, pot=pot
         )
@@ -12715,21 +12741,27 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
     for u0 in (lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E, "fit"):
         aAI = actionAngleStaeckelInverse(pot=pot, u0=u0, **grid)
         for jr, Lzq, jz in ((0.06, 0.93, 0.10), (0.15, 1.21, 0.03), (0.02, 0.8, 0.2)):
-            x = numpy.array(aAI(jr, Lzq, jz, angler, 1.0, 2.0))
-            xb = numpy.array(base(jr, Lzq, jz, angler, 1.0, 2.0))
+            x = _staeckel_inverse_xv(aAI, jr, Lzq, jz, angler, 1.0, 2.0)
+            xb = _staeckel_inverse_xv(base, jr, Lzq, jz, angler, 1.0, 2.0)
             assert numpy.amax(numpy.fabs(x - xb)) < 1e-9, (
                 "An adaptive reference curve changes the family of an exact "
                 "Staeckel potential"
             )
-            Om = numpy.array(aAI.Freqs(jr, Lzq, jz))
-            Omb = numpy.array(base.Freqs(jr, Lzq, jz))
+            Om = numpy.array([as_numpy(o) for o in aAI.Freqs(jr, Lzq, jz)])
+            Omb = numpy.array([as_numpy(o) for o in base.Freqs(jr, Lzq, jz)])
             assert numpy.amax(numpy.fabs(Om / Omb - 1.0)) < 1e-10, (
                 "An adaptive reference curve changes the frequencies of an exact "
                 "Staeckel potential"
             )
         assert (
-            numpy.fabs(aAI.JR(E, Lz, I3) - base.JR(E, Lz, I3)) < 1e-10
-            and numpy.fabs(aAI.Jz(E, Lz, I3) - base.Jz(E, Lz, I3)) < 1e-10
+            numpy.fabs(
+                float(as_numpy(aAI.JR(E, Lz, I3))) - float(as_numpy(base.JR(E, Lz, I3)))
+            )
+            < 1e-10
+            and numpy.fabs(
+                float(as_numpy(aAI.Jz(E, Lz, I3))) - float(as_numpy(base.Jz(E, Lz, I3)))
+            )
+            < 1e-10
         ), "The integrals entry point does not run in the local chart"
     # the charts of a wrapped potential wrap the raw one: the same family
     aAW = actionAngleStaeckelInverse(
@@ -12738,8 +12770,8 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
     assert (
         numpy.amax(
             numpy.fabs(
-                numpy.array(aAW(0.06, 0.93, 0.10, angler, 1.0, 2.0))
-                - numpy.array(aAI(0.06, 0.93, 0.10, angler, 1.0, 2.0))
+                _staeckel_inverse_xv(aAW, 0.06, 0.93, 0.10, angler, 1.0, 2.0)
+                - _staeckel_inverse_xv(aAI, 0.06, 0.93, 0.10, angler, 1.0, 2.0)
             )
         )
         < 1e-12
@@ -12761,8 +12793,8 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
     )
     aAF = actionAngleStaeckelInverse(pot=lp, delta=0.8, u0="fit", **wide)
     aAD = actionAngleStaeckelInverse(pot=lp, delta=0.8, **wide)
-    xF = numpy.array(aAF(0.3, 1.9, 0.1, angler, 1.0, 2.0))
-    xD = numpy.array(aAD(0.3, 1.9, 0.1, angler, 1.0, 2.0))
+    xF = _staeckel_inverse_xv(aAF, 0.3, 1.9, 0.1, angler, 1.0, 2.0)
+    xD = _staeckel_inverse_xv(aAD, 0.3, 1.9, 0.1, angler, 1.0, 2.0)
     assert numpy.amax(numpy.fabs(xF - xD)) > 1e-4, (
         "The adaptive reference curve did not move the family of a general potential"
     )
@@ -12798,6 +12830,7 @@ def test_actionAngleStaeckelInverse_target():
     # same number of nodes then reproduces the target far better than the
     # default box does, and tori outside the box are refused
     from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
     from galpy.orbit import Orbit
 
     pot = _staeckel_inverse_potential()
@@ -12819,7 +12852,15 @@ def test_actionAngleStaeckelInverse_target():
     )
     wide = actionAngleStaeckelInverse(**kw)
     loc = actionAngleStaeckelInverse(target=o(ts), **kw)
-    rows = numpy.array([o(ts).R(), o(ts).vR(), o(ts).vT(), o(ts).z(), o(ts).vz()]).T
+    rows = numpy.array(
+        [
+            as_numpy(o(ts).R()),
+            as_numpy(o(ts).vR()),
+            as_numpy(o(ts).vT()),
+            as_numpy(o(ts).z()),
+            as_numpy(o(ts).vz()),
+        ]
+    ).T
     labels = [aAS.actionsFreqsAngles(*row, 0.0) for row in rows]
 
     def miss(aAI, row, lab):
@@ -12854,10 +12895,12 @@ def test_actionAngleStaeckelInverse_target():
     with pytest.raises(ValueError, match="outside the interpolation grid"):
         loc.JR(E, Lz, I3 + 0.5)
     with pytest.raises(ValueError, match="circular face"):
-        loc.JR(wide._circular(Lz)["Ec"], Lz, I3)
+        with use("numpy", force=True):  # the numpy closed form
+            Ec_wide = float(wide._circular(Lz)["Ec"])
+        loc.JR(Ec_wide, Lz, I3)
     assert (
-        numpy.fabs(loc.JR(E, Lz, I3) - jr) < 1e-7
-        and numpy.fabs(loc.Jz(E, Lz, I3) - jz) < 1e-7
+        numpy.fabs(float(as_numpy(loc.JR(E, Lz, I3))) - jr) < 1e-7
+        and numpy.fabs(float(as_numpy(loc.Jz(E, Lz, I3))) - jz) < 1e-7
     ), "The localized family's actions from the integrals are off"
     # a single point: the box has the minimum width and still holds it; an
     # Orbit and its own rows are the same target, with a phi column ignored
@@ -12871,9 +12914,9 @@ def test_actionAngleStaeckelInverse_target():
     circ = actionAngleStaeckelInverse(
         target=[1.0, 0.0, vcirc(pot, 1.0), 0.0, 0.0], **kw
     )
-    assert numpy.all(numpy.isfinite(circ.Freqs(0.0, vcirc(pot, 1.0), 0.0))), (
-        "The grid localized on a circular orbit does not reach the circular face"
-    )
+    assert numpy.all(
+        numpy.isfinite([as_numpy(o) for o in circ.Freqs(0.0, vcirc(pot, 1.0), 0.0)])
+    ), "The grid localized on a circular orbit does not reach the circular face"
     six = actionAngleStaeckelInverse(
         target=numpy.hstack((rows, 0.3 * numpy.ones((len(rows), 1)))), **kw
     )
@@ -12896,7 +12939,13 @@ def test_actionAngleStaeckelInverse_target():
     o2 = Orbit([0.9, -0.1, 1.15, -0.05, 0.1, 0.0])
     o2.integrate(ts, pot)
     rows2 = numpy.array(
-        [o2(ts).R(), o2(ts).vR(), o2(ts).vT(), o2(ts).z(), o2(ts).vz()]
+        [
+            as_numpy(o2(ts).R()),
+            as_numpy(o2(ts).vR()),
+            as_numpy(o2(ts).vT()),
+            as_numpy(o2(ts).z()),
+            as_numpy(o2(ts).vz()),
+        ]
     ).T
     big = actionAngleStaeckelInverse(
         target=numpy.vstack((rows, rows2)), target_pad=5.0, **kw

@@ -91,10 +91,11 @@ v2.0.0b2 (pre-release)
   tori (energy, radial action, the orbital parameters (a, e) with their
   first and second partials along the actions, and the radius, momentum,
   flux and cumulative radial action in the eccentric anomaly with their
-  partials) as private methods, which ``actionAngleSphericalInverse`` uses
-  for the auxiliary tori it lifts onto; its own evaluation now takes (a, e)
-  and the radial profile from these, with the eccentricity in a product
-  form that is exact down to the circular orbit (a round-off-level change),
+  partials) as private methods, which ``actionAngleSphericalInverse`` and
+  ``actionAngleStaeckelInverse`` use for the auxiliary tori they lift onto;
+  its own evaluation now takes (a, e) and the radial profile from these,
+  with the eccentricity in a product form that is exact down to the
+  circular orbit (a round-off-level change),
   and is split at Kepler's equation so that a caller that knows the
   eccentric anomaly already, as the spherical inverse does from its anomaly
   map, does not solve it again.
