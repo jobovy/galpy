@@ -947,7 +947,10 @@ _VERT_VX = numpy.array([0.2, 0.15, -0.1, 0.2, 0.0, 1.5, -0.3, -0.3, 0.3])
 @pytest.mark.parametrize("potname", list(_VERT_POTS))
 def test_vertical_parity(backend, potname):
     # numpy <-> jax <-> torch parity of _evaluate (J), _actionsFreqs (J,Omega),
-    # and _actionsFreqsAngles (J,Omega,angle) over generic + edge-case ICs.
+    # and _actionsFreqsAngles (J,Omega,angle) over generic + edge-case ICs: the
+    # same quadratures, so to round-off (the turning points from the backend
+    # brentq and numpy's bisection differ in the last bits, which the
+    # frequency's integrand near the turning point amplifies to ~3e-14)
     aAV = actionAngleVertical(pot=_VERT_POTS[potname])
     bx, bvx = _arr(backend, _VERT_X), _arr(backend, _VERT_VX)
     for ref, got in (
@@ -963,11 +966,49 @@ def test_vertical_parity(backend, potname):
                 d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
                     2.0 * numpy.pi
                 ) - numpy.pi
-                numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+                numpy.testing.assert_allclose(d, 0.0, atol=1e-13)
             else:
                 numpy.testing.assert_allclose(
-                    as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                    as_numpy(g), numpy.asarray(r), rtol=1e-13, atol=0.0
                 )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_vertical_tiny_tori(backend):
+    # The smallest tori of a vertical potential measured from the midplane,
+    # whose energy above the minimum is within the potential's round-off, on a
+    # backend: E - Phi and the turning point from the integral of the force
+    # (as numpy), so numpy's values to round-off, the harmonic frequency in
+    # the limit, the derivative dJ/dvx = vx / Omega, and (jax) the same under
+    # jit
+    from galpy.potential import MWPotential2014, toVerticalPotential, verticalfreq
+
+    aAV = actionAngleVertical(pot=toVerticalPotential(MWPotential2014, 1.0))
+    nu0 = verticalfreq(MWPotential2014, 1.0)
+    vzs = numpy.array([1e-3, 1e-5, 1e-7, 1e-9])
+    x, vx = 0.3 * vzs / nu0, 0.95 * vzs
+    ref = aAV._actionsFreqsAngles(x, vx)
+    got = aAV._actionsFreqsAngles(_arr(backend, x), _arr(backend, vx))
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-14, atol=0.0)
+    assert numpy.all(numpy.fabs(as_numpy(got[1])[2:] / nu0 - 1.0) < 1e-12)
+    if backend == "jax":
+        f = jax.jit(lambda a, b: jnp.stack(aAV._actionsFreqsAngles(a, b)))
+        numpy.testing.assert_allclose(
+            numpy.asarray(f(jnp.asarray(x), jnp.asarray(vx))),
+            numpy.stack(ref),
+            rtol=1e-14,
+            atol=0.0,
+        )
+        dJ = numpy.asarray(
+            jax.grad(lambda v: aAV._evaluate(jnp.asarray(x), v).sum())(jnp.asarray(vx))
+        )
+    else:
+        vt = torch.tensor(vx, requires_grad=True)
+        (dJ,) = torch.autograd.grad(aAV._evaluate(torch.tensor(x), vt).sum(), vt)
+        dJ = as_numpy(dJ)
+    numpy.testing.assert_allclose(dJ, vx / ref[1], rtol=1e-10, atol=0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

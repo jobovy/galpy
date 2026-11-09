@@ -10,6 +10,20 @@ v2.0.0b2 (pre-release)
   differentiable, with the torus's frequencies as its derivatives in the
   actions, and traceable under ``jax.jit``.
 
+- ``actionAngleVertical`` evaluates arrays of points at once: the turning
+  points by a vectorized bisection and the action, frequency and angle by
+  fixed-order Gauss-Legendre quadrature in the variable sqrt(xmax - x), in
+  which the integrands are regular at the turning point, instead of an
+  adaptive quadrature per point (a hundred times faster for a population,
+  agreeing with the previous results to 1e-12). Near the turning point, and
+  throughout a torus too small for the potential's own round-off, E - Phi is
+  computed from the integral of the force instead of a difference of
+  potentials, so that the smallest tori of a vertical potential measured
+  from the midplane keep their digits. The jax and PyTorch backends share
+  these quadratures (so they agree with numpy to round-off) and the force
+  form of E - Phi, and differentiate the smallest tori's turning points to
+  round-off as well.
+
 - The isochrone auxiliary of ``actionAngleSphericalInverse`` and
   ``actionAngleStaeckelInverse`` is now fitted to the potential's rotation
   curve by a converged least squares (the amplitude eliminated in closed

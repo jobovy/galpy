@@ -450,7 +450,9 @@ def test_derivatives_wrt_potential_parameters(backend, name, p0, kw):
     # the construction is differentiable in the potential's parameters: the
     # (x, v, Omega) of a torus of fixed action at fixed angles, against a
     # 5-point FD of the backend construction itself (numpy's calcxmax roots are
-    # too noisy for a sharper reference than ~1e-8)
+    # too noisy for a sharper reference than ~1e-8); h = 1e-3, since the
+    # construction's values are noisy at ~1.4e-13 in the parameter, ~2e-10 in
+    # the FD at that step (3e-4 put the FD's noise at the tolerance)
     from galpy.actionAngle import actionAngleVerticalInverse
 
     J0 = 0.11
@@ -464,7 +466,7 @@ def test_derivatives_wrt_potential_parameters(backend, name, p0, kw):
         x, v, O = out(_arr(backend, p))
         return numpy.concatenate([as_numpy(x), as_numpy(v), [float(as_numpy(O))]])
 
-    h = 3e-4
+    h = 1e-3
     fd = (-num(p0 + 2 * h) + 8 * num(p0 + h) - 8 * num(p0 - h) + num(p0 - 2 * h)) / (
         12 * h
     )
@@ -614,11 +616,14 @@ def test_legacy_values_match_numpy(backend, mode, interp):
     from galpy.actionAngle import actionAngleVerticalInverse
     from galpy.potential import KGPotential
 
+    # angle_tol: numpy's root of the angle relation to round-off, as sharp as
+    # the backend's polished one (the default 1e-12 leaves ~3e-13 in x)
     kw = dict(
         pot=KGPotential(K=1.0, F=0.5, D=0.5),
         Es=numpy.linspace(0.0, 0.6, 31) if interp else [0.1, 0.3],
         nta=64,
         setup_interp=interp,
+        angle_tol=1e-15,
         **_LEGACY_MODES[mode],
     )
     aA = actionAngleVerticalInverse(**kw)
@@ -661,11 +666,14 @@ def test_legacy_derivatives_vs_finite_difference(backend, mode):
     from galpy.actionAngle import actionAngleVerticalInverse
     from galpy.potential import KGPotential
 
+    # angle_tol: numpy's values to round-off (the default 1e-12 leaves ~3e-13
+    # in x, which the FD would amplify to ~1e-9)
     aA = actionAngleVerticalInverse(
         pot=KGPotential(K=1.0, F=0.5, D=0.5),
         Es=numpy.linspace(0.0, 0.6, 31),
         nta=64,
         setup_interp=True,
+        angle_tol=1e-15,
         **_LEGACY_MODES[mode],
     )
     j0, h, n = float(aA.J(0.27)), 3e-4, len(_ANGLES)
