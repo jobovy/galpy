@@ -966,13 +966,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         return None
 
-    def _interp_tables(self, jr, L):
-        """Solve the implicit inverse label (u from (J_r, L) by root-finding
-        on the stored J_r interpolant -- exact-in-the-family, so canonicity
-        is untouched) and return the frequencies and the map's tables with
-        their derivatives, all the interpolants' own, combined into the
-        chains at fixed L and at fixed J_r that the evaluation needs, for
-        all the (J_r, L) tori at once, with one row per torus"""
+    def _label_of(self, jr, L):
+        """The grid coordinate u of the tori (J_r, L), by inverting the stored
+        J_r(u, L) interpolant: exact in the family, so canonicity is
+        untouched; returns the broadcast (J_r, L) with J_r clipped to the
+        grid's own nodes to round-off, and u, one entry per torus"""
         jr, L = numpy.broadcast_arrays(
             numpy.atleast_1d(numpy.asarray(jr, dtype="float")),
             numpy.atleast_1d(numpy.asarray(L, dtype="float")),
@@ -1024,6 +1022,16 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 x0=ulo + (uhi - ulo) * numpy.sqrt((jr - jlo) / (jhi - jlo)),
             )
             u = numpy.where(jr == jlo, ulo, numpy.where(jr == jhi, uhi, u))
+        return jr, L, u
+
+    def _interp_tables(self, jr, L):
+        """Solve the implicit inverse label (u from (J_r, L) by root-finding
+        on the stored J_r interpolant -- exact-in-the-family, so canonicity
+        is untouched) and return the frequencies and the map's tables with
+        their derivatives, all the interpolants' own, combined into the
+        chains at fixed L and at fixed J_r that the evaluation needs, for
+        all the (J_r, L) tori at once, with one row per torus"""
+        jr, L, u = self._label_of(jr, L)
         _, jr_dx, djr_dL = self._jr_ip.points_grad(u * u, L)
         djr_du = 2.0 * u * jr_dx
         _, dE_dx, dE_dL = self._E_of_uL(u, L)
@@ -1180,6 +1188,55 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 "setup_interp=True to interpolate)"
             )
         return ii[0] if scalar else ii
+
+    @conversion.physical_conversion("energy", pop=True)
+    def E(self, jr, L, **kwargs):
+        """
+        Return the energy of the torus with radial action jr and total angular momentum L.
+
+        Parameters
+        ----------
+        jr : float, numpy.ndarray or Quantity
+            Radial action.
+        L : float, numpy.ndarray or Quantity
+            Total angular momentum; broadcasts against jr.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity
+            Energy of the torus, in the broadcast shape of jr and L (a float for scalars).
+
+        Notes
+        -----
+        - The inverse of ``Jr(E, L)``: for an interpolating instance
+          (setup_interp=True), any (jr, L) within the grid, by inverting the
+          family's own J_r(u, L) interpolant and evaluating the grid's
+          E(u, L), so that E(Jr(E, L), L) returns E to round-off; for an
+          instance set up with explicit tori, (jr, L) must be one of them.
+        - 2026-11-09 - Written - Bovy (UofT)
+        """
+        jr = conversion.parse_angmom(jr, ro=self._ro, vo=self._vo)
+        L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(L) == 0
+        jr, L = numpy.broadcast_arrays(
+            numpy.atleast_1d(numpy.asarray(jr, dtype="float")),
+            numpy.atleast_1d(numpy.asarray(L, dtype="float")),
+        )
+        if not self._interp:
+            out = numpy.empty(jr.shape)
+            for idx in numpy.ndindex(jr.shape):
+                dev = numpy.fabs(self._jrs - jr[idx]) + numpy.fabs(self._Ls - L[idx])
+                ii = numpy.argmin(dev)
+                if dev[ii] > 1e-10 * (1.0 + numpy.fabs(jr[idx]) + numpy.fabs(L[idx])):
+                    raise ValueError(
+                        f"(J_r, L) = ({jr[idx]}, {L[idx]}) is not one of the set-up "
+                        "tori; to use interpolation, initialize with setup_interp=True"
+                    )
+                out[idx] = self._Es[ii]
+        else:
+            _, Lf, u = self._label_of(jr.ravel(), L.ravel())
+            out = self._E_of_uL(u, Lf)[0].reshape(jr.shape)
+        return float(out.flat[0]) if scalar else out
 
     # ---------- the public inverse map
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):

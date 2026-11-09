@@ -212,7 +212,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 # J(E) and E(J) at energies between the grid tori, from the
                 # same Hermite energy interpolant whose derivative is the
                 # frequency, so that E, J, and Freqs agree exactly
-                self.E = self._mm_E
+                self._E_ip = self._mm_E
                 self.J = self._mm_J_of_E
             return None
         if (
@@ -2036,7 +2036,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._nSnFiltered = ndimage.spline_filter(self._nSn, order=3)
         self._dSndJFiltered = ndimage.spline_filter(self._dSndJ, order=3)
         self.J = interpolate.InterpolatedUnivariateSpline(self._Es, self._js, k=3)
-        self.E = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
+        self._E_ip = interpolate.InterpolatedUnivariateSpline(self._js, self._Es, k=3)
         self.jaoffset = interpolate.InterpolatedUnivariateSpline(
             self._Es, self._jaoffset, k=3
         )
@@ -2380,6 +2380,52 @@ class actionAngleVerticalInverse(actionAngleInverse):
             )
         return self._js[indx]
 
+    @conversion.physical_conversion("energy", pop=True)
+    def E(self, j, **kwargs):
+        """
+        Return the energy of the torus with action j.
+
+        Parameters
+        ----------
+        j : float, numpy.ndarray or Quantity
+            Action.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity
+            Energy of the torus (a float for a scalar action).
+
+        Notes
+        -----
+        - The inverse of ``J(E)``: for an interpolating instance
+          (setup_interp=True), any action within the family, from the
+          family's own interpolant E(J), which for the momentum-matched
+          construction is the Hermite interpolant that is exact at the nodes
+          and has the frequency as its slope; for an instance set up with
+          explicit tori, j must be the action of one of them.
+        - 2026-11-09 - Written - Bovy (UofT)
+        """
+        j = conversion.parse_angmom(j, ro=self._ro, vo=self._vo)
+        if not self._interp:
+            indx = numpy.nanargmin(numpy.fabs(j - self._js))
+            if numpy.fabs(j - self._js[indx]) > 1e-10 * (1.0 + numpy.fabs(j)):
+                raise ValueError(
+                    "Given action not found; please specify the action of a torus used in the initialization of the instance"
+                )
+            return self._Es[indx]
+        jj = numpy.asarray(j, dtype="float")
+        if len(self._js) > 1:
+            # a one-node family is linear in J by construction and extends to
+            # any action; a grid does not extend beyond its nodes
+            tol = 1e-12 * (1.0 + numpy.fabs(jj))
+            if numpy.any(jj < self._js[0] - tol) or numpy.any(jj > self._js[-1] + tol):
+                raise ValueError(
+                    f"action outside the family's range [{self._js[0]}, {self._js[-1]}]"
+                )
+            jj = numpy.clip(jj, self._js[0], self._js[-1])
+        out = self._E_ip(jj)
+        return float(out) if jj.ndim == 0 else numpy.asarray(out)
+
     def _evaluate(self, j, angle, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
@@ -2484,7 +2530,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tptcoeffs = self._pt_coeffs[indx]
             tptderivcoeffs = self._pt_deriv_coeffs[indx]
         else:
-            tE = self.E(j)
+            tE = self._E_ip(j)
             tjaoffset = float(self.jaoffset(tE))
             tnSn = self.nSn(tE)[0]
             tdSndJ = self.dSndJ(tE)[0]
@@ -2680,7 +2726,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 )
             tOmega = self._Omegas[indx]
         else:
-            tE = self.E(j)
+            tE = self._E_ip(j)
             tOmega = self.Omega(tE)
         return tOmega
 
