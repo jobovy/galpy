@@ -382,9 +382,13 @@ def test_derivatives_wrt_potential_parameters(mode):
     # backend construction itself (its roots are polished; numpy's stop at
     # brentq's xtol), for the amplitude of the Kuzmin-Kutuzov potential, on
     # an interpolated family and on explicit tori (at the torus's own (E, L_z,
-    # I_3)). The finite differences' own floor is ~2e-9 here: their stencil
-    # error grows as h^4 above h = 3e-4 and their noise as 1/h below.
-    p0, h = 4.0, 3e-4
+    # I_3)). The explicit tori's finite differences have their floor, ~3e-9,
+    # at h = 3e-4: their stencil error grows as h^4 above it and their noise
+    # (~2e-12 in the values) as 1/h below; the interpolated family's stencil
+    # error stays below that noise up to h = 1e-2, where they agree to 1e-10
+    # (at 3e-4 the noise alone put them up to 1e-8 off)
+    p0 = 4.0
+    h, atol = (1e-2, 1e-9) if mode == "interp" else (3e-4, 5e-9)
     pt = torch.tensor(p0, requires_grad=True)
     y = _param_out(_param_family(pt, mode), mode)
     g = numpy.array(
@@ -397,7 +401,7 @@ def test_derivatives_wrt_potential_parameters(mode):
     def num(p):
         return as_numpy(_param_out(_param_family(torch.tensor(p), mode), mode).detach())
 
-    numpy.testing.assert_allclose(g, _fd(num, p0, h), rtol=0.0, atol=5e-9)
+    numpy.testing.assert_allclose(g, _fd(num, p0, h), rtol=0.0, atol=atol)
 
 
 @pytest.mark.skipif(jax is None or torch is None, reason="jax and torch needed")
