@@ -204,6 +204,44 @@ def test_J_and_E_inverses(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("kind", ["interp", "two_tori", "legacy"])
+def test_public_energy(backend, kind):
+    # E(j) on a backend: the numpy E to round-off, as an array for arrays and
+    # a 0-d array for a scalar, with derivative dE/dJ = Omega (between the
+    # nodes of an interpolated family, at an explicit torus of a
+    # momentum-matched or a torus-mapping instance); an action outside the
+    # family, or not among the set-up tori, raises
+    if kind == "interp":
+        aA = _aAVI(setup_interp=True)
+    elif kind == "two_tori":
+        aA = _aAVI(Es=[0.1, 0.3])
+    else:
+        aA = _aAVI(Es=[0.1, 0.3], momentum_matched=False)
+    js = numpy.asarray(aA._js)
+    j = 0.5 * (js[2] + js[3]) if kind == "interp" else js[1]
+    if kind == "interp":
+        got = aA.E(_arr(backend, js))
+        assert _is_backend(backend, got) and tuple(got.shape) == js.shape
+        numpy.testing.assert_allclose(as_numpy(got), aA.E(js), rtol=0.0, atol=1e-14)
+    got = aA.E(_arr(backend, j))
+    assert _is_backend(backend, got) and got.ndim == 0
+    assert abs(float(as_numpy(got)) - aA.E(j)) < 1e-14
+    if backend == "jax":
+        dEdj = float(jax.grad(aA.E)(jnp.asarray(j)))
+    else:
+        jt = _arr(backend, j, grad=True)
+        (dEdj,) = torch.autograd.grad(aA.E(jt), jt)
+    Om = aA.Freqs(j) if kind == "interp" else aA._Omegas[1]
+    assert abs(float(dEdj) / float(Om) - 1.0) < 1e-12
+    if kind == "interp":
+        with pytest.raises(ValueError, match="outside the family's range"):
+            aA.E(_arr(backend, 2.0 * js[-1]))
+    else:
+        with pytest.raises(ValueError, match="Given action not found"):
+            aA.E(_arr(backend, 1.5 * j))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_float32_in_float32_out(backend):
     # computed in float64, returned in the dtype of a float32 input
     aA = _aAVI(setup_interp=True)
