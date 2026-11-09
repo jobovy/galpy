@@ -15,6 +15,10 @@ v1.12.2 (expected around 2027-03-01)
   smooth disc was off by a third at R = 0.05 delta and the tabulated force
   of a cusped bulge by a quarter at R = 0.02; both are now at spline
   accuracy for a smooth potential and within a few percent for a cusp.
+  Where the force vanishes at the centre, as a smooth potential's does, the
+  dU/du node keeps its exact value, zero (the extrapolation misses it by its
+  cubic term), so the tabulated force of a smooth potential is right down to
+  the axis: a part in 1e6 at R = 1e-5 at ``ntab=100``.
 
 - Ellipsoidal potentials (TriaxialNFWPotential, PerfectEllipsoidPotential,
   ...) failed to evaluate their forces and second derivatives, and with them
