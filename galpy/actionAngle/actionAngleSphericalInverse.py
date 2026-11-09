@@ -1272,8 +1272,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """(J, theta) -> (x, v) and the frequencies, for actions and angles
-        that broadcast against each other (one torus at many angles, many
-        tori each at their own angle, or anything in between): the tables
+        that broadcast against each other by numpy's rules (scalar actions
+        with arrays of angles: one torus at those angles; arrays of actions
+        with scalar angles: that angle on every torus; equal shapes: paired
+        element by element, each star on its own torus at its own angle;
+        actions of shape (n,1) with angles of shape (m,): every angle on
+        every torus as (n,m) arrays): the tables
         are read once per distinct torus; for each requested radial angle
         the anomaly is solved for, the two companion angles are shifted by
         the map's L-compensation, the full 3-D reconstruction is delegated
