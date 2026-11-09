@@ -31,8 +31,11 @@ from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
+    _chunked,
     _offset_spec_coeffs,
     _progress,
+    _safeguarded_newton,
+    _sdot,
     _sine_galerkin,
     _sine_project,
     _sine_series,
@@ -187,7 +190,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return evaluatePotentials(self._pot, r, 0.0, use_physical=False)
 
     def _rc(self, L):
-        """Radius of the circular orbit with angular momentum L, cached"""
+        """Radius of the circular orbit with angular momentum L: cached for
+        a single L, solved for all at once for an array"""
+        if numpy.ndim(L) > 0:
+            if numpy.size(L) == 1:  # a single torus: through the cache
+                return numpy.array([self._rc(float(numpy.ravel(L)[0]))])
+            return rl(self._pot, L, use_physical=False)
         if L not in self._rc_cache:
             self._rc_cache[L] = rl(self._pot, L, use_physical=False)
         return self._rc_cache[L]
@@ -363,8 +371,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         derivative, and the sine matrix sin(m tau) it is built from"""
         mt = tau[:, None] * self._nforDm[None, :]
         smt = numpy.sin(mt)
-        eta = tau + smt @ Dm
-        deta = 1.0 + numpy.cos(mt) @ (self._nforDm * Dm)
+        eta = tau + _sdot(smt, Dm)
+        deta = 1.0 + _sdot(numpy.cos(mt), self._nforDm * Dm)
         return eta, deta, smt
 
     def _momentum_matched_lift(self, tau, r, pr, rp, ra, L):
@@ -830,14 +838,30 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     def _r0(self, E, rlo, rhi):
         """The apocentre of the radial orbit of energy E, Phi(r_0) = E,
-        bracketed by [rlo, rhi]"""
-        return brentq(lambda r: self._Phi(r) - E, rlo, rhi, xtol=1e-14)
+        bracketed by [rlo, rhi]; for an array of energies, by bisection on
+        all of them at once"""
+        if numpy.ndim(E) == 0:
+            return brentq(lambda r: self._Phi(r) - E, rlo, rhi, xtol=1e-14)
+        lo, hi = numpy.broadcast_arrays(
+            numpy.asarray(rlo, dtype="float"), numpy.asarray(rhi, dtype="float")
+        )
+        return _safeguarded_newton(
+            lambda r: (self._Phi(r) - E, self._rdPhi(r) / r), lo, hi, 1e-14
+        )
 
     def _r0c(self, L):
         """The apocentre of the radial orbit at the circular orbit's energy,
         r_0(E_c(L)) (above r_c, since E_c exceeds Phi(r_c) by the centrifugal
         term), and its derivative along L by the level-set rule, dr_0/dL =
-        (dE_c/dL)/Phi'(r_0); cached"""
+        (dE_c/dL)/Phi'(r_0); cached for a single L, solved for all at once
+        for an array"""
+        if numpy.ndim(L) > 0:
+            if numpy.size(L) == 1:  # a single torus: through the cache
+                r0, g0 = self._r0c(float(numpy.ravel(L)[0]))
+                return numpy.array([r0]), numpy.array([g0])
+            Ec, _ = self._Ec(L)
+            r0 = self._r0(Ec, self._rc(L), self._Rinf + 0.0 * L)
+            return r0, self._rdPhi(r0)
         if L not in self._r0c_cache:
             Ec, dEc = self._Ec(L)
             r0 = self._r0(Ec, self._rc(L), self._Rinf)
@@ -970,10 +994,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     # ---------- evaluation: the manifest chain
     def _check_L(self, L):
-        """Raise for an angular momentum outside the family's grid"""
-        if L < self._Lgrid[0] or L > self._Lgrid[-1]:
+        """Raise for an angular momentum outside the family's grid (for an
+        array, the first one outside it)"""
+        L = numpy.atleast_1d(L)
+        bad = (L < self._Lgrid[0]) | (L > self._Lgrid[-1])
+        if numpy.any(bad):
             raise ValueError(
-                f"L = {L} outside the interpolation grid "
+                f"L = {L[numpy.argmax(bad)]} outside the interpolation grid "
                 f"[{self._Lgrid[0]}, {self._Lgrid[-1]}]"
             )
         return None
@@ -983,28 +1010,61 @@ class actionAngleSphericalInverse(actionAngleInverse):
         on the stored J_r interpolant -- exact-in-the-family, so canonicity
         is untouched) and return the frequencies and the map's tables with
         their derivatives, all the interpolants' own, combined into the
-        chains at fixed L and at fixed J_r that the evaluation needs"""
+        chains at fixed L and at fixed J_r that the evaluation needs, for
+        all the (J_r, L) tori at once, with one row per torus"""
+        jr, L = numpy.broadcast_arrays(
+            numpy.atleast_1d(numpy.asarray(jr, dtype="float")),
+            numpy.atleast_1d(numpy.asarray(L, dtype="float")),
+        )
         self._check_L(L)
         ulo, uhi = self._us[0], self._us[-1]
-        jlo = self._jr_ip(ulo**2, L)[0, 0]
-        jhi = self._jr_ip(uhi**2, L)[0, 0]
+        jlo = self._jr_ip.points(ulo**2 + 0.0 * L, L)
+        jhi = self._jr_ip.points(uhi**2 + 0.0 * L, L)
         tol = 1e-12 * (1.0 + numpy.fabs(jr))
-        if jr < jlo - tol or jr > jhi + tol:
+        bad = (jr < jlo - tol) | (jr > jhi + tol)
+        if numpy.any(bad):
+            ii = numpy.argmax(bad)
             raise ValueError(
-                f"J_r = {jr} outside the interpolated family's range "
-                f"[{jlo}, {jhi}] at L = {L}"
+                f"J_r = {jr[ii]} outside the interpolated family's range "
+                f"[{jlo[ii]}, {jhi[ii]}] at L = {L[ii]}"
             )
-        jr = min(max(jr, jlo), jhi)  # the grid's own nodes, to round-off
+        jr = numpy.clip(jr, jlo, jhi)  # the grid's own nodes, to round-off
+
         # J_r is monotone in u; the root is found in u rather than in the
         # interpolant's own variable x = u^2, because J_r ~ u^2 at the
         # circular edge and a tiny radial action must resolve to a small u,
-        # not to zero (brentq returns an end point at which the residual
-        # vanishes exactly, so the grid's edges need no case)
-        u = brentq(lambda uu: self._jr_ip(uu * uu, L)[0, 0] - jr, ulo, uhi, xtol=1e-15)
-        x = u * u
-        jr_dx = self._jr_ip(x, L, dx=1)[0, 0]
+        # not to zero: for a single torus by a bracketed scalar solve on the
+        # interpolant (brentq returns an end point at which the residual
+        # vanishes exactly, so the grid's edges need no case), for many
+        # tori by safeguarded Newton steps on all of them at once, to
+        # round-off, with the grid's edges exact
+        if len(jr) == 1:
+            u = numpy.array(
+                [
+                    brentq(
+                        lambda uu: self._jr_ip(uu * uu, L[0])[0, 0] - jr[0],
+                        ulo,
+                        uhi,
+                        xtol=1e-15,
+                    )
+                ]
+            )
+        else:
+
+            def _label(uu):
+                val, der = self._jr_ip.points_dx(uu * uu, L)
+                return val - jr, 2.0 * uu * der
+
+            u = _safeguarded_newton(
+                _label,
+                ulo + 0.0 * jr,
+                uhi + 0.0 * jr,
+                1e-15,
+                x0=ulo + (uhi - ulo) * numpy.sqrt((jr - jlo) / (jhi - jlo)),
+            )
+            u = numpy.where(jr == jlo, ulo, numpy.where(jr == jhi, uhi, u))
+        _, jr_dx, djr_dL = self._jr_ip.points_grad(u * u, L)
         djr_du = 2.0 * u * jr_dx
-        djr_dL = self._jr_ip(x, L, dy=1)[0, 0]
         _, dE_dx, dE_dL = self._E_of_uL(u, L)
         # chains at fixed L resp. fixed J_r, all from the stored
         # interpolants' own derivatives; the frequencies with the common
@@ -1012,19 +1072,16 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # down to the circular edge
         OmR = dE_dx / jr_dx
         OmL = dE_dL - OmR * djr_dL
-        sup = self._sup_ip(u, L)[0, 0]
-        dsup_du = self._sup_ip(u, L, dx=1)[0, 0]
-        dsup_dL = self._sup_ip(u, L, dy=1)[0, 0]
-        Dm = self._Dm_ip(u, L)[0, 0]
-        dDm_du = self._Dm_ip(u, L, dx=1)[0, 0]
-        dDm_dL = self._Dm_ip(u, L, dy=1)[0, 0]
+        sup, dsup_du, dsup_dL = self._sup_ip.points_grad(u, L)
+        Dm, dDm_du, dDm_dL = self._Dm_ip.points_grad(u, L)
+        cJ, cL = 1.0 / djr_du[:, None], (djr_dL / djr_du)[:, None]
         ptdata = {
             "sup": sup,
-            "dsupJ": dsup_du / djr_du,
-            "dsupL": dsup_dL - dsup_du * djr_dL / djr_du,
+            "dsupJ": dsup_du * cJ,
+            "dsupL": dsup_dL - dsup_du * cL,
             "Dm": Dm,
-            "dDmJ": dDm_du / djr_du,
-            "dDmL": dDm_dL - dDm_du * djr_dL / djr_du,
+            "dDmJ": dDm_du * cJ,
+            "dDmL": dDm_dL - dDm_du * cL,
         }
         return u, OmR, OmL, ptdata
 
@@ -1038,7 +1095,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         alpha in chains (the J_r-chain at fixed L and the L-chain at fixed
         J_r, each given as (da, de, drp, dra, dDm)), the compensation
         p^A (dr^A/dalpha)|_tau - p_r (dr/dalpha)|_tau. Also returns
-        d theta^A_r / d tau for the Newton solve of the angle relation."""
+        d theta^A_r / d tau for the Newton solve of the angle relation.
+        The torus's parameters and tables are either one set for all
+        anomalies or one per anomaly (arrays along the first axis)."""
         eta, deta, smt = self._map(tau, Dm)
         se, ce = numpy.sin(eta), numpy.cos(eta)
         rA, pA, gA = self._aAIinv._profile(a, e, eta)
@@ -1055,7 +1114,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         drA_da, drA_de = self._aAIinv._radius_partials(a, e, eta)
         comps = []
         for da, de, drp, dra, dDm in chains:
-            drA = drA_da * da + drA_de * de + gA * se * (smt @ dDm)
+            drA = drA_da * da + drA_de * de + gA * se * _sdot(smt, dDm)
             dr = drp * (1.0 + ct) / 2.0 + dra * (1.0 - ct) / 2.0
             comps.append(pA * drA - pr * dr)
         return eta, thetaA, dthetaA, r, pr, comps
@@ -1064,35 +1123,53 @@ class actionAngleSphericalInverse(actionAngleInverse):
         """Newton solve of theta_r(tau) = theta^A_r(tau) + [compensation
         along the J_r-chain](tau) for the anomaly of each requested angle,
         on the derivative of the auxiliary angle alone (the compensation is
-        a small correction), vectorized over the angles, with a bracketed
+        a small correction), vectorized over the angles, each on its own
+        torus (the parameters and tables have one row per angle, or one row
+        for all), with the residual wrapped into (-pi, pi] so that an
+        anomaly that crosses the pericentre converges to the equivalent
+        angle, converged angles dropped from the iteration, and a bracketed
         scalar fallback for any angle that does not converge within maxiter
         iterations"""
+        tables = (a, e, Dm, rp, ra) + tuple(chainJ)
+        n = len(thr)
 
-        def _f(x):
+        def _rows(idx):
+            # those angles' rows of every per-angle table; a table shared by
+            # all angles (one row) is kept as it is
+            return tuple(
+                t[idx] if numpy.ndim(t) >= 1 and numpy.shape(t)[0] == n and n > 1 else t
+                for t in tables
+            )
+
+        def _f(x, tabs):
             _, thetaA, dthetaA, _, _, (compJ,) = self._kernel(
-                x, a, e, Dm, rp, ra, chains=(chainJ,)
+                x, *tabs[:5], chains=(tabs[5:],)
             )
             return thetaA + compJ, dthetaA
 
         x = numpy.array(thr, dtype="float")
+        active = numpy.ones(n, dtype="bool")
         for _ in range(self._maxiter):
-            f, fp = _f(x)
-            f = f - thr
-            x += numpy.clip(-f / fp, -0.5, 0.5)
-            if numpy.max(numpy.fabs(f)) < self._angle_tol:
+            idx = numpy.flatnonzero(active)
+            f, fp = _f(x[idx], _rows(idx))
+            f = (f - thr[idx] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            conv = numpy.fabs(f) < self._angle_tol
+            x[idx] += numpy.clip(-f / fp, -0.5, 0.5) * ~conv
+            active[idx[conv]] = False
+            if not numpy.any(active):
                 break
         else:
             # theta_r(tau) - tau is periodic and bounded, so [theta - s,
-            # theta + s] with s beyond its extreme is a guaranteed bracket
-            f = _f(x)[0] - thr
-            bad = numpy.flatnonzero(numpy.fabs(f) >= self._angle_tol)
+            # theta + s] with s beyond its extreme is a guaranteed bracket;
+            # one angle at a time, on that angle's own torus
             xscan = numpy.linspace(0.0, 2.0 * numpy.pi, 256, endpoint=False)
-            sc = numpy.max(numpy.fabs(_f(xscan)[0] - xscan)) + 0.1
-            for ii in bad:
+            for ii in numpy.flatnonzero(active):
                 thri = thr[ii]
+                tabs = _rows(numpy.array([ii]))
+                sc = numpy.max(numpy.fabs(_f(xscan, tabs)[0] - xscan)) + 0.1
 
                 def _fi(xx):
-                    return _f(numpy.array([xx]))[0][0] - thri
+                    return _f(numpy.array([xx]), tabs)[0][0] - thri
 
                 x[ii] = brentq(_fi, thri - sc, thri + sc, xtol=1e-15, maxiter=200)
         return x
@@ -1118,16 +1195,24 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
 
     def _match_node(self, jr, L):
-        """Locate the explicit torus with actions (J_r, L)"""
-        dev = numpy.fabs(self._jrs - jr) + numpy.fabs(self._Ls - L)
-        ii = numpy.argmin(dev)
-        if dev[ii] > 1e-8 * (1.0 + numpy.fabs(jr) + numpy.fabs(L)):
+        """Locate the explicit torus (tori, for arrays) with actions (J_r, L)"""
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(L) == 0
+        jr, L = numpy.broadcast_arrays(numpy.atleast_1d(jr), numpy.atleast_1d(L))
+        dev = numpy.fabs(self._jrs[None, :] - jr[:, None]) + numpy.fabs(
+            self._Ls[None, :] - L[:, None]
+        )
+        ii = numpy.argmin(dev, axis=1)
+        bad = dev[numpy.arange(len(ii)), ii] > 1e-8 * (
+            1.0 + numpy.fabs(jr) + numpy.fabs(L)
+        )
+        if numpy.any(bad):
+            kk = numpy.argmax(bad)
             raise ValueError(
-                f"(J_r, L) = ({jr}, {L}) is not one of the set-up tori; "
+                f"(J_r, L) = ({jr[kk]}, {L[kk]}) is not one of the set-up tori; "
                 "discrete mode evaluates the stored tori only (use "
                 "setup_interp=True to interpolate)"
             )
-        return ii
+        return ii[0] if scalar else ii
 
     # ---------- the public inverse map
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
@@ -1186,20 +1271,49 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return self._jr_ip(min(x, 1.0), L)[0, 0]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
-        """(J, theta) -> (x, v): solve for the anomaly of each requested
-        radial angle, shift the two companion angles by the map's
-        L-compensation, delegate the full 3-D reconstruction to the analytic
-        isochrone inverse (L^A = L, so the plane geometry is the auxiliary's
-        own), and undo the lift"""
-        jr, jphi, jz = float(jr), float(jphi), float(jz)
-        L = jz + numpy.fabs(jphi)
-        angler, anglephi, anglez = numpy.broadcast_arrays(
-            numpy.atleast_1d(angler).astype(float),
-            numpy.atleast_1d(anglephi).astype(float),
-            numpy.atleast_1d(anglez).astype(float),
+        """(J, theta) -> (x, v) and the frequencies, for actions and angles
+        that broadcast against each other (one torus at many angles, many
+        tori each at their own angle, or anything in between): the tables
+        are read once per distinct torus; for each requested radial angle
+        the anomaly is solved for, the two companion angles are shifted by
+        the map's L-compensation, the full 3-D reconstruction is delegated
+        to the analytic isochrone inverse at the kernel's eccentric anomaly
+        (L^A = L, so the plane geometry is the auxiliary's own), and the
+        lift is undone; a single torus returns its frequencies as floats"""
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
+        jr, jphi, jz, angler, anglephi, anglez = numpy.broadcast_arrays(
+            *(
+                numpy.atleast_1d(numpy.asarray(t, dtype="float"))
+                for t in (jr, jphi, jz, angler, anglephi, anglez)
+            )
         )
-        thr = angler % (2.0 * numpy.pi)
-        if jr == 0.0:
+        shape = jr.shape
+        out = numpy.stack(
+            _chunked(
+                self._xvFreqs_points,
+                jr.size,
+                *(
+                    t.ravel()
+                    for t in (jr, jphi, jz, angler % (2.0 * numpy.pi), anglephi, anglez)
+                ),
+            )
+        ).reshape((9,) + shape)
+        if scalar:
+            return (*out[:6], *(float(o.flat[0]) for o in out[6:]))
+        return tuple(out)
+
+    def _xvFreqs_points(self, jr, jphi, jz, thr, anglephi, anglez):
+        """The evaluation at flat arrays of actions and angles of one length:
+        the circular orbits by closed form, the librating tori through the
+        kernel with one row of tables per angle"""
+        L = jz + numpy.fabs(jphi)
+        if self._interp:
+            self._check_L(L)
+        else:
+            jr = self._jrs[self._match_node(jr, L)]  # the stored tori, to round-off
+        out = numpy.empty((9, len(jr)))
+        circ = jr == 0.0
+        if numpy.any(circ):
             # the circular orbit: the point sits at the circular radius with
             # no radial motion, and the requested radial angle is the
             # epicyclic phase, which does not enter. The plane geometry is
@@ -1209,92 +1323,132 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # angle variable there); its own circular orbit is degenerate
             # for it, so a moderately eccentric auxiliary torus is used and
             # the lift undone with the circular radius
-            if self._interp:
-                self._check_L(L)
-            else:
-                self._match_node(jr, L)
-            rc, OmR, OmL = self._circular(L)
-            out = self._unlift(
+            Lc = L[circ]
+            rc, OmR, OmL = self._circular(Lc)
+            out[:6, circ] = self._unlift(
                 self._aAIinv._xvFreqs_from_eta(
-                    0.1 * L, jphi, jz, 0.0 * thr, anglephi, anglez
+                    0.1 * Lc,
+                    jphi[circ],
+                    jz[circ],
+                    0.0 * Lc,
+                    anglephi[circ],
+                    anglez[circ],
                 )[:6],
-                rc + 0.0 * thr,
-                0.0 * thr,
+                rc,
+                0.0 * Lc,
             )
-            return (*out, OmR, numpy.sign(jphi) * OmL, OmL)
-        if self._interp:
-            _, OmR, OmL, ptdata = self._interp_tables(jr, L)
-            Dm, (rp, ra) = ptdata["Dm"], ptdata["sup"]
-            (drpJ, draJ), (drpL, draL) = ptdata["dsupJ"], ptdata["dsupL"]
-            dDmJ, dDmL = ptdata["dDmJ"], ptdata["dDmL"]
-        else:
-            # an explicit torus is a one-node family: its own values and
-            # exact slopes stand in for the interpolants', the slopes in
-            # (E, L) chained to J_r at fixed L and to L at fixed J_r
-            # through the torus's frequencies (dE = Omega_r dJ_r +
-            # Omega_psi dL)
-            ii = self._match_node(jr, L)
-            jr = self._jrs[ii]
-            OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
-            Dm, rp, ra = self._Dms[ii], self._rps[ii], self._ras[ii]
-            dDmJ = self._dDm_dEs[ii] * OmR
-            dDmL = self._dDm_dLs[ii] + self._dDm_dEs[ii] * OmL
-            drpE, drpLE = self._turning_point_derivs(rp, self._Es[ii], L)
-            draE, draLE = self._turning_point_derivs(ra, self._Es[ii], L)
-            drpJ, draJ = drpE * OmR, draE * OmR
-            drpL, draL = drpLE + drpE * OmL, draLE + draE * OmL
-        a, e = self._aAIinv._orbital_params(jr, L)
-        # the J_r-chain at fixed L compensates theta_r, the L-chain at
-        # fixed J_r the psi-angles, both through the auxiliary torus's
-        # parameters, the turning points, and the map's coefficients
-        _, _, daJ, deJ = self._aAIinv._orbital_param_chains(jr, L, 1.0, 0.0)
-        _, _, daL, deL = self._aAIinv._orbital_param_chains(jr, L, 0.0, 1.0)
-        chainJ = (daJ, deJ, drpJ, draJ, dDmJ)
-        chainL = (daL, deL, drpL, draL, dDmL)
-        taus = self._tau_solve(thr, a, e, Dm, rp, ra, chainJ)
-        eta, _, _, r, pr, (Delta,) = self._kernel(
-            taus, a, e, Dm, rp, ra, chains=(chainL,)
-        )
-        thetaAz = anglez - Delta
-        thetaAphi = anglephi - numpy.sign(jphi) * Delta
-        # the three-dimensional reconstruction on the auxiliary torus, in one
-        # vectorized call at the kernel's eccentric anomaly (the auxiliary has
-        # the requested actions, and its radial angle follows from eta, so
-        # Kepler's equation is not solved again), then the lift undone with
-        # the kernel's radius and radial momentum
-        out = self._unlift(
-            self._aAIinv._xvFreqs_from_eta(jr, jphi, jz, eta, thetaAphi, thetaAz)[:6],
-            r,
-            pr,
-        )
-        return (
-            out[0],
-            out[1],
-            out[2],
-            out[3],
-            out[4],
-            out[5],
-            OmR,
-            numpy.sign(jphi) * OmL,
-            OmL,
-        )
+            out[6, circ], out[7, circ], out[8, circ] = (
+                OmR,
+                numpy.sign(jphi[circ]) * OmL,
+                OmL,
+            )
+        lib = ~circ
+        if numpy.any(lib):
+            jrl, Ll = jr[lib], L[lib]
+            # the tables once per distinct torus, then one row per point
+            tori, inv = numpy.unique(
+                numpy.stack([jrl, Ll], axis=1), axis=0, return_inverse=True
+            )
+            inv = inv.ravel()
+            jru, Lu = tori[:, 0], tori[:, 1]
+            if self._interp:
+                _, OmRu, OmLu, pt = self._interp_tables(jru, Lu)
+                Dmu, dDmJu, dDmLu = pt["Dm"], pt["dDmJ"], pt["dDmL"]
+                (rpu, rau), (drpJu, draJu), (drpLu, draLu) = (
+                    pt["sup"].T,
+                    pt["dsupJ"].T,
+                    pt["dsupL"].T,
+                )
+            else:
+                # an explicit torus is a one-node family: its own values and
+                # exact slopes stand in for the interpolants', the slopes in
+                # (E, L) chained to J_r at fixed L and to L at fixed J_r
+                # through the torus's frequencies (dE = Omega_r dJ_r +
+                # Omega_psi dL)
+                ii = self._match_node(jru, Lu)
+                OmRu, OmLu = self._OmRs[ii], self._Ompsis[ii]
+                Dmu, rpu, rau = self._Dms[ii], self._rps[ii], self._ras[ii]
+                dDmJu = self._dDm_dEs[ii] * OmRu[:, None]
+                dDmLu = self._dDm_dLs[ii] + self._dDm_dEs[ii] * OmLu[:, None]
+                drpE, drpLE = self._turning_point_derivs(rpu, self._Es[ii], Lu)
+                draE, draLE = self._turning_point_derivs(rau, self._Es[ii], Lu)
+                drpJu, draJu = drpE * OmRu, draE * OmRu
+                drpLu, draLu = drpLE + drpE * OmLu, draLE + draE * OmLu
+            a, e = self._aAIinv._orbital_params(jru, Lu)
+            # the J_r-chain at fixed L compensates theta_r, the L-chain at
+            # fixed J_r the psi-angles, both through the auxiliary torus's
+            # parameters, the turning points, and the map's coefficients
+            _, _, daJ, deJ = self._aAIinv._orbital_param_chains(jru, Lu, 1.0, 0.0)
+            _, _, daL, deL = self._aAIinv._orbital_param_chains(jru, Lu, 0.0, 1.0)
+            # one row of tables per angle, unless all angles share one torus,
+            # whose single row then broadcasts
+            rows = (lambda t: t) if len(jru) == 1 else (lambda t: t[inv])
+            a, e, Dm, rp, ra = (rows(t) for t in (a, e, Dmu, rpu, rau))
+            chainJ = tuple(rows(t) for t in (daJ, deJ, drpJu, draJu, dDmJu))
+            chainL = tuple(rows(t) for t in (daL, deL, drpLu, draLu, dDmLu))
+            taus = self._tau_solve(thr[lib], a, e, Dm, rp, ra, chainJ)
+            eta, _, _, r, pr, (Delta,) = self._kernel(
+                taus, a, e, Dm, rp, ra, chains=(chainL,)
+            )
+            # the three-dimensional reconstruction on the auxiliary torus, in
+            # one vectorized call at the kernel's eccentric anomaly (the
+            # auxiliary has the requested actions, and its radial angle
+            # follows from eta, so Kepler's equation is not solved again),
+            # then the lift undone with the kernel's radius and radial
+            # momentum
+            out[:6, lib] = self._unlift(
+                self._aAIinv._xvFreqs_from_eta(
+                    jrl,
+                    jphi[lib],
+                    jz[lib],
+                    eta,
+                    anglephi[lib] - numpy.sign(jphi[lib]) * Delta,
+                    anglez[lib] - Delta,
+                )[:6],
+                r,
+                pr,
+            )
+            out[6, lib], out[7, lib], out[8, lib] = (
+                OmRu[inv],
+                numpy.sign(jphi[lib]) * OmLu[inv],
+                OmLu[inv],
+            )
+        return tuple(out)
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
-        """Frequencies of the (J_r, L) torus: in interpolation mode these
-        are the stored energy interpolant's own derivatives through the
-        label chain (the integrator contract); for explicit tori the
-        torus's own quadrature values"""
-        jr, jphi, jz = float(jr), float(jphi), float(jz)
+        """Frequencies of the (J_r, L) tori, for actions that broadcast
+        against each other: in interpolation mode these are the stored
+        energy interpolant's own derivatives through the label chain (the
+        integrator contract); for explicit tori the tori's own quadrature
+        values; floats for a single torus"""
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
+        jr, jphi, jz = numpy.broadcast_arrays(
+            *(numpy.atleast_1d(numpy.asarray(t, dtype="float")) for t in (jr, jphi, jz))
+        )
+        shape = jr.shape
+        jr, jphi, jz = (t.ravel() for t in (jr, jphi, jz))
         L = jz + numpy.fabs(jphi)
-        if jr == 0.0:
-            if self._interp:
-                self._check_L(L)
-            else:
-                self._match_node(jr, L)
-            _, OmR, OmL = self._circular(L)
-        elif self._interp:
-            _, OmR, OmL, _ = self._interp_tables(jr, L)
+        if self._interp:
+            self._check_L(L)
         else:
             ii = self._match_node(jr, L)
-            OmR, OmL = self._OmRs[ii], self._Ompsis[ii]
-        return (OmR, numpy.sign(jphi) * OmL, OmL)
+            jr = self._jrs[ii]
+        OmR, OmL = numpy.empty(len(jr)), numpy.empty(len(jr))
+        circ = jr == 0.0
+        if numpy.any(circ):
+            _, OmR[circ], OmL[circ] = self._circular(L[circ])
+        lib = ~circ
+        if numpy.any(lib):
+            if self._interp:
+                _, OmR[lib], OmL[lib], _ = self._interp_tables(jr[lib], L[lib])
+            else:
+                OmR[lib], OmL[lib] = self._OmRs[ii[lib]], self._Ompsis[ii[lib]]
+        OmR, OmL = OmR.reshape(shape), OmL.reshape(shape)
+        sgn = numpy.sign(jphi).reshape(shape)
+        if scalar:
+            return (
+                float(OmR.flat[0]),
+                float(sgn.flat[0] * OmL.flat[0]),
+                float(OmL.flat[0]),
+            )
+        return (OmR, sgn * OmL, OmL)
