@@ -177,14 +177,27 @@ class actionAngleVertical(actionAngle):
     # computed as the integral of the force over [x, xmax], because the
     # direct difference loses digits there for a torus that is small
     # compared to the scale of the potential.
+    def _call(self, func, x):
+        """The potential or force at the array x: in one call where the
+        potential's implementation takes arrays, and element by element where
+        it does not (a vertical potential wraps a 3D one at a float radius,
+        and some 3D potentials branch on scalars)"""
+        try:
+            return func(self._pot, x, use_physical=False)
+        except (ValueError, TypeError):
+            x = numpy.asarray(x, dtype="float")
+            return numpy.array(
+                [func(self._pot, xx, use_physical=False) for xx in x.ravel()]
+            ).reshape(x.shape)
+
     def _points(self, x, vx):
         """The points as float arrays, their energies, their turning points, and which are bound"""
         x = numpy.atleast_1d(numpy.asarray(x, dtype="float"))
         vx = numpy.atleast_1d(numpy.asarray(vx, dtype="float"))
         x, vx = numpy.broadcast_arrays(x, vx)
-        Phix = evaluatelinearPotentials(self._pot, x, use_physical=False)
+        Phix = self._call(evaluatelinearPotentials, x)
         E = vx**2.0 / 2.0 + Phix
-        Phi0 = evaluatelinearPotentials(self._pot, 0.0, use_physical=False)
+        Phi0 = self._call(evaluatelinearPotentials, 0.0)
         # a torus whose energy above the minimum is within the potential's
         # round-off, amplified to the accuracy asked, has its turning point
         # found from the force as well
@@ -202,9 +215,9 @@ class actionAngleVertical(actionAngle):
         of the terms it subtracts)"""
         if not hasattr(self, "_phi_roundoff_value"):
             xs = numpy.logspace(-6.0, -2.0, 17)
-            direct = evaluatelinearPotentials(
-                self._pot, xs, use_physical=False
-            ) - evaluatelinearPotentials(self._pot, 0.0, use_physical=False)
+            direct = self._call(evaluatelinearPotentials, xs) - self._call(
+                evaluatelinearPotentials, 0.0
+            )
             byforce = self._dPhi(numpy.zeros_like(xs), xs)
             self._phi_roundoff_value = float(numpy.max(numpy.fabs(direct - byforce)))
         return self._phi_roundoff_value
@@ -223,15 +236,15 @@ class actionAngleVertical(actionAngle):
         hi = numpy.where(lo > 0.0, 2.0 * lo, 1e-5)
         Et = E[todo]
         for _ in range(80):
-            below = evaluatelinearPotentials(self._pot, hi, use_physical=False) < Et
+            below = self._call(evaluatelinearPotentials, hi) < Et
             if not numpy.any(below):
                 break
             lo = numpy.where(below, hi, lo)
             hi = numpy.where(below, 2.0 * hi, hi)
-        unbound = evaluatelinearPotentials(self._pot, hi, use_physical=False) < Et
+        unbound = self._call(evaluatelinearPotentials, hi) < Et
         for _ in range(80):
             mid = 0.5 * (lo + hi)
-            below = evaluatelinearPotentials(self._pot, mid, use_physical=False) < Et
+            below = self._call(evaluatelinearPotentials, mid) < Et
             lo = numpy.where(below, mid, lo)
             hi = numpy.where(below, hi, mid)
         root = 0.5 * (lo + hi)
@@ -246,7 +259,7 @@ class actionAngleVertical(actionAngle):
         which is Phi(xmax) - Phi(x) without cancellation (a torus small
         compared to the potential's scale uses it at every node)"""
         xi = xmax[:, None] - t2
-        Phi = evaluatelinearPotentials(self._pot, xi, use_physical=False)
+        Phi = self._call(evaluatelinearPotentials, xi)
         diff = E[:, None] - Phi
         near = diff < numpy.maximum(
             _FORCE_BELOW * numpy.maximum(numpy.fabs(E[:, None]), numpy.fabs(Phi)),
@@ -268,8 +281,7 @@ class actionAngleVertical(actionAngle):
             0.5
             * dx
             * numpy.sum(
-                _FORCE_WEIGHTS
-                * (-evaluatelinearForces(self._pot, xx, use_physical=False)),
+                _FORCE_WEIGHTS * (-self._call(evaluatelinearForces, xx)),
                 axis=-1,
             )
         )
