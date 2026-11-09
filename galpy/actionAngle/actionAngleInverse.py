@@ -19,7 +19,9 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("__call__", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) at the given actions and angles, which broadcast against each other: one torus at many angles, or many tori each at their own angle.
+        Evaluate the phase-space coordinates (x,v) at the given actions and angles.
+
+        The actions and the angles broadcast against each other by numpy's rules: scalar actions with arrays of angles evaluate one torus at those angles; arrays of actions with scalar angles evaluate that angle on every torus; arrays of the same shape are paired element by element, each star on its own torus at its own angle; and actions of shape (n,1) with angles of shape (m,) return every angle on every torus as (n,m) arrays.
 
         Parameters
         ----------
@@ -58,7 +60,9 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("xvFreqs", pop=True)
     def xvFreqs(self, *args, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) and the frequencies at the given actions and angles, which broadcast against each other: one torus at many angles, or many tori each at their own angle.
+        Evaluate the phase-space coordinates (x,v) and the frequencies at the given actions and angles.
+
+        The actions and the angles broadcast against each other by numpy's rules: scalar actions with arrays of angles evaluate one torus at those angles; arrays of actions with scalar angles evaluate that angle on every torus; arrays of the same shape are paired element by element, each star on its own torus at its own angle; and actions of shape (n,1) with angles of shape (m,) return every angle on every torus as (n,m) arrays.
 
         Parameters
         ----------

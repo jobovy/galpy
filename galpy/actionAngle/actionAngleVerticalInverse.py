@@ -1247,8 +1247,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Parameters
         ----------
         j : float or numpy.ndarray
-            Action(s); broadcast against the angles, so that one torus is
-            evaluated at many angles, or many tori each at their own angle.
+            Action(s). The actions and the angles broadcast against each
+            other by numpy's rules: a scalar action with an array of angles
+            evaluates one torus at those angles; an array of actions with a
+            scalar angle evaluates that angle on every torus; arrays of the
+            same shape are paired element by element, each star on its own
+            torus at its own angle; and actions of shape (n,1) with angles
+            of shape (m,) return every angle on every torus as (n,m) arrays.
         angle : float or numpy.ndarray
             Angle(s).
 
@@ -2409,7 +2414,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Parameters
         ----------
         j : float or numpy.ndarray
-            Action(s), broadcast against the angles.
+            Action(s). The actions and the angles broadcast against each
+            other by numpy's rules: a scalar action with an array of angles
+            evaluates one torus at those angles; an array of actions with a
+            scalar angle evaluates that angle on every torus; arrays of the
+            same shape are paired element by element, each star on its own
+            torus at its own angle; and actions of shape (n,1) with angles
+            of shape (m,) return every angle on every torus as (n,m) arrays.
         angle : float or numpy.ndarray
             Angle(s).
 
@@ -2432,7 +2443,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
     def _xvFreqs(self, j, angle, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) and the frequency at the given actions and angles, which broadcast against each other (one torus at many angles, or many tori; the latter in the momentum-matched mode only).
+        Evaluate the phase-space coordinates (x,v) and the frequency at the given actions and angles.
+
+        The actions and the angles broadcast against each other by numpy's rules (arrays of actions in the momentum-matched mode only): a scalar action with an array of angles evaluates one torus at those angles; an array of actions with a scalar angle evaluates that angle on every torus; arrays of the same shape are paired element by element, each star on its own torus at its own angle; and actions of shape (n,1) with angles of shape (m,) return every angle on every torus as (n,m) arrays.
 
         Parameters
         ----------
