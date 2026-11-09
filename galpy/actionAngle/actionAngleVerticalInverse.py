@@ -288,48 +288,24 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._init_mm_backend(xp_bk, mm_npt, mm_nta)
             self._mm_setup_interp(setup_interp)
             return None
-        js = numpy.empty(self._nE)
+        # the actions, frequencies and turning points of all tori at once,
+        # from the forward transformation; a torus at the potential's minimum
+        # (J = 0) takes the harmonic limit's frequency from a torus a
+        # round-off above it, which the forward transformation resolves
+        Phi0 = evaluatelinearPotentials(self._pot, 0.0, use_physical=False)
+        dE0 = self._Es - Phi0
+        zero = dE0 < 1e-14
+        js = numpy.zeros(self._nE)
         Omegas = numpy.empty(self._nE)
-        xmaxs = numpy.empty(self._nE)
-        for ii, E in enumerate(self._Es):
-            if (
-                E - evaluatelinearPotentials(self._pot, 0.0, use_physical=False)
-            ) < 1e-14:
-                # J=0, should be using vertical freq. from 2nd deriv.
-                tJ, tO = self._aAV.actionsFreqs(
-                    0.0,
-                    numpy.sqrt(
-                        2.0
-                        * (
-                            E
-                            + 1e-5
-                            - evaluatelinearPotentials(
-                                self._pot, 0.0, use_physical=False
-                            )
-                        )
-                    ),
-                )
-                js[ii] = 0.0
-                Omegas[ii] = tO[0]
-                xmaxs[ii] = 0.0
-                continue
-            tJ, tO = self._aAV.actionsFreqs(
-                0.0,
-                numpy.sqrt(
-                    2.0
-                    * (E - evaluatelinearPotentials(self._pot, 0.0, use_physical=False))
-                ),
-            )
-            js[ii] = tJ[0]
-            Omegas[ii] = tO[0]
-            xmaxs[ii] = self._aAV.calcxmax(
-                0.0,
-                numpy.sqrt(
-                    2.0
-                    * (E - evaluatelinearPotentials(self._pot, 0.0, use_physical=False))
-                ),
-                E=E,
-            )
+        xmaxs = numpy.zeros(self._nE)
+        if numpy.any(~zero):
+            vs = numpy.sqrt(2.0 * dE0[~zero])
+            js[~zero], Omegas[~zero] = self._aAV.actionsFreqs(numpy.zeros_like(vs), vs)
+            xmaxs[~zero] = self._aAV._points(numpy.zeros_like(vs), vs)[3]
+        if numpy.any(zero):
+            Omegas[zero] = self._aAV.actionsFreqs(
+                0.0, numpy.sqrt(2.0e-12 * (1.0 + numpy.fabs(Phi0)))
+            )[1][0]
         self._js = js
         self._Omegas = Omegas
         self._xmaxs = xmaxs
@@ -690,6 +666,16 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._pt_deriv2_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=2)
         return None
 
+    def _mm_p2(self, E, xmax, x):
+        """2 [E - Phi(x)] along the torus (E, xmax) at the sampled positions x,
+        through the forward transformation's radicand, which takes the
+        integral of the force over [|x|, xmax] wherever the potential's own
+        round-off would spoil the difference of potentials: the smallest tori
+        of a vertical potential measured from the midplane are then sampled
+        to full precision and their maps converge"""
+        t2 = numpy.clip(xmax - numpy.fabs(x), 0.0, None)
+        return self._aAV._rad(t2[None, :], numpy.array([xmax]), numpy.array([E]))[0]
+
     def _mm_sweep(self, E, xmax, mm_nta):
         """
         Sample a torus in its anomaly: positions, signed momenta, action
@@ -728,13 +714,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         tau = 2.0 * numpy.pi * numpy.arange(mm_nta) / mm_nta
         x = -xmax * numpy.cos(tau)
         sintau = numpy.sin(tau)
-        p = numpy.sign(sintau) * numpy.sqrt(
-            numpy.clip(
-                2.0 * (E - evaluatelinearPotentials(self._pot, x, use_physical=False)),
-                0.0,
-                None,
-            )
-        )
+        p = numpy.sign(sintau) * numpy.sqrt(self._mm_p2(E, xmax, x))
         g = p * xmax * sintau
         J = numpy.mean(g)
         k = numpy.fft.fftfreq(mm_nta, d=1.0 / mm_nta)
@@ -808,15 +788,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         tau, x, p, g, J, A, Om = self._mm_sweep(E, xmax, mm_nta)
         ms = 2 * numpy.arange(1, mm_npt + 1)
         S = numpy.sin(tau[:, None] * ms[None, :])
+        # the residuals in units of the action, so that the solver's
+        # tolerances, which are absolute on the gradient, mean the same for a
+        # torus of any size (a tiny torus has residuals of order J and would
+        # otherwise be declared converged at the start, with no map fitted)
+        scale = J if J > 0.0 else 1.0
 
         def _resid(D):
             eta = tau + S @ D
-            return J * (eta - numpy.sin(eta) * numpy.cos(eta)) - A
+            return (J * (eta - numpy.sin(eta) * numpy.cos(eta)) - A) / scale
 
         def _jac(D):
             # d resid / d D_m = J (1 - cos 2 eta) sin(m tau) = 2 J sin^2(eta) sin(m tau)
             eta = tau + S @ D
-            return (2.0 * J * numpy.sin(eta) ** 2.0)[:, None] * S
+            return (2.0 * J / scale * numpy.sin(eta) ** 2.0)[:, None] * S
 
         sol = optimize.least_squares(
             _resid,
@@ -974,9 +959,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
         parameters. All tori are processed at once:
 
         * the turning points by the backend brentq (actionAngleVertical);
-        * the sweep of each torus as in _mm_sweep, with the momentum set to 0
-          on the anomaly samples AT the turning points (where its sqrt would
-          have an infinite derivative);
+        * the sweep of each torus as in _mm_sweep (the momentum through the
+          forward transformation's radicand, as _mm_p2), with the momentum
+          set to 0 on the anomaly samples AT the turning points (where its
+          sqrt would have an infinite derivative);
         * the anomaly map by Gauss-Newton on the matching condition from
           D = 0 (the numpy path uses scipy's least_squares to the same
           solution, to ~3e-15): _MM_GN_ITERS iterations without the gradient,
@@ -1062,7 +1048,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
             unbound = xp.abs(Ep - _phi(xmax)) > 1e-10 * (1.0 + xp.abs(Ep))
             xmax = xp.where(unbound, 1.0, xmax)
             X = -xmax[:, None] * ct
-            u = 2.0 * (Ep[:, None] - _phi(X))
+            # 2 (E - Phi) through the forward transformation's radicand (as
+            # _mm_p2), which takes the integral of the force where the
+            # potential's round-off would spoil the difference
+            gap = xmax[:, None] - xp.abs(X)
+            u = self._aAV._rad(xp.where(gap > 0.0, gap, 0.0 * gap), xmax, Ep)
             live = ~turn & (u > 0.0)
             p = xp.where(live, sgn * xp.sqrt(xp.where(live, u, 1.0)), 0.0)
             g = p * xmax[:, None] * st
@@ -1242,13 +1232,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ms = 2.0 * numpy.arange(1, len(D) + 1)
         tau = 2.0 * numpy.pi * numpy.arange(mm_nta) / mm_nta
         x = -xmax * numpy.cos(tau)
-        p = numpy.sign(numpy.sin(tau)) * numpy.sqrt(
-            numpy.clip(
-                2.0 * (E - evaluatelinearPotentials(self._pot, x, use_physical=False)),
-                0.0,
-                None,
-            )
-        )
+        p = numpy.sign(numpy.sin(tau)) * numpy.sqrt(self._mm_p2(E, xmax, x))
         dPhi = -evaluatelinearForces(self._pot, x, use_physical=False)
         dxmaxdJ = Om / (-evaluatelinearForces(self._pot, xmax, use_physical=False))
         dxdJ = -dxmaxdJ * numpy.cos(tau)

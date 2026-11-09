@@ -10,6 +10,19 @@ v2.0.0b2 (pre-release)
   differentiable, with the torus's frequencies as its derivatives in the
   actions, and traceable under ``jax.jit``.
 
+- ``actionAngleVerticalInverse`` samples the momentum of each torus through
+  ``actionAngleVertical``'s radicand, so that the smallest tori of a vertical
+  potential measured from the midplane (below about 70 pc in height for
+  ``MWPotential2014``'s) are sampled to full precision, their anomaly maps
+  converge without the warning they used to raise, and their round trip
+  through the forward transformation holds (the anomaly-map fit is also
+  made dimensionless, since its absolute tolerances used to declare a tiny
+  torus converged before fitting anything); the actions, frequencies and
+  turning points of a family's tori are computed in one vectorized call, and
+  the torus at the potential's minimum takes the harmonic frequency. A
+  family built on the jax or PyTorch backend samples the momentum the same
+  way, and matches the numpy family to round-off for its smallest tori too.
+
 - ``actionAngleVertical`` evaluates arrays of points at once: the turning
   points by a vectorized bisection and the action, frequency and angle by
   fixed-order Gauss-Legendre quadrature in the variable sqrt(xmax - x), in
