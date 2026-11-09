@@ -100,11 +100,12 @@ def _fit_isochrone_vc2(rf, lnvc2, maxiter=100):
     derivatives (Gauss-Newton where the Hessian is not positive), the step
     clipped at 1/2 and beta kept in [ln 1e-8, ln(1e3 r_max)], from b_0 =
     sqrt(r_min r_max), until the step is below 1e-14 or beta sits at a
-    bound with the step pointing outward (not at all for a range below 1e-8
-    relative, a single radius to round-off, which every b fits); converges
-    in a handful of
-    iterations and is exact for an isochrone target. Returns (GM, b):
-    floats for numpy inputs, 0-d arrays for backend ones, which a traced
+    bound with the step pointing outward; converges in a handful of
+    iterations and is exact for an isochrone target. A rotation curve sampled
+    at a single radius to round-off (a family of one circular torus) is
+    fitted by any b, so the start b_0 = that radius is kept and GM is the
+    isochrone's through its v_c there. Returns (GM, b): floats for numpy
+    inputs, 0-d arrays for backend ones, which a traced
     construction thus fits on the device (each step frozen once converged,
     a lax.while_loop under a jax trace); stop_gradient those, the auxiliary
     being frozen."""
@@ -129,9 +130,10 @@ def _fit_isochrone_vc2(rf, lnvc2, maxiter=100):
         dq = -2.0 * t * (1.0 + t) * (1.0 - t**2)
         qc, dqc = q - xp.mean(q), dq - xp.mean(dq)
         g = xp.sum(rho * qc)
-        H = xp.sum(qc**2) + xp.sum(rho * dqc)
+        Hgn = xp.sum(qc**2)
+        H = Hgn + xp.sum(rho * dqc)
         # Gauss-Newton where the Hessian is not positive
-        H = xp.where(H > 0.0, H, xp.sum(qc**2))
+        H = xp.where(H > 0.0, H, Hgn)
         d = xp.clip(-g / H, -0.5, 0.5)
         # at a bound, with the step pointing outward, beta stays
         stop = done | ((beta <= lo) & (d < 0.0)) | ((beta >= hi) & (d > 0.0))
@@ -140,10 +142,12 @@ def _fit_isochrone_vc2(rf, lnvc2, maxiter=100):
         return xp.stack([beta, xp.where(stop, 1.0 + 0.0 * beta, 0.0 * beta)])
 
     beta = 0.5 * (xp.log(rf[0]) + xp.log(rf[-1]))
-    # a single radius, to round-off (a lone circular torus's range): every b
-    # fits it, and the start is kept
-    flat = rf[-1] - rf[0] <= 1e-8 * rf[-1]
-    x0 = xp.stack([beta, xp.where(flat, 1.0 + 0.0 * beta, 0.0 * beta)])
+    # a single radius to round-off (a lone circular torus's range): the
+    # curvature of the rotation curve, which pins b, enters at the square of
+    # the relative range and is lost below its square root, so every b fits
+    # and the start is kept (an iteration on round-off would wander)
+    single = rf[-1] - rf[0] <= 1e-8 * rf[-1]
+    x0 = xp.stack([beta, xp.where(single, 1.0 + 0.0 * beta, 0.0 * beta)])
     beta = iterate_to_fixed_point(_step, x0, maxiter)[0]
     b, _, h = _h(beta)
     GM = xp.exp(-xp.mean(h))
