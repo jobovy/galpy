@@ -26,19 +26,17 @@ void Rz_to_uv(double R,double z,double * u, double * v,double delta){
   // A = R^2 + z^2 - delta^2 (the difference of squares as a product) and
   // S = d1 d2 = sqrt(A^2 + 4 delta^2 R^2), sinh^2 u = (A + S)/(2 delta^2)
   // and sin^2 v = (S - A)/(2 delta^2), the cancelling one rationalized to
-  // 2 R^2/(S -+ A); cos v = 2 z/(d1 + d2) exactly; both exact zeros at a focus
+  // 2 R^2/(S -+ A); cos v = 2 z/(d1 + d2) exactly; at a focus, A = S = 0,
+  // sin^2 v is the exact zero the rationalized form would make 0/0
   double A, S, d1, d2, sinh2u, sin2v;
   A= R * R + ( z - delta ) * ( z + delta );
   S= sqrt( A * A + 4. * delta * delta * R * R );
   if ( A < 0. ) {
     sinh2u= 2. * R * R / ( S - A );
     sin2v= ( S - A ) / ( 2. * delta * delta );
-  } else if ( A > 0. ) {
-    sinh2u= ( A + S ) / ( 2. * delta * delta );
-    sin2v= 2. * R * R / ( S + A );
   } else {
-    sinh2u= S / ( 2. * delta * delta );
-    sin2v= S / ( 2. * delta * delta );
+    sinh2u= ( A + S ) / ( 2. * delta * delta );
+    sin2v= ( S + A > 0. ) ? 2. * R * R / ( S + A ) : 0.;
   }
   d1= sqrt( ( z + delta ) * ( z + delta ) + R * R );
   d2= sqrt( ( z - delta ) * ( z - delta ) + R * R );
