@@ -233,12 +233,9 @@ static inline void Rz_to_uv_vec(int ndata,
     if ( A < 0. ) {
       sinh2u= 2. * tR * tR / ( S - A );
       sin2v= ( S - A ) / ( 2. * tdelta * tdelta );
-    } else if ( A > 0. ) {
-      sinh2u= ( A + S ) / ( 2. * tdelta * tdelta );
-      sin2v= 2. * tR * tR / ( S + A );
     } else {
-      sinh2u= S / ( 2. * tdelta * tdelta );
-      sin2v= S / ( 2. * tdelta * tdelta );
+      sinh2u= ( A + S ) / ( 2. * tdelta * tdelta );
+      sin2v= ( S + A > 0. ) ? 2. * tR * tR / ( S + A ) : 0.;
     }
     d1= sqrt( ( tz + tdelta ) * ( tz + tdelta ) + tR * tR );
     d2= sqrt( ( tz - tdelta ) * ( tz - tdelta ) + tR * tR );
