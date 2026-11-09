@@ -17,7 +17,7 @@ import warnings
 from contextlib import contextmanager
 
 import numpy
-from scipy.optimize import brentq, minimize
+from scipy.optimize import brentq
 
 from ..backend import (
     as_numpy,
@@ -61,6 +61,7 @@ from .actionAngleInverseUtil import (
     _antiderivative_xp,
     _bk_matching,
     _const,
+    _fit_isochrone_vc2,
     _ns,
     _offset_spec_coeffs,
     _offset_spec_coeffs_xp,
@@ -97,32 +98,6 @@ def _cumulative(f):
     # gives the last coefficient the Nyquist weight
     cq = numpy.append(cq[: keep[-1] + 1], 0.0) if len(keep) > 0 else cq
     return m, q, cq, _spec_eval(cq, 0.0)[0]
-
-
-def _fit_vc2(rf, lnvc2, x0):
-    """The isochrone (GM, b) whose rotation curve fits ln v_c^2 at the radii
-    rf (zero-point free, log residuals), by Nelder-Mead from ln(GM, b) = x0"""
-
-    def _vc2cost(x):
-        GMf, bf = numpy.exp(x)
-        sf = numpy.sqrt(bf**2 + rf**2)
-        return numpy.sum((numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2)
-
-    res = minimize(_vc2cost, x0, method="Nelder-Mead")
-    return tuple(numpy.exp(res.x))
-
-
-def _fit_vc2_host(packed):
-    """_fit_vc2 on the host for a backend family: packed holds the start
-    ln(GM, b), the radii and ln v_c^2 along its last axis (any leading axes
-    are a vmap's), and the fitted (GM, b) come back in its first two slots"""
-    packed = numpy.asarray(packed, dtype="float")
-    out = numpy.zeros_like(packed)
-    flat, fout = packed.reshape(-1, packed.shape[-1]), out.reshape(-1, packed.shape[-1])
-    nr = (packed.shape[-1] - 2) // 2
-    for row, orow in zip(flat, fout):
-        orow[:2] = _fit_vc2(row[2 : 2 + nr], row[2 + nr :], row[:2])
-    return out
 
 
 def _parse_target(target):
@@ -948,16 +923,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         rlo = max(rlo, 1e-3 * rhi)
         rf = numpy.geomspace(rlo, rhi, 25)
-        lnvc2 = numpy.log(vcirc(self._staeckelwrap, rf, use_physical=False) ** 2)
-        return _fit_vc2(
-            rf,
-            lnvc2,
-            numpy.log(
-                [
-                    rhi * vcirc(self._staeckelwrap, rhi, use_physical=False) ** 2,
-                    0.1 * numpy.sqrt(rlo * rhi),
-                ]
-            ),
+        return _fit_isochrone_vc2(
+            rf, numpy.log(vcirc(self._staeckelwrap, rf, use_physical=False) ** 2)
         )
 
     # ---------- the momentum-matched maps and their lifts
@@ -2728,8 +2695,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # whose values its degenerate ones then replace: the circular orbit's two
     # at a higher energy, the shell orbit's u and the planar orbit's v at the
     # middle of the third integral's range (well-conditioned librations, whose
-    # matchings converge with the others'). The auxiliary is
-    # fitted on the host and frozen, as are an adaptive family's reference
+    # matchings converge with the others'). The auxiliary is fitted (on
+    # the device under a trace) and frozen, as are an adaptive family's reference
     # curves and a target's box (gauges: any choice gives a canonical map).
     # The root-finds go through the backend brentq, whose final Newton step
     # carries the implicit-function derivative; the checks and the warnings
@@ -3402,9 +3369,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return None
 
     def _bk_fit_auxiliary(self, xp, f64, concrete, uc, wu, wv):
-        """The auxiliary as _fit_auxiliary chooses it, fitted on the host
-        (_fit_vc2) to the rotation curve over the tori's radial range; frozen:
-        no derivative flows through it"""
+        """The auxiliary as _fit_auxiliary chooses it, fitted to the rotation
+        curve over the tori's radial range (_fit_isochrone_vc2, on the host
+        for a concrete family and on the device under a trace); frozen: no
+        derivative flows through it"""
         cat = getattr(xp, "concat", None) or xp.concatenate
         rlo = xp.min(self._delta * xp.sinh(uc - wu))
         rhi = xp.max(self._delta * xp.sqrt(xp.sinh(uc + wu) ** 2 + xp.sin(wv) ** 2))
@@ -3413,14 +3381,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             numpy.linspace(0.0, 1.0, 25)
         )
         rf = cat([xp.reshape(rlo, (1,)), xp.exp(lnr[1:-1]), xp.reshape(rhi, (1,))])
-        vc2 = vcirc(self._bk_plane_pot(), rf, use_physical=False) ** 2
-        x0 = xp.log(xp.stack([rhi * vc2[-1], 0.1 * xp.sqrt(rlo * rhi)]))
-        packed = stop_gradient(cat([x0, rf, xp.log(vc2)]))
+        lnvc2 = xp.log(vcirc(self._bk_plane_pot(), rf, use_physical=False) ** 2)
+        rf, lnvc2 = stop_gradient(rf), stop_gradient(lnvc2)
         if concrete:
-            pk = numpy.array(as_numpy(packed))
-            return tuple(float(t) for t in _fit_vc2(pk[2:27], pk[27:], pk[:2]))
-        fit = host_eval(_fit_vc2_host, packed)
-        return fit[0], fit[1]
+            return _fit_isochrone_vc2(*(numpy.array(as_numpy(t)) for t in (rf, lnvc2)))
+        return _fit_isochrone_vc2(rf, lnvc2)
 
     def _bk_setup_grid(self, xp, f64, concrete, Rmin, Rmax, Rinf, nE, nLz, nI3):
         """_setup_grid on a backend: the grid's relations at every (E, L_z)

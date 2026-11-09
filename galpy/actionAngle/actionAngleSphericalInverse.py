@@ -13,7 +13,7 @@
 import warnings
 
 import numpy
-from scipy.optimize import brentq, minimize
+from scipy.optimize import brentq
 
 from ..backend import (
     as_numpy,
@@ -24,7 +24,6 @@ from ..backend import (
     device_of,
     get_namespace,
     has_concrete_truth_value,
-    host_eval,
     is_backend_array,
     lazy_cond,
     match_input_dtype,
@@ -58,6 +57,7 @@ from .actionAngleInverseUtil import (
     _antiderivative_xp,
     _bk_matching,
     _chunked,
+    _fit_isochrone_vc2,
     _ns,
     _offset_spec_coeffs,
     _offset_spec_coeffs_xp,
@@ -86,58 +86,6 @@ def _bk_dot(xp, A, D):
     """sin(m tau) (or cos) of shape (n, M) times the coefficients D: one
     vector for all anomalies (a matrix product) or one row per anomaly"""
     return A @ D if D.ndim == 1 else xp.sum(A * D, axis=-1)
-
-
-def _fit_isochrone(L, rc, Ompsi_over_OmR, rf, lnvc2):
-    """The auxiliary's (GM, b): the isochrone whose rotation curve best fits
-    the potential's, ln v_c^2 = lnvc2 at the radii rf (geometrically spaced
-    over the sampled range), started from the isochrone that pins the central
-    torus's circular radius rc at its angular momentum L and its frequency
-    ratio Omega_psi / Omega_r"""
-    rho = min(max(Ompsi_over_OmR, 0.501), 0.999)
-
-    def _GM_rc_pinned(b):
-        # closed-form circular condition of the isochrone: the
-        # auxiliary's circular radius at L equals rc exactly
-        s = numpy.sqrt(b**2 + rc**2)
-        return L**2 * s * (b + s) ** 2 / rc**4
-
-    GM = _GM_rc_pinned(1e-8)
-    for _ in range(200):
-        b = max(((L / (2.0 * rho - 1.0)) ** 2 - L**2) / (4.0 * GM), 1e-8)
-        GMn = _GM_rc_pinned(b)
-        if abs(GMn - GM) < 1e-14 * (1.0 + GM):
-            break
-        GM = GMn
-    rlo, rhi = rf[0], rf[-1]
-
-    def _vc2cost(x):
-        GMf, bf = numpy.exp(x)
-        sf = numpy.sqrt(bf**2 + rf**2)
-        return numpy.sum((numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2)
-
-    res = minimize(
-        _vc2cost,
-        numpy.log([GM, max(b, 1e-3 * numpy.sqrt(rlo * rhi))]),
-        method="Nelder-Mead",
-    )
-    return tuple(numpy.exp(res.x))
-
-
-def _fit_isochrone_host(packed):
-    """_fit_isochrone on the host for a backend family: packed holds (L, rc,
-    Omega_psi / Omega_r, the radii, ln v_c^2) along its last axis (any leading
-    axes are a vmap's), and the fitted (GM, b) come back in its first two
-    slots"""
-    packed = numpy.asarray(packed, dtype="float")
-    out = numpy.zeros_like(packed)
-    flat, fout = packed.reshape(-1, packed.shape[-1]), out.reshape(-1, packed.shape[-1])
-    nr = (packed.shape[-1] - 3) // 2
-    for row, orow in zip(flat, fout):
-        orow[:2] = _fit_isochrone(
-            row[0], row[1], row[2], row[3 : 3 + nr], row[3 + nr :]
-        )
-    return out
 
 
 class actionAngleSphericalInverse(actionAngleInverse):
@@ -384,9 +332,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         auxiliary torus, so the auxiliary's only job is to be a
         well-conditioned global surrogate of the target. Unless one is
         given, its rotation curve is fitted to the target's over the
-        sampled radial range (two parameters, starting from the isochrone
-        whose circular radius and frequency ratio match the central
-        torus's). Every torus's truncated lift is then required to clear
+        sampled radial range (two parameters, by a converged least
+        squares). Every torus's truncated lift is then required to clear
         escape by a fraction of its own auxiliary torus's binding energy,
         which fails only when the stored anomaly map is under-resolved."""
         librating = [smp for smp in self._samples if smp[0] is not None]
@@ -450,24 +397,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _fit_auxiliary(self, librating):
         """Fit the isochrone's (GM, b) to the potential's rotation curve
         over the sampled radial range (zero-point free, log residuals on
-        geometrically spaced radii), starting from the isochrone that pins
-        the central torus's circular radius and frequency ratio"""
-        tau, r, pr, rp, ra, E, L = librating[len(librating) // 2]
-        # frequency ratio of the central torus by regular quadrature in tau:
-        # dt/dtau = (dr/dtau)/p_r is periodic and finite (dr/dtau and p_r
-        # vanish together at the turning points)
-        dtdtau = (
-            0.5
-            * (ra - rp)
-            * numpy.fabs(numpy.sin(tau))
-            / numpy.maximum(numpy.fabs(pr), 1e-300)
-        )
-        Ompsi_over_OmR = numpy.mean(L / r**2 * dtdtau) / numpy.mean(dtdtau)
+        geometrically spaced radii), by the converged least squares of
+        _fit_isochrone_vc2"""
         rlo = min(smp[3] for smp in librating)
         rhi = max(smp[4] for smp in librating)
         rf = numpy.geomspace(rlo, rhi, 25)
-        lnvc2 = numpy.log(vcirc(self._pot, rf, use_physical=False) ** 2)
-        return _fit_isochrone(L, self._rc(L), Ompsi_over_OmR, rf, lnvc2)
+        return _fit_isochrone_vc2(
+            rf, numpy.log(vcirc(self._pot, rf, use_physical=False) ** 2)
+        )
 
     # ---------- the momentum-matched map and its lift
     def _map(self, tau, Dm):
@@ -1581,8 +1518,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
     # forced backend or of the potential's jax/torch parameters, so that the
     # tables -- and through them the map -- are differentiable in those
     # parameters; and the evaluation natively in jax/torch, differentiable in
-    # the actions and the angles as well. The auxiliary is fitted on the host
-    # and frozen (any auxiliary of the torus's actions gives a canonical map).
+    # the actions and the angles as well. The auxiliary is fitted (on the
+    # device under a trace) and frozen (any auxiliary of the torus's actions
+    # gives a canonical map).
     # The root-finds go through the backend brentq, whose final Newton step
     # carries the implicit-function derivative (the level-set rule of the
     # turning points, 1/Phi' of the apocentre variable, 1/(dJ_r/du) of the
@@ -1781,7 +1719,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._GM, self._b = auxiliary._amp, auxiliary.b
         else:
             self._GM, self._b = self._bk_fit_auxiliary(
-                xp, f64, concrete, lib, Ls, rc, rp, ra, mpsi / mdt
+                xp, f64, concrete, lib, Ls, rc, rp, ra
             )
         self.auxiliary = (
             auxiliary
@@ -2185,52 +2123,43 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ),
         )
 
-    def _bk_fit_auxiliary(self, xp, f64, concrete, lib, Ls, rc, rp, ra, ratio):
+    def _bk_fit_auxiliary(self, xp, f64, concrete, lib, Ls, rc, rp, ra):
         """The auxiliary as _setup_auxiliary and _fit_auxiliary choose it: the
         isochrone fitted to the rotation curve over the librating tori's
-        radial range, from the central librating torus, on the host
-        (_fit_isochrone); with only circular tori, the closed-form isochrone
-        of the central torus. Frozen: no derivative flows through it."""
+        radial range (_fit_isochrone_vc2, on the host for a concrete family
+        and on the device under a trace); with only circular tori, the
+        closed-form isochrone of the central torus. Frozen: no derivative
+        flows through it."""
         n = Ls.shape[0]
         nlib = xp.sum(xp.astype(lib, xp.int64))
-        # the central torus of the librating ones, in their order
-        cnt = xp.cumsum(xp.astype(lib, xp.int64), axis=0)
-        ic = xp.argmax(xp.astype(lib & (cnt == nlib // 2 + 1), xp.float64))
-        inf = f64(numpy.inf)
-        rlo = xp.min(xp.where(lib, rp, inf))
-        rhi = xp.max(xp.where(lib, ra, -inf))
-        lnr = xp.log(rlo) + (xp.log(rhi) - xp.log(rlo)) * f64(
-            numpy.linspace(0.0, 1.0, 25)
-        )
-        rf = (getattr(xp, "concat", None) or xp.concatenate)(
-            [xp.reshape(rlo, (1,)), xp.exp(lnr[1:-1]), xp.reshape(rhi, (1,))]
-        )
-        lnvc2 = xp.log(vcirc(self._pot, rf, use_physical=False) ** 2)
-        packed = stop_gradient(
-            (getattr(xp, "concat", None) or xp.concatenate)(
-                [xp.stack([Ls[ic], rc[ic], ratio[ic]]), rf, lnvc2]
+        Lc, rcc = stop_gradient(Ls[n // 2]), stop_gradient(rc[n // 2])
+
+        def _rf_lnvc2():
+            inf = f64(numpy.inf)
+            rlo = xp.min(xp.where(lib, rp, inf))
+            rhi = xp.max(xp.where(lib, ra, -inf))
+            lnr = xp.log(rlo) + (xp.log(rhi) - xp.log(rlo)) * f64(
+                numpy.linspace(0.0, 1.0, 25)
             )
-        )
+            rf = (getattr(xp, "concat", None) or xp.concatenate)(
+                [xp.reshape(rlo, (1,)), xp.exp(lnr[1:-1]), xp.reshape(rhi, (1,))]
+            )
+            lnvc2 = xp.log(vcirc(self._pot, rf, use_physical=False) ** 2)
+            return stop_gradient(rf), stop_gradient(lnvc2)
+
         if concrete:
             if not concretely_true(nlib > 0):
-                L, r0 = (float(as_numpy(stop_gradient(t[n // 2]))) for t in (Ls, rc))
+                L, r0 = (float(as_numpy(t)) for t in (Lc, rcc))
                 return (
                     float(L**2 * numpy.sqrt(2.0) * (1.0 + numpy.sqrt(2.0)) ** 2 / r0),
                     r0,
                 )
-            pk = numpy.array(as_numpy(packed))
-            return tuple(
-                float(v) for v in _fit_isochrone(pk[0], pk[1], pk[2], pk[3:28], pk[28:])
-            )
-        fit = host_eval(_fit_isochrone_host, packed)
-        Lc, rcc = stop_gradient(Ls[n // 2]), stop_gradient(rc[n // 2])
-        return (
-            xp.where(
-                nlib > 0,
-                fit[0],
-                Lc**2 * numpy.sqrt(2.0) * (1.0 + numpy.sqrt(2.0)) ** 2 / rcc,
-            ),
-            xp.where(nlib > 0, fit[1], rcc),
+            return _fit_isochrone_vc2(*(numpy.array(as_numpy(t)) for t in _rf_lnvc2()))
+        return lazy_cond(
+            xp,
+            nlib > 0,
+            lambda: _fit_isochrone_vc2(*_rf_lnvc2()),
+            lambda: (Lc**2 * numpy.sqrt(2.0) * (1.0 + numpy.sqrt(2.0)) ** 2 / rcc, rcc),
         )
 
     def _build_interp(

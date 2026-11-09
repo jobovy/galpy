@@ -412,8 +412,8 @@ def test_derivatives_wrt_potential_parameters(mode):
 @pytest.mark.skipif(jax is None or torch is None, reason="jax and torch needed")
 @pytest.mark.parametrize("mode", ["interp", "explicit"])
 def test_jax_jit_construction(mode):
-    # The whole pipeline -- the construction (its auxiliary fitted on the host
-    # through a callback) and the evaluation -- traces under jax.jit, and
+    # The whole pipeline -- the construction (its auxiliary fitted on the
+    # device) and the evaluation -- traces under jax.jit, and
     # agrees with torch's eager construction
     def f(p):
         return _param_out(_param_family(p, mode, fitted=True), mode)
