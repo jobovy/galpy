@@ -4,7 +4,7 @@ import warnings
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.util import galpyWarning
 
 PY2 = sys.version < "3"
@@ -10842,6 +10842,11 @@ def _spherical_inverse_E_of_u(u, L, Rinf=6.0):
     return Ec + (numpy.log(Rinf) - Ec) * u**2
 
 
+def _spherical_inverse_npt(out):
+    # an evaluation's outputs as numpy (GPU tensors under a forced backend)
+    return tuple(as_numpy(t) for t in out)
+
+
 def _spherical_inverse_np(t):
     # a galpy value as a numpy float (a GPU tensor under a forced backend)
     return float(as_numpy(t))
@@ -11577,6 +11582,184 @@ def test_actionAngleSphericalInverse_circular(spherical_inverse_interp):
                 - 1.0
             )
             < 1e-12
+        )
+    return None
+
+
+def test_actionAngleSphericalInverse_array_actions(spherical_inverse_interp):
+    # Arrays of actions and angles broadcast against each other: a population
+    # of stars on distinct tori, circular orbits among them, is mapped in one
+    # call and agrees with evaluating each torus on its own; a single torus
+    # keeps its scalar frequencies; the first action outside the family is
+    # named
+    aAI = spherical_inverse_interp
+    rng = numpy.random.default_rng(4)
+    n = 30
+    L = rng.uniform(aAI._Lgrid[0], aAI._Lgrid[-1], n)
+    jrmax = numpy.array([float(as_numpy(aAI.Jr(aAI._Emax, tL))) for tL in L])
+    jr = rng.uniform(0.0, 1.0, n) * jrmax
+    jr[::8] = 0.0
+    jphi = rng.uniform(-1.0, 1.0, n) * L
+    jz = L - numpy.fabs(jphi)
+    angler, anglephi, anglez = rng.uniform(0.0, 2.0 * numpy.pi, (3, n))
+    out = _spherical_inverse_npt(aAI.xvFreqs(jr, jphi, jz, angler, anglephi, anglez))
+    assert len(out) == 9 and all(o.shape == (n,) for o in out), (
+        "Array actions do not return nine arrays of the actions' shape"
+    )
+    for ii in range(n):
+        outi = _spherical_inverse_npt(
+            aAI.xvFreqs(jr[ii], jphi[ii], jz[ii], angler[ii], anglephi[ii], anglez[ii])
+        )
+        for kk in range(6):
+            assert numpy.fabs(out[kk][ii] - outi[kk][0]) < 1e-9 * (
+                1.0 + numpy.fabs(outi[kk][0])
+            ), "Array actions differ from the torus's own evaluation"
+        for kk in range(6, 9):
+            assert numpy.fabs(out[kk][ii] - outi[kk]) < 1e-9 * (
+                1.0 + numpy.fabs(outi[kk])
+            ), "Frequencies of array actions differ from the torus's own"
+    out2 = _spherical_inverse_npt(aAI(jr, jphi, jz, angler, anglephi, anglez))
+    assert all(numpy.all(out2[kk] == out[kk]) for kk in range(6)), (
+        "__call__ with array actions differs from xvFreqs"
+    )
+    fr = _spherical_inverse_npt(aAI.Freqs(jr, jphi, jz))
+    assert all(numpy.all(fr[kk] == out[6 + kk]) for kk in range(3)), (
+        "Freqs with array actions differs from xvFreqs"
+    )
+    # (4, 1) actions against (5,) angles
+    out3 = _spherical_inverse_npt(
+        aAI.xvFreqs(
+            jr[:4, None],
+            jphi[:4, None],
+            jz[:4, None],
+            angler[None, :5],
+            anglephi[None, :5],
+            anglez[None, :5],
+        )
+    )
+    assert out3[0].shape == (4, 5) and out3[6].shape == (4, 5), (
+        "Actions and angles do not broadcast against each other"
+    )
+    for ii in range(4):
+        outi = _spherical_inverse_npt(
+            aAI.xvFreqs(jr[ii], jphi[ii], jz[ii], angler[:5], anglephi[:5], anglez[:5])
+        )
+        for kk in range(6):
+            assert numpy.amax(numpy.fabs(out3[kk][ii] - outi[kk])) < 1e-9 * (
+                1.0 + numpy.amax(numpy.fabs(outi[kk]))
+            ), "Broadcast actions and angles differ from the torus's own"
+        for kk in range(6, 9):
+            assert numpy.all(
+                numpy.fabs(out3[kk][ii] - outi[kk])
+                < 1e-9 * (1.0 + numpy.fabs(outi[kk]))
+            ), "Broadcast actions and angles differ from the torus's own"
+    # a call over many points is evaluated in chunks: the same answer, to
+    # the round-off of the circular-radius solve, whose route depends on the
+    # number of angular momenta it is given
+    import galpy.actionAngle.actionAngleInverseUtil as util
+
+    chunk = util._EVAL_CHUNK
+    util._EVAL_CHUNK = 7
+    try:
+        out7 = _spherical_inverse_npt(
+            aAI.xvFreqs(jr, jphi, jz, angler, anglephi, anglez)
+        )
+    finally:
+        util._EVAL_CHUNK = chunk
+    assert all(
+        numpy.all(numpy.fabs(out7[kk] - out[kk]) < 1e-10 * (1.0 + numpy.fabs(out[kk])))
+        for kk in range(9)
+    ), "Evaluation in chunks differs from the evaluation in one piece"
+    # a single torus at many angles keeps its float frequencies
+    outs_raw = aAI.xvFreqs(jr[1], jphi[1], jz[1], angler, anglephi, anglez)
+    outs = _spherical_inverse_npt(outs_raw)
+    # (0-d arrays under a forced backend, whose results stay on the backend)
+    assert all(
+        isinstance(outs_raw[kk], float)
+        or (is_backend_array(outs_raw[kk]) and outs_raw[kk].ndim == 0)
+        for kk in range(6, 9)
+    ) and outs[0].shape == (n,), "A single torus does not return float frequencies"
+    frs_raw = aAI.Freqs(jr[1], jphi[1], jz[1])
+    frs = _spherical_inverse_npt(frs_raw)
+    assert all(
+        isinstance(frs_raw[kk], float)
+        or (is_backend_array(frs_raw[kk]) and frs_raw[kk].ndim == 0)
+        for kk in range(3)
+    ), "A single torus does not return float frequencies"
+    # the first action outside the family is named
+    Lbad = L.copy()
+    Lbad[5] = 10.0 * aAI._Lgrid[-1]
+    with pytest.raises(
+        ValueError, match="L = %s outside the interpolation grid" % Lbad[5]
+    ):
+        aAI.Freqs(jr, 0.0 * jphi, Lbad)
+    jrbad = jr.copy()
+    jrbad[7] = 3.0 * jrmax[7]
+    with pytest.raises(ValueError, match="outside the interpolated family's range"):
+        aAI.xvFreqs(jrbad, jphi, jz, angler, anglephi, anglez)
+    return None
+
+
+def test_actionAngleSphericalInverse_array_actions_explicit(spherical_inverse_explicit):
+    # Arrays of actions on explicit tori: the set-up tori, repeated, at their
+    # own angles, agree with evaluating each on its own; an action that is
+    # not one of the tori is named
+    aAI = spherical_inverse_explicit
+    rng = numpy.random.default_rng(5)
+    jr = numpy.tile(aAI._jrs, 3)
+    L = numpy.tile(aAI._Ls, 3)
+    jphi = rng.uniform(-1.0, 1.0, len(L)) * L
+    jz = L - numpy.fabs(jphi)
+    angler, anglephi, anglez = rng.uniform(0.0, 2.0 * numpy.pi, (3, len(L)))
+    out = _spherical_inverse_npt(aAI.xvFreqs(jr, jphi, jz, angler, anglephi, anglez))
+    for ii in range(len(L)):
+        outi = _spherical_inverse_npt(
+            aAI.xvFreqs(jr[ii], jphi[ii], jz[ii], angler[ii], anglephi[ii], anglez[ii])
+        )
+        for kk in range(6):
+            assert numpy.fabs(out[kk][ii] - outi[kk][0]) < 1e-10 * (
+                1.0 + numpy.fabs(outi[kk][0])
+            ), "Array actions on explicit tori differ from the torus's own evaluation"
+        for kk in range(6, 9):
+            assert out[kk][ii] == outi[kk], (
+                "Frequencies of array actions on explicit tori differ from the torus's own"
+            )
+    fr = _spherical_inverse_npt(aAI.Freqs(jr, jphi, jz))
+    assert all(numpy.all(fr[kk] == out[6 + kk]) for kk in range(3)), (
+        "Freqs with array actions differs from xvFreqs"
+    )
+    with pytest.raises(ValueError, match="is not one of the set-up tori"):
+        aAI.Freqs(1.1 * jr, jphi, jz)
+    with pytest.raises(ValueError, match="is not one of the set-up tori"):
+        aAI.xvFreqs(1.1 * jr, jphi, jz, angler, anglephi, anglez)
+    return None
+
+
+def test_actionAngleSphericalInverse_tau_solve_fallback(spherical_inverse_explicit):
+    # With a single Newton step allowed, the anomaly solve falls back to a
+    # bracketed root find for every angle that has not converged, and
+    # returns the same phase-space points
+    from galpy.actionAngle import actionAngleSphericalInverse
+
+    aAI = spherical_inverse_explicit
+    aAI1 = actionAngleSphericalInverse(
+        pot=_spherical_inverse_potential(),
+        Es=[0.7],
+        Ls=[0.9],
+        progressbar=False,
+        maxiter=1,
+    )
+    jr, L = aAI1._jrs[0], 0.9
+    angler = numpy.linspace(0.1, 6.1, 7)
+    out = _spherical_inverse_npt(
+        aAI.xvFreqs(jr, 0.5, L - 0.5, angler, 0.3 + 0.0 * angler, 1.2 + 0.0 * angler)
+    )
+    out1 = _spherical_inverse_npt(
+        aAI1.xvFreqs(jr, 0.5, L - 0.5, angler, 0.3 + 0.0 * angler, 1.2 + 0.0 * angler)
+    )
+    for kk in range(6):
+        assert numpy.amax(numpy.fabs(out[kk] - out1[kk])) < 1e-10, (
+            "The bracketed fallback of the anomaly solve differs from the Newton solve"
         )
     return None
 

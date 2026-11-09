@@ -82,9 +82,45 @@ def _chunked(fn, n, *arrays):
 
 def _sdot(smt, D):
     """The sine (or cosine) matrix sin(m tau_k) of shape (n, M) times the
-    coefficients D, of shape (n, M) or broadcastable to it: one coefficient
-    vector per anomaly, or one for all of them"""
-    return numpy.einsum("nm,nm->n", smt, numpy.broadcast_to(D, smt.shape))
+    coefficients D: one coefficient vector for all anomalies (shape (1, M),
+    a matrix product) or one per anomaly (shape (n, M))"""
+    D = numpy.asarray(D)
+    if D.shape[0] == 1:
+        return smt @ D[0]
+    return numpy.einsum("nm,nm->n", smt, D)
+
+
+def _safeguarded_newton(f, lo, hi, rtol, maxiter=100, x0=None):
+    """Roots of the monotonically increasing functions f(x) = (value,
+    derivative), one per element of the brackets [lo, hi], by Newton steps
+    from x0 (the brackets' midpoints by default) kept inside the brackets
+    (a step that leaves its bracket is replaced by the bracket's midpoint),
+    the brackets shrinking around the roots as the iteration proceeds,
+    until every step is below rtol (1 + |x|), the residual vanishes or the
+    bracket has closed; vectorized over the elements"""
+    lo, hi = numpy.array(lo, dtype="float"), numpy.array(hi, dtype="float")
+    x = (
+        0.5 * (lo + hi)
+        if x0 is None
+        else numpy.clip(numpy.array(x0, dtype="float"), lo, hi)
+    )
+    conv = numpy.zeros(x.shape, dtype="bool")
+    for _ in range(maxiter):
+        val, der = f(x)
+        with numpy.errstate(divide="ignore", invalid="ignore"):
+            step = val / der
+        below = val < 0.0
+        lo = numpy.where(below, x, lo)
+        hi = numpy.where(below, hi, x)
+        new = x - step
+        bad = ~numpy.isfinite(new) | (new <= lo) | (new >= hi)
+        new = numpy.where(bad, 0.5 * (lo + hi), new)
+        tol = rtol * (1.0 + numpy.fabs(x))
+        conv |= (val == 0.0) | (numpy.fabs(new - x) <= tol) | (hi - lo <= tol)
+        x = numpy.where(conv, x, new)
+        if numpy.all(conv):
+            break
+    return x
 
 
 def _sine_series(N, Dm, ms):

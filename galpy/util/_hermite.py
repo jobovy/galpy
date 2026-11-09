@@ -82,8 +82,10 @@ class HermiteFamily2D:
     the second) are estimated by differentiating cubic splines of the
     prescribed first partials, which makes the interpolant's first
     derivative in that variable accurate to one order beyond a cubic
-    Hermite's.  Called like a RectBivariateSpline: ip(x, y, dx=, dy=)[0, 0],
-    which is a number for one table and a vector for a stack of tables."""
+    Hermite's.  Called like a RectBivariateSpline for one value: ip(x,
+    y)[0, 0], which is a number for one table and a vector for a stack of
+    tables; the derivatives, and many points at once, with ip.points(x, y,
+    dx=, dy=), ip.points_dx and ip.points_grad, one row per point."""
 
     # the coefficient matrices of the unit-interval Hermite polynomials:
     # quintic through (f, f', f'') at both ends, cubic through (f, f')
@@ -263,9 +265,12 @@ class HermiteFamily2D:
         )
         return tuple(v[..., 0] for v in out) if self._scalar else out
 
-    def __call__(self, x, y, dx=0, dy=0):
+    def __call__(self, x, y):
+        """The interpolant's value at one point, cheaply (the derivatives
+        and many points at once are points, points_dx and points_grad; on a
+        backend, ev and ev3)"""
         if self._xp is not numpy or _ns(x, y) is not numpy:
-            v = self.ev(x, y, dx=dx, dy=dy)
+            v = self.ev(x, y)
             xp = _ns(v)
             return xp.reshape(v, (1, 1)) if self._scalar else v[None, None, :]
         i = min(
@@ -274,22 +279,93 @@ class HermiteFamily2D:
         j = min(
             max(numpy.searchsorted(self._y, y, side="right") - 1, 0), len(self._y) - 2
         )
-        hx, hy = self._x[i + 1] - self._x[i], self._y[j + 1] - self._y[j]
-        sv = (x - self._x[i]) / hx
-        tv = (y - self._y[j]) / hy
-        if dx == 0:
-            ps = sv ** numpy.arange(6)
-        else:
-            ps = (
-                numpy.array([0.0, 1.0, 2.0 * sv, 3.0 * sv**2, 4.0 * sv**3, 5.0 * sv**4])
-                / hx
-            )
-        if dy == 0:
-            pt = tv ** numpy.arange(4)
-        else:
-            pt = numpy.array([0.0, 1.0, 2.0 * tv, 3.0 * tv**2]) / hy
-        v = numpy.einsum("a,abk,b->k", ps, self._c[i, j], pt)
+        sv = (x - self._x[i]) / (self._x[i + 1] - self._x[i])
+        tv = (y - self._y[j]) / (self._y[j + 1] - self._y[j])
+        v = numpy.einsum(
+            "a,abk,b->k", sv ** numpy.arange(6), self._c[i, j], tv ** numpy.arange(4)
+        )
         return v.reshape(1, 1) if self._scalar else v[None, None, :]
+
+    def _cells(self, x, y):
+        """The cell of each point and its normalized coordinates in it"""
+        x = numpy.atleast_1d(numpy.asarray(x, dtype="float"))
+        y = numpy.atleast_1d(numpy.asarray(y, dtype="float"))
+        i = numpy.minimum(
+            numpy.maximum(numpy.searchsorted(self._x, x, side="right") - 1, 0),
+            len(self._x) - 2,
+        )
+        j = numpy.minimum(
+            numpy.maximum(numpy.searchsorted(self._y, y, side="right") - 1, 0),
+            len(self._y) - 2,
+        )
+        hx, hy = self._x[i + 1] - self._x[i], self._y[j + 1] - self._y[j]
+        return i, j, (x - self._x[i]) / hx, (y - self._y[j]) / hy, hx, hy
+
+    @staticmethod
+    def _powers(s, h, deriv, n):
+        """The row of unit-interval monomials s^a, a < n, or of their
+        derivatives with respect to the unnormalized variable"""
+        P = numpy.empty((len(s), n))
+        P[:, 0] = 1.0
+        for a in range(1, n):
+            P[:, a] = P[:, a - 1] * s
+        if not deriv:
+            return P
+        D = numpy.zeros_like(P)
+        D[:, 1:] = numpy.arange(1, n) * P[:, :-1]
+        return D / h[:, None]
+
+    def _eval_cells(self, i, j, pss, pts):
+        """sum_ab ps_a c_{ij,abk} pt_b for every point, one pair (ps, pt) per
+        requested quantity, grouped by cell so that the coefficient block of
+        each cell is read once however many points fall in it"""
+        n = len(i)
+        if n == 1:  # one point: its cell's block directly
+            block = self._c[i[0], j[0]]
+            outs = [
+                numpy.einsum("a,abk,b->k", ps[0], block, pt[0])[None]
+                for ps, pt in zip(pss, pts)
+            ]
+            return [o[:, 0] if self._scalar else o for o in outs]
+        outs = [numpy.empty((n, self._c.shape[-1])) for _ in pss]
+        cell = i * (len(self._y) - 1) + j
+        order = numpy.argsort(cell, kind="stable")
+        cells, starts = numpy.unique(cell[order], return_index=True)
+        for c, lo, hi in zip(cells, starts, numpy.append(starts[1:], n)):
+            idx = order[lo:hi]
+            block = self._c[c // (len(self._y) - 1), c % (len(self._y) - 1)]
+            for out, ps, pt in zip(outs, pss, pts):
+                out[idx] = numpy.einsum("ma,abk,mb->mk", ps[idx], block, pt[idx])
+        return [o[:, 0] if self._scalar else o for o in outs]
+
+    def points(self, x, y, dx=0, dy=0):
+        """The interpolant (or its first partial, dx=1 or dy=1) at the points
+        (x_i, y_i), vectorized over the points: a vector for one table or an
+        (n, k) array for a stack of k tables"""
+        i, j, sv, tv, hx, hy = self._cells(x, y)
+        ps = self._powers(sv, hx, dx != 0, 6)
+        pt = self._powers(tv, hy, dy != 0, 4)
+        return self._eval_cells(i, j, (ps,), (pt,))[0]
+
+    def points_dx(self, x, y):
+        """The interpolant and its first partial in x at the points (x_i, y_i),
+        from one read of the coefficients"""
+        i, j, sv, tv, hx, hy = self._cells(x, y)
+        pt = self._powers(tv, hy, False, 4)
+        return self._eval_cells(
+            i,
+            j,
+            (self._powers(sv, hx, False, 6), self._powers(sv, hx, True, 6)),
+            (pt, pt),
+        )
+
+    def points_grad(self, x, y):
+        """The interpolant and both of its first partials at the points
+        (x_i, y_i), from one read of the coefficients"""
+        i, j, sv, tv, hx, hy = self._cells(x, y)
+        ps, psx = self._powers(sv, hx, False, 6), self._powers(sv, hx, True, 6)
+        pt, pty = self._powers(tv, hy, False, 4), self._powers(tv, hy, True, 4)
+        return self._eval_cells(i, j, (ps, psx, ps), (pt, pt, pty))
 
 
 class HermiteFamily3D:
