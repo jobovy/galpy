@@ -21347,7 +21347,9 @@ def test_actionAngleSphericalInverse_E_units():
         mm_nta=128,
         mm_npt=24,
     )
-    jr = aASC_int.Jr(E, L, use_physical=False)
+    # (a float: under a forced backend on a GPU the action is a device array,
+    # which does not multiply a unit)
+    jr = float(as_numpy(aASC_int.Jr(E, L, use_physical=False)))
     Eq = aASC.E(
         jr * ro * vo * units.kpc * units.km / units.s,
         L * ro * vo * units.kpc * units.km / units.s,
@@ -21358,7 +21360,7 @@ def test_actionAngleSphericalInverse_E_units():
     assert (
         numpy.fabs(Eq.to(units.km**2 / units.s**2).value / (E * vo**2.0) - 1.0) < 1e-10
     ), "E(jr, L) with units does not return the energy in physical units"
-    assert numpy.fabs(aASC.E(jr, L, use_physical=False) - E) < 1e-12, (
+    assert numpy.fabs(as_numpy(aASC.E(jr, L, use_physical=False)) - E) < 1e-12, (
         "E(jr, L) with use_physical=False does not return the internal energy"
     )
     return None
