@@ -11284,6 +11284,36 @@ def test_actionAngleSphericalInverse_tau_solve_fallback(spherical_inverse_explic
     return None
 
 
+def test_actionAngleSphericalInverse_auxiliary_kepler():
+    # A Kepler target has no isochrone scale: the auxiliary's fit runs to its
+    # floor in b and stops there, and the torus is still exact, the Kepler
+    # torus being the isochrone's at b -> 0
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.potential import KeplerPotential
+
+    kp = KeplerPotential(normalize=1.0)
+    aAI = actionAngleSphericalInverse(pot=kp, Es=[-0.4], Ls=[0.9], progressbar=False)
+    assert aAI.auxiliary.b < 1e-7, (
+        "The auxiliary's scale radius did not run to its floor for a Kepler target"
+    )
+    assert numpy.fabs(aAI.auxiliary._amp - 1.0) < 1e-6, (
+        "The auxiliary's mass is not the Kepler potential's"
+    )
+    jr = aAI._jrs[0]
+    angles = numpy.linspace(0.1, 6.0, 7)
+    R, vR, vT, z, vz, phi = aAI(
+        jr, 0.5, 0.4, angles, 0.3 + 0.0 * angles, 1.1 + 0.0 * angles
+    )
+    jrb, jpb, jzb = actionAngleSpherical(pot=kp)(R, vR, vT, z, vz, phi)
+    assert numpy.amax(numpy.fabs(jrb - jr)) < 1e-10, (
+        "The Kepler torus does not round-trip through the forward transformation"
+    )
+    assert numpy.amax(numpy.fabs(jzb - 0.4)) < 1e-10, (
+        "The Kepler torus does not round-trip through the forward transformation"
+    )
+    return None
+
+
 def test_actionAngleSphericalInverse_auxiliary():
     # the fitted auxiliary is exposed; a given one is used instead of the
     # fit and gives the same tori to the forward transformation's floor

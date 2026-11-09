@@ -32,6 +32,7 @@ from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
     _chunked,
+    _fit_isochrone_vc2,
     _offset_spec_coeffs,
     _progress,
     _safeguarded_newton,
@@ -317,53 +318,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _fit_auxiliary(self, librating):
         """Fit the isochrone's (GM, b) to the potential's rotation curve
         over the sampled radial range (zero-point free, log residuals on
-        geometrically spaced radii), starting from the isochrone that pins
-        the central torus's circular radius and frequency ratio"""
-        tau, r, pr, rp, ra, E, L = librating[len(librating) // 2]
-        # frequency ratio of the central torus by regular quadrature in tau:
-        # dt/dtau = (dr/dtau)/p_r is periodic and finite (dr/dtau and p_r
-        # vanish together at the turning points)
-        dtdtau = (
-            0.5
-            * (ra - rp)
-            * numpy.fabs(numpy.sin(tau))
-            / numpy.maximum(numpy.fabs(pr), 1e-300)
-        )
-        Ompsi_over_OmR = numpy.mean(L / r**2 * dtdtau) / numpy.mean(dtdtau)
-        rho = min(max(Ompsi_over_OmR, 0.501), 0.999)
-        rc = self._rc(L)
-
-        def _GM_rc_pinned(b):
-            # closed-form circular condition of the isochrone: the
-            # auxiliary's circular radius at L equals rc exactly
-            s = numpy.sqrt(b**2 + rc**2)
-            return L**2 * s * (b + s) ** 2 / rc**4
-
-        GM = _GM_rc_pinned(1e-8)
-        for _ in range(200):
-            b = max(((L / (2.0 * rho - 1.0)) ** 2 - L**2) / (4.0 * GM), 1e-8)
-            GMn = _GM_rc_pinned(b)
-            if abs(GMn - GM) < 1e-14 * (1.0 + GM):
-                break
-            GM = GMn
+        geometrically spaced radii), by the converged least squares of
+        _fit_isochrone_vc2"""
         rlo = min(smp[3] for smp in librating)
         rhi = max(smp[4] for smp in librating)
         rf = numpy.geomspace(rlo, rhi, 25)
-        lnvc2 = numpy.log(vcirc(self._pot, rf, use_physical=False) ** 2)
-
-        def _vc2cost(x):
-            GMf, bf = numpy.exp(x)
-            sf = numpy.sqrt(bf**2 + rf**2)
-            return numpy.sum(
-                (numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2
-            )
-
-        res = minimize(
-            _vc2cost,
-            numpy.log([GM, max(b, 1e-3 * numpy.sqrt(rlo * rhi))]),
-            method="Nelder-Mead",
+        return _fit_isochrone_vc2(
+            rf, numpy.log(vcirc(self._pot, rf, use_physical=False) ** 2)
         )
-        return tuple(numpy.exp(res.x))
 
     # ---------- the momentum-matched map and its lift
     def _map(self, tau, Dm):

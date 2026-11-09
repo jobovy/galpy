@@ -36,6 +36,7 @@ from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
+    _fit_isochrone_vc2,
     _offset_spec_coeffs,
     _progress,
     _sine_galerkin,
@@ -852,26 +853,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         rlo = max(rlo, 1e-3 * rhi)
         rf = numpy.geomspace(rlo, rhi, 25)
-        lnvc2 = numpy.log(vcirc(self._staeckelwrap, rf, use_physical=False) ** 2)
-
-        def _vc2cost(x):
-            GMf, bf = numpy.exp(x)
-            sf = numpy.sqrt(bf**2 + rf**2)
-            return numpy.sum(
-                (numpy.log(GMf * rf**2 / (sf * (bf + sf) ** 2)) - lnvc2) ** 2
-            )
-
-        res = minimize(
-            _vc2cost,
-            numpy.log(
-                [
-                    rhi * vcirc(self._staeckelwrap, rhi, use_physical=False) ** 2,
-                    0.1 * numpy.sqrt(rlo * rhi),
-                ]
-            ),
-            method="Nelder-Mead",
+        return _fit_isochrone_vc2(
+            rf, numpy.log(vcirc(self._staeckelwrap, rf, use_physical=False) ** 2)
         )
-        return tuple(numpy.exp(res.x))
 
     # ---------- the momentum-matched maps and their lifts
     @staticmethod
