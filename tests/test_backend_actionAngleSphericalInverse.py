@@ -865,7 +865,7 @@ def test_fit_isochrone_vc2(backend):
     # runs it on the device: the numpy fit to round-off, eager and (jax)
     # under jit and vmap over rotation curves, for a logarithmic halo, an
     # isochrone (which it recovers) and a Kepler potential (whose fit runs to
-    # the floor in b and stops there)
+    # the floor in b and stops there), and at a single radius
     from galpy.actionAngle.actionAngleInverseUtil import _fit_isochrone_vc2
     from galpy.potential import IsochronePotential, KeplerPotential, vcirc
 
@@ -889,6 +889,19 @@ def test_fit_isochrone_vc2(backend):
         numpy.testing.assert_allclose(
             [float(as_numpy(g)) for g in got], r, rtol=1e-14, atol=0.0
         )
+    # a single radius (a lone circular torus's range): the start, exact there
+    r1 = numpy.full(25, 1.3)
+    c1 = numpy.full(25, numpy.log(vcirc(_pot(), 1.3) ** 2))
+    for GM, b in (
+        _fit_isochrone_vc2(r1, c1),
+        (
+            float(as_numpy(t))
+            for t in _fit_isochrone_vc2(_arr(backend, r1), _arr(backend, c1))
+        ),
+    ):
+        s1 = numpy.sqrt(b**2 + 1.3**2)
+        assert abs(b / 1.3 - 1.0) < 1e-15
+        assert abs(numpy.log(GM * 1.3**2 / (s1 * (b + s1) ** 2)) - c1[0]) < 1e-14
     if backend == "jax":
         f = jax.jit(
             jax.vmap(lambda c: jnp.stack(_fit_isochrone_vc2(jnp.asarray(rf), c)))

@@ -100,7 +100,9 @@ def _fit_isochrone_vc2(rf, lnvc2, maxiter=100):
     derivatives (Gauss-Newton where the Hessian is not positive), the step
     clipped at 1/2 and beta kept in [ln 1e-8, ln(1e3 r_max)], from b_0 =
     sqrt(r_min r_max), until the step is below 1e-14 or beta sits at a
-    bound with the step pointing outward; converges in a handful of
+    bound with the step pointing outward (not at all for a range below 1e-8
+    relative, a single radius to round-off, which every b fits); converges
+    in a handful of
     iterations and is exact for an isochrone target. Returns (GM, b):
     floats for numpy inputs, 0-d arrays for backend ones, which a traced
     construction thus fits on the device (each step frozen once converged,
@@ -138,7 +140,11 @@ def _fit_isochrone_vc2(rf, lnvc2, maxiter=100):
         return xp.stack([beta, xp.where(stop, 1.0 + 0.0 * beta, 0.0 * beta)])
 
     beta = 0.5 * (xp.log(rf[0]) + xp.log(rf[-1]))
-    beta = iterate_to_fixed_point(_step, xp.stack([beta, 0.0 * beta]), maxiter)[0]
+    # a single radius, to round-off (a lone circular torus's range): every b
+    # fits it, and the start is kept
+    flat = rf[-1] - rf[0] <= 1e-8 * rf[-1]
+    x0 = xp.stack([beta, xp.where(flat, 1.0 + 0.0 * beta, 0.0 * beta)])
+    beta = iterate_to_fixed_point(_step, x0, maxiter)[0]
     b, _, h = _h(beta)
     GM = xp.exp(-xp.mean(h))
     return (float(GM), float(b)) if xp is numpy else (GM, b)
