@@ -17,7 +17,7 @@ import warnings
 from contextlib import contextmanager
 
 import numpy
-from scipy.optimize import brentq, minimize
+from scipy.optimize import brentq
 
 from ..potential import (
     IsochronePotential,

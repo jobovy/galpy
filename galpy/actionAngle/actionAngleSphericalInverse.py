@@ -13,7 +13,7 @@
 import warnings
 
 import numpy
-from scipy.optimize import brentq, minimize
+from scipy.optimize import brentq
 
 from ..potential import (
     IsochronePotential,
@@ -256,9 +256,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         auxiliary torus, so the auxiliary's only job is to be a
         well-conditioned global surrogate of the target. Unless one is
         given, its rotation curve is fitted to the target's over the
-        sampled radial range (two parameters, starting from the isochrone
-        whose circular radius and frequency ratio match the central
-        torus's). Every torus's truncated lift is then required to clear
+        sampled radial range (two parameters, by a converged least
+        squares). Every torus's truncated lift is then required to clear
         escape by a fraction of its own auxiliary torus's binding energy,
         which fails only when the stored anomaly map is under-resolved."""
         librating = [smp for smp in self._samples if smp[0] is not None]
