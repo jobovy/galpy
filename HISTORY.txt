@@ -1,6 +1,17 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+- The cylindrical-to-confocal transformation (``coords.Rz_to_uv``,
+  ``Rz_to_coshucosv``, and its C counterparts in the Staeckel action-angle
+  code and the Staeckel wrapper) computes sinh u and sin v (prolate) or
+  cos v (oblate) in forms without cancellation. The former cosh u = (d_1 +
+  d_2)/(2 delta) and cos v = (d_1 - d_2)/(2 delta) lost the small coordinate
+  near the axis and the plane: u was off by a part in 1e9 at R = 1e-4 delta
+  and zero at R = 1e-12 delta, and on the axis beyond a focus v was NaN. All
+  points, including the foci, the focal segment, the axis, and the plane, now
+  transform to round-off, and the Staeckel wrapper's in-plane force equals the
+  wrapped potential's to round-off at every radius.
+
 - OblateStaeckelWrapperPotential's derivatives along its U reference curve
   (dU/du and d2U/du2, Python and C) now use the exact dR/du = delta cosh u
   sin v0 and dz/du = delta sinh u cos v0 in place of a guarded R/tanh(u),

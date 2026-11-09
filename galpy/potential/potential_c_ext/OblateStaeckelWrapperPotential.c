@@ -22,13 +22,26 @@
 //   built by the parser from tables shipped from Python; no wrapped
 //   potential reaches C. Mode discriminator: spline1d != NULL.
 void Rz_to_uv(double R,double z,double * u, double * v,double delta){
-  double d12, d22, coshu, cosv;
-  d12= pow(z+delta,2) + pow(R,2);
-  d22= pow(z-delta,2) + pow(R,2);
-  coshu= 0.5 / delta * ( sqrt(d12) + sqrt(d22) );
-  cosv=  0.5 / delta * ( sqrt(d12) - sqrt(d22) );
-  *u= acosh(coshu);
-  *v= acos(cosv);
+  // sinh^2 u and sin^2 v without cancellation (as galpy.util.coords): with
+  // A = R^2 + z^2 - delta^2 (the difference of squares as a product) and
+  // S = d1 d2 = sqrt(A^2 + 4 delta^2 R^2), sinh^2 u = (A + S)/(2 delta^2)
+  // and sin^2 v = (S - A)/(2 delta^2), the cancelling one rationalized to
+  // 2 R^2/(S -+ A); cos v = 2 z/(d1 + d2) exactly; at a focus, A = S = 0,
+  // sin^2 v is the exact zero the rationalized form would make 0/0
+  double A, S, d1, d2, sinh2u, sin2v;
+  A= R * R + ( z - delta ) * ( z + delta );
+  S= sqrt( A * A + 4. * delta * delta * R * R );
+  if ( A < 0. ) {
+    sinh2u= 2. * R * R / ( S - A );
+    sin2v= ( S - A ) / ( 2. * delta * delta );
+  } else {
+    sinh2u= ( A + S ) / ( 2. * delta * delta );
+    sin2v= ( S + A > 0. ) ? 2. * R * R / ( S + A ) : 0.;
+  }
+  d1= sqrt( ( z + delta ) * ( z + delta ) + R * R );
+  d2= sqrt( ( z - delta ) * ( z - delta ) + R * R );
+  *u= asinh( sqrt( sinh2u ) );
+  *v= atan2( sqrt( sin2v ) , 2. * z / ( d1 + d2 ) );
 }
 void uv_to_Rz(double u,double v,double * R, double * z,double delta){
   *R= delta * sinh(u) * sin(v);
