@@ -1,6 +1,15 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- ``actionAngleVerticalInverse`` (in its default, momentum-matched mode)
+  evaluates arrays of actions: the actions and the angles broadcast against
+  each other, so that a population of stars, each on its own torus, is mapped
+  to phase space (``__call__``, ``xvFreqs``) or to its frequencies
+  (``Freqs``) in one call, with the tables of each distinct torus read once;
+  a single torus keeps its scalar frequency. On the jax and PyTorch backends
+  each point reads its own row of the tables in the same call, differentiable
+  in the actions and the angles and traceable under ``jax.jit``.
+
 - The cylindrical-to-confocal transformation (``coords.Rz_to_uv``,
   ``Rz_to_coshucosv``, and its C counterparts in the Staeckel action-angle
   code and the Staeckel wrapper) computes sinh u and sin v (prolate) or
