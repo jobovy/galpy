@@ -24,6 +24,7 @@ from ..backend import (
 )
 from ..backend._namespaces import (
     has_concrete_truth_value,
+    namespace_from_arrays,
     set_at,
     stop_gradient,
     under_trace,
@@ -217,14 +218,32 @@ class actionAngleVertical(actionAngle):
     # computed as the integral of the force over [x, xmax], because the
     # direct difference loses digits there for a torus that is small
     # compared to the scale of the potential.
+    def _per_object(self):
+        """A vertical potential with one radius per object, R of shape (N,),
+        which broadcasts against the leading axis of its z"""
+        return numpy.ndim(getattr(self._pot, "_R", None)) > 0
+
+    def _call(self, func, x, **kwargs):
+        """The potential or force at the array x: in one call where the
+        potential's implementation takes arrays, and element by element where
+        it does not (one that branches on a scalar: numpy and jax raise a
+        ValueError or TypeError there, torch a RuntimeError)"""
+        try:
+            return func(self._pot, x, **kwargs)
+        except (ValueError, TypeError, RuntimeError):
+            xp = get_namespace(x)
+            flat = xp.reshape(x * 1.0, (-1,))
+            vals = [func(self._pot, flat[k], **kwargs) for k in range(flat.shape[0])]
+            return xp.reshape(xp.stack(vals), xp.asarray(x).shape)
+
     def _points(self, x, vx):
         """The points as float arrays, their energies, their turning points, and which are bound"""
         x = numpy.atleast_1d(numpy.asarray(x, dtype="float"))
         vx = numpy.atleast_1d(numpy.asarray(vx, dtype="float"))
         x, vx = numpy.broadcast_arrays(x, vx)
-        Phix = evaluatelinearPotentials(self._pot, x, use_physical=False)
+        Phix = self._call(evaluatelinearPotentials, x, use_physical=False)
         E = vx**2.0 / 2.0 + Phix
-        Phi0 = evaluatelinearPotentials(self._pot, 0.0, use_physical=False)
+        Phi0 = self._call(evaluatelinearPotentials, 0.0, use_physical=False)
         # a torus whose energy above the minimum is within the potential's
         # round-off, amplified to the accuracy asked, has its turning point
         # found from the force as well
@@ -244,13 +263,25 @@ class actionAngleVertical(actionAngle):
         traced"""
         if getattr(self, "_phi_roundoff_value", None) is not None:
             return self._phi_roundoff_value
+        # a per-object vertical potential (R of shape (N,)) broadcasts against
+        # z's leading axis: one row of heights per object
+        R = getattr(self._pot, "_R", None)
+        batch = self._per_object()
         xp = param_grad_namespace(self._pot, any_backend=True)
-        if xp is None:  # the potential's parameters are numpy's
+        if xp is None and batch:
+            xp = namespace_from_arrays((R,))
+        if xp is None:  # numpy's
             with use("numpy", force=True):
                 xs = numpy.logspace(-6.0, -2.0, 17)
-                direct = evaluatelinearPotentials(
-                    self._pot, xs, use_physical=False
-                ) - evaluatelinearPotentials(self._pot, 0.0, use_physical=False)
+                if batch:
+                    xs = numpy.tile(xs, (len(R), 1))
+                direct = self._call(
+                    evaluatelinearPotentials, xs, use_physical=False
+                ) - self._call(
+                    evaluatelinearPotentials,
+                    0.0 * xs if batch else 0.0,
+                    use_physical=False,
+                )
                 byforce = self._dPhi(numpy.zeros_like(xs), xs)
                 self._phi_roundoff_value = float(
                     numpy.max(numpy.fabs(direct - byforce))
@@ -258,9 +289,11 @@ class actionAngleVertical(actionAngle):
             return self._phi_roundoff_value
         dev = None if ref is None else device_of(ref)
         xs = asarray_on_device(xp, numpy.logspace(-6.0, -2.0, 17), dev)
+        if batch:
+            xs = xs[None, :] + 0.0 * xp.reshape(R, (-1, 1))
         dev = (
-            _evaluatelinearPotentials(self._pot, xs)
-            - _evaluatelinearPotentials(self._pot, 0.0 * xs)
+            self._call(_evaluatelinearPotentials, xs)
+            - self._call(_evaluatelinearPotentials, 0.0 * xs)
             - self._dPhi(0.0 * xs, xs)
         )
         out = xp.max(xp.abs(stop_gradient(dev)))
@@ -282,15 +315,15 @@ class actionAngleVertical(actionAngle):
         hi = numpy.where(lo > 0.0, 2.0 * lo, 1e-5)
         Et = E[todo]
         for _ in range(80):
-            below = evaluatelinearPotentials(self._pot, hi, use_physical=False) < Et
+            below = self._call(evaluatelinearPotentials, hi, use_physical=False) < Et
             if not numpy.any(below):
                 break
             lo = numpy.where(below, hi, lo)
             hi = numpy.where(below, 2.0 * hi, hi)
-        unbound = evaluatelinearPotentials(self._pot, hi, use_physical=False) < Et
+        unbound = self._call(evaluatelinearPotentials, hi, use_physical=False) < Et
         for _ in range(80):
             mid = 0.5 * (lo + hi)
-            below = evaluatelinearPotentials(self._pot, mid, use_physical=False) < Et
+            below = self._call(evaluatelinearPotentials, mid, use_physical=False) < Et
             lo = numpy.where(below, mid, lo)
             hi = numpy.where(below, hi, mid)
         root = 0.5 * (lo + hi)
@@ -308,26 +341,28 @@ class actionAngleVertical(actionAngle):
         every node and selects (a where, differentiable and traceable)"""
         xp = get_namespace(t2, xmax, E)
         xi = xmax[..., None] - t2
-        Phi = _evaluatelinearPotentials(self._pot, xi)
+        Phi = self._call(_evaluatelinearPotentials, xi)
         diff = E[..., None] - Phi
         # diff < max(the relative floor, the round-off floor)
         near = (diff < _FORCE_BELOW * xp.maximum(xp.abs(E[..., None]), xp.abs(Phi))) | (
             diff < self._phi_roundoff(xi) / _FORCE_RTOL
         )
         rad = 2.0 * diff
-        if xp is numpy:
+        if under_trace(xi, t2) or self._per_object():
+            # keeps the shape, which a per-object potential broadcasts against
+            rad = xp.where(near, 2.0 * self._dPhi(xi, xi + t2), rad)
+        elif xp is numpy:
             if numpy.any(near):
                 xn = xi[near]
                 dx = numpy.broadcast_to(t2, xi.shape)[near]
                 rad[near] = 2.0 * self._dPhi(xn, xn + dx)
-            return numpy.clip(rad, 0.0, None)
-        if under_trace(xi, t2):
-            rad = xp.where(near, 2.0 * self._dPhi(xi, xi + t2), rad)
         elif bool(xp.any(near)):  # eager: at the near nodes only, as numpy
             xn = xi[near]
             rad = set_at(
                 xp, rad, near, 2.0 * self._dPhi(xn, xn + (t2 + 0.0 * xi)[near])
             )
+        if xp is numpy:
+            return numpy.clip(rad, 0.0, None)
         # a constant zero: no derivative into sqrt(0) below
         return xp.where(rad > 0.0, rad, xp.zeros_like(rad))
 
@@ -344,7 +379,7 @@ class actionAngleVertical(actionAngle):
         return (
             0.5
             * dx
-            * xp.sum(weights * (-_evaluatelinearForces(self._pot, xx)), axis=-1)
+            * xp.sum(weights * (-self._call(_evaluatelinearForces, xx)), axis=-1)
         )
 
     def _xmax_small(self, x, vx):
@@ -421,7 +456,7 @@ class actionAngleVertical(actionAngle):
     # with the force form of E - Phi as a where).
 
     def _E_backend(self, x, vx):
-        return vx**2.0 / 2.0 + _evaluatelinearPotentials(self._pot, x)
+        return vx**2.0 / 2.0 + self._call(_evaluatelinearPotentials, x)
 
     def _calc_xmax_backend(self, x, vx, E):
         """Vectorised turning point xmax (E == Phi(xmax)) via backend brentq;
@@ -431,12 +466,12 @@ class actionAngleVertical(actionAngle):
         absx = xp.abs(x)
 
         def f(xm, E_):
-            return E_ - _evaluatelinearPotentials(self._pot, xm)
+            return E_ - self._call(_evaluatelinearPotentials, xm)
 
         xmax = self._xmax_root_backend(xp, absx, vx, f, (E,))
-        Phi0 = _evaluatelinearPotentials(self._pot, 0.0 * x)
+        Phi0 = self._call(_evaluatelinearPotentials, 0.0 * x)
         small = (E - Phi0) < self._phi_roundoff(x) / _FORCE_RTOL
-        if under_trace(x, vx, E) or x.ndim == 0:
+        if under_trace(x, vx, E) or x.ndim == 0 or self._per_object():
             return lazy_cond(
                 xp,
                 xp.any(small),
@@ -473,7 +508,7 @@ class actionAngleVertical(actionAngle):
         if harmonic:
             # vx^2 / 2 = k (xm^2 - x^2) / 2 with k = -F / x at the bracket's end
             sa, sv = stop_gradient(absx), stop_gradient(vx)
-            k = -_evaluatelinearForces(self._pot, xend) / xend
+            k = -self._call(_evaluatelinearForces, xend) / xend
             guess = xp.sqrt(sa**2.0 + sv**2.0 / xp.where(k > 0.0, k, 1.0))
             guess = xp.where(k > 0.0, guess, 0.5 * (lo + xend))
         root = _backend_brentq(
@@ -503,7 +538,7 @@ class actionAngleVertical(actionAngle):
         """Mask of unbound orbits: the bracket expansion found no turning point,
         so E still exceeds Phi(xmax). The numpy path returns the 9999.99 sentinel
         (calcxmax == -9999.99 on overflow); match it for the vectorised path."""
-        return (E - _evaluatelinearPotentials(self._pot, xmax)) > 1e-7
+        return (E - self._call(_evaluatelinearPotentials, xmax)) > 1e-7
 
     def _evaluate_backend(self, x, vx):
         xp = get_namespace(x)

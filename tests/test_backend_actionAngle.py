@@ -974,6 +974,91 @@ def test_vertical_parity(backend, potname):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_vertical_per_object_potential(backend):
+    # One radius per object (_BatchedVerticalPotential, as actionAngleAdiabatic
+    # builds on a backend): each object's action, frequency and angle are its
+    # own single-radius potential's, with the radii on the backend and on
+    # numpy (the backend branch, forced through on numpy arrays), and the
+    # force and the round-off probe broadcast against the objects
+    from galpy.potential import MiyamotoNagaiPotential, toVerticalPotential
+    from galpy.potential.verticalPotential import _BatchedVerticalPotential
+
+    mp = MiyamotoNagaiPotential(normalize=1.0)
+    R, x, vx = (
+        numpy.array([0.9, 1.1, 1.3]),
+        numpy.array([0.1, -0.2, 0.05]),
+        numpy.array([0.2, 0.15, 0.1]),
+    )
+    ref = numpy.array(
+        [
+            [
+                float(numpy.squeeze(o))
+                for o in actionAngleVertical(
+                    pot=toVerticalPotential(mp, float(r))
+                )._actionsFreqsAngles(numpy.array([xx]), numpy.array([vv]))
+            ]
+            for r, xx, vv in zip(R, x, vx)
+        ]
+    ).T
+    aN = actionAngleVertical(pot=_BatchedVerticalPotential(mp, R))
+    num = aN._actionsFreqsAngles_backend(x, vx)
+    aB = actionAngleVertical(pot=_BatchedVerticalPotential(mp, _arr(backend, R)))
+    got = aB._actionsFreqsAngles(_arr(backend, x), _arr(backend, vx))
+    for n, g, r in zip(num, got, ref):
+        assert _is_backend_array(backend, g)
+        # (on numpy arrays brentq is a bisection, without the backends' polish)
+        numpy.testing.assert_allclose(n, r, rtol=1e-10, atol=0.0)
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-12, atol=0.0)
+    assert 0.0 < aN._phi_roundoff() < 1e-13 and 0.0 < aB._phi_roundoff() < 1e-13
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_vertical_scalar_only_potential(backend):
+    # A potential that branches on a scalar does not take arrays: it is
+    # evaluated element by element, on numpy and on a backend, and gives the
+    # values of the same potential written for arrays (the backend's are
+    # differentiable: dJ/dvx = vx / Omega)
+    from galpy.backend import use
+    from galpy.potential import KGPotential, linearPotential
+
+    class ScalarOnly(linearPotential):
+        def __init__(self):
+            linearPotential.__init__(self, amp=1.0)
+
+        def _evaluate(self, x, t=0.0):
+            if x < 0.0:  # raises for an array
+                x = -x
+            return (x * x + 1.0) ** 0.5 - 1.0
+
+        def _force(self, x, t=0.0):
+            if x == 0.0:  # raises for an array
+                return 0.0 * x
+            return -x / (x * x + 1.0) ** 0.5
+
+    x, vx = numpy.array([0.1]), numpy.array([0.2])
+    ref = actionAngleVertical(pot=KGPotential(K=1.0, F=0.0, D=1.0))._actionsFreqsAngles(
+        x, vx
+    )
+    aAV = actionAngleVertical(pot=ScalarOnly())
+    with use("numpy", force=True):
+        num = aAV._actionsFreqsAngles(x, vx)
+    got = aAV._actionsFreqsAngles(_arr(backend, x), _arr(backend, vx))
+    for n, g, r in zip(num, got, ref):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(n, r, rtol=1e-13, atol=0.0)
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-13, atol=0.0)
+    if backend == "jax":
+        dJ = numpy.asarray(
+            jax.grad(lambda v: aAV._evaluate(jnp.asarray(x), v).sum())(jnp.asarray(vx))
+        )
+    else:
+        vt = torch.tensor(vx, requires_grad=True)
+        (dJ,) = torch.autograd.grad(aAV._evaluate(torch.tensor(x), vt).sum(), vt)
+        dJ = as_numpy(dJ)
+    numpy.testing.assert_allclose(dJ, vx / ref[1], rtol=1e-10, atol=0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_vertical_tiny_tori(backend):
     # The smallest tori of a vertical potential measured from the midplane,
     # whose energy above the minimum is within the potential's round-off, on a
