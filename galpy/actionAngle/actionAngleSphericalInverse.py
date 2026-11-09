@@ -1127,9 +1127,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
         torus (the parameters and tables have one row per angle, or one row
         for all), with the residual wrapped into (-pi, pi] so that an
         anomaly that crosses the pericentre converges to the equivalent
-        angle, converged angles dropped from the iteration, and a bracketed
+        angle, converged angles dropped from the iteration, a bracketed
         scalar fallback for any angle that does not converge within maxiter
-        iterations"""
+        iterations, and a final Newton step on every angle that takes the
+        tolerance to round-off"""
         tables = (a, e, Dm, rp, ra) + tuple(chainJ)
         n = len(thr)
 
@@ -1172,7 +1173,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     return _f(numpy.array([xx]), tabs)[0][0] - thri
 
                 x[ii] = brentq(_fi, thri - sc, thri + sc, xtol=1e-15, maxiter=200)
-        return x
+        # one more Newton step on every angle: the loop stops at angle_tol,
+        # and the quadratic step takes that to round-off, so that the returned
+        # anomaly does not depend on the tolerance
+        f, fp = _f(x, tables)
+        f = (f - thr + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        return x - f / fp
 
     def _unlift(self, out, r, pr):
         """Undo the lift: the auxiliary-chart reconstruction (R, v_R, v_T,
