@@ -72,6 +72,7 @@ from .actionAngleInverseUtil import (
     _sine_project_xp,
     _sine_series,
     _sine_series_xp,
+    _spaced_grid,
     _spec_eval,
     _spec_eval_xp,
 )
@@ -160,6 +161,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Rinf=10.0,
         nE=9,
         nLz=9,
+        Lzspacing="linear",
         nI3=9,
         mm_npt=32,
         mm_nta=None,
@@ -219,6 +221,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Number of energies of the interpolation grid.
         nLz : int, optional
             Number of angular momenta of the interpolation grid.
+        Lzspacing : str, optional
+            Spacing of the angular-momentum grid: 'linear' (default), 'sqrt'
+            (uniform in sqrt(L_z), finer at small L_z) or 'log' (uniform in
+            ln L_z).
         nI3 : int, optional
             Number of third integrals of the interpolation grid.
         mm_npt : int, optional
@@ -381,6 +387,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 nLz,
                 nI3,
                 auxiliary,
+                Lzspacing=Lzspacing,
             )
             self._check_consistent_units()
             return None
@@ -392,6 +399,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 nE,
                 nLz,
                 nI3,
+                Lzspacing=Lzspacing,
             )
         # sample every torus once (exact placement), then fix the frozen
         # auxiliary and lift every torus onto it, libration by libration
@@ -1548,7 +1556,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return None
 
     # ---------- the (L_z, E, I_3) interpolation grid
-    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3):
+    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3, Lzspacing="linear"):
         """Rectangular grid in (w_E, w_I, L_z): L_z between the circular
         angular momenta of Rmin and Rmax; the energies uniform, in x =
         w_E^2 with w_E uniform in [0, 1], in the logarithm of the apocentre
@@ -1586,7 +1594,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if self._target is not None:
             box = self._target_box(Lmin, Lmax)
         self._box = box
-        self._Lzgrid = numpy.linspace(box[0][0], box[0][1], nLz)
+        self._Lzgrid = _spaced_grid(box[0][0], box[0][1], nLz, Lzspacing)
         # the energy variable's bottom apocentre is that of the planar orbit
         # without angular momentum at the circular orbit's energy, which has
         # to lie inside Rinf for every L_z of the grid: Phi(Rinf, 0) must
@@ -2877,7 +2885,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             - _spec_eval_xp(xp, _offset_spec_coeffs_xp(xp, q), 0.0 * tau[:1])
         )
 
-    def _init_backend(self, xp, Rmin, Rmax, Rinf, nE, nLz, nI3, auxiliary):
+    def _init_backend(
+        self, xp, Rmin, Rmax, Rinf, nE, nLz, nI3, auxiliary, Lzspacing="linear"
+    ):
         """The construction (as _setup_grid, _sample_all, _setup_auxiliary and
         _setup_tori do it) natively in xp, every torus at once"""
         from ..backend._input import _grad_param
@@ -2920,7 +2930,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             u0s = None
         else:
             grid = self._bk_setup_grid(
-                xp, f64, concrete, Rmin, Rmax, Rinf, nE, nLz, nI3
+                xp, f64, concrete, Rmin, Rmax, Rinf, nE, nLz, nI3, Lzspacing
             )
             Es, Lzs, I3s, Ec, Rc = (grid[k] for k in ("Es", "Lzs", "I3s", "Ec", "Rc"))
             circ, udeg, vdeg = (f64(grid[k]) > 0.5 for k in ("circ", "udeg", "vdeg"))
@@ -3387,7 +3397,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             return _fit_isochrone_vc2(*(numpy.array(as_numpy(t)) for t in (rf, lnvc2)))
         return _fit_isochrone_vc2(rf, lnvc2)
 
-    def _bk_setup_grid(self, xp, f64, concrete, Rmin, Rmax, Rinf, nE, nLz, nI3):
+    def _bk_setup_grid(
+        self, xp, f64, concrete, Rmin, Rmax, Rinf, nE, nLz, nI3, Lzspacing="linear"
+    ):
         """_setup_grid on a backend: the grid's relations at every (E, L_z)
         node, and its tori in (iE, iI, iL) order with the (structural) masks
         of the degenerate faces"""
@@ -3399,7 +3411,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "the grid's most energetic orbits, beyond every circular orbit "
                 "of the grid"
             )
-        cat = getattr(xp, "concat", None) or xp.concatenate
         plane, d2 = self._bk_plane_pot(), self._delta**2
         self._Rinf = Rinf
         RR = f64([Rmin, Rmax])
@@ -3411,13 +3422,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         else:
             box = ((LL[0], LL[1]), (0.0, 1.0), (0.0, 1.0))
             Lmin, Lmax = LL[0], LL[1]
-        # as numpy.linspace
-        Lzgrid = cat(
-            [
-                f64(numpy.arange(nLz - 1)) * ((Lmax - Lmin) / (nLz - 1)) + Lmin,
-                xp.reshape(Lmax, (1,)),
-            ]
-        )
+        Lzgrid = _spaced_grid(Lmin, Lmax, nLz, Lzspacing)
         wEs = numpy.linspace(box[1][0], box[1][1], nE)
         wIs = numpy.linspace(box[2][0], box[2][1], nI3)
         ys = numpy.sin(0.5 * numpy.pi * wIs) ** 2

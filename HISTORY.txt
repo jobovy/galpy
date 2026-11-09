@@ -10,6 +10,16 @@ v2.0.0b2 (pre-release)
   differentiable, with the torus's frequencies as its derivatives in the
   actions, and traceable under ``jax.jit``.
 
+- ``actionAngleSphericalInverse`` and ``actionAngleStaeckelInverse`` take the
+  spacing of their angular-momentum grid as an option (``Lspacing`` and
+  ``Lzspacing``: 'linear', the default, 'sqrt' or 'log'). A linear grid
+  that reaches a small ``Rmin`` has an innermost cell spanning a large
+  factor in angular momentum, which holds the family's most eccentric tori
+  and most of its interpolation error; spaced in the logarithm, that cell's
+  action error drops by three orders of magnitude on an eight-node grid, at
+  the price of a coarser outer grid. Families built on the jax and PyTorch
+  backends space their grids the same way.
+
 - ``actionAngleVerticalInverse`` samples the momentum of each torus through
   ``actionAngleVertical``'s radicand, so that the smallest tori of a vertical
   potential measured from the midplane (below about 70 pc in height for

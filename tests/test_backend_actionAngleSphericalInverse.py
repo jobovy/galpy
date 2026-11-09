@@ -709,6 +709,32 @@ def test_public_energy(backend, mode, interp, explicit):
             aN.E(_arr(backend, 1.1 * j1), _arr(backend, L1))
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("spacing", ["sqrt", "log"])
+def test_Lspacing(backend, spacing):
+    # The spacing of the angular-momentum grid on a backend: a family built
+    # there (forced) has numpy's nodes, to round-off, and numpy's tori, to its
+    # construction's ~1e-10; an unknown spacing raises
+    from galpy import backend as gb
+
+    aN = _interp(Lspacing=spacing)
+    with gb.use(backend, force=True):
+        aB = _interp(Lspacing=spacing)
+    numpy.testing.assert_allclose(
+        as_numpy(aB._Lgrid_bk), aN._Lgrid, rtol=1e-14, atol=0.0
+    )
+    for J in ((0.05, 0.6, 0.3), (0.137, -0.9, 0.1)):
+        ref = aN.xvFreqs(*J, _ANGLES, 1.0, 2.0)
+        got = aB.xvFreqs(
+            *(_arr(backend, v) for v in J), _arr(backend, _ANGLES), 1.0, 2.0
+        )
+        for g, r in zip(got, ref):
+            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=2e-10)
+    with gb.use(backend, force=True):
+        with pytest.raises(ValueError, match="spacing 'cubic' not understood"):
+            _interp(Lspacing="cubic")
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_torch_compile(explicit):
     # the evaluation runs under torch.compile (an explicit torus: the

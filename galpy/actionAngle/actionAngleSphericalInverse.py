@@ -70,6 +70,7 @@ from .actionAngleInverseUtil import (
     _sine_project_xp,
     _sine_series,
     _sine_series_xp,
+    _spaced_grid,
     _spec_eval,
     _spec_eval_xp,
 )
@@ -115,6 +116,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         Rinf=25.0,
         nE=16,
         nL=16,
+        Lspacing="linear",
         mm_npt=32,
         mm_nta=None,
         auxiliary=None,
@@ -158,6 +160,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
             Number of energies of the interpolation grid.
         nL : int, optional
             Number of angular momenta of the interpolation grid.
+        Lspacing : str, optional
+            Spacing of the angular-momentum grid: 'linear' (default), 'sqrt'
+            (uniform in sqrt(L), finer at small L) or 'log' (uniform in
+            ln L). A linear grid's innermost cell spans a large factor in L
+            when Rmin is small and holds the family's most eccentric tori,
+            where its interpolation errors then concentrate.
         mm_npt : int, optional
             Number of harmonics of the momentum-matched anomaly map; the
             reconstruction converges spectrally in this, and a warning is
@@ -239,6 +247,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 nE,
                 nL,
                 auxiliary,
+                Lspacing=Lspacing,
             )
             self._check_consistent_units()
             return None
@@ -249,6 +258,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 conversion.parse_length(Rinf, ro=self._ro),
                 nE,
                 nL,
+                Lspacing=Lspacing,
             )
         # sample every torus once (exact placement), then fix the frozen
         # auxiliary and lift every torus onto it (all torus-dependence
@@ -815,7 +825,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return None
 
     # ---------- the (E, L) interpolation grid
-    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nL):
+    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nL, Lspacing="linear"):
         """Rectangular grid in (u, L): L between the circular angular
         momenta of Rmin and Rmax; the energies uniform, in x = u^2 with u
         uniform in [0, 1], in the logarithm of the apocentre of the radial
@@ -833,7 +843,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             raise ValueError("setup_interp=True requires nE >= 4 and nL >= 4")
         Lmin = Rmin * vcirc(self._pot, Rmin, use_physical=False)
         Lmax = Rmax * vcirc(self._pot, Rmax, use_physical=False)
-        self._Lgrid = numpy.linspace(Lmin, Lmax, nL)
+        self._Lgrid = _spaced_grid(Lmin, Lmax, nL, Lspacing)
         self._us = numpy.linspace(0.0, 1.0, nE)
         self._Emax = self._Phi(Rinf)
         self._Ecs = numpy.array([self._Ec(L)[0] for L in self._Lgrid])
@@ -1666,7 +1676,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         return out if L.ndim else out[0]
 
-    def _init_backend(self, xp, Rmin, Rmax, Rinf, nE, nL, auxiliary):
+    def _init_backend(self, xp, Rmin, Rmax, Rinf, nE, nL, auxiliary, Lspacing="linear"):
         """The construction (as _setup_grid, _sample_all, _setup_auxiliary and
         _setup_tori do it) natively in xp, every torus at once; the circular
         tori go through it with a small libration in their place, which the
@@ -1709,13 +1719,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             Lmin, Lmax = f64([Rmin, Rmax]) * vcirc(
                 self._pot, f64([Rmin, Rmax]), use_physical=False
             )
-            # as numpy.linspace
-            Lgrid = cat(
-                [
-                    f64(numpy.arange(nL - 1)) * ((Lmax - Lmin) / (nL - 1)) + Lmin,
-                    xp.reshape(Lmax, (1,)),
-                ]
-            )
+            Lgrid = _spaced_grid(Lmin, Lmax, nL, Lspacing)
             us = numpy.linspace(0.0, 1.0, nE)
             Emax = Phi(f64([Rinf]))[0]
             rcs = self._bk_rc(Lgrid)

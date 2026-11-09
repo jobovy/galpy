@@ -566,6 +566,27 @@ def _degenerate_labels():
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("spacing", ["sqrt", "log"])
+def test_Lzspacing(backend, spacing):
+    # The spacing of the L_z grid on a backend: a family built there (forced)
+    # has numpy's nodes, to round-off, and numpy's tori, to its
+    # construction's ~1e-10; an unknown spacing raises
+    from galpy import backend as gb
+
+    aN = _interp(Lzspacing=spacing)
+    with gb.use(backend, force=True):
+        aB = _interp(Lzspacing=spacing)
+    numpy.testing.assert_allclose(aB._Lzgrid, aN._Lzgrid, rtol=1e-14, atol=0.0)
+    J = _TORI[0]
+    ref = _flat(aN.xvFreqs(*J, _ANGLES, 1.0, 2.0))
+    got = aB.xvFreqs(*(_arr(backend, v) for v in J), _arr(backend, _ANGLES), 1.0, 2.0)
+    numpy.testing.assert_allclose(_flat(got), ref, rtol=0.0, atol=2e-10)
+    with gb.use(backend, force=True):
+        with pytest.raises(ValueError, match="spacing 'cubic' not understood"):
+            _interp(Lzspacing="cubic")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_lone_circular_torus_auxiliary(backend):
     # A family of one planar circular torus spans a single radius, which
     # every isochrone scale fits: the auxiliary is the isochrone through the

@@ -329,3 +329,35 @@ def _progress(iterator, desc, show):
     if show:
         return tqdm.tqdm(iterator, desc=desc, leave=False)
     return iterator
+
+
+def _spaced_grid(lo, hi, n, spacing):
+    """n grid nodes between lo and hi (both positive) spaced uniformly in the
+    variable named by spacing: "linear" (the variable itself), "sqrt" (its
+    square root, finer at the small end) or "log" (its logarithm). For
+    backend lo and hi (a construction differentiable in them), the nodes as
+    numpy.linspace computes them (start + step k, the end set exactly) in
+    that variable, numpy.geomspace's ends exact too"""
+    if spacing not in ("linear", "sqrt", "log"):
+        raise ValueError(
+            f"spacing {spacing!r} not understood; use 'linear', 'sqrt' or 'log'"
+        )
+    xp = namespace_from_arrays((lo, hi)) or numpy
+    if xp is numpy:
+        if spacing == "linear":
+            return numpy.linspace(lo, hi, n)
+        if spacing == "sqrt":
+            return numpy.linspace(numpy.sqrt(lo), numpy.sqrt(hi), n) ** 2.0
+        return numpy.geomspace(lo, hi, n)
+    cat = getattr(xp, "concat", None) or xp.concatenate
+    k = asarray_on_device(xp, numpy.arange(n - 1, dtype="float"), device_of(lo, hi))
+
+    def _lin(a, b):
+        return cat([k * ((b - a) / (n - 1)) + a, xp.reshape(b, (1,))])
+
+    if spacing == "linear":
+        return _lin(lo, hi)
+    if spacing == "sqrt":
+        return _lin(xp.sqrt(lo), xp.sqrt(hi)) ** 2.0
+    g = xp.exp(_lin(xp.log(lo), xp.log(hi)))
+    return cat([xp.reshape(lo, (1,)), g[1:-1], xp.reshape(hi, (1,))])
