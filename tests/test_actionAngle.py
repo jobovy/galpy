@@ -10294,6 +10294,107 @@ def _spherical_inverse_potential():
     return LogarithmicHaloPotential(normalize=1.0)
 
 
+def test_actionAngleVerticalInverse_array_actions():
+    # Arrays of actions and angles broadcast against each other, so that a
+    # population of stars, each on its own torus, is mapped in one call; the
+    # result agrees with evaluating every torus on its own, including the
+    # zero-action torus (the bottom of the potential) and repeated tori, and
+    # a single action keeps its scalar frequency
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(
+        pot=pot, Es=numpy.linspace(0.0, 2.0, 17), nta=128, setup_interp=True
+    )
+    rng = numpy.random.default_rng(3)
+    Jmax = float(aAVI.J(2.0))
+    J = rng.uniform(0.0, Jmax, 40)
+    J[::7] = 0.0
+    J[3] = J[10]
+    angles = rng.uniform(0.0, 2.0 * numpy.pi, 40)
+    x, v, Om = aAVI.xvFreqs(J, angles)
+    assert x.shape == (40,) and v.shape == (40,) and Om.shape == (40,), (
+        "Array actions do not return arrays of the actions' shape"
+    )
+    for ii in range(40):
+        xi, vi, Omi = aAVI.xvFreqs(J[ii], angles[ii])
+        assert numpy.fabs(x[ii] - xi[0]) < 1e-12, (
+            "x of an array of actions differs from the torus's own"
+        )
+        assert numpy.fabs(v[ii] - vi[0]) < 1e-12, (
+            "v of an array of actions differs from the torus's own"
+        )
+        assert numpy.fabs(Om[ii] - Omi) < 1e-12, (
+            "The frequency of an array of actions differs from the torus's own"
+        )
+    x2, v2 = aAVI(J, angles)
+    assert numpy.all(x2 == x) and numpy.all(v2 == v), (
+        "__call__ with array actions differs from xvFreqs"
+    )
+    assert numpy.all(aAVI.Freqs(J) == Om), (
+        "Freqs with array actions differs from xvFreqs"
+    )
+    # (5, 1) actions against (7,) angles
+    x3, v3, Om3 = aAVI.xvFreqs(J[:5, None], angles[None, :7])
+    assert x3.shape == (5, 7) and Om3.shape == (5, 7), (
+        "Actions and angles do not broadcast against each other"
+    )
+    for ii in range(5):
+        xi, vi, Omi = aAVI.xvFreqs(J[ii], angles[:7])
+        assert numpy.amax(numpy.fabs(x3[ii] - xi)) < 1e-12, (
+            "Broadcast actions and angles differ from the torus's own"
+        )
+        assert numpy.amax(numpy.fabs(v3[ii] - vi)) < 1e-12, (
+            "Broadcast actions and angles differ from the torus's own"
+        )
+        assert numpy.all(Om3[ii] == Omi), (
+            "Broadcast actions and angles differ from the torus's own"
+        )
+    # a single action with many angles keeps its float frequency
+    x4, v4, Om4 = aAVI.xvFreqs(J[1], angles)
+    assert isinstance(Om4, float) and x4.shape == (40,), (
+        "A single action does not return a float frequency"
+    )
+    # many actions at one angle
+    x5, v5, Om5 = aAVI.xvFreqs(J[:4], 1.0)
+    assert x5.shape == (4,) and Om5.shape == (4,), (
+        "Array actions at one angle do not return arrays of the actions' shape"
+    )
+    for ii in range(4):
+        assert numpy.fabs(x5[ii] - aAVI.xvFreqs(J[ii], 1.0)[0][0]) < 1e-12, (
+            "Array actions at one angle differ from the torus's own"
+        )
+    # a negative action raises
+    with pytest.raises(ValueError):
+        aAVI(numpy.array([0.1, -0.1]), angles[:2])
+    # a call over many points is evaluated in chunks: the same answer
+    import galpy.actionAngle.actionAngleInverseUtil as util
+
+    chunk = util._EVAL_CHUNK
+    util._EVAL_CHUNK = 7
+    try:
+        x7, v7, Om7 = aAVI.xvFreqs(J, angles)
+    finally:
+        util._EVAL_CHUNK = chunk
+    assert numpy.all(x7 == x) and numpy.all(v7 == v) and numpy.all(Om7 == Om), (
+        "Evaluation in chunks differs from the evaluation in one piece"
+    )
+    # a family of a single torus takes arrays too
+    aAVI1 = actionAngleVerticalInverse(pot=pot, Es=[1.0], nta=128, setup_interp=True)
+    J1 = float(aAVI1.J(1.0)) * numpy.array([0.9, 1.0, 1.1])
+    x6, v6, Om6 = aAVI1.xvFreqs(J1, angles[:3])
+    for ii in range(3):
+        xi, vi, Omi = aAVI1.xvFreqs(J1[ii], angles[ii])
+        assert (
+            numpy.fabs(x6[ii] - xi[0]) < 1e-12 and numpy.fabs(v6[ii] - vi[0]) < 1e-12
+        ), "Array actions on a one-torus family differ from the torus's own"
+        assert numpy.fabs(Om6[ii] - Omi) < 1e-12, (
+            "Array actions on a one-torus family differ from the torus's own"
+        )
+    return None
+
+
 @pytest.fixture(scope="module")
 def spherical_inverse_interp():
     # a small (E, L) interpolation grid in the logarithmic halo
