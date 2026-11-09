@@ -12992,6 +12992,8 @@ def test_actionAngleVerticalInverse_E():
     )
     with pytest.raises(ValueError):
         aAVtm.E(1.5 * jtm)
+
+
 def test_actionAngleVertical_arrays_and_small_tori():
     # The vectorized forward transformation: arrays of points in one call give
     # the same actions, frequencies and angles as the points one by one, floats
@@ -13053,6 +13055,23 @@ def test_actionAngleVertical_arrays_and_small_tori():
     assert numpy.all(numpy.fabs(angs - angs[0]) < 1e-5), (
         "The angles of the smallest tori are not self-similar"
     )
-    # a potential without hidden round-off keeps the direct form: same results
-    assert aAV._phi_roundoff() > 0.0
+    # every point at its turning point
+    Jt, Omt, angt = aAV.actionsFreqsAngles(
+        numpy.array([0.1, -0.2]), numpy.array([0.0, 0.0])
+    )
+    assert numpy.all(numpy.fabs(angt - numpy.array([0.5, 1.5]) * numpy.pi) < 1e-10), (
+        "Points at their turning points do not have angle pi/2 (above) and 3 pi/2 (below the midplane)"
+    )
+    assert numpy.fabs(Jt[0] - aAV(0.1, 0.0)[0]) < 1e-14, (
+        "A point at its turning point differs between array and float calls"
+    )
+    # the single-point turning-point method agrees with the vectorized one
+    xm = aAV.calcxmax(0.05, 0.1)
+    assert numpy.fabs(xm - aAV._points(0.05, 0.1)[3][0]) < 1e-12, (
+        "calcxmax disagrees with the vectorized turning point"
+    )
+    assert aAV.calcxmax(0.3, 0.0) == 0.3, "calcxmax at the turning point is not |x|"
+    assert numpy.fabs(aAV.calcxmax(0.0, 0.5) - aAV._points(0.0, 0.5)[3][0]) < 1e-12, (
+        "calcxmax from the midplane disagrees"
+    )
     return None
