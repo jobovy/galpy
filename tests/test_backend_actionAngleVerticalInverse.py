@@ -239,6 +239,25 @@ def test_public_energy(backend, kind):
     else:
         with pytest.raises(ValueError, match="Given action not found"):
             aA.E(_arr(backend, 1.5 * j))
+    if kind == "legacy":
+        return
+    # the family built on a backend (forced) takes its tori's actions and
+    # frequencies from the backend tables: numpy's E and dE/dJ = Omega to the
+    # construction's ~1e-11
+    from galpy import backend as gb
+
+    with gb.use(backend, force=True):
+        aB = _aAVI(setup_interp=True) if kind == "interp" else _aAVI(Es=[0.1, 0.3])
+    assert aB._mm_bk is not None
+    got = aB.E(_arr(backend, j))
+    assert _is_backend(backend, got) and got.ndim == 0
+    assert abs(float(as_numpy(got)) - aA.E(j)) < 1e-11
+    if backend == "jax":
+        dEdj = float(jax.grad(aB.E)(jnp.asarray(j)))
+    else:
+        jt = _arr(backend, j, grad=True)
+        (dEdj,) = torch.autograd.grad(aB.E(jt), jt)
+    assert abs(float(dEdj) / float(Om) - 1.0) < 1e-10
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
