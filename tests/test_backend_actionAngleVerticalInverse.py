@@ -222,7 +222,9 @@ def test_float32_in_float32_out(backend):
 
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize(
-    "kw", [{"setup_interp": True}, {"Es": [0.1, 0.3]}], ids=["interp", "two_tori"]
+    "kw",
+    [{"setup_interp": True}, {"Es": [0.1, 0.3]}, {"Es": [0.3]}],
+    ids=["interp", "two_tori", "one_torus"],
 )
 def test_array_actions(backend, kw):
     # Arrays of actions, broadcast against the angles: each point is its own
@@ -235,7 +237,11 @@ def test_array_actions(backend, kw):
     from galpy import backend as gb
 
     aA = _aAVI(**kw)
-    if "Es" in kw:
+    if "Es" in kw and len(kw["Es"]) == 1:
+        # one torus: a family built on a backend stores its tables as the
+        # torus's tangent lines, a row of D per point
+        js = numpy.array([aA._js[0], 0.0, aA._js[0]])
+    elif "Es" in kw:
         js = numpy.array([aA._js[0], aA._js[1], 0.0, aA._js[1], aA._js[0]])
     else:
         js = numpy.array([0.02, 0.137, 0.0, 0.31, 0.137])
