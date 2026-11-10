@@ -270,7 +270,7 @@ class actionAngleVertical(actionAngle):
         xp = param_grad_namespace(self._pot, any_backend=True)
         if xp is None and batch:
             xp = namespace_from_arrays((R,))
-        if xp is None:  # numpy's
+        if xp is None or xp is numpy:  # numpy's (numpy parameters and R)
             with use("numpy", force=True):
                 xs = numpy.logspace(-6.0, -2.0, 17)
                 if batch:
