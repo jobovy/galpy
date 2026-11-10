@@ -302,6 +302,7 @@ def test_actionAngleVertical_unbound():
 # Test actionAngleVertical against actionAngleHarmonic for HO
 def test_actionAngleVertical_Harmonic_actions():
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import linearPotential
 
@@ -325,7 +326,10 @@ def test_actionAngleVertical_Harmonic_actions():
     obs = Orbit([0.1, -0.3])
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
-    obs.integrate(times, ipz)
+    # setup, on the host: a test-local potential has only the python
+    # integrators, which cannot read a forced backend's CUDA forces
+    with use("numpy", force=True):
+        obs.integrate(times, ipz)
     js = as_numpy(aAH(obs.x(times), obs.vx(times)))
     jsv = as_numpy(aAV(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
@@ -338,6 +342,7 @@ def test_actionAngleVertical_Harmonic_actions():
 
 def test_actionAngleVertical_Harmonic_actionsFreqs():
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import linearPotential
 
@@ -361,7 +366,10 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
     obs = Orbit([0.1, -0.3])
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
-    obs.integrate(times, ipz)
+    # setup, on the host: a test-local potential has only the python
+    # integrators, which cannot read a forced backend's CUDA forces
+    with use("numpy", force=True):
+        obs.integrate(times, ipz)
     js, os = (as_numpy(a) for a in aAH.actionsFreqs(obs.x(times), obs.vx(times)))
     jsv, osv = (as_numpy(a) for a in aAV.actionsFreqs(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
@@ -379,6 +387,7 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
 
 def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import linearPotential
 
@@ -402,7 +411,10 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
     obs = Orbit([0.1, -0.3])
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
-    obs.integrate(times, ipz)
+    # setup, on the host: a test-local potential has only the python
+    # integrators, which cannot read a forced backend's CUDA forces
+    with use("numpy", force=True):
+        obs.integrate(times, ipz)
     js, os, anss = (
         as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
     )
