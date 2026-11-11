@@ -352,6 +352,38 @@ def _xla_gpu_deterministic():
         os.environ["XLA_FLAGS"] = f"{flags} --xla_gpu_deterministic_ops=true".strip()
 
 
+def _test_code_converts_cuda_tensors(torch):
+    """--device cuda: a test's own numpy (or scipy) call converts a CUDA tensor
+    as it does a CPU one, and its result comes back on the tensor's device, so
+    numpy-path tests run on a GPU as on a CPU. A conversion from inside galpy
+    still raises: finding those is what this run is for."""
+    tests_dir = os.path.dirname(os.path.abspath(__file__)) + os.sep
+    machinery = tuple(f"{os.sep}{m}{os.sep}" for m in ("numpy", "scipy", "torch"))
+
+    def from_tests():
+        frame = sys._getframe(2)
+        while frame is not None and (
+            frame.f_code.co_filename == __file__
+            or any(m in frame.f_code.co_filename for m in machinery)
+        ):
+            frame = frame.f_back
+        return frame is not None and frame.f_code.co_filename.startswith(tests_dir)
+
+    to_array, wrap = torch.Tensor.__array__, torch.Tensor.__array_wrap__
+
+    def __array__(self, *args, **kwargs):
+        if from_tests():
+            self = self.detach().cpu()
+        return to_array(self, *args, **kwargs)
+
+    def __array_wrap__(self, array, *args, **kwargs):
+        out = wrap(self, array, *args, **kwargs)
+        return out.to(self.device) if from_tests() else out
+
+    torch.Tensor.__array__ = __array__
+    torch.Tensor.__array_wrap__ = __array_wrap__
+
+
 def _configure_cuda(backend_name):
     """--device cuda: fail loudly if there is no GPU, then make it the default."""
     _xla_gpu_deterministic()
@@ -361,6 +393,7 @@ def _configure_cuda(backend_name):
         if not torch.cuda.is_available():
             raise pytest.UsageError("--device cuda: torch sees no CUDA device")
         torch.set_default_device("cuda")
+        _test_code_converts_cuda_tensors(torch)
         # dynamo mis-traces numpy under set_default_device's TorchFunctionMode
         # ("'ndarray' object has no attribute 'gt'"; torch 2.12-2.14), and galpy
         # keeps numpy constants in compiled regions: run numpy eagerly instead

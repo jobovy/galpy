@@ -302,6 +302,7 @@ def test_actionAngleVertical_unbound():
 # Test actionAngleVertical against actionAngleHarmonic for HO
 def test_actionAngleVertical_Harmonic_actions():
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import linearPotential
 
@@ -325,7 +326,10 @@ def test_actionAngleVertical_Harmonic_actions():
     obs = Orbit([0.1, -0.3])
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
-    obs.integrate(times, ipz)
+    # setup, on the host: a test-local potential has only the python
+    # integrators, which cannot read a forced backend's CUDA forces
+    with use("numpy", force=True):
+        obs.integrate(times, ipz)
     js = as_numpy(aAH(obs.x(times), obs.vx(times)))
     jsv = as_numpy(aAV(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
@@ -338,6 +342,7 @@ def test_actionAngleVertical_Harmonic_actions():
 
 def test_actionAngleVertical_Harmonic_actionsFreqs():
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import linearPotential
 
@@ -361,7 +366,10 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
     obs = Orbit([0.1, -0.3])
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
-    obs.integrate(times, ipz)
+    # setup, on the host: a test-local potential has only the python
+    # integrators, which cannot read a forced backend's CUDA forces
+    with use("numpy", force=True):
+        obs.integrate(times, ipz)
     js, os = (as_numpy(a) for a in aAH.actionsFreqs(obs.x(times), obs.vx(times)))
     jsv, osv = (as_numpy(a) for a in aAV.actionsFreqs(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
@@ -379,6 +387,7 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
 
 def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import linearPotential
 
@@ -402,7 +411,10 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
     obs = Orbit([0.1, -0.3])
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
-    obs.integrate(times, ipz)
+    # setup, on the host: a test-local potential has only the python
+    # integrators, which cannot read a forced backend's CUDA forces
+    with use("numpy", force=True):
+        obs.integrate(times, ipz)
     js, os, anss = (
         as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
     )
@@ -13735,4 +13747,120 @@ def test_actionAngleVerticalInverse_small_tori():
         assert numpy.all(
             numpy.fabs(Of / float(as_numpy(aAVI.Freqs(J))) - 1.0) < 1e-8
         ), "The smallest tori do not round-trip in the frequency"
+    return None
+
+
+def test_actionAngleSphericalInverse_Lspacing():
+    # The angular-momentum grid's spacing: 'linear' (the default), 'sqrt' and
+    # 'log' all build and evaluate; a grid that reaches a small Rmin has a
+    # linear innermost cell that spans a large factor in L and holds its
+    # most eccentric tori, where the 'log' spacing is far more accurate, as
+    # the family's own J_r(E, L) against the exact action of a torus set up
+    # on its own shows; an unknown spacing raises
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import HernquistPotential, evaluatePotentials, vcirc
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    Rmin, Rmax, Rinf = 0.1, 5.0, 20.0
+    fams = {
+        sp: actionAngleSphericalInverse(
+            pot=hp,
+            setup_interp=True,
+            Rmin=Rmin,
+            Rmax=Rmax,
+            Rinf=Rinf,
+            nE=8,
+            nL=8,
+            mm_npt=160,
+            Lspacing=sp,
+            progressbar=False,
+        )
+        for sp in ("linear", "sqrt", "log")
+    }
+
+    # (as floats: under a forced backend the results stay on the backend)
+    def vc(R):
+        return float(as_numpy(vcirc(hp, R)))
+
+    def Phi(R):
+        return float(as_numpy(evaluatePotentials(hp, R, 0.0)))
+
+    Lmin = Rmin * vc(Rmin)
+    Ltest = numpy.sqrt(
+        Lmin * (Lmin + (Rmax * vc(Rmax) - Lmin) / 7.0)
+    )  # inside the linear grid's first cell
+    Rc = 0.25
+    Ec = 0.5 * vc(Rc) ** 2.0 + Phi(Rc)
+    E = Ec + 0.5 * (Phi(Rinf) - Ec)
+    jr_exact = actionAngleSphericalInverse(
+        pot=hp, Es=[E], Ls=[Ltest], mm_npt=160, progressbar=False
+    ).Jr(E, Ltest)
+    err = {
+        sp: numpy.fabs(float(as_numpy(f.Jr(E, Ltest) / jr_exact)) - 1.0)
+        for sp, f in fams.items()
+    }
+    assert err["log"] < 1e-2 * err["linear"], (
+        "The 'log' spacing does not improve the innermost cell's action over the 'linear' one"
+    )
+    assert err["sqrt"] < err["linear"], (
+        "The 'sqrt' spacing does not improve the innermost cell's action"
+    )
+    for f in fams.values():
+        R, vR, vT, z, vz, phi = _spherical_inverse_npt(
+            f(0.05, 0.6 * Ltest, 0.4 * Ltest, 0.3, 0.2, 1.1)
+        )
+        assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
+            "A spaced family does not evaluate"
+        )
+    with pytest.raises(ValueError):
+        actionAngleSphericalInverse(
+            pot=hp,
+            setup_interp=True,
+            Rmin=0.5,
+            Rmax=2.0,
+            Rinf=10.0,
+            nE=6,
+            nL=6,
+            Lspacing="quadratic",
+            progressbar=False,
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_Lzspacing():
+    # The Staeckel family takes the same angular-momentum spacing option as the
+    # spherical one: a family spaced in the logarithm or the square root of
+    # L_z builds and evaluates, and an unknown spacing raises
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    for sp in ("log", "sqrt"):
+        aAS = actionAngleStaeckelInverse(
+            pot=_staeckel_inverse_potential(),
+            setup_interp=True,
+            Rmin=0.7,
+            Rmax=1.6,
+            Rinf=3.5,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=48,
+            Lzspacing=sp,
+        )
+        out = _spherical_inverse_npt(aAS.Freqs(0.02, 0.9, 0.02))
+        assert numpy.all(numpy.isfinite(out)), (
+            f"A Staeckel family with Lzspacing={sp!r} does not evaluate"
+        )
+    with pytest.raises(ValueError):
+        actionAngleStaeckelInverse(
+            pot=_staeckel_inverse_potential(),
+            setup_interp=True,
+            Rmin=0.7,
+            Rmax=1.6,
+            Rinf=3.5,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=48,
+            Lzspacing="cubic",
+        )
     return None
