@@ -98,9 +98,29 @@ def _solve_increasing(f, fp, lo, hi):
 
 
 def _contract(smt, D):
-    """sum_m smt[:, m] D[m] for the coefficients D of one torus, (M,), or of
-    every point's own torus, (M, npoints)"""
-    return smt @ D if D.ndim == 1 else numpy.einsum("pm,mp->p", smt, D)
+    """sum_m D[m] smt[m] for the harmonics smt, (M, npoints), and the
+    coefficients D of one torus, (M,), or of every point's own torus,
+    (M, npoints)"""
+    return D @ smt if D.ndim == 1 else numpy.einsum("mp,mp->p", smt, D)
+
+
+def _harmonics(tau, ms):
+    """sin(m tau) and cos(m tau) as (M, npoints) arrays for the harmonics
+    ms = ms[0] (1, ..., M), from the sine and cosine of ms[0] tau alone:
+    the angle-addition formulae double the number of harmonics in hand at
+    every step, so that a point costs two trigonometric evaluations instead
+    of 2 M and the round-off grows only with the logarithm of M"""
+    M = len(ms)
+    S, C = numpy.empty((M, len(tau))), numpy.empty((M, len(tau)))
+    S[0], C[0] = numpy.sin(ms[0] * tau), numpy.cos(ms[0] * tau)
+    m = 1
+    while m < M:
+        # harmonics m+1 ... 2m from 1 ... m and m
+        n = min(m, M - m)
+        S[m : m + n] = S[:n] * C[m - 1] + C[:n] * S[m - 1]
+        C[m : m + n] = C[:n] * C[m - 1] - S[:n] * S[m - 1]
+        m += n
+    return S, C
 
 
 def _parse_target(target):
@@ -904,12 +924,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         harmonics ms, its derivative, and the sine matrix it is built from;
         the coefficients are those of one torus, (M,), or of every point's
         own torus, (M, npoints)"""
-        mt = tau[:, None] * ms[None, :]
-        smt = numpy.sin(mt)
+        smt, cmt = _harmonics(tau, ms)
         return (
             tau + _contract(smt, Dm),
-            1.0
-            + _contract(numpy.cos(mt), ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm),
+            1.0 + _contract(cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm),
             smt,
         )
 
@@ -2384,7 +2402,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """The torus at the anomaly pair (tau_u, tau_v): the auxiliary's
         radial and vertical angles with their derivatives, the point
         (u, p_u, v, p_v), the auxiliary's polar anomaly, and the total
-        compensation of each chain (the u chains and v chains paired)"""
+        compensation of each chain (the u chains and v chains paired, and
+        each libration's part on its own)"""
         n = len(tu)
         if aux["udeg"]:
             # a shell orbit: the auxiliary's radial libration is degenerate
@@ -2428,18 +2447,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "v": v,
             "pv": pv,
             "comps": [cu + cv for cu, cv in zip(comps_u, comps_v)],
+            "comps_u": comps_u,
+            "comps_v": comps_v,
         }
 
     def _newton_angles(self, thR, thz, aux, chains_u, chains_v):
         """Newton solve of the two angle relations theta_R(tau_u, tau_v) and
         theta_z(tau_u, tau_v) -- the auxiliary's angles plus the
         compensations along the J_R and J_z chains -- for the anomaly pair
-        of each requested angle pair, on the derivatives of the auxiliary
-        angles alone (the compensations are small corrections; the system
-        is triangular, the auxiliary's radial angle depending on tau_u
-        only), vectorized over the angles; returns the anomalies and the
-        indices of the pairs that did not converge within maxiter
-        iterations"""
+        of each requested angle pair, vectorized over the angles. The
+        Jacobian is that of the auxiliary's angles, in closed form, plus
+        that of the compensations, which are small and each the sum of a
+        function of tau_u and one of tau_v, so that their four slopes are
+        secants between successive iterates and the convergence is
+        superlinear; returns the anomalies and the indices of the pairs
+        that did not converge within maxiter iterations"""
 
         def wrap(f):
             return (f + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
@@ -2457,6 +2479,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # tau_u = theta_R with the map and the compensation neglected
         T0 = self._torus_at(x, 0.0 * x, aux, [], [])
         y = thz - 0.5 * numpy.pi - aux["ratio"] * T0["thetaAr"] + T0["Lam"]
+        prev, slope = None, numpy.zeros((4, len(x)))
         for _ in range(self._maxiter):
             FR, Fz, T = residuals(x, y)
             if (
@@ -2464,8 +2487,28 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 < self._angle_tol
             ):
                 return x, y, numpy.array([], dtype="int")
-            dx = numpy.clip(-FR / T["dthetaAr"], -0.5, 0.5)
-            dy = numpy.clip(-(Fz + T["dthetaAz_du"] * dx) / T["dthetaAz_dv"], -0.5, 0.5)
+            # the compensations of the (J_R, J_z) chains from the u
+            # libration, then from the v libration, and where each was taken
+            comps = numpy.array([*T["comps_u"], *T["comps_v"]])
+            at = numpy.array([x, x, y, y])
+            if prev is not None:
+                step = at - prev[0]
+                moved = numpy.fabs(step) > 1e-9
+                slope = numpy.where(
+                    moved, (comps - prev[1]) / numpy.where(moved, step, 1.0), slope
+                )
+            prev = (at, comps)
+            # a secant that would take the determinant far from the
+            # auxiliary's own is not trusted
+            det0 = T["dthetaAr"] * T["dthetaAz_dv"]
+            trusted = (T["dthetaAr"] + slope[0]) * (
+                T["dthetaAz_dv"] + slope[3]
+            ) - slope[2] * (T["dthetaAz_du"] + slope[1]) > 0.5 * det0
+            sl = numpy.where(trusted, slope, 0.0)
+            a, b = T["dthetaAr"] + sl[0], sl[2]
+            c, d = T["dthetaAz_du"] + sl[1], T["dthetaAz_dv"] + sl[3]
+            dx = numpy.clip(-(d * FR - b * Fz) / (a * d - b * c), -0.5, 0.5)
+            dy = numpy.clip(-(Fz + c * dx) / d, -0.5, 0.5)
             x += dx
             y += dy
         FR, Fz, _ = residuals(x, y)

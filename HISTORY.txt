@@ -11,7 +11,7 @@ v1.12.2 (expected around 2027-03-01)
   a single torus takes angles of any shape and returns its frequencies as
   floats. The distinct tori of an interpolated family are evaluated in one
   vectorized pass (batched interpolation of the tables, label inversion and
-  angle solve), about forty times faster than one torus at a time.
+  angle solve), about eighty times faster than one torus at a time.
 
 - ``actionAngleIsochroneInverse`` broadcasts arrays of actions against the
   angles by numpy's rules, like the other inverses: before, arrays of actions
