@@ -44,6 +44,7 @@ from ..potential.Potential import (
     _pot_grad_namespace,
 )
 from ..util import conversion, galpyWarning
+from ..util._hermite import LinearHermite, slope_at_zero
 
 if conversion._APY_LOADED:
     from astropy import units
@@ -102,55 +103,6 @@ def _plot_on_numpy(method):
             self._mm_host = host
 
     return wrapper
-
-
-def _slope_at_zero(js, ys, dys, xp=numpy):
-    """Slope at J = 0 of the polynomial with value 0 there and the given
-    values and slopes at the (one or two) actions js; ys may be 2D with the
-    action along the first axis."""
-    if xp is numpy:
-        ys = numpy.atleast_1d(ys)
-        dys = numpy.atleast_1d(dys)
-    if len(js) == 1:
-        return 2.0 * ys[0] / js[0] - dys[0]
-    # quartic c1 J + c2 J^2 + c3 J^3 + c4 J^4 through (y, y') at two actions
-    if xp is numpy:
-        A = numpy.array(
-            [
-                [js[0], js[0] ** 2.0, js[0] ** 3.0, js[0] ** 4.0],
-                [1.0, 2.0 * js[0], 3.0 * js[0] ** 2.0, 4.0 * js[0] ** 3.0],
-                [js[1], js[1] ** 2.0, js[1] ** 3.0, js[1] ** 4.0],
-                [1.0, 2.0 * js[1], 3.0 * js[1] ** 2.0, 4.0 * js[1] ** 3.0],
-            ]
-        )
-        b = numpy.array([ys[0], dys[0], ys[1], dys[1]])
-        return numpy.linalg.solve(A, b.reshape(4, -1))[0].reshape(numpy.shape(ys[0]))
-    one, zero = js[0] ** 0.0, js[0] * 0.0
-    A = xp.stack(
-        [
-            xp.stack([j, j**2.0, j**3.0, j**4.0])
-            if row % 2 == 0
-            else xp.stack([one + zero * j, 2.0 * j, 3.0 * j**2.0, 4.0 * j**3.0])
-            for j in (js[0], js[1])
-            for row in (0, 1)
-        ]
-    )
-    b = xp.stack([ys[0], dys[0], ys[1], dys[1]])
-    return xp.linalg.solve(A, xp.reshape(b, (4, -1)))[0]
-
-
-class _linearHermite:
-    """A single node with its slope, as the value and derivative of a
-    linear function of the action: the one-torus family."""
-
-    def __init__(self, j0, y0, dy0):
-        self._j0, self._y0, self._dy0 = j0, numpy.array(y0), numpy.array(dy0)
-
-    def __call__(self, j):
-        return self._y0 + self._dy0 * (j - self._j0)
-
-    def derivative(self):
-        return _linearHermite(self._j0, self._dy0, 0.0 * self._dy0)
 
 
 def _mm_kernel(xp, tau, j, D, dDdj, K, dKdj):
@@ -970,8 +922,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         for ii in numpy.where(self._js <= 0.0)[0]:
             if len(pos) == 0:
                 break
-            dD[ii] = _slope_at_zero(self._js[pos[:2]], D[pos[:2]] - D[ii], dD[pos[:2]])
-            dK[ii] = _slope_at_zero(self._js[pos[:2]], K[pos[:2]] - K[ii], dK[pos[:2]])
+            dD[ii] = slope_at_zero(self._js[pos[:2]], D[pos[:2]] - D[ii], dD[pos[:2]])
+            dK[ii] = slope_at_zero(self._js[pos[:2]], K[pos[:2]] - K[ii], dK[pos[:2]])
         self._mm_dD = dD
         self._mm_dK = dK
         self._mm_build_splines()
@@ -994,9 +946,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
             )
         else:
             # a single torus: the family is one node with its slopes
-            self._mm_Dspl = _linearHermite(self._js[0], D[0], dD[0])
-            self._mm_Kspl = _linearHermite(self._js[0], K[0], dK[0])
-            self._mm_E = _linearHermite(self._js[0], self._Es[0], self._Omegas[0])
+            self._mm_Dspl = LinearHermite(self._js[0], D[0], dD[0])
+            self._mm_Kspl = LinearHermite(self._js[0], K[0], dK[0])
+            self._mm_E = LinearHermite(self._js[0], self._Es[0], self._Omegas[0])
         self._mm_dDspl = self._mm_Dspl.derivative()
         self._mm_dKspl = self._mm_Kspl.derivative()
         self._mm_dEdj = self._mm_E.derivative()
@@ -1161,11 +1113,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
             # the bottom slopes: as in _setup_momentum_matched_family
             if npos:
                 q = min(npos, 2)
-                dDb = xp.stack([_slope_at_zero(J[:q], D[:q], dD[:q], xp=xp)] * nb)
+                dDb = xp.stack([slope_at_zero(J[:q], D[:q], dD[:q], xp=xp)] * nb)
                 dKb = xp.stack(
                     [
                         xp.reshape(
-                            _slope_at_zero(J[:q], K[:q] - 2.0 / Ob[ii], dK[:q], xp=xp),
+                            slope_at_zero(J[:q], K[:q] - 2.0 / Ob[ii], dK[:q], xp=xp),
                             (),
                         )
                         for ii in range(nb)
@@ -1650,7 +1602,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         E = numpy.atleast_1d(numpy.array(E, dtype="float"))
         out = numpy.empty_like(E)
         for ii, tE in enumerate(E):
-            if isinstance(self._mm_E, _linearHermite):
+            if isinstance(self._mm_E, LinearHermite):
                 out[ii] = self._mm_E._j0 + (tE - self._mm_E._y0) / self._mm_E._dy0
                 continue
             roots = numpy.real(self._mm_E.solve(tE, extrapolate=True))
@@ -1717,7 +1669,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 return y0 + dy0 * (j - j0) if nu == 0 else dy0 + 0.0 * j
             return eval_ppoly(xp, tab[0], tab[1], j, nu=nu)
         spl = {"D": self._mm_Dspl, "K": self._mm_Kspl, "E": self._mm_E}[name]
-        if isinstance(spl, _linearHermite):
+        if isinstance(spl, LinearHermite):
             dev = device_of(j)
             y0 = asarray_on_device(xp, spl._y0, dev)
             dy0 = asarray_on_device(xp, spl._dy0, dev)

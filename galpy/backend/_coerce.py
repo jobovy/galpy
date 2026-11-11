@@ -432,14 +432,17 @@ def lazy_cond(xp, pred, if_true, if_false):
     """``if_true() if pred else if_false()`` for a scalar boolean ``pred``,
     also under a trace: jax.jit runs only the taken arm (``lax.cond``); a
     torch.compile trace evaluates both and selects. The arms must return
-    arrays of the same shape and dtype."""
+    arrays, or tuples of arrays, of the same shapes and dtypes."""
     if has_concrete_truth_value(pred):
         return if_true() if bool(pred) else if_false()
     if name_of_namespace(xp) == "jax":
         from ._jax.cond import cond
 
         return cond(pred, if_true, if_false)
-    return xp.where(pred, if_true(), if_false())
+    t, f = if_true(), if_false()
+    if isinstance(t, tuple):
+        return tuple(xp.where(pred, a, b) for a, b in zip(t, f))
+    return xp.where(pred, t, f)
 
 
 def power_series(xp, x, coeffs, first):

@@ -204,6 +204,56 @@ def test_lazy_cond_takes_one_arm(backend_name):
         numpy.testing.assert_array_equal(as_numpy(out), [[2.0, 4.0], [-1.0, -1.0]])
 
 
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_lazy_cond_tuple_arms_under_vmap(backend_name):
+    # Arms may return tuples of arrays, and under vmap a batched predicate
+    # selects elementwise, also when an arm places a host constant on the
+    # data's device: inside a lax.cond branch that placement made jax's
+    # batching of the cond fail (SingleDeviceSharding has no .spec)
+    from galpy.backend import asarray_on_device, device_of, lazy_cond
+
+    pytest.importorskip(backend_name)
+    c = numpy.array([3.0, 5.0])
+    want = ([[2.0, 4.0], [-1.0, -1.0]], [[3.0, 5.0], [0.0, 0.0]])
+    if backend_name == "jax":
+        import jax
+        import jax.numpy as jnp
+
+        dev = device_of(jnp.asarray(1.0))
+
+        def f(y):
+            return lazy_cond(
+                jnp,
+                jnp.any(y > 1.5),
+                lambda: (2.0 * y, asarray_on_device(jnp, c, dev) * y[1] / 2.0),
+                lambda: (-y, 0.0 * y),
+            )
+
+        ys = jnp.asarray([[1.0, 2.0], [1.0, 1.0]])
+        for g in (jax.vmap(f), jax.jit(jax.vmap(f)), jax.vmap(jax.jit(f))):
+            for got, ref in zip(g(ys), want):
+                numpy.testing.assert_array_equal(numpy.asarray(got), ref)
+        for got, ref in zip(jax.jit(f)(ys[0]), want):
+            numpy.testing.assert_array_equal(numpy.asarray(got), ref[0])
+    else:
+        import torch
+
+        from galpy.backend._resolver import get_namespace as _gn
+
+        y = torch.tensor([[1.0, 2.0], [1.0, 1.0]], dtype=torch.float64)
+        txp = _gn(y)
+        out = torch.func.vmap(
+            lambda r: lazy_cond(
+                txp,
+                txp.any(r > 1.5),
+                lambda: (2.0 * r, asarray_on_device(txp, c, device_of(r)) * r[1] / 2.0),
+                lambda: (-r, 0.0 * r),
+            )
+        )(y)
+        for got, ref in zip(out, want):
+            numpy.testing.assert_array_equal(as_numpy(got), ref)
+
+
 # --- tracing never reads a jax tracer's .device -------------------------------
 # A jax tracer has no device, and asking for one raises an AttributeError whose
 # message, the trace's provenance, jax builds by walking the trace: ~0.4 s per

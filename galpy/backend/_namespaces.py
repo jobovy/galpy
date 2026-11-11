@@ -898,6 +898,15 @@ def at_least_float64(*arrays):
     return out[0] if len(out) == 1 else tuple(out)
 
 
+def _jax_default_device(xp):
+    """jax's default device when xp is jax.numpy, else None"""
+    if "jax" not in getattr(xp, "__name__", ""):
+        return None
+    import jax
+
+    return jax.config.jax_default_device or jax.devices()[0]
+
+
 def asarray_on_device(xp, a, device, dtype=None):
     """``xp.asarray(a, dtype=dtype)`` placed on ``device`` when one is given.
 
@@ -919,7 +928,13 @@ def asarray_on_device(xp, a, device, dtype=None):
         and (device is None or device_of(a) == device)
     ):
         return a
-    if device is None:
+    if device is None or (
+        not is_backend_array(a) and _jax_default_device(xp) == device
+    ):
+        # a host constant bound for jax's default device needs no placement,
+        # which under a trace would be a device_put: when vmap batches a
+        # lax.cond around one (vmap of a jitted function), jax's batching rule
+        # fails on its SingleDeviceSharding (no .spec)
         return xp.asarray(a, dtype=dtype)
     try:
         return xp.asarray(a, dtype=dtype, device=device)

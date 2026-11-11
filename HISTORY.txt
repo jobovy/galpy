@@ -48,6 +48,66 @@ v2.0.0b2 (pre-release)
   finds a circular radius) traces its bracket search as a single loop,
   making its traced program about 30 times smaller.
 
+- New ``actionAngleSphericalInverse``: the inverse action-angle transformation
+  for spherical potentials, through the same momentum-matched canonical map
+  as the one-dimensional case. Each torus is sampled exactly in its radial
+  anomaly and mapped onto the torus of equal (J_r, L) of a frozen isochrone
+  auxiliary by the radial point transformation that matches cumulative
+  radial actions (a sine series in the anomaly, ``mm_npt`` harmonics fitted
+  to ``mm_nta`` samples), lifted to the momenta cotangent-consistently; the
+  polar libration needs no map because it does not depend on the potential,
+  and the radial and polar angles carry the closed-form compensation for
+  the moving turning points. Evaluation goes through the analytic isochrone
+  inverse and undoes the lift; the map is exactly symplectic for any stored
+  tables because every derivative it needs is that of the stored
+  interpolant itself. Tori are given as explicit (E, L) pairs or as an
+  (E, L) grid with ``setup_interp=True`` (angular momenta of the circular
+  orbits between ``Rmin`` and ``Rmax``, energies up to the potential at
+  ``Rinf``, uniform in the logarithm of the radial orbit's apocentre and
+  quadratically spaced at the circular edge), with ``Jr(E, L)`` giving a
+  torus's radial action; ``Freqs`` returns the frequencies of the returned
+  orbits; the isochrone auxiliary is fitted to the potential's rotation
+  curve unless given (``auxiliary=``), and is the ``auxiliary`` attribute
+  either way. The family's tables are Hermite interpolants (quintic along
+  the energy variable, cubic along L) whose first partials are exact at
+  every node, so a grid torus's angles and frequencies are exact and the
+  family between its nodes is accurate to ~1e-7 in angle on a 16 x 16 grid.
+  The circular orbits are the bottom row of the grid, and the circular orbit
+  itself (J_r = 0) evaluates in closed form, in a grid or as an explicit
+  torus. An explicit torus carries the second-order tables of its one-node
+  family (the turning points' and the anomaly map's second derivatives and
+  the frequencies' derivatives, all from the torus alone). A warning is
+  raised when the anomaly map does not resolve a torus, and a torus that
+  reaches beyond the depth of the fitted auxiliary raises. On the jax and
+  PyTorch backends, the construction and the evaluation run natively (under
+  a forced backend, or for a potential with backend parameters), so the
+  tori are differentiable with respect to the actions, the angles, and the
+  potential's parameters, also under ``jax.jit`` and ``jax.vmap``: the
+  autodiff Jacobian of the map is symplectic to round-off, and an explicit
+  torus evaluates as a quadratic one-node family, so that its derivatives in
+  the actions are the family's.
+
+- ``actionAngleIsochroneInverse`` carries the closed forms of the isochrone's
+  tori (energy, radial action, the orbital parameters (a, e) with their
+  first and second partials along the actions, and the radius, momentum,
+  flux and cumulative radial action in the eccentric anomaly with their
+  partials) as private methods, which ``actionAngleSphericalInverse`` uses
+  for the auxiliary tori it lifts onto; its own evaluation now takes (a, e)
+  and the radial profile from these, with the eccentricity in a product
+  form that is exact down to the circular orbit (a round-off-level change),
+  and is split at Kepler's equation so that a caller that knows the
+  eccentric anomaly already, as the spherical inverse does from its anomaly
+  map, does not solve it again.
+
+- A host constant placed on jax's default device is no longer placed
+  explicitly: under a trace that placement is a device_put, and ``jax.vmap``
+  of a jitted function whose galpy branch (``lazy_cond``) contained one
+  failed in jax's batching rule.
+
+- Fixed ``actionAngleIsochroneInverse`` on the jax and PyTorch backends at a
+  radial angle of exactly zero, where the returned position could be off by
+  about half an orbit in phase.
+
 v2.0.0b1 (2026-11-05)
 =====================
 

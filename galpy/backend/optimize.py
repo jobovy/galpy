@@ -51,6 +51,7 @@ import math
 import numpy
 
 from ._namespaces import (
+    concretely_true,
     is_backend_array,
     name_of_namespace,
     namespace_from_arrays,
@@ -331,6 +332,34 @@ def iterate_bracket(step, x0, n):
             and not under_trace(x1)
             and bool((namespace_from_arrays((x1,)) or numpy).all(x1 == x0))
         ):
+            return x1
+        x0 = x1
+    return x0
+
+
+def iterate_to_fixed_point(step, x0, n):
+    """Run ``x = step(x)`` until a step leaves ``x`` unchanged, at most ``n``
+    times -- for an iteration whose ``step`` freezes the converged elements
+    (``xp.where(converged, x, update)``), so that the fixed point is reached
+    exactly once every element has converged.
+
+    Unlike :func:`iterate_bracket`, whose traced form runs all ``n`` steps (a
+    ``lax.fori_loop``), this one stops at convergence under a jax trace too (a
+    ``lax.while_loop``): a Newton iteration that converges in ~8 steps against
+    a safety cap of 100 then costs ~8. ``step`` must not carry a derivative
+    (stop_gradient its outputs): a ``while_loop`` is not reverse-
+    differentiable, and the caller's final implicit-function step supplies the
+    derivative. Eager, and under ``torch.compile`` (whose dynamo reads the
+    convergence test off the example values), a Python loop that stops there.
+    """
+    if under_jax_trace(x0):
+        from ._jax.optimize import iterate_to_fixed_point as _bk
+
+        return _bk(step, x0, n)
+    xp = namespace_from_arrays((x0,)) or numpy
+    for _ in range(n):
+        x1 = step(x0)
+        if concretely_true(xp.all(x1 == x0)):
             return x1
         x0 = x1
     return x0
