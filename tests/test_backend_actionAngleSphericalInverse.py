@@ -90,6 +90,19 @@ def interp():
     return _interp()
 
 
+_FORCED = {}
+
+
+def _forced(backend, mode):
+    """The test family built on a backend (forced), once per module"""
+    from galpy import backend as gb
+
+    if (backend, mode) not in _FORCED:
+        with gb.use(backend, force=True):
+            _FORCED[(backend, mode)] = _explicit() if mode == "explicit" else _interp()
+    return _FORCED[(backend, mode)]
+
+
 @pytest.fixture(scope="module")
 def explicit():
     return _explicit()
@@ -136,8 +149,7 @@ def test_values_match_numpy(backend, mode, explicit, interp):
     from galpy import backend as gb
 
     aN = explicit if mode == "explicit" else interp
-    with gb.use(backend, force=True):
-        aB = _explicit() if mode == "explicit" else _interp()
+    aB = _forced(backend, mode)
     assert aB._bk is not None and aN._bk is None
     if mode == "explicit":
         tori = [(aN._jrs[0], 0.5, 0.4), (aN._jrs[1], -0.4, 0.3)]
@@ -547,6 +559,104 @@ def test_jax_jit_label_and_circular_radius_solves(interp):
         numpy.testing.assert_allclose(numpy.asarray(got), ref, rtol=0.0, atol=1e-13)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("mode", ["interp", "explicit"])
+def test_array_actions(backend, mode, interp, explicit):
+    # Arrays of actions on a backend, broadcast against the angles, each
+    # point its own torus (circular ones among them): a numpy-built family on
+    # backend inputs gives the numpy array evaluation to round-off and a
+    # family built on a backend (forced) to its construction's ~1e-10 (as a
+    # single torus); the outputs take the broadcast shape ((n, 1) actions
+    # against (m,) angles too) and the frequencies are arrays; each point's
+    # derivatives in its actions and its angle are the single torus's
+    from galpy import backend as gb
+
+    aN = interp if mode == "interp" else explicit
+    if mode == "interp":
+        jr = numpy.array([0.0, 0.02, 0.137, 0.3, 0.02, 0.137])
+        jphi = numpy.array([0.55, -0.8, 0.9, 0.55, 0.55, -0.4])
+        jz = numpy.array([0.3, 0.05, 0.0, 0.3, 0.3, 0.5])
+    else:
+        idx = numpy.array([0, 1, 0, 1, 0, 1])
+        jr = aN._jrs[idx]
+        jphi = numpy.array([0.6, -0.4, 0.3, 0.2, -0.6, 0.5])
+        jz = aN._Ls[idx] - numpy.fabs(jphi)
+    ang = _ANGLES
+    ref = aN.xvFreqs(jr, jphi, jz, ang, ang + 0.3, ang + 0.7)
+    ref2 = aN(jr[:3, None], jphi[:3, None], jz[:3, None], ang[None, :], 1.0, 2.0)
+    aB = _forced(backend, mode)
+    for fam, tol in ((aN, 2e-12), (aB, 2e-10)):
+        got = fam.xvFreqs(
+            *(_arr(backend, t) for t in (jr, jphi, jz, ang, ang + 0.3, ang + 0.7))
+        )
+        got2 = fam(
+            *(_arr(backend, t)[:3, None] for t in (jr, jphi, jz)),
+            _arr(backend, ang)[None, :],
+            1.0,
+            2.0,
+        )
+        for g, r in zip(got + got2, ref + ref2):
+            assert _is_backend(backend, g) and tuple(g.shape) == r.shape
+            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=tol)
+        Om = fam.Freqs(*(_arr(backend, t) for t in (jr, jphi, jz)))
+        for g, r in zip(Om, aN.Freqs(jr, jphi, jz)):
+            assert _is_backend(backend, g) and tuple(g.shape) == jr.shape
+            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=tol)
+        if mode == "interp":  # circular orbits only
+            j0 = 0.0 * jr
+            got = fam.xvFreqs(
+                *(_arr(backend, t) for t in (j0, jphi, jz, ang, ang, ang))
+            )
+            got += fam.Freqs(*(_arr(backend, t) for t in (j0, jphi, jz)))
+            ref0 = aN.xvFreqs(j0, jphi, jz, ang, ang, ang) + aN.Freqs(j0, jphi, jz)
+            for g, r in zip(got, ref0):
+                numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=tol)
+    # per-point derivatives against the single torus's, at the librating,
+    # inclined points (at J_z = 0 the inclination's derivative is singular)
+    lib = (jr > 0.0) & (jz > 0.0)
+    J = numpy.stack([jr[lib], jphi[lib], jz[lib]])
+    A = numpy.stack([ang[lib], ang[lib] + 0.3, ang[lib] + 0.7])
+    n = J.shape[1]
+    if backend == "jax":
+
+        def f(J, A):
+            return jnp.stack(aN.xvFreqs(*J, *A)[:6])
+
+        gJ, gA = (
+            numpy.asarray(d)
+            for d in jax.jit(jax.jacfwd(f, argnums=(0, 1)))(
+                jnp.asarray(J), jnp.asarray(A)
+            )
+        )  # (6, n, 3, n): diagonal in the points
+        off = ~numpy.eye(n, dtype=bool)
+        for g in (gJ, gA):
+            assert numpy.all(numpy.moveaxis(g, 2, 1)[..., off] == 0.0)
+        one = jax.jit(jax.jacfwd(lambda J, A: f(J, A)[:, 0], argnums=(0, 1)))
+        for k in range(n):
+            sJ, sA = one(jnp.asarray(J[:, k]), jnp.asarray(A[:, k : k + 1]))
+            numpy.testing.assert_allclose(
+                gJ[:, k, :, k], numpy.asarray(sJ), rtol=1e-10, atol=1e-12
+            )
+            numpy.testing.assert_allclose(
+                gA[:, k, :, k], numpy.asarray(sA)[..., 0], rtol=1e-10, atol=1e-12
+            )
+    else:
+        Jt, At = _arr(backend, J, grad=True), _arr(backend, A, grad=True)
+        out = aN.xvFreqs(*Jt, *At)[:6]
+        for q in range(6):
+            gJ, gA = torch.autograd.grad(out[q].sum(), (Jt, At), retain_graph=True)
+            for k in range(n):
+                Jk = _arr(backend, J[:, k], grad=True)
+                Ak = _arr(backend, A[:, k : k + 1], grad=True)
+                sJ, sA = torch.autograd.grad(aN.xvFreqs(*Jk, *Ak)[q][0], (Jk, Ak))
+                numpy.testing.assert_allclose(
+                    as_numpy(gJ[:, k]), as_numpy(sJ), rtol=1e-10, atol=1e-12
+                )
+                numpy.testing.assert_allclose(
+                    as_numpy(gA[:, k]), as_numpy(sA)[:, 0], rtol=1e-10, atol=1e-12
+                )
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_torch_compile(explicit):
     # the evaluation runs under torch.compile (an explicit torus: the
@@ -785,12 +895,18 @@ def test_hermite_family_2d(backend):
         ipb = HermiteFamily2D(x, _arr(backend, y), *(_arr(backend, t) for t in tabs))
         for a, b in ((0.3, 0.7), (x[2], y[3]), (0.999, 1.99)):
             for dx, dy in ((0, 0), (1, 0), (0, 1)):
-                ref = ipn(a, b, dx=dx, dy=dy)[0, 0]
+                ref = ipn.points(a, b, dx=dx, dy=dy)[0]
                 for ip in (
                     ipb,
                     ipn,
                 ):  # backend-built, and numpy-built on backend points
-                    got = ip(_arr(backend, a), _arr(backend, b), dx=dx, dy=dy)[0, 0]
+                    if dx == dy == 0:  # the value through __call__ too
+                        got = ip(_arr(backend, a), _arr(backend, b))[0, 0]
+                        assert _is_backend(backend, got)
+                        numpy.testing.assert_allclose(
+                            as_numpy(got), ref, rtol=0.0, atol=1e-12
+                        )
+                    got = ip.ev(_arr(backend, a), _arr(backend, b), dx=dx, dy=dy)
                     assert _is_backend(backend, got)
                     numpy.testing.assert_allclose(
                         as_numpy(got), ref, rtol=0.0, atol=1e-12
