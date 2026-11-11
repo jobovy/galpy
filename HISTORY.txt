@@ -1,6 +1,11 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+- ``actionAngleIsochroneInverse`` broadcasts arrays of actions against the
+  angles by numpy's rules, like the other inverses: before, arrays of actions
+  had to have the shape of the angles, and an array of actions at a scalar
+  angle, or actions of shape (n,1) with angles of shape (m,), raised.
+
 - ``actionAngleSphericalInverse`` and ``actionAngleVerticalInverse`` have a
   public ``E`` method, the inverse of their ``Jr(E, L)`` and ``J(E)``: the
   energy of the torus with the given actions, for arrays of actions, from the
