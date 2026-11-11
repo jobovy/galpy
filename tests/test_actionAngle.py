@@ -12834,11 +12834,11 @@ def test_actionAngleStaeckelInverse_target():
 
 
 def test_actionAngleStaeckelInverse_array_actions(staeckel_inverse_interp):
-    # Arrays of actions broadcast against the angles: every point is
-    # evaluated on its own torus and reproduces the single torus at the same
-    # angles to round-off, frequencies included, with tori on the degenerate
-    # faces and the circular orbit mixed in, and whatever the shape of the
-    # arrays
+    # Arrays of actions broadcast against the angles: many distinct tori are
+    # evaluated in one vectorized pass that reproduces the one-torus path
+    # looped over the same tori to round-off, frequencies included, with tori
+    # on the degenerate faces and the circular orbit mixed in, and whatever
+    # the shape of the arrays
     from galpy.actionAngle import actionAngleStaeckelInverse
 
     aAI = staeckel_inverse_interp
@@ -12858,12 +12858,26 @@ def test_actionAngleStaeckelInverse_array_actions(staeckel_inverse_interp):
             "The array evaluation differs from the one-torus path at torus %d: %g"
             % (ii, numpy.amax(numpy.fabs(out[:, ii] - one[:, 0])))
         )
+        # the array path finds the energy variable's edges on the raw
+        # potential's midplane, which the Staeckel wrapper reproduces to its
+        # own arithmetic (1e-12), where the one-torus path uses the wrapper
         assert (
             numpy.amax(
                 numpy.fabs(Om[:, ii] - numpy.array(aAI.Freqs(jr[ii], Lz[ii], jz[ii])))
             )
             < 1e-10
         ), "The array frequencies differ from the one-torus path"
+    # tiny actions, whose label inversion the one-torus path rescues by a
+    # restart, agree too
+    tiny = numpy.array([1e-12, 1e-8, 1e-8, 0.05])
+    tinyz = numpy.array([1e-12, 1e-8, 0.05, 1e-8])
+    Lt = numpy.ones(4)
+    outt = numpy.array(aAI(tiny, Lt, tinyz, 0.3, 1.0, 2.0))
+    for ii in range(4):
+        one = numpy.array(aAI(tiny[ii], Lt[ii], tinyz[ii], 0.3, 1.0, 2.0))
+        assert numpy.amax(numpy.fabs(outt[:, ii] - one[:, 0])) < 1e-11, (
+            "The array evaluation differs from the one-torus path at a tiny action"
+        )
     # the arrays' shape is kept, and a scalar action broadcasts
     out2 = aAI(
         jr[:6].reshape(2, 3),
@@ -12919,6 +12933,27 @@ def test_actionAngleStaeckelInverse_array_actions(staeckel_inverse_interp):
         4,
         1,
     ), "The frequencies of an array of tori do not keep its shape"
+    # a family whose Newton cannot converge: every torus takes the one-torus
+    # path's bracketed fallback, and the answers agree all the same
+    slow = actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_potential(),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=4,
+        nLz=4,
+        nI3=4,
+        mm_npt=48,
+        maxiter=1,
+        progressbar=False,
+    )
+    outs = numpy.array(slow(jr[:5], Lz[:5], jz[:5], th[0, :5], th[1, :5], th[2, :5]))
+    for ii in range(5):
+        one = numpy.array(slow(jr[ii], Lz[ii], jz[ii], th[0, ii], th[1, ii], th[2, ii]))
+        assert numpy.amax(numpy.fabs(outs[:, ii] - one[:, 0])) < 1e-9, (
+            "The array evaluation's fallback differs from the one-torus path"
+        )
     # explicit tori: the arrays are evaluated torus by torus
     E, Lzb, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
     aAE = actionAngleStaeckelInverse(
@@ -12951,6 +12986,10 @@ def test_actionAngleStaeckelInverse_array_actions(staeckel_inverse_interp):
         aAI(0.05, numpy.array([0.9, 0.0]), 0.05, 1.0, 1.0, 1.0)
     with pytest.raises(ValueError, match="outside the interpolation grid"):
         aAI(0.05, numpy.array([0.9, 5.0]), 0.05, 1.0, 1.0, 1.0)
+    # a torus beyond the family's actions: the batched label inversion hands
+    # it to the one-torus inversion, which says so
+    with pytest.raises(ValueError, match="could not be matched"):
+        aAI(numpy.array([0.05, 0.47]), 0.9, numpy.array([0.05, 0.34]), 1.0, 1.0, 1.0)
     return None
 
 

@@ -9,7 +9,9 @@ v1.12.2 (expected around 2027-03-01)
   (n,1) with angles of shape (m,): every angle on every torus), in ``__call__``,
   ``xvFreqs`` and ``Freqs``, with the tables read once per distinct torus;
   a single torus takes angles of any shape and returns its frequencies as
-  floats.
+  floats. The distinct tori of an interpolated family are evaluated in one
+  vectorized pass (batched interpolation of the tables, label inversion and
+  angle solve), about forty times faster than one torus at a time.
 
 - ``actionAngleIsochroneInverse`` broadcasts arrays of actions against the
   angles by numpy's rules, like the other inverses: before, arrays of actions
