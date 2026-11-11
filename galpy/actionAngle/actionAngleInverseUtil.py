@@ -77,6 +77,32 @@ def _chunked(fn, n, *arrays):
     return tuple(numpy.concatenate([p[i] for p in parts]) for i in range(len(parts[0])))
 
 
+def _harmonics(tau, ms, pointwise=False):
+    """sin(m tau) and cos(m tau) for the harmonics ms = ms[0] (1, ..., M),
+    from the sine and cosine of ms[0] tau alone: the angle-addition formulae
+    double the number of harmonics in hand at every step, so that a point
+    costs two trigonometric evaluations instead of 2 M and the round-off
+    grows only with the logarithm of M. Returned as (M, npoints) arrays, or
+    as (npoints, M) arrays when pointwise, the layout in which coefficients
+    that differ from point to point, (npoints, M), contract with them as
+    one contiguous product per point"""
+    M = len(ms)
+    S, C = (
+        numpy.empty((len(tau), M) if pointwise else (M, len(tau))) for _ in range(2)
+    )
+    # the harmonics along the first axis, whichever the layout
+    s, c = (S.T, C.T) if pointwise else (S, C)
+    s[0], c[0] = numpy.sin(ms[0] * tau), numpy.cos(ms[0] * tau)
+    m = 1
+    while m < M:
+        # harmonics m+1 ... 2m from 1 ... m and m
+        n = min(m, M - m)
+        s[m : m + n] = s[:n] * c[m - 1] + c[:n] * s[m - 1]
+        c[m : m + n] = c[:n] * c[m - 1] - s[:n] * s[m - 1]
+        m += n
+    return S, C
+
+
 def _sdot(smt, D):
     """The sine (or cosine) matrix sin(m tau_k) of shape (n, M) times the
     coefficients D: one coefficient vector for all anomalies (shape (1, M),

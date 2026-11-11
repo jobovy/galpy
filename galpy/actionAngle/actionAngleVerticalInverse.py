@@ -21,7 +21,7 @@ from ..potential.linearPotential import _evaluatelinearx2derivs
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._hermite import LinearHermite, slope_at_zero
-from .actionAngleInverseUtil import _chunked, _sdot
+from .actionAngleInverseUtil import _chunked, _harmonics, _sdot
 
 if conversion._APY_LOADED:
     from astropy import units
@@ -1061,8 +1061,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             numpy.broadcast_to(numpy.asarray(t, dtype="float"), tau.shape)
             for t in (j, K, dKdj)
         )
-        mt = tau[:, None] * ms[None, :]
-        smt, cmt = numpy.sin(mt), numpy.cos(mt)
+        smt, cmt = _harmonics(tau, ms, pointwise=True)
         eta = tau + _sdot(smt, D)
         deta = 1.0 + _sdot(cmt, ms * D)
         detadj = _sdot(smt, dDdj)

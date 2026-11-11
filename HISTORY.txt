@@ -13,6 +13,12 @@ v1.12.2 (expected around 2027-03-01)
   vectorized pass (batched interpolation of the tables, label inversion and
   angle solve), about eighty times faster than one torus at a time.
 
+- ``actionAngleSphericalInverse`` evaluates arrays two to four times faster
+  and ``actionAngleVerticalInverse`` somewhat faster: the harmonics of the
+  maps come from one sine and cosine per point by angle addition, the
+  spherical inverse's angle solve converges superlinearly, and its tables
+  are read for all tori at once.
+
 - ``actionAngleIsochroneInverse`` broadcasts arrays of actions against the
   angles by numpy's rules, like the other inverses: before, arrays of actions
   had to have the shape of the angles, and an array of actions at a scalar
