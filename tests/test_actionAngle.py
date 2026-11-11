@@ -9522,6 +9522,74 @@ def test_actionAngleIsochroneInverse_kepler_bracketing_fallback():
     return None
 
 
+def test_actionAngleIsochroneInverse_array_actions():
+    # Arrays of actions broadcast against the angles by numpy's rules, as for
+    # the other inverses: actions of shape (n,1) with angles of shape (m,)
+    # are every angle on every torus, an array of actions at a scalar angle
+    # is that angle on every torus, and arrays of one shape are paired; each
+    # reproduces the single torus to round-off, frequencies included, also when
+    # Kepler's equation goes through the bracketing solve
+    import sys
+
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    aAII = actionAngleIsochroneInverse(ip=IsochronePotential(amp=1.2, b=0.6))
+    rng = numpy.random.default_rng(3)
+    n, m = 6, 5
+    jr = rng.uniform(0.01, 0.3, n)
+    jphi = rng.uniform(0.5, 1.2, n) * rng.choice([-1.0, 1.0], n)
+    jz = rng.uniform(0.0, 0.3, n)
+    ang = numpy.linspace(0.2, 6.0, m)
+    _m = sys.modules["galpy.actionAngle.actionAngleIsochroneInverse"]
+    tol = _m._KEPLER_RESID_TOL
+    for resid_tol in (tol, -1.0):  # the Halley iteration, the bracketing solve
+        try:
+            _m._KEPLER_RESID_TOL = resid_tol
+            grid = numpy.array(
+                aAII.xvFreqs(
+                    jr[:, None], jphi[:, None], jz[:, None], ang, 2.0 * ang, ang[::-1]
+                )
+            )
+            fixed = numpy.array(aAII(jr, jphi, jz, ang[1], 2.0 * ang[1], ang[3]))
+            paired = numpy.array(aAII(jr[:m], jphi[:m], jz[:m], ang, 2.0 * ang, ang))
+            ones = [
+                aAII.xvFreqs(jr[ii], jphi[ii], jz[ii], ang, 2.0 * ang, ang[::-1])
+                for ii in range(n)
+            ]
+            diag = [
+                aAII(jr[ii], jphi[ii], jz[ii], ang[ii], 2.0 * ang[ii], ang[ii])
+                for ii in range(m)
+            ]
+        finally:
+            _m._KEPLER_RESID_TOL = tol
+        assert grid.shape == (9, n, m), "(n,1) actions with (m,) angles are not (n,m)"
+        assert fixed.shape == (6, n), "Arrays of actions at a scalar angle are not (n,)"
+        for ii in range(n):
+            assert (
+                numpy.amax(numpy.fabs(grid[:6, ii] - numpy.array(ones[ii][:6]))) < 1e-12
+            ), "Every angle on every torus differs from the single torus"
+            assert (
+                numpy.amax(numpy.fabs(grid[6:, ii, 0] - numpy.array(ones[ii][6:])))
+                < 1e-12
+            ), "The frequencies of an array of tori differ from the single torus's"
+        assert numpy.amax(numpy.fabs(fixed - grid[:6, :, 1])) < 1e-12, (
+            "Arrays of actions at a scalar angle differ from the same points of the grid"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(paired[:, :, None] - numpy.array(diag).transpose(1, 0, 2))
+            )
+            < 1e-12
+        ), "Paired arrays of actions and angles differ from the single tori"
+    assert numpy.array(aAII.Freqs(jr[:, None], jphi[:, None], jz[:, None])).shape == (
+        3,
+        n,
+        1,
+    ), "The frequencies of an array of tori do not keep its shape"
+    return None
+
+
 def test_actionAngleStaeckel_nearaxis_c_python_parity():
     # main had no near-axis Staeckel coverage, which is how two defects shipped:
     # (a) an axis-reaching orbit (Lz == 0) drove the Lz^2 cosh(u)/sinh^3(u) term
