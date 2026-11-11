@@ -166,25 +166,19 @@ class HermiteFamily2D:
 
     def _eval_cells(self, i, j, pss, pts):
         """sum_ab ps_a c_{ij,abk} pt_b for every point, one pair (ps, pt) per
-        requested quantity, grouped by cell so that the coefficient block of
-        each cell is read once however many points fall in it"""
-        n = len(i)
-        if n == 1:  # one point: its cell's block directly
-            block = self._c[i[0], j[0]]
-            outs = [
-                numpy.einsum("a,abk,b->k", ps[0], block, pt[0])[None]
-                for ps, pt in zip(pss, pts)
-            ]
-            return [o[:, 0] if self._scalar else o for o in outs]
-        outs = [numpy.empty((n, self._c.shape[-1])) for _ in pss]
-        cell = i * (len(self._y) - 1) + j
-        order = numpy.argsort(cell, kind="stable")
-        cells, starts = numpy.unique(cell[order], return_index=True)
-        for c, lo, hi in zip(cells, starts, numpy.append(starts[1:], n)):
-            idx = order[lo:hi]
-            block = self._c[c // (len(self._y) - 1), c % (len(self._y) - 1)]
+        requested quantity: the coefficient blocks of the points' cells are
+        gathered once, in chunks that keep them to a few megabytes, and
+        contracted with the powers in x and then with those in y"""
+        n, k = len(i), self._c.shape[-1]
+        outs = numpy.empty((len(pss), n, k))
+        step = max(1, 500_000 // (24 * k))
+        for lo in range(0, n, step):
+            sl = slice(lo, lo + step)
+            c = self._c[i[sl], j[sl]].reshape(-1, 6, 4 * k)
             for out, ps, pt in zip(outs, pss, pts):
-                out[idx] = numpy.einsum("ma,abk,mb->mk", ps[idx], block, pt[idx])
+                out[sl] = (pt[sl, None, :] @ (ps[sl, None, :] @ c).reshape(-1, 4, k))[
+                    :, 0
+                ]
         return [o[:, 0] if self._scalar else o for o in outs]
 
     def points(self, x, y, dx=0, dy=0):

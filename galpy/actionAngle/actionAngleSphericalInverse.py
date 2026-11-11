@@ -33,6 +33,7 @@ from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
     _chunked,
     _fit_isochrone_vc2,
+    _harmonics,
     _offset_spec_coeffs,
     _progress,
     _safeguarded_newton,
@@ -338,11 +339,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
     # ---------- the momentum-matched map and its lift
     def _map(self, tau, Dm):
         """The anomaly map eta(tau) = tau + sum_m D_m sin(m tau), its
-        derivative, and the sine matrix sin(m tau) it is built from"""
-        mt = tau[:, None] * self._nforDm[None, :]
-        smt = numpy.sin(mt)
+        derivative, and the harmonics sin(m tau) it is built from"""
+        smt, cmt = _harmonics(tau, self._nforDm, pointwise=True)
         eta = tau + _sdot(smt, Dm)
-        deta = 1.0 + _sdot(numpy.cos(mt), self._nforDm * Dm)
+        deta = 1.0 + _sdot(cmt, self._nforDm * Dm)
         return eta, deta, smt
 
     def _momentum_matched_lift(self, tau, r, pr, rp, ra, L):
@@ -1100,13 +1100,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _tau_solve(self, thr, a, e, Dm, rp, ra, chainJ):
         """Newton solve of theta_r(tau) = theta^A_r(tau) + [compensation
         along the J_r-chain](tau) for the anomaly of each requested angle,
-        on the derivative of the auxiliary angle alone (the compensation is
-        a small correction), vectorized over the angles, each on its own
-        torus (the parameters and tables have one row per angle, or one row
-        for all), with the residual wrapped into (-pi, pi] so that an
-        anomaly that crosses the pericentre converges to the equivalent
-        angle, converged angles dropped from the iteration, a bracketed
-        scalar fallback for any angle that does not converge within maxiter
+        on the derivative of the auxiliary angle, in closed form, plus that
+        of the compensation, a small correction whose slope is the secant
+        between successive iterates (so that the convergence is
+        superlinear), vectorized over the angles, each on its own torus
+        (the parameters and tables have one row per angle, or one row for
+        all), with the residual wrapped into (-pi, pi] so that an anomaly
+        that crosses the pericentre converges to the equivalent angle,
+        converged angles dropped from the iteration, a bracketed scalar
+        fallback for any angle that does not converge within maxiter
         iterations, and a final Newton step on every angle that takes the
         tolerance to round-off"""
         tables = (a, e, Dm, rp, ra) + tuple(chainJ)
@@ -1124,16 +1126,30 @@ class actionAngleSphericalInverse(actionAngleInverse):
             _, thetaA, dthetaA, _, _, (compJ,) = self._kernel(
                 x, *tabs[:5], chains=(tabs[5:],)
             )
-            return thetaA + compJ, dthetaA
+            return thetaA + compJ, dthetaA, compJ
+
+        def _fp(fp, sl):
+            # the slope of the relation: the auxiliary's plus the secant of
+            # the compensation, unless that would take it far from the
+            # auxiliary's own
+            return numpy.where(fp + sl > 0.5 * fp, fp + sl, fp)
 
         x = numpy.array(thr, dtype="float")
         active = numpy.ones(n, dtype="bool")
+        # the last iterate, the compensation there, and its secant slope
+        xprev, cprev, slope = x.copy(), numpy.zeros(n), numpy.zeros(n)
         for _ in range(self._maxiter):
             idx = numpy.flatnonzero(active)
-            f, fp = _f(x[idx], _rows(idx))
+            f, fp, comp = _f(x[idx], _rows(idx))
             f = (f - thr[idx] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             conv = numpy.fabs(f) < self._angle_tol
-            x[idx] += numpy.clip(-f / fp, -0.5, 0.5) * ~conv
+            step = x[idx] - xprev[idx]
+            moved = numpy.fabs(step) > 1e-9
+            slope[idx] = numpy.where(
+                moved, (comp - cprev[idx]) / numpy.where(moved, step, 1.0), slope[idx]
+            )
+            xprev[idx], cprev[idx] = x[idx], comp
+            x[idx] += numpy.clip(-f / _fp(fp, slope[idx]), -0.5, 0.5) * ~conv
             active[idx[conv]] = False
             if not numpy.any(active):
                 break
@@ -1154,9 +1170,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # one more Newton step on every angle: the loop stops at angle_tol,
         # and the quadratic step takes that to round-off, so that the returned
         # anomaly does not depend on the tolerance
-        f, fp = _f(x, tables)
+        f, fp, _ = _f(x, tables)
         f = (f - thr + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        return x - f / fp
+        return x - f / _fp(fp, slope)
 
     def _unlift(self, out, r, pr):
         """Undo the lift: the auxiliary-chart reconstruction (R, v_R, v_T,

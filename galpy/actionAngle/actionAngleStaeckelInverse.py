@@ -39,6 +39,7 @@ from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
     _chunked,
     _fit_isochrone_vc2,
+    _harmonics,
     _offset_spec_coeffs,
     _progress,
     _sine_galerkin,
@@ -102,25 +103,6 @@ def _contract(smt, D):
     coefficients D of one torus, (M,), or of every point's own torus,
     (M, npoints)"""
     return D @ smt if D.ndim == 1 else numpy.einsum("mp,mp->p", smt, D)
-
-
-def _harmonics(tau, ms):
-    """sin(m tau) and cos(m tau) as (M, npoints) arrays for the harmonics
-    ms = ms[0] (1, ..., M), from the sine and cosine of ms[0] tau alone:
-    the angle-addition formulae double the number of harmonics in hand at
-    every step, so that a point costs two trigonometric evaluations instead
-    of 2 M and the round-off grows only with the logarithm of M"""
-    M = len(ms)
-    S, C = numpy.empty((M, len(tau))), numpy.empty((M, len(tau)))
-    S[0], C[0] = numpy.sin(ms[0] * tau), numpy.cos(ms[0] * tau)
-    m = 1
-    while m < M:
-        # harmonics m+1 ... 2m from 1 ... m and m
-        n = min(m, M - m)
-        S[m : m + n] = S[:n] * C[m - 1] + C[:n] * S[m - 1]
-        C[m : m + n] = C[:n] * C[m - 1] - S[:n] * S[m - 1]
-        m += n
-    return S, C
 
 
 def _parse_target(target):
