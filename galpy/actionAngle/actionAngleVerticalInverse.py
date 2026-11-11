@@ -2028,6 +2028,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         return None
 
     ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
+    def _E_at(self, j):
+        """The energy of the torus with action j from the interpolant E(J), held
+        within the family's energies for an action within round-off of the
+        family's range (an action one ulp above the top torus is that torus,
+        not a torus outside the tables)"""
+        tE = float(self._E_ip(j))
+        if (
+            self._js[0] - 1e-10 * (1.0 + numpy.fabs(j))
+            <= j
+            <= self._js[-1] + 1e-10 * (1.0 + numpy.fabs(j))
+        ):
+            tE = min(max(tE, self._Emin), self._Emax)
+        return tE
+
     def _setup_interp(self):
         self._Emin = self._Es[0]
         self._Emax = self._Es[-1]
@@ -2530,7 +2544,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tptcoeffs = self._pt_coeffs[indx]
             tptderivcoeffs = self._pt_deriv_coeffs[indx]
         else:
-            tE = self._E_ip(j)
+            tE = self._E_at(j)
             tjaoffset = float(self.jaoffset(tE))
             tnSn = self.nSn(tE)[0]
             tdSndJ = self.dSndJ(tE)[0]
@@ -2726,7 +2740,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 )
             tOmega = self._Omegas[indx]
         else:
-            tE = self._E_ip(j)
+            tE = self._E_at(j)
             tOmega = self.Omega(tE)
         return tOmega
 

@@ -12992,4 +12992,86 @@ def test_actionAngleVerticalInverse_E():
     )
     with pytest.raises(ValueError):
         aAVtm.E(1.5 * jtm)
+
+
+def test_actionAngleVertical_arrays_and_small_tori():
+    # The vectorized forward transformation: arrays of points in one call give
+    # the same actions, frequencies and angles as the points one by one, floats
+    # give one-element arrays, bound and unbound points mix with the 9999.99
+    # sentinel, a point at its turning point or at the midplane is fine, and
+    # the smallest tori of a vertical potential measured from the midplane,
+    # whose energy above the minimum is within the potential's round-off, have
+    # the harmonic frequency with the anharmonic correction linear in the
+    # action down to actions of 1e-13
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.potential import MWPotential2014, toVerticalPotential, verticalfreq
+
+    pot = toVerticalPotential(MWPotential2014, 1.0)
+    aAV = actionAngleVertical(pot=pot)
+    x = numpy.array([0.05, -0.2, 0.3, 0.0, 0.01, -0.15, 0.1])
+    vx = numpy.array([0.1, 0.3, 0.0, 0.5, 0.02, -0.25, 10.0])
+    J, Om, ang = aAV.actionsFreqsAngles(x, vx)
+    assert J.shape == x.shape and Om.shape == x.shape and ang.shape == x.shape
+    for ii in range(len(x) - 1):
+        Ji, Omi, angi = aAV.actionsFreqsAngles(float(x[ii]), float(vx[ii]))
+        assert Ji.shape == (1,), "A float input does not give a one-element array"
+        assert numpy.fabs(Ji[0] - J[ii]) < 1e-14 * (1.0 + J[ii]), (
+            "Array and single-point actions differ"
+        )
+        assert numpy.fabs(Omi[0] - Om[ii]) < 1e-13 * Om[ii], (
+            "Array and single-point frequencies differ"
+        )
+        assert numpy.fabs(angi[0] - ang[ii]) < 1e-12, (
+            "Array and single-point angles differ"
+        )
+        assert numpy.fabs(aAV(float(x[ii]), float(vx[ii]))[0] - J[ii]) < 1e-14 * (
+            1.0 + J[ii]
+        )
+        Jf, Omf = aAV.actionsFreqs(float(x[ii]), float(vx[ii]))
+        assert (
+            numpy.fabs(Jf[0] - J[ii]) < 1e-14 * (1.0 + J[ii])
+            and numpy.fabs(Omf[0] - Om[ii]) < 1e-13 * Om[ii]
+        )
+    assert J[-1] == 9999.99 and Om[-1] == 9999.99, (
+        "An unbound point does not return the sentinel"
+    )
+    assert numpy.all(J[:-1] < 9999.0), "A bound point returns the sentinel"
+    # at the turning point the angle is pi/2, at the midplane with vx > 0 it is 0
+    assert numpy.fabs(ang[2] - 0.5 * numpy.pi) < 1e-10, (
+        "The angle at the turning point is not pi/2"
+    )
+    assert numpy.fabs(ang[3]) < 1e-12, "The angle at the midplane is not 0"
+    # the harmonic limit: (Omega / nu0 - 1) / vz^2 tends to a constant
+    nu0 = verticalfreq(MWPotential2014, 1.0)
+    vzs = numpy.array([1e-3, 1e-4, 1e-5, 1e-6])
+    Js, Oms, angs = aAV.actionsFreqsAngles(0.3 * vzs / nu0, 0.95 * vzs)
+    coeff = (Oms / nu0 - 1.0) / vzs**2.0
+    assert numpy.all(numpy.fabs(coeff / coeff[0] - 1.0) < 1e-3), (
+        "The frequencies of the smallest tori do not follow the anharmonic correction: round-off"
+    )
+    assert numpy.all(numpy.fabs(Js / (vzs**2.0 / 2.0 / nu0) / 0.9925 - 1.0) < 1e-3), (
+        "The actions of the smallest tori are not the harmonic ones"
+    )
+    assert numpy.all(numpy.fabs(angs - angs[0]) < 1e-5), (
+        "The angles of the smallest tori are not self-similar"
+    )
+    # every point at its turning point
+    Jt, Omt, angt = aAV.actionsFreqsAngles(
+        numpy.array([0.1, -0.2]), numpy.array([0.0, 0.0])
+    )
+    assert numpy.all(numpy.fabs(angt - numpy.array([0.5, 1.5]) * numpy.pi) < 1e-10), (
+        "Points at their turning points do not have angle pi/2 (above) and 3 pi/2 (below the midplane)"
+    )
+    assert numpy.fabs(Jt[0] - aAV(0.1, 0.0)[0]) < 1e-14, (
+        "A point at its turning point differs between array and float calls"
+    )
+    # the single-point turning-point method agrees with the vectorized one
+    xm = aAV.calcxmax(0.05, 0.1)
+    assert numpy.fabs(xm - aAV._points(0.05, 0.1)[3][0]) < 1e-12, (
+        "calcxmax disagrees with the vectorized turning point"
+    )
+    assert aAV.calcxmax(0.3, 0.0) == 0.3, "calcxmax at the turning point is not |x|"
+    assert numpy.fabs(aAV.calcxmax(0.0, 0.5) - aAV._points(0.0, 0.5)[3][0]) < 1e-12, (
+        "calcxmax from the midplane disagrees"
+    )
     return None

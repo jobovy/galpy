@@ -7,6 +7,27 @@ v1.12.2 (expected around 2027-03-01)
   family's own action table (so that ``E(Jr(E, L), L)`` is ``E`` to round-off)
   or, for explicit tori, from the set-up tori; it returns a Quantity when the
   instance has physical units.
+- ``actionAngleVertical`` evaluates arrays of points at once: the turning
+  points by a vectorized bisection and the action, frequency and angle by
+  fixed-order Gauss-Legendre quadrature in the variable sqrt(xmax - x), in
+  which the integrands are regular at the turning point, instead of an
+  adaptive quadrature per point (a hundred times faster for a population,
+  agreeing with the previous results to 1e-12). Near the turning point, and
+  throughout a torus too small for the potential's own round-off, E - Phi is
+  computed from the integral of the force instead of a difference of
+  potentials, so that the smallest tori of a vertical potential measured
+  from the midplane keep their digits.
+
+- The cylindrical-to-confocal transformation (``coords.Rz_to_uv``,
+  ``Rz_to_coshucosv``, and its C counterparts in the Staeckel action-angle
+  code and the Staeckel wrapper) computes sinh u and sin v (prolate) or
+  cos v (oblate) in forms without cancellation. The former cosh u = (d_1 +
+  d_2)/(2 delta) and cos v = (d_1 - d_2)/(2 delta) lost the small coordinate
+  near the axis and the plane: u was off by a part in 1e9 at R = 1e-4 delta
+  and zero at R = 1e-12 delta, and on the axis beyond a focus v was NaN. All
+  points, including the foci, the focal segment, the axis, and the plane, now
+  transform to round-off, and the Staeckel wrapper's in-plane force equals the
+  wrapped potential's to round-off at every radius.
 
 - The isochrone auxiliary of ``actionAngleSphericalInverse`` and
   ``actionAngleStaeckelInverse`` is now fitted to the potential's rotation
