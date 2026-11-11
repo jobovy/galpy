@@ -12833,6 +12833,127 @@ def test_actionAngleStaeckelInverse_target():
     return None
 
 
+def test_actionAngleStaeckelInverse_array_actions(staeckel_inverse_interp):
+    # Arrays of actions broadcast against the angles: every point is
+    # evaluated on its own torus and reproduces the single torus at the same
+    # angles to round-off, frequencies included, with tori on the degenerate
+    # faces and the circular orbit mixed in, and whatever the shape of the
+    # arrays
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    aAI = staeckel_inverse_interp
+    rng = numpy.random.default_rng(4)
+    n = 40
+    jr = rng.uniform(0.01, 0.15, n)
+    jz = rng.uniform(0.01, 0.15, n)
+    Lz = rng.uniform(0.85, 1.2, n) * rng.choice([-1.0, 1.0], n)
+    jr[3], jz[7], jr[11] = 0.0, 0.0, 0.0
+    jz[11] = 0.0
+    th = rng.uniform(0.0, 2.0 * numpy.pi, (3, n))
+    out = numpy.array(aAI(jr, Lz, jz, th[0], th[1], th[2]))
+    Om = numpy.array(aAI.Freqs(jr, Lz, jz))
+    for ii in range(n):
+        one = numpy.array(aAI(jr[ii], Lz[ii], jz[ii], th[0, ii], th[1, ii], th[2, ii]))
+        assert numpy.amax(numpy.fabs(out[:, ii] - one[:, 0])) < 1e-11, (
+            "The array evaluation differs from the one-torus path at torus %d: %g"
+            % (ii, numpy.amax(numpy.fabs(out[:, ii] - one[:, 0])))
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(Om[:, ii] - numpy.array(aAI.Freqs(jr[ii], Lz[ii], jz[ii])))
+            )
+            < 1e-10
+        ), "The array frequencies differ from the one-torus path"
+    # the arrays' shape is kept, and a scalar action broadcasts
+    out2 = aAI(
+        jr[:6].reshape(2, 3),
+        Lz[:6].reshape(2, 3),
+        0.05,
+        th[0, :6].reshape(2, 3),
+        1.0,
+        2.0,
+    )
+    assert (
+        out2[0].shape == (2, 3)
+        and numpy.amax(
+            numpy.fabs(
+                out2[0]
+                - numpy.array(
+                    aAI(jr[:6], Lz[:6], 0.05, th[0, :6], 1.0, 2.0)[0]
+                ).reshape(2, 3)
+            )
+        )
+        < 1e-12
+    ), "The array evaluation does not keep the arrays' shape"
+    # the broadcasting rules: an array of actions at a scalar angle is that
+    # angle on every torus, actions of shape (n,1) with angles of shape (m,)
+    # are every angle on every torus, and a scalar torus takes angles of any
+    # shape and returns its frequencies as floats
+    ang = numpy.linspace(0.2, 6.0, 5)
+    grid = numpy.array(
+        aAI.xvFreqs(jr[:4, None], Lz[:4, None], jz[:4, None], ang, 2.0 * ang, ang[::-1])
+    )
+    assert grid.shape == (9, 4, 5), "(n,1) actions with (m,) angles are not (n,m)"
+    fixed = numpy.array(
+        aAI.xvFreqs(jr[:4], Lz[:4], jz[:4], ang[1], 2.0 * ang[1], ang[3])
+    )
+    assert fixed.shape == (9, 4), "Arrays of actions at a scalar angle are not (n,)"
+    assert numpy.amax(numpy.fabs(fixed - grid[:, :, 1])) < 1e-11, (
+        "Arrays of actions at a scalar angle differ from the same points of the grid"
+    )
+    for ii in range(4):
+        one = aAI.xvFreqs(jr[ii], Lz[ii], jz[ii], ang, 2.0 * ang, ang[::-1])
+        assert all(isinstance(o, float) for o in one[6:]), (
+            "The frequencies of a single torus are not floats"
+        )
+        assert numpy.amax(numpy.fabs(grid[:6, ii] - numpy.array(one[:6]))) < 1e-11, (
+            "Every angle on every torus differs from the one-torus path"
+        )
+        assert numpy.amax(numpy.fabs(grid[6:, ii, 0] - numpy.array(one[6:]))) < 1e-10
+    two = aAI(jr[1], Lz[1], jz[1], ang[:4].reshape(2, 2), 1.0, 2.0)
+    assert two[0].shape == (2, 2) and numpy.allclose(
+        two[0].ravel(), aAI(jr[1], Lz[1], jz[1], ang[:4], 1.0, 2.0)[0], rtol=1e-13
+    ), "A single torus does not keep the shape of its angles"
+    assert numpy.array(aAI.Freqs(jr[:4, None], Lz[:4, None], jz[:4, None])).shape == (
+        3,
+        4,
+        1,
+    ), "The frequencies of an array of tori do not keep its shape"
+    # explicit tori: the arrays are evaluated torus by torus
+    E, Lzb, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    aAE = actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_potential(),
+        Es=[E],
+        Lzs=[Lzb],
+        I3s=[I3],
+        progressbar=False,
+    )
+    jrb, jzb = aAE.JR(E, Lzb, I3), aAE.Jz(E, Lzb, I3)
+    outE = numpy.array(
+        aAE([jrb, jrb], [Lzb, Lzb], [jzb, jzb], [0.3, 1.1], [1.0, 2.0], [2.0, 0.5])
+    )
+    for ii, (ar, ap, az) in enumerate(((0.3, 1.0, 2.0), (1.1, 2.0, 0.5))):
+        one = numpy.array(aAE(jrb, Lzb, jzb, ar, ap, az))
+        assert numpy.amax(numpy.fabs(outE[:, ii] - one[:, 0])) < 1e-12
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(aAE.Freqs([jrb, jrb], [Lzb, Lzb], [jzb, jzb]))[:, 0]
+                - numpy.array(aAE.Freqs(jrb, Lzb, jzb))
+            )
+        )
+        < 1e-12
+    )
+    # guards, as for one torus
+    with pytest.raises(ValueError, match="non-negative"):
+        aAI(numpy.array([0.05, -0.1]), 0.9, 0.05, 1.0, 1.0, 1.0)
+    with pytest.raises(ValueError, match="L_z = 0"):
+        aAI(0.05, numpy.array([0.9, 0.0]), 0.05, 1.0, 1.0, 1.0)
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        aAI(0.05, numpy.array([0.9, 5.0]), 0.05, 1.0, 1.0, 1.0)
+    return None
+
+
 def test_actionAngleStaeckelInverse_degenerate_tori():
     # A planar orbit (J_z = 0) and a shell orbit (J_R = 0) are tori with one
     # degenerate libration: they are set up from their labels (the planar
