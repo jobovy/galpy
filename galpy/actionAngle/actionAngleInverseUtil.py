@@ -59,6 +59,31 @@ def _sine_project(g, ms):
     return 2.0 / N * numpy.imag(ph * numpy.conj(numpy.fft.fft(g, axis=0)[ms]))
 
 
+# points per chunk of an array evaluation: a call over many distinct tori is
+# split into chunks of this size, because the per-point cost of the kernel
+# grows with the size of its arrays once they leave the cache (four times
+# from 1e4 to 1e6 points)
+_EVAL_CHUNK = 16384
+
+
+def _chunked(fn, n, *arrays):
+    """fn(*arrays) in chunks of _EVAL_CHUNK along the first axis of each of
+    the n-long arrays, the outputs (a tuple of n-long arrays) concatenated"""
+    if n <= _EVAL_CHUNK:
+        return fn(*arrays)
+    parts = [
+        fn(*(a[k : k + _EVAL_CHUNK] for a in arrays)) for k in range(0, n, _EVAL_CHUNK)
+    ]
+    return tuple(numpy.concatenate([p[i] for p in parts]) for i in range(len(parts[0])))
+
+
+def _sdot(smt, D):
+    """The sine (or cosine) matrix sin(m tau_k) of shape (n, M) times the
+    coefficients D, of shape (n, M) or broadcastable to it: one coefficient
+    vector per anomaly, or one for all of them"""
+    return numpy.einsum("nm,nm->n", smt, numpy.broadcast_to(D, smt.shape))
+
+
 def _sine_series(N, Dm, ms):
     """The sine series sum_m D_m sin(m tau_k) over the harmonics ms and its
     derivative sum_m m D_m cos(m tau_k) on the regular offset grid tau_k =

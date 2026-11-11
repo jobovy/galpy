@@ -1336,7 +1336,7 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
                             )
                 if "Freqs" in quantity:
                     FreqsFac = freq_in_Gyr(vo, ro)
-                    if isinstance(out, float):  # 1D system
+                    if not isinstance(out, tuple):  # 1D frequency: float or array
                         fac.append(FreqsFac)
                         if _APY_UNITS:
                             Freqsu = units.Gyr**-1.0
@@ -1346,22 +1346,19 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
                         if _APY_UNITS:
                             Freqsu = units.Gyr**-1.0
                             u.extend([Freqsu, Freqsu, Freqsu])
-                if _APY_UNITS:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (
-                                units.Quantity(out[ii] * fac[ii], unit=u[ii]),
-                            )
-                    except TypeError:  # Happens when out == scalar
-                        newOut = units.Quantity(out * fac[0], unit=u[0])
+                if not isinstance(out, tuple):  # 1D frequency: float or array
+                    newOut = (
+                        units.Quantity(out * fac[0], unit=u[0])
+                        if _APY_UNITS
+                        else out * fac[0]
+                    )
+                elif _APY_UNITS:
+                    newOut = tuple(
+                        units.Quantity(out[ii] * fac[ii], unit=u[ii])
+                        for ii in range(len(out))
+                    )
                 else:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (out[ii] * fac[ii],)
-                    except TypeError:  # Happens when out == scalar
-                        newOut = out * fac[0]
+                    newOut = tuple(out[ii] * fac[ii] for ii in range(len(out)))
                 return newOut
             else:
                 return method(*args, **kwargs)

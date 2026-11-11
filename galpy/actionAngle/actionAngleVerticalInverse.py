@@ -21,6 +21,7 @@ from ..potential.linearPotential import _evaluatelinearx2derivs
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._hermite import LinearHermite, slope_at_zero
+from .actionAngleInverseUtil import _chunked, _sdot
 
 if conversion._APY_LOADED:
     from astropy import units
@@ -853,23 +854,33 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         Parameters
         ----------
-        j : float
-            Action.
+        j : float or numpy.ndarray
+            Action(s).
 
         Returns
         -------
         tuple
-            (D, dD/dj, K, dK/dj).
+            (D, dD/dj, K, dK/dj); for an array of actions, D and dD/dj have one
+            row per action and K and dK/dj one entry.
 
         Notes
         -----
         - 2026-08-29 - Written - Bovy (UofT)
+        - 2026-11-08 - Arrays of actions - Bovy (UofT)
         """
+        j = numpy.asarray(j, dtype="float")
+        if j.ndim == 0:
+            return (
+                self._mm_Dspl(j),
+                self._mm_dDspl(j),
+                float(self._mm_Kspl(j)),
+                float(self._mm_dKspl(j)),
+            )
         return (
             self._mm_Dspl(j),
             self._mm_dDspl(j),
-            float(self._mm_Kspl(j)),
-            float(self._mm_dKspl(j)),
+            self._mm_Kspl(j),
+            self._mm_dKspl(j),
         )
 
     def _mm_xp_of_tau(self, j, tau):
@@ -1044,12 +1055,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         Parameters
         ----------
-        j : float
-            Action.
+        j : float or numpy.ndarray
+            Action, one for all anomalies or one per anomaly.
         tau : numpy.ndarray
             Anomalies.
         tables : tuple
-            (D, dD/dj, K, dK/dj) as returned by _mm_tables(j).
+            (D, dD/dj, K, dK/dj) as returned by _mm_tables(j), with one row
+            per anomaly when j is an array.
         deriv : bool, optional
             If True, also return d(angle)/d(tau).
 
@@ -1061,15 +1073,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Notes
         -----
         - 2026-09-17 - Written - Bovy (UofT)
+        - 2026-11-08 - One torus per anomaly - Bovy (UofT)
         """
         D, dDdj, K, dKdj = tables
-        ms = 2.0 * numpy.arange(1, len(D) + 1)
+        ms = 2.0 * numpy.arange(1, numpy.shape(D)[-1] + 1)
         tau = numpy.atleast_1d(numpy.array(tau, dtype="float"))
+        j, K, dKdj = (
+            numpy.broadcast_to(numpy.asarray(t, dtype="float"), tau.shape)
+            for t in (j, K, dKdj)
+        )
         mt = tau[:, None] * ms[None, :]
         smt, cmt = numpy.sin(mt), numpy.cos(mt)
-        eta = tau + smt @ D
-        deta = 1.0 + cmt @ (ms * D)
-        detadj = smt @ dDdj
+        eta = tau + _sdot(smt, D)
+        deta = 1.0 + _sdot(cmt, ms * D)
+        detadj = _sdot(smt, dDdj)
         xmax = numpy.sqrt(K * j)
         dxmaxdj = (K + j * dKdj) / (2.0 * xmax)
         se, ce = numpy.sin(eta), numpy.cos(eta)
@@ -1077,7 +1094,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         x = -xmax * ct
         p = numpy.zeros_like(tau)
         nz = st != 0.0
-        p[nz] = 2.0 * j * se[nz] ** 2.0 * deta[nz] / (xmax * st[nz])
+        p[nz] = 2.0 * j[nz] * se[nz] ** 2.0 * deta[nz] / (xmax[nz] * st[nz])
         angle = (
             eta
             - se * ce
@@ -1087,13 +1104,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         )
         if not deriv:
             return x, p, angle
-        d2eta = -smt @ (ms**2.0 * D)
-        ddetadj = cmt @ (ms * dDdj)
+        d2eta = -_sdot(smt, ms**2.0 * D)
+        ddetadj = _sdot(cmt, ms * dDdj)
         dp = numpy.zeros_like(tau)
         dp[nz] = (
             2.0
-            * j
-            / xmax
+            * j[nz]
+            / xmax[nz]
             * (
                 (2.0 * se[nz] * ce[nz] * deta[nz] ** 2.0 + se[nz] ** 2.0 * d2eta[nz])
                 / st[nz]
@@ -1103,7 +1120,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # exactly on a turning point the ratio's limit is finite:
         # p ~ (2 J / xmax) eta'^3 cos(tau) (tau - tau_0), so dp/dtau there is
         # its slope
-        dp[~nz] = 2.0 * j / xmax * deta[~nz] ** 3.0 * ct[~nz]
+        dp[~nz] = 2.0 * j[~nz] / xmax[~nz] * deta[~nz] ** 3.0 * ct[~nz]
         dangle = (
             2.0 * se**2.0 * deta
             + 2.0 * j * (2.0 * se * ce * deta * detadj + se**2.0 * ddetadj)
@@ -1126,13 +1143,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         Parameters
         ----------
-        j : float
-            Action.
+        j : float or numpy.ndarray
+            Action, one for all angles or one per angle.
         angle : float or numpy.ndarray
             Angle.
         tables : tuple
             (D, dD/dj, K, dK/dj) as returned by _mm_tables(j), already
-            in hand.
+            in hand, with one row per angle when j is an array.
 
         Returns
         -------
@@ -1229,27 +1246,51 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         Parameters
         ----------
-        j : float
-            Action.
+        j : float or numpy.ndarray
+            Action(s). The actions and the angles broadcast against each
+            other by numpy's rules: a scalar action with an array of angles
+            evaluates one torus at those angles; an array of actions with a
+            scalar angle evaluates that angle on every torus; arrays of the
+            same shape are paired element by element, each star on its own
+            torus at its own angle; and actions of shape (n,1) with angles
+            of shape (m,) return every angle on every torus as (n,m) arrays.
         angle : float or numpy.ndarray
-            Angle.
+            Angle(s).
 
         Returns
         -------
         tuple
-            (x, p) at the requested angles.
+            (x, p) at the requested actions and angles, in their broadcast
+            shape.
 
         Notes
         -----
         - 2026-08-29 - Written - Bovy (UofT)
+        - 2026-11-08 - Arrays of actions, broadcast against the angles - Bovy (UofT)
         """
-        if j < 0.0:
+        j = numpy.asarray(j, dtype="float")
+        if numpy.any(j < 0.0):
             raise ValueError("The action must be non-negative")
-        if j == 0.0:
-            # the zero-action torus is the point at the bottom of the potential
-            zero = numpy.zeros_like(numpy.atleast_1d(numpy.array(angle, dtype="float")))
-            return zero, zero
-        tables = self._mm_tables(j)
+        angle = numpy.atleast_1d(numpy.array(angle, dtype="float"))
+        shape = numpy.broadcast_shapes(j.shape, angle.shape)
+        j = numpy.broadcast_to(j, shape).ravel()
+        angle = numpy.broadcast_to(angle, shape).ravel()
+        # the zero-action torus is the point at the bottom of the potential
+        x, p = numpy.zeros_like(j), numpy.zeros_like(j)
+        lib = j > 0.0
+        if numpy.any(lib):
+            x[lib], p[lib] = _chunked(
+                self._mm_xp_points, int(lib.sum()), j[lib], angle[lib]
+            )
+        return x.reshape(shape), p.reshape(shape)
+
+    def _mm_xp_points(self, j, angle):
+        """Position and momentum at the (action, angle) pairs j, angle, all
+        with j > 0: the tables once per distinct torus, then one row per
+        point"""
+        ju, inv = numpy.unique(j, return_inverse=True)
+        D, dD, K, dK = self._mm_tables(ju)
+        tables = (D[inv], dD[inv], K[inv], dK[inv])
         tau = self._mm_tau_of_angle(j, angle, tables=tables)
         x, p, _ = self._mm_eval_tau(j, tau, tables)
         return x, p
@@ -2372,35 +2413,46 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         Parameters
         ----------
-        j : float
-            Action.
-        angle : numpy.ndarray
-            Angle.
+        j : float or numpy.ndarray
+            Action(s). The actions and the angles broadcast against each
+            other by numpy's rules: a scalar action with an array of angles
+            evaluates one torus at those angles; an array of actions with a
+            scalar angle evaluates that angle on every torus; arrays of the
+            same shape are paired element by element, each star on its own
+            torus at its own angle; and actions of shape (n,1) with angles
+            of shape (m,) return every angle on every torus as (n,m) arrays.
+        angle : float or numpy.ndarray
+            Angle(s).
 
         Returns
         -------
         tuple
-            (x, v, frequency).
+            (x, v, frequency): the frequency is a float for a single action
+            and otherwise has the broadcast shape of the actions and angles.
 
         Notes
         -----
         - 2026-08-29 - Written - Bovy (UofT)
+        - 2026-11-08 - Arrays of actions - Bovy (UofT)
         """
-        # a single torus at a time: J(E) from the interpolant is a length-one array
-        j = float(numpy.asarray(j, dtype="float").item())
+        j = numpy.asarray(j, dtype="float")
         x, p = self._mm_xp_of_angle(j, angle)
-        return x, p, float(self._mm_dEdj(j))
+        if j.ndim == 0:
+            return x, p, float(self._mm_dEdj(j))
+        return x, p, numpy.array(numpy.broadcast_to(self._mm_dEdj(j), x.shape))
 
     def _xvFreqs(self, j, angle, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequency.
+        Evaluate the phase-space coordinates (x,v) and the frequency at the given actions and angles.
+
+        The actions and the angles broadcast against each other by numpy's rules (arrays of actions in the momentum-matched mode only): a scalar action with an array of angles evaluates one torus at those angles; an array of actions with a scalar angle evaluates that angle on every torus; arrays of the same shape are paired element by element, each star on its own torus at its own angle; and actions of shape (n,1) with angles of shape (m,) return every angle on every torus as (n,m) arrays.
 
         Parameters
         ----------
-        j : float
-            Action.
-        angle : numpy.ndarray
-            Angle.
+        j : float or numpy.ndarray
+            Action(s).
+        angle : float or numpy.ndarray
+            Angle(s).
 
         Returns
         -------
@@ -2617,7 +2669,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
             # (~4e-10) closer to the isolated true frequency between its
             # nodes, but an answer inconsistent with the returned orbits
             # is the wrong kind of accurate.
-            return float(self._mm_dEdj(float(numpy.asarray(j, dtype="float").item())))
+            j = numpy.asarray(j, dtype="float")
+            out = self._mm_dEdj(j)
+            return float(out) if j.ndim == 0 else numpy.asarray(out, dtype="float")
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
             if numpy.fabs(j - self._js[indx]) > 1e-10:

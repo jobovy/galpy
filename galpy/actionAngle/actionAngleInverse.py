@@ -19,31 +19,34 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("__call__", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus.
+        Evaluate the phase-space coordinates (x,v) at the given actions and angles.
+
+        The actions and the angles broadcast against each other by numpy's rules: scalar actions with arrays of angles evaluate one torus at those angles; arrays of actions with scalar angles evaluate that angle on every torus; arrays of the same shape are paired element by element, each star on its own torus at its own angle; and actions of shape (n,1) with angles of shape (m,) return every angle on every torus as (n,m) arrays.
 
         Parameters
         ----------
-        jr : float
+        jr : float or numpy.ndarray
             Radial action.
-        jphi : float
+        jphi : float or numpy.ndarray
             Azimuthal action.
-        jz : float
+        jz : float or numpy.ndarray
             Vertical action.
-        angler : numpy.ndarray
+        angler : float or numpy.ndarray
             Radial angle.
-        anglephi : numpy.ndarray
+        anglephi : float or numpy.ndarray
             Azimuthal angle.
-        anglez : numpy.ndarray
+        anglez : float or numpy.ndarray
             Vertical angle.
 
         Returns
         -------
-        numpy.ndarray
-            [R,vR,vT,z,vz,phi]
+        tuple
+            (R,vR,vT,z,vz,phi), each in the broadcast shape of the actions and angles.
 
         Notes
         -----
         - 2017-11-14 - Written - Bovy (UofT)
+        - 2026-11-08 - Arrays of actions, broadcast against the angles - Bovy (UofT)
 
         """
         try:
@@ -57,31 +60,34 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("xvFreqs", pop=True)
     def xvFreqs(self, *args, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies
+        Evaluate the phase-space coordinates (x,v) and the frequencies at the given actions and angles.
+
+        The actions and the angles broadcast against each other by numpy's rules: scalar actions with arrays of angles evaluate one torus at those angles; arrays of actions with scalar angles evaluate that angle on every torus; arrays of the same shape are paired element by element, each star on its own torus at its own angle; and actions of shape (n,1) with angles of shape (m,) return every angle on every torus as (n,m) arrays.
 
         Parameters
         ----------
-        jr : float
+        jr : float or numpy.ndarray
             Radial action.
-        jphi : float
+        jphi : float or numpy.ndarray
             Azimuthal action.
-        jz : float
+        jz : float or numpy.ndarray
             Vertical action.
-        angler : numpy.ndarray
+        angler : float or numpy.ndarray
             Radial angle.
-        anglephi : numpy.ndarray
+        anglephi : float or numpy.ndarray
             Azimuthal angle.
-        anglez : numpy.ndarray
+        anglez : float or numpy.ndarray
             Vertical angle.
 
         Returns
         -------
         tuple
-            A tuple containing the phase-space coordinates (R,vR,vT,z,vz,phi) and the frequencies (OmegaR,Omegaphi,Omegaz).
+            A tuple containing the phase-space coordinates (R,vR,vT,z,vz,phi) and the frequencies (OmegaR,Omegaphi,Omegaz), each in the broadcast shape of the actions and angles; the frequencies are floats for a single torus.
 
         Notes
         -----
         - 2017-11-15 - Written - Bovy (UofT)
+        - 2026-11-08 - Arrays of actions, broadcast against the angles - Bovy (UofT)
 
         """
         try:
@@ -95,25 +101,26 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("Freqs", pop=True)
     def Freqs(self, *args, **kwargs):
         """
-        Return the frequencies corresponding to a torus
+        Return the frequencies of a torus or of an array of tori
 
         Parameters
         ----------
-        jr : float
+        jr : float or numpy.ndarray
             Radial action.
-        jphi : float
+        jphi : float or numpy.ndarray
             Azimuthal action.
-        jz : float
+        jz : float or numpy.ndarray
             Vertical action.
 
         Returns
         -------
         tuple
-            A tuple of three floats representing the frequencies (OmegaR, Omegaphi, Omegaz).
+            The frequencies (OmegaR, Omegaphi, Omegaz): three floats for a single torus, three arrays in the broadcast shape of the actions otherwise.
 
         Notes
         -----
         - 2017-11-15 - Written - Bovy (UofT)
+        - 2026-11-08 - Arrays of actions - Bovy (UofT)
 
         """
         try:
