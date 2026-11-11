@@ -657,6 +657,58 @@ def test_array_actions(backend, mode, interp, explicit):
                 )
 
 
+def _grad2(backend, f, a, b):
+    """The derivatives of the scalar f(a, b) in a and b"""
+    if backend == "jax":
+        return tuple(
+            float(g)
+            for g in jax.grad(f, argnums=(0, 1))(jnp.asarray(a), jnp.asarray(b))
+        )
+    at, bt = _arr(backend, a, grad=True), _arr(backend, b, grad=True)
+    return tuple(float(g) for g in torch.autograd.grad(f(at, bt), (at, bt)))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("mode", ["interp", "explicit"])
+def test_public_energy(backend, mode, interp, explicit):
+    # E(jr, L) on a backend: a numpy-built family on backend inputs gives the
+    # numpy E to round-off, and a family built on a backend (forced) to its
+    # construction's ~1e-10, in the broadcast shape of (jr, L) (a 0-d array
+    # for scalars); its derivatives in (J_r, L) are the torus's frequencies
+    # (Omega_r, Omega_psi); jax.jit traces it; an action outside the family
+    # (interpolated) or not among the set-up tori (explicit) raises
+    aN = interp if mode == "interp" else explicit
+    if mode == "interp":
+        jr, L = numpy.array([[0.0], [0.02], [0.137]]), numpy.array([0.75, 0.8, 0.9])
+        j1, L1 = 0.05, 0.8
+    else:
+        jr, L = aN._jrs[:, None], aN._Ls[None, :] + 0.0 * aN._jrs[:, None]
+        jr, L = numpy.diag(jr + 0.0 * L), numpy.diag(L)
+        j1, L1 = aN._jrs[0], aN._Ls[0]
+    ref = aN.E(jr, L)
+    for fam, tol in ((aN, 1e-13), (_forced(backend, mode), 2e-10)):
+        got = fam.E(_arr(backend, jr), _arr(backend, L))
+        assert _is_backend(backend, got) and tuple(got.shape) == ref.shape
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0.0, atol=tol)
+        got1 = fam.E(_arr(backend, j1), _arr(backend, L1))
+        assert _is_backend(backend, got1) and got1.ndim == 0
+        assert abs(float(as_numpy(got1)) - aN.E(j1, L1)) < tol
+    OmR, OmL, _ = aN.Freqs(j1, L1, 0.0)
+    dJ, dL = _grad2(backend, aN.E, j1, L1)
+    assert abs(dJ - OmR) < 1e-12 * OmR and abs(dL - OmL) < 1e-12 * abs(OmL)
+    if backend == "jax":
+        f = jax.jit(aN.E)
+        assert float(f(jnp.asarray(j1), jnp.asarray(L1))) == float(
+            aN.E(jnp.asarray(j1), jnp.asarray(L1))
+        )
+    if mode == "interp":
+        with pytest.raises(ValueError, match="outside the interpolated family"):
+            aN.E(_arr(backend, 10.0), _arr(backend, L1))
+    else:
+        with pytest.raises(ValueError, match="is not one of the set-up tori"):
+            aN.E(_arr(backend, 1.1 * j1), _arr(backend, L1))
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_torch_compile(explicit):
     # the evaluation runs under torch.compile (an explicit torus: the

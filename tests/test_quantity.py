@@ -21322,3 +21322,45 @@ def test_pericenter_stripping_pdf_quantity_sigma_tdisrupt():
         float(val_internal),
         float(val_quantity.to(1.0 / units.Gyr).value * conversion.time_in_Gyr(vo, ro)),
     )
+
+
+def test_actionAngleSphericalInverse_E_units():
+    # E(jr, L) accepts Quantity actions and returns the energy as a Quantity
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    ro, vo = 9.0, 230.0
+    E, L = 0.7, 0.9
+    aASC = actionAngleSphericalInverse(
+        pot=LogarithmicHaloPotential(normalize=1.0, ro=ro, vo=vo),
+        Es=[E],
+        Ls=[L],
+        mm_nta=128,
+        mm_npt=24,
+        ro=ro,
+        vo=vo,
+    )
+    aASC_int = actionAngleSphericalInverse(
+        pot=LogarithmicHaloPotential(normalize=1.0),
+        Es=[E],
+        Ls=[L],
+        mm_nta=128,
+        mm_npt=24,
+    )
+    # (a float: under a forced backend on a GPU the action is a device array,
+    # which does not multiply a unit)
+    jr = float(as_numpy(aASC_int.Jr(E, L, use_physical=False)))
+    Eq = aASC.E(
+        jr * ro * vo * units.kpc * units.km / units.s,
+        L * ro * vo * units.kpc * units.km / units.s,
+    )
+    assert isinstance(Eq, units.Quantity), (
+        "E(jr, L) of an instance with units does not return a Quantity"
+    )
+    assert (
+        numpy.fabs(Eq.to(units.km**2 / units.s**2).value / (E * vo**2.0) - 1.0) < 1e-10
+    ), "E(jr, L) with units does not return the energy in physical units"
+    assert numpy.fabs(as_numpy(aASC.E(jr, L, use_physical=False)) - E) < 1e-12, (
+        "E(jr, L) with use_physical=False does not return the internal energy"
+    )
+    return None

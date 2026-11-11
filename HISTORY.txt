@@ -1,6 +1,15 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- ``actionAngleSphericalInverse`` and ``actionAngleVerticalInverse`` have a
+  public ``E`` method, the inverse of their ``Jr(E, L)`` and ``J(E)``: the
+  energy of the torus with the given actions, for arrays of actions, from the
+  family's own action table (so that ``E(Jr(E, L), L)`` is ``E`` to round-off)
+  or, for explicit tori, from the set-up tori; it returns a Quantity when the
+  instance has physical units. On the jax and PyTorch backends it is
+  differentiable, with the torus's frequencies as its derivatives in the
+  actions, and traceable under ``jax.jit``.
+
 - The isochrone auxiliary of ``actionAngleSphericalInverse`` and
   ``actionAngleStaeckelInverse`` is now fitted to the potential's rotation
   curve by a converged least squares (the amplitude eliminated in closed

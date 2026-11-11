@@ -550,7 +550,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             # E(J) at energies between the grid tori, from the same Hermite
             # energy interpolant whose derivative is the frequency, so that E,
             # J, and Freqs agree exactly
-            self.E = self._mm_E_dispatch
+            self._E_ip = self._mm_E_dispatch
             self.J = self._mm_J_of_E_dispatch
 
     def _pt_action_offset(self, use_pointtransform):
@@ -1882,6 +1882,45 @@ class actionAngleVerticalInverse(actionAngleInverse):
             Om = asarray_on_device(xp, self._Omegas, dev)[indx]
         return match_input_dtype(js + (E - stop_gradient(E)) / Om, E_in)
 
+    def _E_backend(self, xp, j):
+        """E(j) (as E) in namespace xp: an explicit torus's energy, with the
+        derivative dE/dJ = Omega of the torus (and, as the torus moves with a
+        potential parameter, against its own action), or the family's E(J)"""
+        j_in = xp.asarray(j) * 1.0
+        j = at_least_float64(j_in)
+        dev = device_of(j)
+        if self._mm_bk is not None:
+            js = self._mm_bk["js"]
+        else:
+            js = asarray_on_device(xp, self._js, dev)
+        if not self._interp:
+            indx = xp.argmin(xp.abs(j - stop_gradient(js)))
+            if has_concrete_truth_value(j) and concretely_true(
+                xp.abs(j - js[indx]) > 1e-10 * (1.0 + xp.abs(j))
+            ):
+                raise ValueError(
+                    "Given action not found; please specify the action of a torus used in the initialization of the instance"
+                )
+            if self._mm_bk is not None:
+                Om = self._mm_bk["Om"][indx]
+            else:
+                Om = asarray_on_device(xp, self._Omegas, dev)[indx]
+            dj = j - js[indx]
+            Es = asarray_on_device(xp, self._Es, dev)
+            return match_input_dtype(Es[indx] + Om * (dj - stop_gradient(dj)), j_in)
+        if js.shape[0] > 1:
+            # a one-node family is linear in J by construction and extends to
+            # any action; a grid does not extend beyond its nodes
+            js = stop_gradient(js)
+            tol = 1e-12 * (1.0 + xp.abs(j))
+            bad = xp.any((j < js[0] - tol) | (j > js[-1] + tol))
+            if has_concrete_truth_value(bad) and concretely_true(bad):
+                raise ValueError(
+                    f"action outside the family's range [{float(as_numpy(js[0]))}, {float(as_numpy(js[-1]))}]"
+                )
+            j = xp.where(j < js[0], js[0], xp.where(j > js[-1], js[-1], j))
+        return match_input_dtype(self._E_ip(j), j_in)
+
     # ------------------------------------- legacy evaluation, jax/torch path
     # The tables are built on numpy; the evaluation runs natively, differentiable
     # in the action and the angles.
@@ -1917,7 +1956,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         j_in = xp.asarray(j) * 1.0
         j = xp.reshape(at_least_float64(j_in), ())
         if self._interp:
-            return match_input_dtype(self.Omega(self.E(j)), j_in)
+            return match_input_dtype(self.Omega(self._E_ip(j)), j_in)
         js = asarray_on_device(xp, self._js, device_of(j))
         indx = xp.argmin(xp.abs(j - js))
         if has_concrete_truth_value(j) and concretely_true(
@@ -1970,7 +2009,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 xp.astype(indx, j.dtype) if hasattr(xp, "astype") else indx * 1.0
             )
         else:
-            tE = xp.reshape(self.E(j), ())
+            tE = xp.reshape(self._E_ip(j), ())
             tjaoffset = self.jaoffset(tE)
             tnSn = self.nSn(tE)[0]
             tdSndJ = self.dSndJ(tE)[0]
@@ -2786,7 +2825,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # _SplineXP: numpy inputs call the splines, jax/torch evaluate natively
         spl = interpolate.InterpolatedUnivariateSpline
         self.J = _SplineXP(spl(self._Es, self._js, k=3))
-        self.E = _SplineXP(spl(self._js, self._Es, k=3))
+        self._E_ip = _SplineXP(spl(self._js, self._Es, k=3))
         self.jaoffset = _SplineXP(spl(self._Es, self._jaoffset, k=3))
         self.OmegaHO = _SplineXP(spl(self._Es, self._OmegaHO, k=3))
         self.Omega = _SplineXP(spl(self._Es, self._Omegas, k=3))
@@ -3144,6 +3183,57 @@ class actionAngleVerticalInverse(actionAngleInverse):
             )
         return self._js[indx]
 
+    @conversion.physical_conversion("energy", pop=True)
+    def E(self, j, **kwargs):
+        """
+        Return the energy of the torus with action j.
+
+        Parameters
+        ----------
+        j : float, numpy.ndarray or Quantity
+            Action.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity
+            Energy of the torus (a float for a scalar action).
+
+        Notes
+        -----
+        - The inverse of ``J(E)``: for an interpolating instance
+          (setup_interp=True), any action within the family, from the
+          family's own interpolant E(J), which for the momentum-matched
+          construction is the Hermite interpolant that is exact at the nodes
+          and has the frequency as its slope; for an instance set up with
+          explicit tori, j must be the action of one of them.
+        - 2026-11-09 - Written - Bovy (UofT)
+        """
+        j = conversion.parse_angmom(j, ro=self._ro, vo=self._vo)
+        xp = get_namespace(j)
+        if self._momentum_matched:
+            xp = self._mm_namespace(xp)
+        if xp is not numpy:
+            return self._E_backend(xp, j)
+        if not self._interp:
+            indx = numpy.nanargmin(numpy.fabs(j - self._js))
+            if numpy.fabs(j - self._js[indx]) > 1e-10 * (1.0 + numpy.fabs(j)):
+                raise ValueError(
+                    "Given action not found; please specify the action of a torus used in the initialization of the instance"
+                )
+            return self._Es[indx]
+        jj = numpy.asarray(j, dtype="float")
+        if len(self._js) > 1:
+            # a one-node family is linear in J by construction and extends to
+            # any action; a grid does not extend beyond its nodes
+            tol = 1e-12 * (1.0 + numpy.fabs(jj))
+            if numpy.any(jj < self._js[0] - tol) or numpy.any(jj > self._js[-1] + tol):
+                raise ValueError(
+                    f"action outside the family's range [{self._js[0]}, {self._js[-1]}]"
+                )
+            jj = numpy.clip(jj, self._js[0], self._js[-1])
+        out = self._E_ip(jj)
+        return float(out) if jj.ndim == 0 else numpy.asarray(out)
+
     def _evaluate(self, j, angle, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
@@ -3254,7 +3344,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tptcoeffs = self._pt_coeffs[indx]
             tptderivcoeffs = self._pt_deriv_coeffs[indx]
         else:
-            tE = self.E(j)
+            tE = self._E_ip(j)
             tjaoffset = float(self.jaoffset(tE))
             tnSn = self.nSn(tE)[0]
             tdSndJ = self.dSndJ(tE)[0]
@@ -3457,7 +3547,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 )
             tOmega = self._Omegas[indx]
         else:
-            tE = self.E(j)
+            tE = self._E_ip(j)
             tOmega = self.Omega(tE)
         return tOmega
 

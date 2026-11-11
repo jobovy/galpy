@@ -1046,13 +1046,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         return None
 
-    def _interp_tables(self, jr, L):
-        """Solve the implicit inverse label (u from (J_r, L) by root-finding
-        on the stored J_r interpolant -- exact-in-the-family, so canonicity
-        is untouched) and return the frequencies and the map's tables with
-        their derivatives, all the interpolants' own, combined into the
-        chains at fixed L and at fixed J_r that the evaluation needs, for
-        all the (J_r, L) tori at once, with one row per torus"""
+    def _label_of(self, jr, L):
+        """The grid coordinate u of the tori (J_r, L), by inverting the stored
+        J_r(u, L) interpolant: exact in the family, so canonicity is
+        untouched; returns the broadcast (J_r, L) with J_r clipped to the
+        grid's own nodes to round-off, and u, one entry per torus"""
         jr, L = numpy.broadcast_arrays(
             numpy.atleast_1d(numpy.asarray(jr, dtype="float")),
             numpy.atleast_1d(numpy.asarray(L, dtype="float")),
@@ -1104,6 +1102,16 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 x0=ulo + (uhi - ulo) * numpy.sqrt((jr - jlo) / (jhi - jlo)),
             )
             u = numpy.where(jr == jlo, ulo, numpy.where(jr == jhi, uhi, u))
+        return jr, L, u
+
+    def _interp_tables(self, jr, L):
+        """Solve the implicit inverse label (u from (J_r, L) by root-finding
+        on the stored J_r interpolant -- exact-in-the-family, so canonicity
+        is untouched) and return the frequencies and the map's tables with
+        their derivatives, all the interpolants' own, combined into the
+        chains at fixed L and at fixed J_r that the evaluation needs, for
+        all the (J_r, L) tori at once, with one row per torus"""
+        jr, L, u = self._label_of(jr, L)
         _, jr_dx, djr_dL = self._jr_ip.points_grad(u * u, L)
         djr_du = 2.0 * u * jr_dx
         _, dE_dx, dE_dL = self._E_of_uL(u, L)
@@ -1260,6 +1268,82 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 "setup_interp=True to interpolate)"
             )
         return ii[0] if scalar else ii
+
+    def _bk_E(self, xp, jr, L):
+        """E in jax/torch, in the broadcast shape of (J_r, L): an explicit
+        torus's energy, with the torus's frequencies as its derivatives in
+        (J_r, L) (and, as the torus moves with a potential parameter,
+        against its own actions), or the family's E(u, L) at the label of
+        (J_r, L)"""
+        ins, (jr, L) = self._bk_inputs(xp, jr, L)
+        jr, L = xp.broadcast_arrays(jr, L)
+        shape = jr.shape
+        if shape:  # one torus per entry
+            jr, L = xp.reshape(jr, (-1,)), xp.reshape(L, (-1,))
+        if not self._interp:
+            tabs = self._bk_node_tables(xp, device_of(jr))
+            ii = self._bk_match_node(xp, tabs, jr, L)
+            dJ, dL = jr - tabs["jrs"][ii], L - tabs["Ls"][ii]
+            out = (
+                tabs["Es"][ii]
+                + tabs["OmRs"][ii] * (dJ - stop_gradient(dJ))
+                + tabs["Ompsis"][ii] * (dL - stop_gradient(dL))
+            )
+        else:
+            out = self._bk_E_of_uL(self._bk_label_of(xp, jr, L), L)[0]
+        return match_input_dtype(xp.reshape(out, shape), *ins)
+
+    @conversion.physical_conversion("energy", pop=True)
+    def E(self, jr, L, **kwargs):
+        """
+        Return the energy of the torus with radial action jr and total angular momentum L.
+
+        Parameters
+        ----------
+        jr : float, numpy.ndarray or Quantity
+            Radial action.
+        L : float, numpy.ndarray or Quantity
+            Total angular momentum; broadcasts against jr.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity
+            Energy of the torus, in the broadcast shape of jr and L (a float for scalars).
+
+        Notes
+        -----
+        - The inverse of ``Jr(E, L)``: for an interpolating instance
+          (setup_interp=True), any (jr, L) within the grid, by inverting the
+          family's own J_r(u, L) interpolant and evaluating the grid's
+          E(u, L), so that E(Jr(E, L), L) returns E to round-off; for an
+          instance set up with explicit tori, (jr, L) must be one of them.
+        - 2026-11-09 - Written - Bovy (UofT)
+        """
+        jr = conversion.parse_angmom(jr, ro=self._ro, vo=self._vo)
+        L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
+        xp = self._namespace(get_namespace(jr, L))
+        if xp is not numpy:
+            return self._bk_E(xp, jr, L)
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(L) == 0
+        jr, L = numpy.broadcast_arrays(
+            numpy.atleast_1d(numpy.asarray(jr, dtype="float")),
+            numpy.atleast_1d(numpy.asarray(L, dtype="float")),
+        )
+        if not self._interp:
+            out = numpy.empty(jr.shape)
+            for idx in numpy.ndindex(jr.shape):
+                dev = numpy.fabs(self._jrs - jr[idx]) + numpy.fabs(self._Ls - L[idx])
+                ii = numpy.argmin(dev)
+                if dev[ii] > 1e-10 * (1.0 + numpy.fabs(jr[idx]) + numpy.fabs(L[idx])):
+                    raise ValueError(
+                        f"(J_r, L) = ({jr[idx]}, {L[idx]}) is not one of the set-up "
+                        "tori; to use interpolation, initialize with setup_interp=True"
+                    )
+                out[idx] = self._Es[ii]
+        else:
+            _, Lf, u = self._label_of(jr.ravel(), L.ravel())
+            out = self._E_of_uL(u, Lf)[0].reshape(jr.shape)
+        return float(out.flat[0]) if scalar else out
 
     # ---------- the public inverse map
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
@@ -2257,10 +2341,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._check_L(as_numpy(L))
         return None
 
-    def _bk_interp_tables(self, xp, jr, L):
-        """_interp_tables in jax/torch: the label u from (J_r, L) by the
-        backend brentq on the J_r interpolant (its final Newton step gives
-        du/dJ_r = 1/(dJ_r/du) and du/dL), then the chains"""
+    def _bk_label_of(self, xp, jr, L):
+        """_label_of in jax/torch: the label u of the torus (J_r, L) (scalars),
+        or of one torus per entry (vectors), by the backend brentq on the J_r
+        interpolant, J_r clipped to the family's range to round-off (its
+        final Newton step gives du/dJ_r = 1/(dJ_r/du) and du/dL)"""
         self._bk_check_L(L)
         jlo = self._jr_ip.ev(0.0 * jr, L)
         jhi = self._jr_ip.ev(1.0 + 0.0 * jr, L)
@@ -2282,7 +2367,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         jrc = xp.where(jr < jlo, jlo, xp.where(jr > jhi, jhi, jr))
         if jr.ndim:
-            return self._bk_interp_tables_points(xp, jrc, L, jlo, jhi)
+            return self._bk_label_points(xp, jrc, L)
         guess = None
         if not has_concrete_truth_value(jr):
             # under a trace, where a bisection would take ~50 sequential
@@ -2293,7 +2378,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             jn = stop_gradient(self._jr_ip.ev(xn, L + 0.0 * xn))
             x0 = interp_linear(xp, jn, xn, stop_gradient(jrc), extrapolate="clip")
             guess = xp.reshape(xp.sqrt(x0), (1,))
-        u = _backend_brentq(
+        return _backend_brentq(
             lambda uu, jj, LL: self._jr_ip.ev(uu * uu, LL) - jj,
             xp.reshape(0.0 * jr, (1,)),
             xp.reshape(1.0 + 0.0 * jr, (1,)),
@@ -2304,6 +2389,43 @@ class actionAngleSphericalInverse(actionAngleInverse):
             guess=guess,
             newton_steps=5,
         )[0]
+
+    def _bk_label_points(self, xp, jrc, L):
+        """_bk_label_of for vectors of tori: Newton steps from the
+        piecewise-linear inverse through the interpolant's values at its x =
+        u^2 nodes along each torus's L, all at once"""
+        dev = device_of(jrc)
+        xn = asarray_on_device(xp, self._us**2, dev)
+        nx = xn.shape[0]
+        jn = stop_gradient(self._jr_ip.ev(xn + 0.0 * L[:, None], L[:, None] + 0.0 * xn))
+        jt = stop_gradient(jrc)
+        k = xp.clip(
+            xp.sum(xp.astype(jn[:, 1:] <= jt[:, None], xp.int64), axis=-1), 0, nx - 2
+        )
+        base = xp.arange(jt.shape[0]) * nx
+        flat = xp.reshape(jn, (-1,))
+        J0, J1 = xp.take(flat, base + k), xp.take(flat, base + k + 1)
+        x0 = xp.take(xn, k) + (jt - J0) / (J1 - J0) * (
+            xp.take(xn, k + 1) - xp.take(xn, k)
+        )
+        x0 = xp.clip(x0, 0.0, 1.0)
+        return _backend_brentq(
+            lambda uu, jj, LL: self._jr_ip.ev(uu * uu, LL) - jj,
+            0.0 * jrc,
+            1.0 + 0.0 * jrc,
+            args=(jrc, L),
+            xtol=1e-15,
+            bracket_width=1.0,
+            guess=xp.sqrt(x0),
+            newton_steps=5,
+        )
+
+    def _bk_interp_tables(self, xp, jr, L):
+        """_interp_tables in jax/torch: the label u from (J_r, L)
+        (_bk_label_of), then the chains"""
+        u = self._bk_label_of(xp, jr, L)
+        if jr.ndim:
+            return self._bk_interp_tables_points(xp, u, L)
         x = u * u
         _, jr_dx, djr_dL = self._jr_ip.ev3(x, L)
         djr_du = 2.0 * u * jr_dx
@@ -2326,36 +2448,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             dDm_dL - dDm_du * djr_dL / djr_du,
         )
 
-    def _bk_interp_tables_points(self, xp, jrc, L, jlo, jhi):
-        """_bk_interp_tables for arrays of tori: the label of each by Newton
-        steps from the piecewise-linear inverse through the interpolant's
-        values at its x = u^2 nodes along that torus's L, all at once, and
-        the tables and chains with one row per torus"""
-        dev = device_of(jrc)
-        xn = asarray_on_device(xp, self._us**2, dev)
-        nx = xn.shape[0]
-        jn = stop_gradient(self._jr_ip.ev(xn + 0.0 * L[:, None], L[:, None] + 0.0 * xn))
-        jt = stop_gradient(jrc)
-        k = xp.clip(
-            xp.sum(xp.astype(jn[:, 1:] <= jt[:, None], xp.int64), axis=-1), 0, nx - 2
-        )
-        base = xp.arange(jt.shape[0]) * nx
-        flat = xp.reshape(jn, (-1,))
-        J0, J1 = xp.take(flat, base + k), xp.take(flat, base + k + 1)
-        x0 = xp.take(xn, k) + (jt - J0) / (J1 - J0) * (
-            xp.take(xn, k + 1) - xp.take(xn, k)
-        )
-        x0 = xp.clip(x0, 0.0, 1.0)
-        u = _backend_brentq(
-            lambda uu, jj, LL: self._jr_ip.ev(uu * uu, LL) - jj,
-            0.0 * jrc,
-            1.0 + 0.0 * jrc,
-            args=(jrc, L),
-            xtol=1e-15,
-            bracket_width=1.0,
-            guess=xp.sqrt(x0),
-            newton_steps=5,
-        )
+    def _bk_interp_tables_points(self, xp, u, L):
+        """_bk_interp_tables for vectors of tori at their labels u: the tables
+        and chains with one row per torus"""
         x = u * u
         _, jr_dx, djr_dL = self._jr_ip.ev3(x, L)
         djr_du = 2.0 * u * jr_dx

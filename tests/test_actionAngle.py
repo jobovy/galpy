@@ -10842,6 +10842,11 @@ def _spherical_inverse_E_of_u(u, L, Rinf=6.0):
     return Ec + (numpy.log(Rinf) - Ec) * u**2
 
 
+def _float_or_0d(x):
+    # a scalar result: a float on numpy, a 0-d array under a forced backend
+    return isinstance(x, float) or (is_backend_array(x) and x.ndim == 0)
+
+
 def _spherical_inverse_npt(out):
     # an evaluation's outputs as numpy (GPU tensors under a forced backend)
     return tuple(as_numpy(t) for t in out)
@@ -13473,4 +13478,121 @@ def test_actionAngleStaeckelInverse_auxiliary_circular():
         numpy.amax(numpy.fabs(R / Rc - 1.0)) < 1e-10
         and numpy.amax(numpy.fabs(vR)) < 1e-10
     ), "A lone circular torus does not sit at the circular radius"
+    return None
+
+
+def test_actionAngleSphericalInverse_E():
+    # The public E(jr, L) is the inverse of Jr(E, L): on an interpolated family
+    # it returns, to round-off, the energy whose radial action at that L is
+    # jr, for scalars and for arrays that broadcast; actions outside the grid
+    # raise; an instance set up with explicit tori returns their energies and
+    # refuses other actions
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import HernquistPotential, evaluatePotentials, vcirc
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    Rmin, Rmax, Rinf = 0.5, 2.0, 10.0
+    aAI = actionAngleSphericalInverse(
+        pot=hp,
+        setup_interp=True,
+        Rmin=Rmin,
+        Rmax=Rmax,
+        Rinf=Rinf,
+        nE=8,
+        nL=8,
+        mm_npt=32,
+        progressbar=False,
+    )
+    # (as_numpy: under a forced backend the results stay on the backend)
+    Einf = float(as_numpy(evaluatePotentials(hp, Rinf, 0.0)))
+    Rs = numpy.array([0.6, 1.0, 1.7])
+    Ls = Rs * as_numpy(vcirc(hp, Rs))
+    for L, R in zip(Ls, Rs):
+        Ec = 0.5 * float(as_numpy(vcirc(hp, R))) ** 2.0 + float(
+            as_numpy(evaluatePotentials(hp, R, 0.0))
+        )
+        Es = Ec + (Einf - Ec) * numpy.array([0.05, 0.3, 0.7, 0.95])
+        jrs = numpy.array([float(as_numpy(aAI.Jr(E, L))) for E in Es])
+        Eback = as_numpy(aAI.E(jrs, L))
+        assert Eback.shape == jrs.shape, "E(jr, L) does not keep the shape of jr"
+        assert numpy.all(numpy.fabs(Eback - Es) < 1e-10 * (1.0 + numpy.fabs(Es))), (
+            "E(Jr(E, L), L) does not return E"
+        )
+        Es1 = aAI.E(float(jrs[1]), L)
+        assert _float_or_0d(Es1) and numpy.fabs(as_numpy(Es1) - Es[1]) < 1e-10, (
+            "E(jr, L) for scalars does not return the float energy"
+        )
+    # broadcasting: (n, 1) actions against (m,) angular momenta
+    jr_grid = numpy.array([[0.02], [0.05]])
+    Eb = as_numpy(aAI.E(jr_grid, Ls))
+    assert Eb.shape == (2, 3), "E(jr, L) does not broadcast jr against L"
+    for i in range(2):
+        for j in range(3):
+            assert (
+                numpy.fabs(as_numpy(aAI.Jr(Eb[i, j], Ls[j])) - jr_grid[i, 0]) < 1e-10
+            ), "E(jr, L) with broadcast inputs is not the inverse of Jr(E, L)"
+    with pytest.raises(ValueError):
+        aAI.E(10.0, Ls[0])
+    # explicit tori
+    Es_exp, Ls_exp = [-0.35, -0.3], [0.5, 0.6]
+    aAIe = actionAngleSphericalInverse(
+        pot=hp, Es=Es_exp, Ls=Ls_exp, mm_npt=32, progressbar=False
+    )
+    jr0, jr1 = (float(as_numpy(aAIe.Jr(E, L))) for E, L in zip(Es_exp, Ls_exp))
+    assert as_numpy(aAIe.E(jr1, Ls_exp[1])) == Es_exp[1], (
+        "E(jr, L) of an explicit torus is not its energy"
+    )
+    assert numpy.all(
+        as_numpy(aAIe.E(numpy.array([jr0, jr1]), numpy.array(Ls_exp)))
+        == numpy.array(Es_exp)
+    ), "E(jr, L) of explicit tori does not return their energies for arrays"
+    with pytest.raises(ValueError):
+        aAIe.E(jr1 * 1.1, Ls_exp[1])
+    return None
+
+
+def test_actionAngleVerticalInverse_E():
+    # The public E(j) is the inverse of J(E): on a momentum-matched family it
+    # is the family's Hermite E(J), exact at the nodes with the frequency as
+    # its slope between them, for scalars and arrays; actions outside the
+    # family raise; a torus-mapping instance returns the energies of its
+    # set-up tori and refuses other actions
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    pot = toVerticalPotential(MWPotential2014, 1.0)
+    Es = numpy.linspace(0.0, 0.08, 9)[1:]
+    aAV = actionAngleVerticalInverse(pot=pot, Es=Es, setup_interp=True)
+    # (as_numpy: under a forced backend the results stay on the backend)
+    js = numpy.array([float(as_numpy(aAV.J(E))) for E in Es])
+    assert numpy.all(numpy.fabs(as_numpy(aAV.E(js)) - Es) < 1e-12), (
+        "E(J(E)) does not return E at the nodes"
+    )
+    assert _float_or_0d(aAV.E(float(js[2]))), (
+        "E(j) for a scalar does not return a float"
+    )
+    jmid = 0.5 * (js[2] + js[3])
+    h = 1e-5 * jmid
+    dEdj = float(as_numpy(aAV.E(jmid + h) - aAV.E(jmid - h))) / (2.0 * h)
+    assert numpy.fabs(dEdj / float(as_numpy(aAV.Freqs(jmid))) - 1.0) < 1e-6, (
+        "The slope of E(j) between the nodes is not the family's frequency"
+    )
+    with pytest.raises(ValueError):
+        aAV.E(2.0 * js[-1])
+    from galpy.backend import use
+
+    # the torus-mapping construction is numpy-only (its lookups run on any
+    # backend)
+    with use("numpy", force=True):
+        aAVtm = actionAngleVerticalInverse(
+            pot=toVerticalPotential(MWPotential2014, 1.0),
+            Es=Es[:3],
+            momentum_matched=False,
+        )
+    jtm = aAVtm.J(Es[1])
+    assert as_numpy(aAVtm.E(jtm)) == Es[1], (
+        "E(j) of a torus-mapping instance is not the set-up energy"
+    )
+    with pytest.raises(ValueError):
+        aAVtm.E(1.5 * jtm)
     return None
