@@ -69,6 +69,8 @@ from .actionAngleInverseUtil import (
     _chunked,
     _const,
     _fit_isochrone_vc2,
+    _harmonics,
+    _harmonics_xp,
     _ns,
     _offset_spec_coeffs,
     _offset_spec_coeffs_xp,
@@ -140,36 +142,9 @@ def _contract(smt, D):
     return D @ smt if D.ndim == 1 else numpy.einsum("mp,mp->p", smt, D)
 
 
-def _harmonics(tau, ms):
-    """sin(m tau) and cos(m tau) as (M, npoints) arrays for the harmonics
-    ms = ms[0] (1, ..., M), from the sine and cosine of ms[0] tau alone:
-    the angle-addition formulae double the number of harmonics in hand at
-    every step, so that a point costs two trigonometric evaluations instead
-    of 2 M and the round-off grows only with the logarithm of M"""
-    M = len(ms)
-    S, C = numpy.empty((M, len(tau))), numpy.empty((M, len(tau)))
-    S[0], C[0] = numpy.sin(ms[0] * tau), numpy.cos(ms[0] * tau)
-    m = 1
-    while m < M:
-        # harmonics m+1 ... 2m from 1 ... m and m
-        n = min(m, M - m)
-        S[m : m + n] = S[:n] * C[m - 1] + C[:n] * S[m - 1]
-        C[m : m + n] = C[:n] * C[m - 1] - S[:n] * S[m - 1]
-        m += n
-    return S, C
-
-
 def _bk_contract(xp, smt, D):
     """_contract in jax/torch"""
     return D @ smt if D.ndim == 1 else xp.sum(smt * D, axis=0)
-
-
-def _bk_harmonics(xp, tau, ms):
-    """_harmonics in jax/torch, by direct sines and cosines: a vectorized
-    sine costs no more there than the angle-addition steps, which add
-    dispatches eagerly and compile time under jax.jit"""
-    mt = ms[:, None] * tau[None, :]
-    return xp.sin(mt), xp.cos(mt)
 
 
 def _parse_target(target):
@@ -4988,7 +4963,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _bk_kernel_u(self, xp, tau, a, e, L, Dm, uc, wu, chains):
         """_kernel_u in jax/torch"""
         ms = asarray_on_device(xp, self._nforDm * 1.0, device_of(tau))
-        smt, cmt = _bk_harmonics(xp, tau, ms)
+        smt, cmt = _harmonics_xp(xp, tau, ms)
         eta = tau + _bk_contract(xp, smt, Dm)
         deta = 1.0 + _bk_contract(
             xp, cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm
@@ -5028,7 +5003,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _bk_kernel_v(self, xp, tau, L, c, Dm, wv, chains):
         """_kernel_v in jax/torch"""
         ms = asarray_on_device(xp, self._nforDmv * 1.0, device_of(tau))
-        smt, cmt = _bk_harmonics(xp, tau, ms)
+        smt, cmt = _harmonics_xp(xp, tau, ms)
         zeta = tau + _bk_contract(xp, smt, Dm)
         dzeta = 1.0 + _bk_contract(
             xp, cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm

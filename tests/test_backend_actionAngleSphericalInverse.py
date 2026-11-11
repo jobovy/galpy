@@ -1030,6 +1030,22 @@ def test_hermite_family_2d(backend):
         numpy.testing.assert_allclose(
             as_numpy(got)[1], ipn(0.5, 1.5)[0, 0], rtol=0.0, atol=1e-12
         )
+    # more points than a chunk of the read holds (10416 for two tables), as
+    # a 2-D array, also under jax.jit
+    ipn = HermiteFamily2D(x, y, f, fx, fy)
+    ipb = HermiteFamily2D(x, _arr(backend, y), *(_arr(backend, t) for t in (f, fx, fy)))
+    many = numpy.random.default_rng(2).uniform([0.0, 0.5], [1.0, 2.0], (12000, 2))
+    ev3 = ipb.ev3
+    if backend == "jax":
+        import jax
+
+        ev3 = jax.jit(ipb.ev3)
+    got = ev3(*(_arr(backend, c.reshape(3, 4000)) for c in many.T))
+    for r, gt in zip(ipn.points_grad(*many.T), got):
+        assert tuple(gt.shape) == (3, 4000, 2)
+        numpy.testing.assert_allclose(
+            as_numpy(gt).reshape(-1, 2), r, rtol=0.0, atol=1e-12
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

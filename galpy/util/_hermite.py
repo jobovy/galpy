@@ -214,22 +214,11 @@ class HermiteFamily2D:
             t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
             for t in (x, y)
         )
-        x, y = xp.broadcast_arrays(x, y)
-        nx, ny = xg.shape[0], yg.shape[0]
-        i = xp.clip(
-            xp.searchsorted(stop_gradient(xg), _dense(x), side="right") - 1,
-            0,
-            nx - 2,
-        )
-        j = xp.clip(
-            xp.searchsorted(stop_gradient(yg), _dense(y), side="right") - 1,
-            0,
-            ny - 2,
-        )
-        hx, hy = xg[i + 1] - xg[i], yg[j + 1] - yg[j]
-        ps = _power_basis(xp, (x - xg[i]) / hx, 6, dx, hx)
-        pt = _power_basis(xp, (y - yg[j]) / hy, 4, dy, hy)
-        v = xp.einsum("...a,...abk,...b->...k", ps, c[i, j], pt)
+        shape = xp.broadcast_arrays(x, y)[0].shape
+        i, j, sv, tv, hx, hy = self._bk_cells(xp, xg, yg, x, y)
+        ps = _power_basis(xp, sv, 6, dx, hx)
+        pt = _power_basis(xp, tv, 4, dy, hy)
+        (v,) = self._bk_read(xp, c, i, j, (ps,), (pt,), shape)
         return v[..., 0] if self._scalar else v
 
     def ev3(self, x, y):
@@ -244,7 +233,18 @@ class HermiteFamily2D:
             t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
             for t in (x, y)
         )
-        x, y = xp.broadcast_arrays(x, y)
+        shape = xp.broadcast_arrays(x, y)[0].shape
+        i, j, sv, tv, hx, hy = self._bk_cells(xp, xg, yg, x, y)
+        ps, pt = _power_basis(xp, sv, 6, 0, hx), _power_basis(xp, tv, 4, 0, hy)
+        dps, dpt = _power_basis(xp, sv, 6, 1, hx), _power_basis(xp, tv, 4, 1, hy)
+        out = self._bk_read(xp, c, i, j, (ps, dps, ps), (pt, pt, dpt), shape)
+        return tuple(v[..., 0] for v in out) if self._scalar else out
+
+    @staticmethod
+    def _bk_cells(xp, xg, yg, x, y):
+        """The cell of each point, flattened, its normalized coordinates in
+        it and the cell widths, in jax/torch"""
+        x, y = (xp.reshape(t, (-1,)) for t in xp.broadcast_arrays(x, y))
         i, j = (
             xp.clip(
                 xp.searchsorted(stop_gradient(g), _dense(t), side="right") - 1,
@@ -254,16 +254,23 @@ class HermiteFamily2D:
             for g, t in ((xg, x), (yg, y))
         )
         hx, hy = xg[i + 1] - xg[i], yg[j + 1] - yg[j]
-        sv, tv = (x - xg[i]) / hx, (y - yg[j]) / hy
-        cij = c[i, j]
-        ps, pt = _power_basis(xp, sv, 6, 0, hx), _power_basis(xp, tv, 4, 0, hy)
-        dps, dpt = _power_basis(xp, sv, 6, 1, hx), _power_basis(xp, tv, 4, 1, hy)
-        out = (
-            xp.einsum("...a,...abk,...b->...k", ps, cij, pt),
-            xp.einsum("...a,...abk,...b->...k", dps, cij, pt),
-            xp.einsum("...a,...abk,...b->...k", ps, cij, dpt),
-        )
-        return tuple(v[..., 0] for v in out) if self._scalar else out
+        return i, j, (x - xg[i]) / hx, (y - yg[j]) / hy, hx, hy
+
+    @staticmethod
+    def _bk_read(xp, c, i, j, pss, pts, shape):
+        """_eval_cells in jax/torch, in chunks through map_row_chunks; the
+        outputs reshaped to shape + (k,)"""
+        k = c.shape[-1]
+
+        def read(i, j, *p):
+            cij = xp.reshape(c[i, j], (-1, 6, 4 * k))
+            return tuple(
+                (pt[:, None, :] @ xp.reshape(ps[:, None, :] @ cij, (-1, 4, k)))[:, 0]
+                for ps, pt in zip(p[: len(pss)], p[len(pss) :])
+            )
+
+        out = map_row_chunks(xp, read, (i, j, *pss, *pts), max(1, 500_000 // (24 * k)))
+        return tuple(xp.reshape(o, tuple(shape) + (k,)) for o in out)
 
     def __call__(self, x, y):
         """The interpolant's value at one point, cheaply (the derivatives
@@ -317,25 +324,19 @@ class HermiteFamily2D:
 
     def _eval_cells(self, i, j, pss, pts):
         """sum_ab ps_a c_{ij,abk} pt_b for every point, one pair (ps, pt) per
-        requested quantity, grouped by cell so that the coefficient block of
-        each cell is read once however many points fall in it"""
-        n = len(i)
-        if n == 1:  # one point: its cell's block directly
-            block = self._c[i[0], j[0]]
-            outs = [
-                numpy.einsum("a,abk,b->k", ps[0], block, pt[0])[None]
-                for ps, pt in zip(pss, pts)
-            ]
-            return [o[:, 0] if self._scalar else o for o in outs]
-        outs = [numpy.empty((n, self._c.shape[-1])) for _ in pss]
-        cell = i * (len(self._y) - 1) + j
-        order = numpy.argsort(cell, kind="stable")
-        cells, starts = numpy.unique(cell[order], return_index=True)
-        for c, lo, hi in zip(cells, starts, numpy.append(starts[1:], n)):
-            idx = order[lo:hi]
-            block = self._c[c // (len(self._y) - 1), c % (len(self._y) - 1)]
+        requested quantity: the coefficient blocks of the points' cells are
+        gathered once, in chunks that keep them to a few megabytes, and
+        contracted with the powers in x and then with those in y"""
+        n, k = len(i), self._c.shape[-1]
+        outs = numpy.empty((len(pss), n, k))
+        step = max(1, 500_000 // (24 * k))
+        for lo in range(0, n, step):
+            sl = slice(lo, lo + step)
+            c = self._c[i[sl], j[sl]].reshape(-1, 6, 4 * k)
             for out, ps, pt in zip(outs, pss, pts):
-                out[idx] = numpy.einsum("ma,abk,mb->mk", ps[idx], block, pt[idx])
+                out[sl] = (pt[sl, None, :] @ (ps[sl, None, :] @ c).reshape(-1, 4, k))[
+                    :, 0
+                ]
         return [o[:, 0] if self._scalar else o for o in outs]
 
     def points(self, x, y, dx=0, dy=0):
