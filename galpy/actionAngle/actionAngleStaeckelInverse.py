@@ -30,7 +30,7 @@ from ..potential import (
     verticalfreq,
 )
 from ..potential.Potential import _check_potential_list_and_deprecate
-from ..util import conversion, galpyWarning
+from ..util import conversion, coords, galpyWarning
 from ..util._hermite import HermiteFamily3D, slope_at_zero
 from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
@@ -68,6 +68,36 @@ def _cumulative(f):
     return m, q, cq, _spec_eval(cq, 0.0)[0]
 
 
+def _parse_target(target):
+    """The phase-space rows (R, vR, vT, z, vz) of a target: an Orbit
+    (possibly an array of orbits, or one evaluated at an array of times) or
+    array rows (R, vR, vT, z, vz[, phi]) in internal units; phi, when
+    present, is ignored because the potential is axisymmetric"""
+    from ..orbit import Orbit
+
+    if isinstance(target, Orbit):
+        out = numpy.array(
+            [
+                numpy.atleast_1d(getattr(target, q)(use_physical=False)).ravel()
+                for q in ("R", "vR", "vT", "z", "vz")
+            ]
+        )
+    else:
+        arr = numpy.atleast_2d(numpy.asarray(target, dtype="float"))
+        if arr.ndim != 2 or arr.shape[1] not in (5, 6):
+            raise ValueError(
+                "target= rows must be (R, vR, vT, z, vz) or (R, vR, vT, z, vz, phi); "
+                f"got shape {arr.shape}"
+            )
+        out = arr[:, :5].T.copy()
+    if numpy.any(out[0] <= 0.0) or numpy.any(out[0] * numpy.fabs(out[2]) <= 0.0):
+        raise ValueError(
+            "target= needs R > 0 and L_z = R vT != 0 for every point: the grid is "
+            "a box in |L_z| > 0"
+        )
+    return out
+
+
 class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
     """Inverse action-angle transformation for axisymmetric Staeckel
     potentials through a momentum-matched canonical map onto an isochrone
@@ -97,6 +127,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         progressbar=True,
         delta=None,
         u0=None,
+        target=None,
+        target_pad=1.5,
+        target_minwidth=0.02,
         **kwargs,
     ):
         """
@@ -198,6 +231,29 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             The reference curve is construction-only gauge (the map's
             (R, z) <-> (u, v) uses the focal length alone), so this costs
             nothing at evaluation; requires setup_interp=True.
+        target : Orbit or array_like, optional
+            Localize the interpolation grid on the tori of a set of
+            phase-space points: an Orbit (possibly an array of orbits, or
+            one evaluated at an array of times) or rows (R, vR, vT, z, vz[,
+            phi]) in internal units. The grid's box in its own coordinates
+            (L_z, the energy variable w_E, the third-integral variable
+            w_I) is then the points' own range, padded, instead of the
+            default box between the circular orbits of Rmin and Rmax and
+            from the circular to the Rinf energies; the same number of
+            nodes then resolves a target orbit or stream far better. The
+            labelling does a few root-finds per point, so subsample a very
+            large set. Requires setup_interp=True.
+        target_pad : float, optional
+            Padding of the target's box: each axis is extended by this
+            factor times the target's spread on both ends. Generous
+            padding is load-bearing, because a box tight around the target
+            puts it in the boundary layer of the interpolation stencil, a
+            failure mode that is silent.
+        target_minwidth : float, optional
+            Minimum width of the target's box on each axis, as a fraction
+            of that axis's default span: what keeps the box of a single
+            orbit, whose spread is zero on every axis, a grid rather than a
+            point.
 
         Notes
         -----
@@ -214,6 +270,12 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             raise TypeError(
                 "an adaptive reference curve (a callable u0(E, Lz) or u0='fit') "
                 "builds an interpolated family and requires setup_interp=True"
+            )
+        self._target = None if target is None else _parse_target(target)
+        self._target_pad, self._target_minwidth = target_pad, target_minwidth
+        if self._target is not None and not setup_interp:
+            raise TypeError(
+                "target= localizes the interpolation grid and requires setup_interp=True"
             )
         if mm_nta is None:
             mm_nta = 8 * mm_npt
@@ -1124,13 +1186,29 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         wrap = self._staeckelwrap
         Lmin = Rmin * vcirc(wrap, Rmin, use_physical=False)
         Lmax = Rmax * vcirc(wrap, Rmax, use_physical=False)
-        self._Lzgrid = numpy.linspace(Lmin, Lmax, nLz)
-        self._wEs = numpy.linspace(0.0, 1.0, nE)
-        self._wIs = numpy.linspace(0.0, 1.0, nI3)
-        self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
         self._Rinf = Rinf
         self._Phiinf = evaluatePotentials(wrap, Rinf, 0.0, use_physical=False)
         self._R0_cache = {}
+        # the grid's box in (L_z, w_E, w_I): the default spans, or the
+        # target's padded range
+        box = ((Lmin, Lmax), (0.0, 1.0), (0.0, 1.0))
+        if self._target is not None:
+            box = self._target_box(Lmin, Lmax)
+        self._box = box
+        self._Lzgrid = numpy.linspace(box[0][0], box[0][1], nLz)
+        # the energy variable's bottom apocentre is that of the planar orbit
+        # without angular momentum at the circular orbit's energy, which has
+        # to lie inside Rinf for every L_z of the grid: Phi(Rinf, 0) must
+        # exceed the circular energy of the grid's largest |L_z|
+        if self._Phiinf <= self._circular(self._Lzgrid[-1])["Ec"]:
+            raise ValueError(
+                "Rinf is too small: the planar orbit without angular momentum at "
+                "the circular orbit's energy of the grid's largest |L_z| reaches "
+                "beyond Rinf; increase Rinf"
+            )
+        self._wEs = numpy.linspace(box[1][0], box[1][1], nE)
+        self._wIs = numpy.linspace(box[2][0], box[2][1], nI3)
+        self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
         self._E_tab = numpy.empty((nE, nLz))
         self._ush_tab = numpy.empty((nE, nLz))
         self._Ipl_tab = numpy.empty((nE, nLz))
@@ -1141,7 +1219,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             Ec = circ["Ec"]
             for iE, wE in enumerate(self._wEs):
                 E = self._E_of_xL(wE**2, Lz)[0]
-                if iE == 0:
+                if wE == 0.0:
                     ush = circ["uc"]
                     Ipl = Ish = self._I3_planar(Ec, Lz)
                 else:
@@ -1156,6 +1234,96 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         self._Es = numpy.repeat(self._E_tab[:, None, :], nI3, axis=1).flatten()
         self._Lzs = numpy.tile(self._Lzgrid, nE * nI3)
         self._I3s = I3s.flatten()
+        return None
+
+    def _target_box(self, Lmin, Lmax):
+        """The padded (L_z, w_E, w_I) box that localizes the grid on the
+        target's tori. Every target point is labelled through the relations
+        the node lattice uses (in its own chart for an adaptive reference
+        curve); the box is the labels' range, padded by target_pad times
+        the spread on both ends of each axis and at least target_minwidth
+        of each axis's default span wide. An end that reaches a degenerate
+        face (the circular, planar or shell orbits) is the face itself,
+        because the grid must reach a face exactly or not at all, whereas
+        the L_z ends are anchors that the box may exceed."""
+        R, vR, vT, z, vz = self._target
+        Lzs = R * numpy.fabs(vT)
+        wEs, wIs = numpy.empty(len(Lzs)), numpy.empty(len(Lzs))
+        for i, (Rp, vRp, vTp, zp, vzp, Lz) in enumerate(zip(R, vR, vT, z, vz, Lzs)):
+            kin = 0.5 * (vRp**2 + vTp**2 + vzp**2)
+            # the point's chart, placed with the raw potential's energy: the
+            # reference curve varies smoothly, so the model error in the
+            # energy is immaterial for the box
+            Eraw = kin + evaluatePotentials(self._chart_pot, Rp, zp, use_physical=False)
+            with self._in_chart(Eraw, Lz):
+                E = kin + evaluatePotentials(
+                    self._staeckelwrap, Rp, zp, use_physical=False
+                )
+                Ec, Emax = self._circular(Lz)["Ec"], self._Emax(Lz)
+                if E > Emax:
+                    raise ValueError(
+                        "a target point's energy lies above the energies the grid "
+                        "can cover; increase Rinf"
+                    )
+                if E <= Ec + 1e-12 * (1.0 + numpy.fabs(Ec)):
+                    # the circular orbit, where every I_3 label coincides and
+                    # the w_I direction is free
+                    wEs[i], wIs[i] = 0.0, 0.5
+                    continue
+                R0c, _, R0m, _ = self._R0_edges(Lz)
+                x = numpy.log(self._R0(E, R0c, R0m) / R0c) / numpy.log(R0m / R0c)
+                wEs[i] = numpy.sqrt(min(max(x, 0.0), 1.0))
+                # the point's third integral, from the u equation of the
+                # separated Hamilton-Jacobi relation
+                u, v = coords.Rz_to_uv(Rp, zp, delta=self._delta)
+                sh = numpy.sinh(u)
+                pu = self._delta * (
+                    vRp * numpy.cosh(u) * numpy.sin(v) + vzp * sh * numpy.cos(v)
+                )
+                I3 = (
+                    E * sh**2
+                    - float(self._U(u))
+                    - (pu**2 + Lz**2 / sh**2) / (2.0 * self._delta**2)
+                )
+                Ipl = self._I3_planar(E, Lz)
+                Ish = self._I3_shell(E, Lz, self._ushell(E, Lz))
+                y = min(max((I3 - Ipl) / (Ish - Ipl), 0.0), 1.0)
+                wIs[i] = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(y))
+
+        def padded(vals, lo0, hi0, snap):
+            lo, hi = float(numpy.min(vals)), float(numpy.max(vals))
+            lo, hi = (
+                lo - self._target_pad * (hi - lo),
+                hi + self._target_pad * (hi - lo),
+            )
+            minw = self._target_minwidth * (hi0 - lo0)
+            if hi - lo < minw:
+                mid = 0.5 * (lo + hi)
+                lo, hi = mid - 0.5 * minw, mid + 0.5 * minw
+            if snap:
+                # an end that reaches a face is the face
+                return (lo0 if lo <= lo0 else lo, hi0 if hi >= hi0 else hi)
+            # the L_z ends are anchors, not faces: the box may exceed them,
+            # and only the lower end is guarded, against L_z <= 0
+            return (max(lo, 0.5 * float(numpy.min(vals))), hi)
+
+        Lzbox = padded(Lzs, Lmin, Lmax, False)
+        if rl(self._staeckelwrap, Lzbox[1], use_physical=False) >= self._Rinf:
+            raise ValueError(
+                "the target's padded L_z range reaches circular orbits beyond "
+                "Rinf, which must lie beyond every circular orbit of the grid; "
+                "increase Rinf or reduce target_pad"
+            )
+        return (Lzbox, padded(wEs, 0.0, 1.0, True), padded(wIs, 0.0, 1.0, True))
+
+    def _check_circular(self):
+        """Raise for the circular orbit of a family whose grid does not reach
+        the circular face"""
+        if self._wEs[0] != 0.0:
+            raise ValueError(
+                "the circular orbit lies outside the family's grid, whose box does "
+                "not reach the circular face"
+            )
         return None
 
     def _Emax(self, Lz):
@@ -1261,7 +1429,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                     E, ush = self._E_tab[iE, iL], self._ush_tab[iE, iL]
                     Ipl, Ish = self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL]
                     _, dE_dx, dE_dL = self._E_of_xL(wE**2, Lz)
-                    if iE == 0:
+                    if wE == 0.0:
                         # the circular face: both librations harmonic, with
                         # J = (E - E_c) times the fraction the third integral
                         # assigns to each, over its frequency; the
@@ -1363,33 +1531,36 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         # the shell face, at rates the same quartics through the next two
         # rows give
         xs = self._wEs**2
-        A_dx[0, :, :, 2] = slope_at_zero(
-            xs[1:3], A_tab[1:3, :, :, 2] - A_tab[0, :, :, 2], A_dx[1:3, :, :, 2]
-        )
-        A_dy[:, -1, :, 2] = slope_at_zero(
-            self._ys[[-2, -3]] - 1.0,
-            numpy.moveaxis(A_tab[:, [-2, -3], :, 2:3], 1, 0)[..., 0]
-            - A_tab[:, -1, :, 2][None],
-            numpy.moveaxis(A_dy[:, [-2, -3], :, 2:3], 1, 0)[..., 0],
-        )
-        U_dwE[0, :, :, 1:] = slope_at_zero(
-            self._wEs[1:3], U_tab[1:3, :, :, 1:], U_dwE[1:3, :, :, 1:]
-        )
-        V_dwE[0, :, :, 1:] = slope_at_zero(
-            self._wEs[1:3], V_tab[1:3, :, :, 1:], V_dwE[1:3, :, :, 1:]
-        )
         sus = numpy.cos(0.5 * numpy.pi * self._wIs)
         svs = numpy.sin(0.5 * numpy.pi * self._wIs)
-        U_dsu[:, -1, :, 1:] = slope_at_zero(
-            sus[[-2, -3]],
-            numpy.moveaxis(U_tab[:, [-2, -3], :, 1:], 1, 0),
-            numpy.moveaxis(U_dsu[:, [-2, -3], :, 1:], 1, 0),
-        )
-        V_dsv[:, 0, :, 1:] = slope_at_zero(
-            svs[[1, 2]],
-            numpy.moveaxis(V_tab[:, [1, 2], :, 1:], 1, 0),
-            numpy.moveaxis(V_dsv[:, [1, 2], :, 1:], 1, 0),
-        )
+        if self._wEs[0] == 0.0:
+            A_dx[0, :, :, 2] = slope_at_zero(
+                xs[1:3], A_tab[1:3, :, :, 2] - A_tab[0, :, :, 2], A_dx[1:3, :, :, 2]
+            )
+            U_dwE[0, :, :, 1:] = slope_at_zero(
+                self._wEs[1:3], U_tab[1:3, :, :, 1:], U_dwE[1:3, :, :, 1:]
+            )
+            V_dwE[0, :, :, 1:] = slope_at_zero(
+                self._wEs[1:3], V_tab[1:3, :, :, 1:], V_dwE[1:3, :, :, 1:]
+            )
+        if self._wIs[-1] == 1.0:
+            A_dy[:, -1, :, 2] = slope_at_zero(
+                self._ys[[-2, -3]] - 1.0,
+                numpy.moveaxis(A_tab[:, [-2, -3], :, 2:3], 1, 0)[..., 0]
+                - A_tab[:, -1, :, 2][None],
+                numpy.moveaxis(A_dy[:, [-2, -3], :, 2:3], 1, 0)[..., 0],
+            )
+            U_dsu[:, -1, :, 1:] = slope_at_zero(
+                sus[[-2, -3]],
+                numpy.moveaxis(U_tab[:, [-2, -3], :, 1:], 1, 0),
+                numpy.moveaxis(U_dsu[:, [-2, -3], :, 1:], 1, 0),
+            )
+        if self._wIs[0] == 0.0:
+            V_dsv[:, 0, :, 1:] = slope_at_zero(
+                svs[[1, 2]],
+                numpy.moveaxis(V_tab[:, [1, 2], :, 1:], 1, 0),
+                numpy.moveaxis(V_dsv[:, [1, 2], :, 1:], 1, 0),
+            )
         self._perr_u_tab, self._perr_v_tab = perr_u, perr_v
         self._A_tab, self._A_dx, self._A_dy, self._A_dL = A_tab, A_dx, A_dy, A_dL
         self._U_tab, self._U_dwE, self._U_dsu, self._U_dL = U_tab, U_dwE, U_dsu, U_dL
@@ -1426,12 +1597,24 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         return None
 
     # ---------- evaluation: the manifest chain
+    @property
+    def _target_hint(self):
+        """The tail of an out-of-range error for a family localized on a
+        target, whose box is the target's padded range rather than the
+        default spans"""
+        if self._target is None:
+            return ""
+        return (
+            " (the grid is localized on a target: increase target_pad, or build "
+            "the family without target=)"
+        )
+
     def _check_Lz(self, ell):
         """Raise for an angular momentum outside the family's grid"""
         if ell < self._Lzgrid[0] or ell > self._Lzgrid[-1]:
             raise ValueError(
                 f"|L_z| = {ell} outside the interpolation grid "
-                f"[{self._Lzgrid[0]}, {self._Lzgrid[-1]}]"
+                f"[{self._Lzgrid[0]}, {self._Lzgrid[-1]}]" + self._target_hint
             )
         return None
 
@@ -1445,24 +1628,42 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         def A(x, y, **kw):
             return self._A_ip(x, y, ell, **kw)[0, 0]
 
+        # the box the family covers, in x = w_E^2 and y
+        xlo, xhi = self._wEs[0] ** 2, self._wEs[-1] ** 2
+        ylo, yhi = self._ys[0], self._ys[-1]
         # the residual is relative to the actions, so that actions down to
         # round-off above zero resolve to the edges' neighbourhood rather
         # than to the edges themselves
         tol = 1e-12 * (jr + jz)
         for face, jother, k in ((1.0, jz, 1), (0.0, jr, 0)):
             if (jr if k == 1 else jz) == 0.0:
-                top = A(1.0, face)[k]
-                if jother > top + tol:
+                if (yhi if face == 1.0 else ylo) != face:
+                    raise ValueError(
+                        f"(J_R, J_z) = ({jr}, {jz}) lies on a degenerate face "
+                        "that the family's grid does not reach"
+                    )
+                top, bottom = A(xhi, face)[k], A(xlo, face)[k]
+                if jother > top + tol or jother < bottom - tol:
                     raise ValueError(
                         f"(J_R, J_z) = ({jr}, {jz}) lies outside the interpolated "
-                        f"family at |L_z| = {ell}: above the covered actions "
-                        "(increase Rinf)"
+                        f"family at |L_z| = {ell}: "
+                        + ("above" if jother > top else "below")
+                        + f" the covered actions [{bottom:g}, {top:g}]"
+                        + (
+                            " (increase Rinf)"
+                            if jother > top and self._target is None
+                            else ""
+                        )
+                        + self._target_hint
                     )
-                jother = min(jother, top)
+                jother = min(max(jother, bottom), top)
                 # on a face, the root is found in w_E = sqrt(x), in which a
                 # tiny action resolves to a small w_E rather than to zero
                 wE = brentq(
-                    lambda ww: A(ww * ww, face)[k] - jother, 0.0, 1.0, xtol=1e-15
+                    lambda ww: A(ww * ww, face)[k] - jother,
+                    self._wEs[0],
+                    self._wEs[-1],
+                    xtol=1e-15,
                 )
                 return wE * wE, face
         # Newton on the total action and on the vertical fraction of it,
@@ -1471,7 +1672,8 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         # alone fixes y, so a Newton on the actions themselves would have a
         # degenerate direction there
         jtot, frac = jr + jz, jz / (jr + jz)
-        x, y = 0.5, min(max(frac, 0.02), 0.98)
+        x = 0.5 * (xlo + xhi)
+        y = min(max(frac, ylo + 0.02 * (yhi - ylo)), yhi - 0.02 * (yhi - ylo))
         for attempt in range(2):
             for _ in range(60):
                 v = A(x, y)
@@ -1496,12 +1698,13 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 dx = -(Gy[1] * G[0] - Gy[0] * G[1]) / det
                 dy = -(-Gx[1] * G[0] + Gx[0] * G[1]) / det
                 lim = min(1.0, 0.3 / max(numpy.fabs(dx), numpy.fabs(dy), 1e-300))
-                x = min(max(x + lim * dx, 0.0), 1.0)
-                y = min(max(y + lim * dy, 0.0), 1.0)
+                x = min(max(x + lim * dx, xlo), xhi)
+                y = min(max(y + lim * dy, ylo), yhi)
             if attempt == 0:
                 # restart from the best point of a coarse scan
                 xs, ys = numpy.meshgrid(
-                    numpy.linspace(0.05, 1.0, 12), numpy.linspace(0.0, 1.0, 12)
+                    numpy.linspace(xlo + 0.05 * (xhi - xlo), xhi, 12),
+                    numpy.linspace(ylo, yhi, 12),
                 )
                 res = [
                     numpy.sum(numpy.fabs(A(xx, yy)[:2] - [jr, jz]))
@@ -1509,15 +1712,17 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 ]
                 k = int(numpy.argmin(res))
                 x, y = xs.flatten()[k], ys.flatten()[k]
-        top = max(numpy.sum(A(1.0, yy)[:2]) for yy in numpy.linspace(0.0, 1.0, 33))
+        top = max(numpy.sum(A(xhi, yy)[:2]) for yy in numpy.linspace(ylo, yhi, 33))
         raise ValueError(
             f"(J_R, J_z) = ({jr}, {jz}) could not be matched inside the "
             f"interpolated family at |L_z| = {ell}"
             + (
-                f": its total action lies above the covered {top:g} (increase Rinf)"
+                f": its total action lies above the covered {top:g}"
+                + (" (increase Rinf)" if self._target is None else "")
                 if jr + jz > top
                 else ""
             )
+            + self._target_hint
         )
 
     def _interp_tables(self, jr, jz, Lz):
@@ -1854,24 +2059,33 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             raise ValueError(
                 f"E = {E} outside the interpolation grid at |L_z| = {ell}: [{Ec}, {Emax}]"
             )
+        xlo, xhi = self._wEs[0] ** 2, self._wEs[-1] ** 2
+        ylo, yhi = self._ys[0], self._ys[-1]
         if E < Ec + tol:
             # the circular orbit, to the tolerance of the torus construction
+            self._check_circular()
             return 0.0, 0.0
         # the normalized energy from the apocentre of the planar orbit
         # without angular momentum at E
         R0c, _, R0m, _ = self._R0_edges(ell)
         R0 = self._R0(min(E, Emax), R0c, R0m)
         x = min(numpy.log(R0 / R0c) / numpy.log(R0m / R0c), 1.0)
+        if x < xlo - 1e-10 or x > xhi + 1e-10:
+            raise ValueError(
+                f"E = {E} outside the interpolation grid at |L_z| = {ell}: its energy "
+                f"variable {x:g} lies outside [{xlo:g}, {xhi:g}]" + self._target_hint
+            )
         with self._in_chart(E, ell):
             ush = self._ushell(E, ell)
             Ipl, Ish = self._I3_planar(E, ell), self._I3_shell(E, ell, ush)
         y = (I3 - Ipl) / (Ish - Ipl)
-        if y < -1e-10 or y > 1.0 + 1e-10:
+        if y < ylo - 1e-10 or y > yhi + 1e-10:
             raise ValueError(
                 f"I_3 = {I3} outside the interpolation grid at (E, |L_z|) = "
-                f"({E}, {ell}): [{Ipl}, {Ish}]"
+                f"({E}, {ell}): [{Ipl + ylo * (Ish - Ipl)}, {Ipl + yhi * (Ish - Ipl)}]"
+                + self._target_hint
             )
-        A = self._A_ip(x, min(max(y, 0.0), 1.0), ell)[0, 0]
+        A = self._A_ip(min(max(x, xlo), xhi), min(max(y, ylo), yhi), ell)[0, 0]
         return A[0], A[1]
 
     @conversion.physical_conversion("action", pop=True)
@@ -1966,6 +2180,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             # frequencies
             if self._interp:
                 self._check_Lz(numpy.fabs(Lz))
+                self._check_circular()
             else:
                 self._match_node(jr, jz, Lz)
             circ = self._circular(Lz)
@@ -2057,6 +2272,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         if jr == 0.0 and jz == 0.0:
             if self._interp:
                 self._check_Lz(numpy.fabs(Lz))
+                self._check_circular()
             else:
                 self._match_node(jr, jz, Lz)
             circ = self._circular(Lz)

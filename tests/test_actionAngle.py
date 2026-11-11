@@ -11598,6 +11598,7 @@ def test_actionAngleStaeckelInverse_errors(
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import (
         IsochronePotential,
+        MiyamotoNagaiPotential,
         MWPotential2014,
         OblateStaeckelWrapperPotential,
     )
@@ -11644,6 +11645,22 @@ def test_actionAngleStaeckelInverse_errors(
     with pytest.raises(ValueError, match="mm_nta must exceed"):
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_nta=64, mm_npt=20
+        )
+    # an Rinf that exceeds Rmax but not the apocentre of the planar orbit
+    # without angular momentum at the circular energy of the grid's largest
+    # L_z, which the energy variable's bottom edge needs inside Rinf
+    with pytest.raises(ValueError, match="Rinf is too small"):
+        actionAngleStaeckelInverse(
+            pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3),
+            delta=0.4,
+            setup_interp=True,
+            Rmin=0.8,
+            Rmax=1.5,
+            Rinf=2.5,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            progressbar=False,
         )
     with pytest.raises(ValueError, match="mm_npt must be at least 2"):
         actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=1)
@@ -12117,6 +12134,149 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
         )
     with pytest.raises(ValueError, match="only string value"):
         actionAngleStaeckelInverse(pot=pot, u0="midplane", **grid)
+    return None
+
+
+def test_actionAngleStaeckelInverse_target():
+    # target= localizes the family's grid on the tori of a set of phase-space
+    # points, through the same label relations the node lattice uses: the
+    # same number of nodes then reproduces the target far better than the
+    # default box does, and tori outside the box are refused
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.orbit import Orbit
+
+    pot = _staeckel_inverse_potential()
+    aAS = _staeckel_inverse_forward()
+    o = Orbit([1.05, 0.12, 1.05, 0.12, 0.06, 0.0])
+    ts = numpy.linspace(0.0, 12.0, 8)
+    o.integrate(ts, pot)
+    kw = dict(
+        pot=pot,
+        setup_interp=True,
+        Rmin=0.75,
+        Rmax=1.25,
+        Rinf=3.0,
+        nE=5,
+        nLz=5,
+        nI3=5,
+        mm_npt=48,
+        progressbar=False,
+    )
+    wide = actionAngleStaeckelInverse(**kw)
+    loc = actionAngleStaeckelInverse(target=o(ts), **kw)
+    rows = numpy.array([o(ts).R(), o(ts).vR(), o(ts).vT(), o(ts).z(), o(ts).vz()]).T
+    labels = [aAS.actionsFreqsAngles(*row, 0.0) for row in rows]
+
+    def miss(aAI, row, lab):
+        jr, lz, jz = (float(lab[k][0]) for k in (0, 1, 2))
+        ar, ap, az = (numpy.atleast_1d(float(lab[k][0])) for k in (6, 7, 8))
+        out = aAI(jr, lz, jz, ar, ap, az)
+        return numpy.hypot(float(out[0][0]) - row[0], float(out[3][0]) - row[3])
+
+    dxw = max(miss(wide, row, lab) for row, lab in zip(rows, labels))
+    dxl = max(miss(loc, row, lab) for row, lab in zip(rows, labels))
+    assert dxl < 1e-6, "The localized grid does not reproduce its target: %g" % dxl
+    assert dxl < dxw / 100.0, (
+        "The localized grid is not much better than the default box on its target: "
+        "%g vs %g" % (dxl, dxw)
+    )
+    # the box excludes the degenerate faces and the circular orbit, which
+    # the target's tori are nowhere near, and energies outside it
+    jr, lz, jz = (float(labels[0][k][0]) for k in (0, 1, 2))
+    with pytest.raises(ValueError, match="does not reach"):
+        loc(0.0, lz, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="does not reach"):
+        loc(jr, lz, 0.0, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="circular face"):
+        loc(0.0, lz, 0.0, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match="circular face"):
+        loc.Freqs(0.0, lz, 0.0)
+    # out-of-range errors point at target_pad, not at Rinf
+    hint = r"\(the grid is localized on a target: increase target_pad"
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
+        loc(jr, 0.5, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=r"above the covered [\d.]+ " + hint):
+        loc(10.0 * jr, lz, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=f"at \\|L_z\\| = {lz} " + hint):
+        loc(0.3 * jr, lz, jz, 0.3, 1.0, 2.0)
+    E, Lz, I3 = _staeckel_inverse_labels([1.05, 0.12, 1.05, 0.12, 0.06, 0.0])
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
+        loc.JR(E + 0.1, Lz, I3)
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
+        loc.JR(E, Lz, I3 + 0.5)
+    with pytest.raises(ValueError, match="circular face"):
+        loc.JR(wide._circular(Lz)["Ec"], Lz, I3)
+    assert (
+        numpy.fabs(loc.JR(E, Lz, I3) - jr) < 1e-7
+        and numpy.fabs(loc.Jz(E, Lz, I3) - jz) < 1e-7
+    ), "The localized family's actions from the integrals are off"
+    # a single point: the box has the minimum width and still holds it; an
+    # Orbit and its own rows are the same target, with a phi column ignored
+    one = actionAngleStaeckelInverse(target=rows[0], **kw)
+    assert miss(one, rows[0], labels[0]) < 1e-6, (
+        "The grid localized on a single point does not reproduce it"
+    )
+    # a circular orbit as the target: its box reaches the circular face
+    from galpy.potential import vcirc
+
+    circ = actionAngleStaeckelInverse(
+        target=[1.0, 0.0, vcirc(pot, 1.0), 0.0, 0.0], **kw
+    )
+    assert numpy.all(numpy.isfinite(circ.Freqs(0.0, vcirc(pot, 1.0), 0.0))), (
+        "The grid localized on a circular orbit does not reach the circular face"
+    )
+    six = actionAngleStaeckelInverse(
+        target=numpy.hstack((rows, 0.3 * numpy.ones((len(rows), 1)))), **kw
+    )
+    assert numpy.array_equal(
+        numpy.array(six(jr, lz, jz, 0.3, 1.0, 2.0)),
+        numpy.array(loc(jr, lz, jz, 0.3, 1.0, 2.0)),
+    ), "Rows with a phi column are not the same target as the Orbit"
+    # a padding so generous that the box reaches every face: the faces are
+    # then in the family, like the default box's (a target of two distinct
+    # tori, since a single torus has no spread for the padding to scale)
+    o2 = Orbit([0.9, -0.1, 1.15, -0.05, 0.1, 0.0])
+    o2.integrate(ts, pot)
+    rows2 = numpy.array(
+        [o2(ts).R(), o2(ts).vR(), o2(ts).vT(), o2(ts).z(), o2(ts).vz()]
+    ).T
+    big = actionAngleStaeckelInverse(
+        target=numpy.vstack((rows, rows2)), target_pad=5.0, **kw
+    )
+    with pytest.raises(ValueError, match="beyond Rinf"):
+        actionAngleStaeckelInverse(
+            target=numpy.vstack((rows, rows2)), target_pad=50.0, **kw
+        )
+    assert numpy.all(numpy.isfinite(big(0.0, lz, 0.0, 0.3, 1.0, 2.0)[0])) and (
+        numpy.all(numpy.isfinite(big(0.0, lz, jz, 0.3, 1.0, 2.0)[0]))
+    ), "A generously padded target box does not reach the faces"
+    with pytest.raises(
+        ValueError, match=r"above the covered actions \[0, [\d.]+\] " + hint
+    ):
+        big(0.0, lz, 50.0, 0.3, 1.0, 2.0)
+    # composes with an adaptive reference curve
+    fit = actionAngleStaeckelInverse(target=o(ts), u0="fit", **kw)
+    assert max(miss(fit, row, lab) for row, lab in zip(rows, labels)) < 1e-6, (
+        "The localized family with an adaptive reference curve misses its target"
+    )
+    # guards: the target shapes the interpolation grid, must be coverable,
+    # and must parse
+    with pytest.raises(TypeError, match="requires setup_interp"):
+        actionAngleStaeckelInverse(
+            pot=pot, target=rows[0], Es=[E], Lzs=[Lz], I3s=[I3], progressbar=False
+        )
+    with pytest.raises(ValueError, match="increase Rinf"):
+        actionAngleStaeckelInverse(
+            target=[1.0, 0.9, 1.0, 0.3, 0.9], **{**kw, "Rinf": 1.3}
+        )
+    with pytest.raises(ValueError, match="rows must be"):
+        actionAngleStaeckelInverse(target=[1.0, 0.1, 1.0, 0.1], **kw)
+    with pytest.raises(ValueError, match="rows must be"):
+        actionAngleStaeckelInverse(target=numpy.ones((2, 2, 5)), **kw)
+    with pytest.raises(ValueError, match="R > 0"):
+        actionAngleStaeckelInverse(target=[-1.0, 0.1, 1.0, 0.1, 0.05], **kw)
+    with pytest.raises(ValueError, match="R > 0"):
+        actionAngleStaeckelInverse(target=[1.0, 0.1, 0.0, 0.1, 0.05], **kw)
     return None
 
 
