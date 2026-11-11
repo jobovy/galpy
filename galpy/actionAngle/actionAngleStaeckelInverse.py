@@ -2481,24 +2481,62 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return self._explicit_tables(self._match_node(jr, jz, Lz))
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
-        """(J, theta) -> (x, v): solve the two angle relations for the
-        anomaly pair of each requested angle pair, reconstruct the point
-        from the two librations (u, p_u, v, p_v) -> (R, v_R, z, v_z), and
-        take the azimuth from the auxiliary's angle relations at the
-        compensated azimuthal angle"""
-        jr, jphi, jz = float(jr), float(jphi), float(jz)
-        if jr < 0.0 or jz < 0.0:
-            raise ValueError("J_R and J_z have to be non-negative")
-        Lz = jphi
-        if Lz == 0.0:
-            raise ValueError("L_z = 0 is not supported")
-        angler, anglephi, anglez = numpy.broadcast_arrays(
-            numpy.atleast_1d(angler).astype(float),
-            numpy.atleast_1d(anglephi).astype(float),
-            numpy.atleast_1d(anglez).astype(float),
+        """(J, theta) -> (x, v) and the frequencies, for actions and angles
+        that broadcast against each other by numpy's rules (scalar actions
+        with arrays of angles: one torus at those angles; arrays of actions
+        with scalar angles: that angle on every torus; equal shapes: paired
+        element by element, each star on its own torus at its own angle;
+        actions of shape (n,1) with angles of shape (m,): every angle on
+        every torus as (n,m) arrays); a single torus returns its
+        frequencies as floats"""
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
+        jr, jphi, jz, angler, anglephi, anglez = numpy.broadcast_arrays(
+            *(
+                numpy.atleast_1d(numpy.asarray(t, dtype="float"))
+                for t in (jr, jphi, jz, angler, anglephi, anglez)
+            )
         )
-        thR = angler % (2.0 * numpy.pi)
-        thz = anglez % (2.0 * numpy.pi)
+        if numpy.any(jr < 0.0) or numpy.any(jz < 0.0):
+            raise ValueError("J_R and J_z have to be non-negative")
+        if numpy.any(jphi == 0.0):
+            raise ValueError("L_z = 0 is not supported")
+        shape = jr.shape
+        jr, jphi, jz, thR, anglephi, thz = (
+            t.ravel()
+            for t in (
+                jr,
+                jphi,
+                jz,
+                angler % (2.0 * numpy.pi),
+                anglephi,
+                anglez % (2.0 * numpy.pi),
+            )
+        )
+        if scalar:
+            out = self._xvFreqs_torus(jr[0], jphi[0], jz[0], thR, anglephi, thz)
+            return (*(o.reshape(shape) for o in out[:6]), *out[6:])
+        # the tables once per distinct torus, each torus at its own angles
+        out = numpy.empty((9, len(jr)))
+        tori, inv = numpy.unique(
+            numpy.stack([jr, jphi, jz], axis=1), axis=0, return_inverse=True
+        )
+        order = numpy.argsort(inv.ravel(), kind="stable")
+        starts = numpy.searchsorted(inv.ravel()[order], numpy.arange(len(tori) + 1))
+        for k, actions in enumerate(tori):
+            pts = order[starts[k] : starts[k + 1]]
+            for o, q in zip(
+                out, self._xvFreqs_torus(*actions, thR[pts], anglephi[pts], thz[pts])
+            ):
+                o[pts] = q
+        return tuple(out.reshape((9,) + shape))
+
+    def _xvFreqs_torus(self, jr, jphi, jz, thR, anglephi, thz):
+        """One torus at flat arrays of angles: solve the two angle relations
+        for the anomaly pair of each requested angle pair, reconstruct the
+        point from the two librations (u, p_u, v, p_v) -> (R, v_R, z, v_z),
+        and take the azimuth from the auxiliary's angle relations at the
+        compensated azimuthal angle; the frequencies are floats"""
+        Lz = jphi
         sgn = numpy.sign(Lz)
         if jr == 0.0 and jz == 0.0:
             # the circular orbit: the point sits at the circular radius in
@@ -2564,14 +2602,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             chains_v.append((dc[i], tab["dwv"][i], tab["dDmv"][:, i]))
         tu, tv = self._solve_angles(thR, thz, aux, chains_u[:2], chains_v[:2])
         T = self._torus_at(tu, tv, aux, chains_u, chains_v)
-        # the azimuth from the auxiliary's angle relations: phi = theta^A_phi
-        # - sgn(L_z) theta^A_z + arctan2(cos i sin psi, cos psi) with the
-        # in-plane phase psi = zeta + pi/2 and cos i = L_z / L
-        thetaAphi = anglephi - T["comps"][2]
+        Om = tab["Om"]
+        return (*self._point(T, Lz, L, anglephi), Om[0], Om[2], Om[1])
+
+    def _point(self, T, Lz, L, anglephi):
+        """(R, v_R, v_T, z, v_z, phi) from the two librations of _torus_at:
+        the azimuth from the auxiliary's angle relations, phi = theta^A_phi
+        - sgn(L_z) theta^A_z + arctan2(cos i sin psi, cos psi) with the
+        in-plane phase psi = zeta + pi/2 and cos i = L_z / L, at the
+        compensated azimuthal angle"""
         zeta = T["zeta"]
         phi = (
-            thetaAphi
-            - sgn * T["thetaAz"]
+            anglephi
+            - T["comps"][2]
+            - numpy.sign(Lz) * T["thetaAz"]
             + numpy.arctan2(Lz / L * numpy.cos(zeta), -numpy.sin(zeta))
         )
         u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
@@ -2579,7 +2623,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sn, cs = numpy.sin(v), numpy.cos(v)
         den = self._delta * (sh**2 + sn**2)
         R = self._delta * sh * sn
-        Om = tab["Om"]
         return (
             R,
             (pu * ch * sn + pv * sh * cs) / den,
@@ -2587,18 +2630,30 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._delta * ch * cs,
             (pu * sh * cs - pv * ch * sn) / den,
             phi % (2.0 * numpy.pi),
-            Om[0],
-            Om[2],
-            Om[1],
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
-        """Frequencies of the (J_R, J_z, L_z) torus: in interpolation mode
-        the stored action interpolants' own partials through the label
-        chain (the integrator contract); for explicit tori the torus's own
-        period matrix"""
-        jr, jphi, jz = float(jr), float(jphi), float(jz)
-        Lz = jphi
+        """Frequencies of the (J_R, J_z, L_z) tori, for actions that
+        broadcast against each other: in interpolation mode the stored
+        action interpolants' own partials through the label chain (the
+        integrator contract); for explicit tori the tori's own period
+        matrices; floats for a single torus"""
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
+        jr, jphi, jz = numpy.broadcast_arrays(
+            *(numpy.atleast_1d(numpy.asarray(t, dtype="float")) for t in (jr, jphi, jz))
+        )
+        if scalar:
+            return self._Freqs_torus(jr[0], jphi[0], jz[0])
+        tori, inv = numpy.unique(
+            numpy.stack([t.ravel() for t in (jr, jphi, jz)], axis=1),
+            axis=0,
+            return_inverse=True,
+        )
+        Om = numpy.array([self._Freqs_torus(*actions) for actions in tori]).T
+        return tuple(o.reshape(jr.shape) for o in Om[:, inv.ravel()])
+
+    def _Freqs_torus(self, jr, Lz, jz):
+        """Frequencies of one torus, as floats"""
         if jr == 0.0 and jz == 0.0:
             if self._interp:
                 self._check_Lz(numpy.fabs(Lz))
