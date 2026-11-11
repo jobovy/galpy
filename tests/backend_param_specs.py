@@ -1716,6 +1716,76 @@ add_aa(
     diff_coords=["jr", "ar"],
 )
 add_aa(
+    "actionAngleStaeckelInverse[wrapped]",
+    # a general potential with delta=, which the class wraps in an
+    # OblateStaeckelWrapperPotential: its parameters and delta
+    lambda P: aa.actionAngleStaeckelInverse(
+        pot=gp.MiyamotoNagaiPotential(amp=P["amp"], a=P["a"], b=P["b"]),
+        delta=P["delta"],
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=4,
+        nLz=4,
+        nI3=4,
+        mm_npt=48,
+        auxiliary=gp.IsochronePotential(amp=1.4, b=0.53),
+        progressbar=False,
+    ),
+    {"amp": 1.0, "a": 0.5, "b": 0.3, "delta": 0.4},
+    iinv,
+    coords={"jr": 0.04, "lz": 1.0, "jz": 0.03, "ar": 0.4, "ap": 0.5, "az": 0.6},
+    diff_coords=["ar"],
+)
+
+
+def einv(o, C):
+    # an explicit torus at its own actions, from its integrals: a parameter
+    # moves the actions at fixed integrals as well as the map
+    if "I3" in C:
+        jr, jz = o.JR(C["E"], C["lz"], C["I3"]), o.Jz(C["E"], C["lz"], C["I3"])
+    else:
+        jr, jz = o.Jr(C["E"], C["L"]), C["L"] - C["lz"]
+    r = o.xvFreqs(jr, C["lz"], jz, C["ar"], C["ap"], C["az"])
+    return {"jr": jr, "R": r[0], "vR": r[1], "z": r[3], "vz": r[4], "Or": r[6]}
+
+
+_KK_LABEL = (-1.4741137603872914, 0.99, 1.9081353408558568)
+add_aa(
+    "actionAngleStaeckelInverse[explicit]",
+    lambda P: aa.actionAngleStaeckelInverse(
+        pot=gp.KuzminKutuzovStaeckelPotential(amp=P["amp"], ac=P["ac"], Delta=1.3),
+        Es=[_KK_LABEL[0]],
+        Lzs=[_KK_LABEL[1]],
+        I3s=[_KK_LABEL[2]],
+        mm_npt=16,
+        auxiliary=gp.IsochronePotential(amp=6.0, b=1.1),
+        progressbar=False,
+    ),
+    {"amp": 4.0, "ac": 5.0},
+    einv,
+    coords=dict(zip(("E", "lz", "I3"), _KK_LABEL), ar=0.4, ap=0.5, az=0.6),
+    diff_coords=["ar"],
+)
+_HQ_LABEL = (-0.5963265306122448, 0.26557600088279426)
+add_aa(
+    "actionAngleSphericalInverse[explicit]",
+    lambda P: aa.actionAngleSphericalInverse(
+        pot=gp.HernquistPotential(amp=P["amp"], a=P["a"]),
+        Es=[_HQ_LABEL[0]],
+        Ls=[_HQ_LABEL[1]],
+        mm_npt=24,
+        mm_nta=128,
+        auxiliary=gp.IsochronePotential(amp=2.0, b=0.8),
+        progressbar=False,
+    ),
+    {"amp": 2.0, "a": 0.8},
+    einv,
+    coords=dict(zip(("E", "L"), _HQ_LABEL), lz=0.2, ar=0.4, ap=0.5, az=0.6),
+    diff_coords=["ar"],
+)
+add_aa(
     "estimateDeltaStaeckel",
     lambda P: MNa(P),
     dict(MNp),

@@ -12273,6 +12273,7 @@ def test_actionAngleStaeckelInverse_errors(
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import (
         IsochronePotential,
+        MiyamotoNagaiPotential,
         MWPotential2014,
         OblateStaeckelWrapperPotential,
     )
@@ -12319,6 +12320,22 @@ def test_actionAngleStaeckelInverse_errors(
     with pytest.raises(ValueError, match="mm_nta must exceed"):
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_nta=64, mm_npt=20
+        )
+    # an Rinf that exceeds Rmax but not the apocentre of the planar orbit
+    # without angular momentum at the circular energy of the grid's largest
+    # L_z, which the energy variable's bottom edge needs inside Rinf
+    with pytest.raises(ValueError, match="Rinf is too small"):
+        actionAngleStaeckelInverse(
+            pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3),
+            delta=0.4,
+            setup_interp=True,
+            Rmin=0.8,
+            Rmax=1.5,
+            Rinf=2.5,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            progressbar=False,
         )
     with pytest.raises(ValueError, match="mm_npt must be at least 2"):
         actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=1)
@@ -12887,12 +12904,18 @@ def test_actionAngleStaeckelInverse_target():
         loc(0.0, lz, 0.0, 0.3, 1.0, 2.0)
     with pytest.raises(ValueError, match="circular face"):
         loc.Freqs(0.0, lz, 0.0)
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    # out-of-range errors point at target_pad, not at Rinf
+    hint = r"\(the grid is localized on a target: increase target_pad"
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc(jr, 0.5, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=r"above the covered [\d.]+ " + hint):
+        loc(10.0 * jr, lz, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=f"at \\|L_z\\| = {lz} " + hint):
+        loc(0.3 * jr, lz, jz, 0.3, 1.0, 2.0)
     E, Lz, I3 = _staeckel_inverse_labels([1.05, 0.12, 1.05, 0.12, 0.06, 0.0])
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc.JR(E + 0.1, Lz, I3)
-    with pytest.raises(ValueError, match="outside the interpolation grid"):
+    with pytest.raises(ValueError, match="outside the interpolation grid.*" + hint):
         loc.JR(E, Lz, I3 + 0.5)
     with pytest.raises(ValueError, match="circular face"):
         with use("numpy", force=True):  # the numpy closed form
@@ -12959,6 +12982,10 @@ def test_actionAngleStaeckelInverse_target():
     ) and (numpy.all(numpy.isfinite(as_numpy(big(0.0, lz, jz, 0.3, 1.0, 2.0)[0])))), (
         "A generously padded target box does not reach the faces"
     )
+    with pytest.raises(
+        ValueError, match=r"above the covered actions \[0, [\d.]+\] " + hint
+    ):
+        big(0.0, lz, 50.0, 0.3, 1.0, 2.0)
     # composes with an adaptive reference curve
     fit = actionAngleStaeckelInverse(target=o(ts), u0="fit", **kw)
     assert max(miss(fit, row, lab) for row, lab in zip(rows, labels)) < 1e-6, (
