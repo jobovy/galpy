@@ -186,7 +186,10 @@ class HermiteFamily2D:
         key = (getattr(xp, "__name__", ""), str(dev))
         if key in self._c_on:
             return self._c_on[key]
-        out = tuple(asarray_on_device(xp, t, dev) for t in (self._x, self._y, self._c))
+        out = tuple(
+            asarray_on_device(xp, numpy.ascontiguousarray(t), dev)
+            for t in (self._x, self._y, self._c)
+        )
         if not under_jax_trace(*out):  # a trace's constants must not outlive it
             self._c_on[key] = out
         return out
@@ -285,6 +288,183 @@ class HermiteFamily2D:
         return v.reshape(1, 1) if self._scalar else v[None, None, :]
 
 
+class HermiteFamily3D:
+    """A tensor-product Hermite interpolant on a rectangular grid in three
+    variables, quintic in the first and cubic in the other two, of one table
+    or of a stack of tables on the same grid.  The values and the three
+    first partials are prescribed at every node and reproduced exactly
+    there; the mixed partials the tensor product needs, and the second
+    partials in the first variable (which make the interpolant's first
+    derivative in that variable accurate to one order beyond a cubic
+    Hermite's), are estimated by differentiating cubic splines of the
+    prescribed first partials, as HermiteFamily2D does.  Called like
+    ip(x, y, z, dx=, dy=, dz=)[0, 0], which is the vector of the stack's
+    values."""
+
+    _Mq, _Mc = HermiteFamily2D._Mq, HermiteFamily2D._Mc
+
+    def __init__(self, x, y, z, f, fx, fy, fz):
+        # f, fx, fy, fz: (nx, ny, nz, k) for a stack of k tables on the same
+        # grid, interpolated together
+        self._xp, self._c_on = numpy, {}
+        xp = _ns(x, y, z, f, fx, fy, fz)
+        if xp is not numpy:
+            return self._init_xp(xp, x, y, z, f, fx, fy, fz)
+        self._x, self._y, self._z = (numpy.asarray(t, dtype="float") for t in (x, y, z))
+        f, fx, fy, fz = (numpy.asarray(t, dtype="float") for t in (f, fx, fy, fz))
+
+        def d(tab, axis, nodes):
+            return CubicSpline(nodes, tab, axis=axis)(nodes, 1)
+
+        fxy, fxz, fyz = d(fx, 1, self._y), d(fx, 2, self._z), d(fy, 2, self._z)
+        fxyz = d(fxy, 2, self._z)
+        fxx, fxxy, fxxz = d(fx, 0, self._x), d(fxy, 0, self._x), d(fxz, 0, self._x)
+        fxxyz = d(fxyz, 0, self._x)
+        # the twelve quantities of a node, ordered as (f, f_x, f_xx) for each
+        # of (as is, d/dy, d/dz, d^2/dy dz)
+        self._nodes = numpy.stack(
+            [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz]
+        )
+
+    def _init_xp(self, xp, x, y, z, f, fx, fy, fz):
+        """The construction in jax/torch, differentiable in the tables and
+        in the grid; the estimated partials from not-a-knot cubic splines,
+        scipy CubicSpline's default"""
+        dev = device_of(x, y, z, f, fx, fy, fz)
+        x, y, z, f, fx, fy, fz = (
+            t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
+            for t in (x, y, z, f, fx, fy, fz)
+        )
+        self._xp, self._x, self._y, self._z = xp, x, y, z
+
+        def d(tab, axis, nodes):
+            return _spline_knot_slopes(xp, nodes, tab, axis)
+
+        fxy, fxz, fyz = d(fx, 1, y), d(fx, 2, z), d(fy, 2, z)
+        fxyz = d(fxy, 2, z)
+        fxx, fxxy, fxxz = d(fx, 0, x), d(fxy, 0, x), d(fxz, 0, x)
+        fxxyz = d(fxyz, 0, x)
+        self._nodes = xp.stack(
+            [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz]
+        )
+        return None
+
+    def _nodes_on(self, xp, dev):
+        """The grid and the node data in namespace xp on device dev: a
+        numpy-built family's are copied there once"""
+        if self._xp is not numpy:
+            return self._x, self._y, self._z, self._nodes
+        key = (getattr(xp, "__name__", ""), str(dev))
+        if key in self._c_on:
+            return self._c_on[key]
+        out = tuple(
+            asarray_on_device(xp, numpy.ascontiguousarray(t), dev)
+            for t in (self._x, self._y, self._z, self._nodes)
+        )
+        if not under_jax_trace(*out):  # a trace's constants must not outlive it
+            self._c_on[key] = out
+        return out
+
+    def ev4(self, x, y, z):
+        """The interpolant and its three first partials at the point (x, y, z)
+        (0-d), in jax/torch, differentiable in the point and in the family's
+        tables: four vectors of the stack's values"""
+        xp = _ns(x, y, z)
+        dev = device_of(x, y, z) if xp is not numpy else device_of(self._nodes)
+        xp = xp if xp is not numpy else self._xp
+        xg, yg, zg, nodes = self._nodes_on(xp, dev)
+        x, y, z = (
+            t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
+            for t in (x, y, z)
+        )
+        cells = []
+        for g, t in ((xg, x), (yg, y), (zg, z)):
+            i = xp.clip(
+                xp.searchsorted(
+                    stop_gradient(g), xp.reshape(_dense(t), (1,)), side="right"
+                )[0]
+                - 1,
+                0,
+                g.shape[0] - 2,
+            )
+            h = g[i + 1] - g[i]
+            cells.append((i, h, (t - g[i]) / h))
+        (i, hx, sv), (j, hy, tv), (l, hz, wv) = cells
+        two = asarray_on_device(xp, numpy.arange(2), dev)
+        blk = nodes[:, i + two][:, :, j + two][:, :, :, l + two]  # (12, 2, 2, 2, k)
+        K = blk.shape[-1]
+        B = xp.reshape(blk, (2, 2, 3, 2, 2, 2, K))  # (cz, cy, r, q, yn, zn, K)
+        one = 1.0 + 0.0 * hx
+        sr = xp.stack([one, hx, hx * hx])
+        sy, sz = xp.stack([one, hy]), xp.stack([one, hz])
+        B = (
+            B
+            * (sz[:, None, None] * sy[None, :, None] * sr[None, None, :])[
+                ..., None, None, None, None
+            ]
+        )
+        F = xp.reshape(xp.permute_dims(B, (3, 2, 1, 4, 0, 5, 6)), (6, 4, 4, K))
+        Mq = asarray_on_device(xp, self._Mq, dev)
+        Mc = asarray_on_device(xp, self._Mc, dev)
+        ps, dps = (_power_basis(xp, sv, 6, k, hx) for k in (0, 1))
+        pt, dpt = (_power_basis(xp, tv, 4, k, hy) for k in (0, 1))
+        pw, dpw = (_power_basis(xp, wv, 4, k, hz) for k in (0, 1))
+        wa, dwa = Mq.T @ ps, Mq.T @ dps
+        wb, dwb = Mc.T @ pt, Mc.T @ dpt
+        wc, dwc = Mc.T @ pw, Mc.T @ dpw
+        return tuple(
+            xp.einsum("a,b,c,abcK->K", A, Bv, C, F)
+            for A, Bv, C in ((wa, wb, wc), (dwa, wb, wc), (wa, dwb, wc), (wa, wb, dwc))
+        )
+
+    @staticmethod
+    def _cell(nodes, val):
+        i = min(
+            max(numpy.searchsorted(nodes, val, side="right") - 1, 0), len(nodes) - 2
+        )
+        h = nodes[i + 1] - nodes[i]
+        return i, h, (val - nodes[i]) / h
+
+    def __call__(self, x, y, z, dx=0, dy=0, dz=0):
+        if self._xp is not numpy or _ns(x, y, z) is not numpy:
+            out = self.ev4(x, y, z)
+            v = out[1] if dx else (out[2] if dy else (out[3] if dz else out[0]))
+            return v[None, None, :]
+        i, hx, s = self._cell(self._x, x)
+        j, hy, t = self._cell(self._y, y)
+        l, hz, w = self._cell(self._z, z)
+        if dx == 0:
+            ps = s ** numpy.arange(6)
+        else:
+            ps = (
+                numpy.array([0.0, 1.0, 2.0 * s, 3.0 * s**2, 4.0 * s**3, 5.0 * s**4])
+                / hx
+            )
+        pt = (
+            t ** numpy.arange(4)
+            if dy == 0
+            else numpy.array([0.0, 1.0, 2.0 * t, 3.0 * t**2]) / hy
+        )
+        pw = (
+            w ** numpy.arange(4)
+            if dz == 0
+            else numpy.array([0.0, 1.0, 2.0 * w, 3.0 * w**2]) / hz
+        )
+        wa, wb, wc = self._Mq.T @ ps, self._Mc.T @ pt, self._Mc.T @ pw
+        # the cell's data tensor: rows (f, hx f_x, hx^2 f_xx) at x_i then at
+        # x_{i+1}; columns the values at y_j, y_{j+1}, then hy times the
+        # y-derivatives there; likewise along z
+        blk = self._nodes[:, i : i + 2, j : j + 2, l : l + 2]
+        F = numpy.empty((6, 4, 4, blk.shape[-1]))
+        for r, sr in enumerate((1.0, hx, hx * hx)):
+            for cy, sy in enumerate((1.0, hy)):
+                for cz, sz in enumerate((1.0, hz)):
+                    F[r:6:3, 2 * cy : 2 * cy + 2, 2 * cz : 2 * cz + 2] = blk[
+                        r + 3 * cy + 6 * cz
+                    ] * (sr * sy * sz)
+        return numpy.einsum("a,b,c,abcK->K", wa, wb, wc, F)[None, None, :]
+
+
 def _dense(t):
     """t without a derivative and in contiguous memory: a broadcast view
     makes torch's searchsorted copy it, with a warning"""
@@ -299,15 +479,15 @@ def _ns(*args):
 
 def _spline_knot_slopes(xp, x, t, axis):
     """The first derivative at the knots x of the not-a-knot cubic spline of
-    the table t along its axis 0 or 1 (scipy's CubicSpline(x, t,
+    the table t along the given axis (scipy's CubicSpline(x, t,
     axis=axis)(x, 1)), in jax/torch: every other axis is a separate spline"""
-    tt = t if axis == 0 else xp.swapaxes(t, 0, 1)
+    tt = xp.moveaxis(t, axis, 0)
     shp = tuple(tt.shape)
     c = cubic_spline_coeffs(xp, x, xp.reshape(tt, (shp[0], -1)), bc="not-a-knot")
     h = xp.reshape(x[1:] - x[:-1], (-1, 1))
     last = 3.0 * c[0][-1:] * h[-1:] ** 2 + 2.0 * c[1][-1:] * h[-1:] + c[2][-1:]
     d = xp.reshape((getattr(xp, "concat", None) or xp.concatenate)([c[2], last]), shp)
-    return d if axis == 0 else xp.swapaxes(d, 0, 1)
+    return xp.moveaxis(d, 0, axis)
 
 
 def _power_basis(xp, s, n, deriv, h):

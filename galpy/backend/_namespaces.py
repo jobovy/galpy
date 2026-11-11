@@ -573,7 +573,13 @@ def _is_floating_dtype(dtype):
     torch dtypes expose an ``is_floating_point`` attribute (which for torch is
     False for complex dtypes, matching ``numpy.floating``).
     """
-    is_fp = getattr(dtype, "is_floating_point", None)
+    # no getattr on a numpy dtype: torch >= 2.14's dynamo raises on its missing
+    # attribute instead of returning the default
+    is_fp = (
+        None
+        if isinstance(dtype, numpy.dtype)
+        else getattr(dtype, "is_floating_point", None)
+    )
     if is_fp is not None:  # torch.dtype
         return bool(is_fp)
     try:

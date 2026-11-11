@@ -12,6 +12,7 @@ import numpy
 
 from ..backend import asarray_on_device, device_of, is_backend_array
 from ..backend._namespaces import namespace_from_arrays
+from ..backend.optimize import iterate_to_fixed_point
 from ..util._optional_deps import _TQDM_LOADED
 
 if _TQDM_LOADED:
@@ -177,6 +178,25 @@ def _sine_galerkin_xp(xp, w, rhs, ms):
     Fr = xp.take(xp.fft.fft(rhs, axis=-2), _const(xp, ms, w), axis=-2)
     ph = _const(xp, numpy.exp(1j * ms * numpy.pi / N), w)
     return xp.linalg.solve(G, xp.imag(ph[:, None] * xp.conj(Fr)))
+
+
+def _bk_matching(xp, resid, slope, resid_sg, slope_sg, eta0, mt, maxiter=200):
+    """The pointwise momentum matching of _momentum_matched_lift in jax/torch:
+    Newton on resid(eta) = 0 with clipped steps and the floored slope, from
+    eta0 (the anomaly itself: both cumulative actions are monotone, so the
+    root is the same as from numpy's interpolated start), without a
+    derivative until every sample has converged (at most maxiter steps, as
+    numpy), then one step that carries the implicit-function derivative of
+    the matched anomaly (resid_sg and slope_sg: the same on derivative-free
+    copies of the tables, for the iteration)"""
+    tol = 1e-13 * xp.clip(mt, 1e-10, None)[:, None]
+
+    def step(eta):
+        f, fp = resid_sg(eta), slope_sg(eta)
+        return xp.where(xp.abs(f) < tol, eta, eta + xp.clip(-f / fp, -0.5, 0.5))
+
+    eta = iterate_to_fixed_point(step, eta0, maxiter)
+    return eta - resid(eta) / slope(eta)
 
 
 def _progress(iterator, desc, show):

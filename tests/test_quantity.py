@@ -14006,6 +14006,121 @@ def test_actionAngleSphericalInverse_units():
     return None
 
 
+def test_actionAngleStaeckelInverse_units():
+    # Unit support of actionAngleStaeckelInverse: Quantity energies,
+    # angular momenta, third integrals, and radial grid anchors for the
+    # instance, Quantity integrals and actions and angles for its
+    # evaluation, and physical outputs
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+    from galpy.util import conversion
+
+    ro, vo = 9.0, 230.0
+    E, Lz, I3 = -1.2, 1.0, 1.9
+    kw = dict(amp=4.0, ac=5.0, Delta=1.3)
+    Eq = (vo * units.km / units.s) ** 2.0
+    Jq = ro * vo * units.kpc * units.km / units.s
+    aASC = actionAngleStaeckelInverse(
+        pot=KuzminKutuzovStaeckelPotential(ro=ro, vo=vo, **kw),
+        Es=[E * Eq],
+        Lzs=[Lz * Jq],
+        I3s=[I3 * Eq],
+        ro=ro,
+        vo=vo,
+    )
+    aASC_int = actionAngleStaeckelInverse(
+        pot=KuzminKutuzovStaeckelPotential(**kw), Es=[E], Lzs=[Lz], I3s=[I3]
+    )
+    assert numpy.fabs(aASC._Es[0] - E) < 1e-10, (
+        "actionAngleStaeckelInverse does not parse an energy given as a Quantity"
+    )
+    assert numpy.fabs(aASC._Lzs[0] - Lz) < 1e-10, (
+        "actionAngleStaeckelInverse does not parse an angular momentum given as a Quantity"
+    )
+    assert numpy.fabs(aASC._I3s[0] - I3) < 1e-10, (
+        "actionAngleStaeckelInverse does not parse a third integral given as a Quantity"
+    )
+
+    def _value(x, unit):
+        if not isinstance(x, units.Quantity):
+            x = as_numpy(x)
+        x = numpy.atleast_1d(x)[0]
+        return x.to(unit).value if isinstance(x, units.Quantity) else x
+
+    # host values: a jax array times a Quantity drops the units
+    jr = numpy.atleast_1d(as_numpy(aASC_int.JR(E, Lz, I3)))[0]
+    jz = numpy.atleast_1d(as_numpy(aASC_int.Jz(E, Lz, I3)))[0]
+    for name, val in (("JR", jr), ("Jz", jz)):
+        assert (
+            numpy.fabs(
+                _value(
+                    getattr(aASC, name)(E * Eq, Lz * Jq, I3 * Eq),
+                    units.kpc * units.km / units.s,
+                )
+                / (ro * vo)
+                - val
+            )
+            < 1e-10
+        ), (
+            "actionAngleStaeckelInverse method %s does not return the physical version of the internal-unit action"
+            % name
+        )
+    out = aASC(
+        jr * Jq, Lz * Jq, jz * Jq, 1.1 * units.rad, 0.2 * units.rad, 2.1 * units.rad
+    )
+    out_int = aASC_int(jr, Lz, jz, 1.1, 0.2, 2.1)
+    for ii, (fac, unit) in enumerate(
+        [
+            (ro, units.kpc),
+            (vo, units.km / units.s),
+            (vo, units.km / units.s),
+            (ro, units.kpc),
+            (vo, units.km / units.s),
+            (1.0, units.rad),
+        ]
+    ):
+        assert (
+            numpy.fabs(
+                _value(out[ii], unit) / fac - numpy.atleast_1d(as_numpy(out_int[ii]))[0]
+            )
+            < 1e-10
+        ), (
+            "actionAngleStaeckelInverse method __call__ does not return the physical version of the internal-unit coordinates"
+        )
+    for ii in range(3):
+        assert (
+            numpy.fabs(
+                _value(aASC.Freqs(jr * Jq, Lz * Jq, jz * Jq)[ii], 1.0 / units.Gyr)
+                / conversion.freq_in_Gyr(vo, ro)
+                - numpy.atleast_1d(as_numpy(aASC_int.Freqs(jr, Lz, jz)[ii]))[0]
+            )
+            < 1e-10
+        ), (
+            "actionAngleStaeckelInverse method Freqs does not return the physical version of the internal-unit frequency"
+        )
+    # Quantity radial anchors for the interpolation grid
+    gkw = dict(setup_interp=True, nE=4, nLz=4, nI3=4, mm_nta=64, mm_npt=12)
+    aASCg = actionAngleStaeckelInverse(
+        pot=KuzminKutuzovStaeckelPotential(ro=ro, vo=vo, **kw),
+        Rmin=0.8 * ro * units.kpc,
+        Rmax=1.4 * ro * units.kpc,
+        Rinf=3.0 * ro * units.kpc,
+        ro=ro,
+        vo=vo,
+        **gkw,
+    )
+    aASCg_int = actionAngleStaeckelInverse(
+        pot=KuzminKutuzovStaeckelPotential(**kw), Rmin=0.8, Rmax=1.4, Rinf=3.0, **gkw
+    )
+    assert numpy.all(numpy.fabs(aASCg._Lzgrid - aASCg_int._Lzgrid) < 1e-10), (
+        "actionAngleStaeckelInverse does not parse Rmin and Rmax given as Quantities"
+    )
+    assert numpy.all(numpy.fabs(aASCg._E_tab - aASCg_int._E_tab) < 1e-10), (
+        "actionAngleStaeckelInverse does not parse Rinf given as a Quantity"
+    )
+    return None
+
+
 def test_actionAngleHarmonic_setup_omega_units():
     from galpy.actionAngle import actionAngleHarmonic
     from galpy.util import conversion
