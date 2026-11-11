@@ -1,6 +1,19 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- The isochrone auxiliary of ``actionAngleSphericalInverse`` and
+  ``actionAngleStaeckelInverse`` is now fitted to the potential's rotation
+  curve by a converged least squares (the amplitude eliminated in closed
+  form, Newton's method in the logarithm of the scale radius, from the
+  geometric mean of the sampled radii) instead of a Nelder-Mead simplex: the
+  fit is exact for an isochrone target, takes a millisecond, and no longer
+  depends on a starting point; families built with the fitted auxiliary move
+  at the level of the old simplex's tolerance (a few 1e-5 relative in the
+  auxiliary's parameters, 1e-12 in the returned phase-space points), far
+  below their interpolation accuracy. On the jax and PyTorch backends a
+  construction under a trace (``jax.jit``, ``jax.vmap``) now fits the
+  auxiliary on the device instead of calling back to the host.
+
 - ``actionAngleVerticalInverse`` (in its default, momentum-matched mode) and
   ``actionAngleSphericalInverse`` evaluate arrays of actions: the actions and
   the angles broadcast against each other, so that a population of stars,

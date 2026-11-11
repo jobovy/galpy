@@ -412,8 +412,8 @@ def test_derivatives_wrt_potential_parameters(mode):
 @pytest.mark.skipif(jax is None or torch is None, reason="jax and torch needed")
 @pytest.mark.parametrize("mode", ["interp", "explicit"])
 def test_jax_jit_construction(mode):
-    # The whole pipeline -- the construction (its auxiliary fitted on the host
-    # through a callback) and the evaluation -- traces under jax.jit, and
+    # The whole pipeline -- the construction (its auxiliary fitted on the
+    # device) and the evaluation -- traces under jax.jit, and
     # agrees with torch's eager construction
     def f(p):
         return _param_out(_param_family(p, mode, fitted=True), mode)
@@ -563,6 +563,29 @@ def _degenerate_labels():
         (E, Lz, aN._I3_shell(E, Lz, aN._ushell(E, Lz))),
         (E, Lz, aN._I3_planar(E, Lz)),
     ]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_lone_circular_torus_auxiliary(backend):
+    # A family of one planar circular torus spans a single radius, which
+    # every isochrone scale fits: the auxiliary is the isochrone through the
+    # rotation curve there with b that radius, on numpy and on a backend (a
+    # NaN auxiliary, as a fit through its Newton step gave, made the
+    # backend's Galerkin solve singular on CUDA)
+    from galpy import backend as gb
+    from galpy.potential import vcirc
+
+    labels = _degenerate_labels()[:1]
+    aN = _explicit(labels=labels)
+    with gb.use(backend, force=True):
+        aB = _explicit(labels=labels)
+    rc = float(aN._delta * numpy.sinh(aN._samples[0]["uc"]))
+    vc2 = float(as_numpy(vcirc(aN._staeckelwrap, rc, use_physical=False))) ** 2
+    for aA in (aN, aB):
+        GM, b = (float(as_numpy(t)) for t in (aA._GM, aA._b))
+        s = numpy.sqrt(b**2 + rc**2)
+        assert abs(b / rc - 1.0) < 1e-14
+        assert abs(GM * rc**2 / (s * (b + s) ** 2) / vc2 - 1.0) < 1e-13
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

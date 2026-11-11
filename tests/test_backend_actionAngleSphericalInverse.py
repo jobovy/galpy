@@ -440,8 +440,8 @@ def test_derivatives_wrt_potential_parameters(mode):
 @pytest.mark.skipif(jax is None or torch is None, reason="jax and torch needed")
 @pytest.mark.parametrize("mode", ["interp", "explicit"])
 def test_jax_jit_construction(mode):
-    # The whole pipeline -- the construction (its auxiliary fitted on the host
-    # through a callback) and the evaluation -- traces under jax.jit, and so
+    # The whole pipeline -- the construction (its auxiliary fitted on the
+    # device) and the evaluation -- traces under jax.jit, and so
     # does its derivative in a potential parameter; both agree with torch's
     # eager construction and autodiff
     p0 = 1.0 if mode == "interp" else 0.8
@@ -859,22 +859,56 @@ def test_cuda_potential_parameters_cpu_default_device():
 
 
 # ---------- the building blocks
-def test_fit_isochrone_host():
-    # the host fit of the auxiliary that a traced construction calls back
-    # into: the numpy fit, row by row over any leading (vmap) axes, with the
-    # (GM, b) in the first two slots
-    import importlib
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_isochrone_vc2(backend):
+    # The auxiliary's least-squares fit on a backend, as a traced construction
+    # runs it on the device: the numpy fit to round-off, eager and (jax)
+    # under jit and vmap over rotation curves, for a logarithmic halo, an
+    # isochrone (which it recovers) and a Kepler potential (whose fit runs to
+    # the floor in b and stops there), and at a single radius
+    from galpy.actionAngle.actionAngleInverseUtil import _fit_isochrone_vc2
+    from galpy.potential import IsochronePotential, KeplerPotential, vcirc
 
-    M = importlib.import_module("galpy.actionAngle.actionAngleSphericalInverse")
-    from galpy.potential import vcirc
-
-    rf = numpy.geomspace(0.5, 3.0, 25)
-    lnvc2 = numpy.log(vcirc(_pot(), rf) ** 2)
-    row = numpy.concatenate([[0.9, 0.9, 0.7], rf, lnvc2])
-    ref = M._fit_isochrone(0.9, 0.9, 0.7, rf, lnvc2)
-    out = M._fit_isochrone_host(numpy.stack([row, row]))
-    assert out.shape == (2, len(row))
-    numpy.testing.assert_array_equal(out[:, :2], numpy.array([ref, ref]))
+    rf = numpy.geomspace(0.3, 3.0, 25)
+    curves = numpy.array(
+        [
+            numpy.log(vcirc(p, rf) ** 2)
+            for p in (
+                _pot(),
+                IsochronePotential(amp=2.3, b=0.6),
+                KeplerPotential(normalize=1.0),
+            )
+        ]
+    )
+    ref = numpy.array([_fit_isochrone_vc2(rf, c) for c in curves])
+    numpy.testing.assert_allclose(ref[1], [2.3, 0.6], rtol=1e-14, atol=0.0)
+    numpy.testing.assert_allclose(ref[2], [1.0, 1e-8], rtol=1e-7, atol=0.0)
+    for c, r in zip(curves, ref):
+        got = _fit_isochrone_vc2(_arr(backend, rf), _arr(backend, c))
+        assert all(_is_backend(backend, g) and g.ndim == 0 for g in got)
+        numpy.testing.assert_allclose(
+            [float(as_numpy(g)) for g in got], r, rtol=1e-14, atol=0.0
+        )
+    # a single radius (a lone circular torus's range): the start, exact there
+    r1 = numpy.full(25, 1.3)
+    c1 = numpy.full(25, numpy.log(vcirc(_pot(), 1.3) ** 2))
+    for GM, b in (
+        _fit_isochrone_vc2(r1, c1),
+        (
+            float(as_numpy(t))
+            for t in _fit_isochrone_vc2(_arr(backend, r1), _arr(backend, c1))
+        ),
+    ):
+        s1 = numpy.sqrt(b**2 + 1.3**2)
+        assert abs(b / 1.3 - 1.0) < 1e-15
+        assert abs(numpy.log(GM * 1.3**2 / (s1 * (b + s1) ** 2)) - c1[0]) < 1e-14
+    if backend == "jax":
+        f = jax.jit(
+            jax.vmap(lambda c: jnp.stack(_fit_isochrone_vc2(jnp.asarray(rf), c)))
+        )
+        numpy.testing.assert_allclose(
+            numpy.asarray(f(jnp.asarray(curves))), ref, rtol=1e-14, atol=0.0
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
