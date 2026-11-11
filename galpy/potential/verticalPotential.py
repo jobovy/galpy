@@ -210,6 +210,12 @@ class _BatchedVerticalPotential(verticalPotential):
         mid = _evaluatePotentials(self._Pot, Rb, 0.0 * z, phi=tphi, t=t)
         return full - mid
 
+    def _force(self, z, t=0.0):
+        xp = get_namespace(z)
+        return _evaluatezforces(
+            self._Pot, self._Rb(z), z, phi=self._phi * xp.ones_like(z), t=t
+        )
+
 
 def RZToverticalPotential(RZPot, R):
     """
