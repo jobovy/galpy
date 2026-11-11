@@ -77,6 +77,17 @@ def test_promote_scalars_anchored_path_still_works(backend_name):
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_promote_scalars_negative_stride_numpy_view(backend_name):
+    # A reversed numpy view (negative stride) is coerced like any other array:
+    # torch.asarray rejects it directly, so it is made contiguous first
+    a = numpy.linspace(0.1, 1.0, 5)
+    with backend.use(backend_name, force=True) as xp:
+        (out,) = promote_scalars(xp, a[::-1])
+    assert is_backend_array(out)
+    assert numpy.array_equal(as_numpy(out), a[::-1])
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_coords_transform_all_numpy_under_forced_backend(backend_name):
     # Integration: a coords transform fed plain python/numpy scalars under a
     # forced backend (the exact failure of the migrated RotateAndTilt / Offset /

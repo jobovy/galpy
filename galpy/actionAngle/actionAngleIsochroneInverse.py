@@ -86,7 +86,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
 
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus.
+        Evaluate the phase-space coordinates (x,v) at actions and angles that broadcast against each other (a single torus at a number of angles, or arrays of actions with each point on its own torus).
 
         Parameters
         ----------
@@ -116,7 +116,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
-        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies.
+        Evaluate the phase-space coordinates (x,v) and the frequencies at actions and angles that broadcast against each other (a single torus at a number of angles, or arrays of actions with each point on its own torus).
 
         Parameters
         ----------
@@ -141,11 +141,35 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         Notes
         -----
         - 2017-11-15 - Written - Bovy (UofT).
+        - 2026-11-11 - Arrays of actions, broadcast against the angles - Bovy (UofT)
         """
         xp = get_namespace(jr, jphi, jz, angler, anglephi, anglez)
         jr, jphi, jz, angler, anglephi, anglez = promote_scalars(
             xp, jr, jphi, jz, angler, anglephi, anglez
         )
+        shape = None
+        if numpy.ndim(jr) > 0 or numpy.ndim(jphi) > 0 or numpy.ndim(jz) > 0:
+            # arrays of actions: everything below is elementwise, so the
+            # actions and angles are broadcast to one shape, evaluated flat
+            # (each point on its own torus), and returned in that shape
+            if xp is numpy:
+                args = numpy.broadcast_arrays(
+                    *(
+                        numpy.atleast_1d(numpy.asarray(t, dtype="float"))
+                        for t in (jr, jphi, jz, angler, anglephi, anglez)
+                    )
+                )
+            else:
+                args = xp.broadcast_arrays(
+                    *(
+                        xp.atleast_1d(t)
+                        for t in (jr, jphi, jz, angler, anglephi, anglez)
+                    )
+                )
+            shape = args[0].shape
+            jr, jphi, jz, angler, anglephi, anglez = (
+                xp.reshape(t, (-1,)) for t in args
+            )
         L = jz + xp.abs(jphi)  # total angular momentum
         # the torus's (a, e), the latter in the product form that is exact
         # down to the circular orbit
@@ -184,9 +208,9 @@ class actionAngleIsochroneInverse(actionAngleInverse):
                 1.0 + numpy.fabs(angler)
             )
             for ii in numpy.arange(len(angler))[bad]:
-                ar = angler[ii]
+                ar, ki = angler[ii], numpy.broadcast_to(k, angler.shape)[ii]
                 eta[ii] = optimize.brentq(
-                    lambda x: x - k * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
+                    lambda x: x - ki * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
                 )
         else:
             # Differentiable, vectorised bracketed-Newton on [0, 2pi] (f is strictly
@@ -201,7 +225,8 @@ class actionAngleIsochroneInverse(actionAngleInverse):
                 xp.full_like(angler, 2.0 * numpy.pi),
                 args=(_c, angler),
             )
-        return self._xvFreqs_from_eta(jr, jphi, jz, eta, anglephi, anglez)
+        out = self._xvFreqs_from_eta(jr, jphi, jz, eta, anglephi, anglez)
+        return out if shape is None else tuple(xp.reshape(o, shape) for o in out)
 
     def _xvFreqs_from_eta(self, jr, jphi, jz, eta, anglephi, anglez):
         """(x, v) and the frequencies of the (J_r, J_phi, J_z) torus at the

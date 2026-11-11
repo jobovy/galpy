@@ -924,6 +924,9 @@ def asarray_on_device(xp, a, device, dtype=None):
     ``torch.asarray(x, dtype=numpy.float64)`` (which raises) works.
     """
     dtype = _backend_dtype(xp, dtype)
+    if isinstance(a, numpy.ndarray) and any(s < 0 for s in a.strides):
+        # torch rejects a numpy view with a negative stride (e.g. x[::-1])
+        a = numpy.ascontiguousarray(a)
     # Fast path: an array that already has the requested dtype and device needs
     # nothing done to it, and xp.asarray would still cost an eager dispatch (this
     # helper is on every coordinate-coercion path, so those add up: ~120 calls per

@@ -1,6 +1,17 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- ``actionAngleIsochroneInverse`` broadcasts arrays of actions against the
+  angles by numpy's rules, like the other inverses: before, arrays of actions
+  had to have the shape of the angles, and an array of actions at a scalar
+  angle, or actions of shape (n,1) with angles of shape (m,), raised. The
+  same holds on the jax and PyTorch backends, differentiably and under
+  ``jax.jit``.
+
+- Under a forced PyTorch backend, a reversed numpy view (e.g., ``x[::-1]``)
+  passed as a coordinate is converted like any other array; before, PyTorch
+  rejected its negative stride.
+
 - ``actionAngleSphericalInverse`` and ``actionAngleVerticalInverse`` have a
   public ``E`` method, the inverse of their ``Jr(E, L)`` and ``J(E)``: the
   energy of the torus with the given actions, for arrays of actions, from the
