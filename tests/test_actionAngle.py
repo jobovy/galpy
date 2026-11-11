@@ -9192,20 +9192,23 @@ def test_actionAngleVerticalInverse_convergence_warnings():
         if PY2:
             reset_warning_registry("galpy")
         warnings.simplefilter("always", galpyWarning)
+        # with the forward transformation's accurate actions, frequencies
+        # and turning points the torus-mapping iteration converges even at
+        # this energy, so the warnings are exercised with a small maxiter
         aAVI = actionAngleVerticalInverse(
             pot=isopot,
             nta=4 * 128,
             Es=[300.0],
             use_pointtransform=False,
             momentum_matched=False,
-            maxiter=100,
+            maxiter=5,
         )
         # Should raise convergence warnings
         raisedWarning = False
         for wa in w:
             raisedWarning = (
                 str(wa.message)
-                == "Torus mapping with Newton-Raphson did not converge in 100 iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"
+                == "Torus mapping with Newton-Raphson did not converge in 5 iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"
             )
             if raisedWarning:
                 break
@@ -9215,7 +9218,7 @@ def test_actionAngleVerticalInverse_convergence_warnings():
         for wa in w:
             raisedWarning = (
                 str(wa.message)
-                == "Torus mapping with bisection did not converge in 100 iterations for energies: 300"
+                == "Torus mapping with bisection did not converge in 5 iterations for energies: 300"
             )
             if raisedWarning:
                 break
@@ -9228,14 +9231,14 @@ def test_actionAngleVerticalInverse_convergence_warnings():
     # harmonics, and fails outright when the turning point cannot be found
     with pytest.warns(galpyWarning, match="not converged for energies: 30"):
         actionAngleVerticalInverse(pot=isopot, nta=128, Es=[1.0, 30.0])
-    from galpy.backend import backend
+    # and fails outright when the turning point cannot be found: an energy
+    # above the escape energy of a potential that has one
+    from galpy.potential import MWPotential2014, toVerticalPotential
 
-    if backend() == "numpy":  # numpy's calcxmax gives up at this energy
-        with pytest.raises(RuntimeError, match="turning point could not be found"):
-            actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
-    else:  # the backend root finder finds it; the map is then not converged
-        with pytest.warns(galpyWarning, match="not converged for energies: 300"):
-            actionAngleVerticalInverse(pot=isopot, nta=128, Es=[300.0])
+    with pytest.raises(RuntimeError, match="turning point could not be found"):
+        actionAngleVerticalInverse(
+            pot=toVerticalPotential(MWPotential2014, 1.0), nta=128, Es=[0.1, 5.0]
+        )
     return None
 
 
@@ -13682,4 +13685,54 @@ def test_actionAngleVertical_arrays_and_small_tori():
         assert (
             numpy.fabs(aAV.calcxmax(0.0, 0.5) - aAV._points(0.0, 0.5)[3][0]) < 1e-12
         ), "calcxmax from the midplane disagrees"
+    return None
+
+
+def test_actionAngleVerticalInverse_small_tori():
+    # The smallest tori of a vertical potential measured from the midplane:
+    # the construction samples the momentum through the forward
+    # transformation's radicand, which uses the force where the potential's
+    # own round-off would spoil E - Phi, so the tori build without the
+    # convergence warning, round-trip through the forward transformation, and
+    # the bottom torus has the harmonic frequency
+    import warnings
+
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.potential import (
+        MWPotential2014,
+        evaluatelinearPotentials,
+        toVerticalPotential,
+        verticalfreq,
+    )
+
+    pot = toVerticalPotential(MWPotential2014, 1.0)
+    # (as_numpy: under a forced backend the results stay on the backend)
+    Phi0 = float(as_numpy(evaluatelinearPotentials(pot, 0.0, use_physical=False)))
+    Es = Phi0 + numpy.concatenate([[0.0], numpy.geomspace(1e-9, 1e-3, 13)])
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        aAVI = actionAngleVerticalInverse(pot=pot, Es=Es, setup_interp=True)
+    assert not any("converged" in str(x.message) for x in w), (
+        "The smallest tori trigger the convergence warning: round-off in E - Phi"
+    )
+    nu0 = float(as_numpy(verticalfreq(MWPotential2014, 1.0)))
+    assert numpy.fabs(float(as_numpy(aAVI.Freqs(0.0))) / nu0 - 1.0) < 1e-9, (
+        "The bottom torus does not have the harmonic frequency"
+    )
+    aAV = actionAngleVertical(pot=pot)
+    angles = numpy.linspace(0.1, 6.1, 25)
+    for E in Es[1:6]:
+        J = float(as_numpy(aAVI.J(E)))
+        x, v = aAVI(J, angles)
+        Jf, Of, af = _spherical_inverse_npt(aAV.actionsFreqsAngles(x, v))
+        assert numpy.all(numpy.fabs(Jf / J - 1.0) < 1e-8), (
+            "The smallest tori do not round-trip in the action"
+        )
+        d = (af - angles + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.all(numpy.fabs(d) < 1e-7), (
+            "The smallest tori do not round-trip in the angle"
+        )
+        assert numpy.all(
+            numpy.fabs(Of / float(as_numpy(aAVI.Freqs(J))) - 1.0) < 1e-8
+        ), "The smallest tori do not round-trip in the frequency"
     return None

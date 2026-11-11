@@ -491,6 +491,47 @@ def test_derivatives_wrt_potential_parameters(backend, name, p0, kw):
     numpy.testing.assert_allclose(g, fd, rtol=0.0, atol=3e-10)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_small_tori_on_a_backend(backend):
+    # The smallest tori of a vertical potential measured from the midplane,
+    # built on a backend: the sweep samples the momentum through the forward
+    # transformation's radicand (the force where the potential's round-off
+    # would spoil E - Phi), so the family is numpy's to round-off, actions,
+    # frequencies, and the tori's (x, v) relative to their size (both used to
+    # carry the round-off of E - Phi, ~2e-5 apart)
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import (
+        MWPotential2014,
+        evaluatelinearPotentials,
+        toVerticalPotential,
+    )
+
+    pot = toVerticalPotential(MWPotential2014, 1.0)
+    Phi0 = float(evaluatelinearPotentials(pot, 0.0, use_physical=False))
+    Es = Phi0 + numpy.geomspace(1e-9, 1e-3, 7)
+    aN = actionAngleVerticalInverse(pot=pot, Es=Es)
+    with gb.use(backend, force=True):
+        aB = actionAngleVerticalInverse(
+            pot=toVerticalPotential(MWPotential2014, 1.0), Es=Es
+        )
+    numpy.testing.assert_allclose(
+        as_numpy(aB._mm_bk["js"]), aN._js, rtol=1e-12, atol=0.0
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(aB._mm_bk["Om"]), aN._Omegas, rtol=1e-12, atol=0.0
+    )
+    for j in aN._js:
+        ref = aN.xvFreqs(j, _ANGLES)
+        with gb.use(backend, force=True):
+            got = aB.xvFreqs(float(j), _ANGLES)
+        for g, r in zip(got[:2], ref[:2]):
+            assert _is_backend(backend, g)
+            numpy.testing.assert_allclose(
+                as_numpy(g), r, rtol=0.0, atol=1e-12 * numpy.max(numpy.abs(r))
+            )
+
+
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_jax_jit_construction():
     # the whole pipeline -- construction and evaluation -- traces under jax.jit,
