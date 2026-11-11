@@ -1,6 +1,17 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- ``actionAngleStaeckelInverse`` evaluates arrays of actions, broadcast
+  against the angles by numpy's rules like the vertical and spherical
+  inverses (scalar actions with arrays of angles: one torus at those angles;
+  arrays of actions with scalar angles: that angle on every torus; equal
+  shapes: each point on its own torus at its own angle; actions of shape
+  (n,1) with angles of shape (m,): every angle on every torus), in ``__call__``,
+  ``xvFreqs`` and ``Freqs``, with the tables read once per distinct torus;
+  a single torus takes angles of any shape and returns its frequencies as
+  floats. The same holds on the jax and PyTorch backends, where each point's
+  derivatives go to its own actions, also under ``jax.jit``.
+
 - ``actionAngleIsochroneInverse`` broadcasts arrays of actions against the
   angles by numpy's rules, like the other inverses: before, arrays of actions
   had to have the shape of the angles, and an array of actions at a scalar
