@@ -62,7 +62,11 @@ class LinearHermite:
         self._j0, self._y0, self._dy0 = j0, numpy.array(y0), numpy.array(dy0)
 
     def __call__(self, j):
-        return self._y0 + self._dy0 * (j - self._j0)
+        j = numpy.asarray(j, dtype="float")
+        if j.ndim == 0:
+            return self._y0 + self._dy0 * (j - self._j0)
+        # an array of actions: one row per action
+        return self._y0 + numpy.multiply.outer(j - self._j0, self._dy0)
 
     def derivative(self):
         return LinearHermite(self._j0, self._dy0, 0.0 * self._dy0)

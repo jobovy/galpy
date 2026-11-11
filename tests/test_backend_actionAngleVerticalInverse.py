@@ -220,6 +220,96 @@ def test_float32_in_float32_out(backend):
         assert str(out.dtype).endswith("float32")
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "kw",
+    [{"setup_interp": True}, {"Es": [0.1, 0.3]}, {"Es": [0.3]}],
+    ids=["interp", "two_tori", "one_torus"],
+)
+def test_array_actions(backend, kw):
+    # Arrays of actions, broadcast against the angles: each point is its own
+    # torus, as on numpy. A numpy-built family on backend inputs agrees with the
+    # numpy array evaluation to round-off and a family built on a backend
+    # (forced) to ~1e-11 (as for a single torus), with the J = 0 torus among
+    # the points; the outputs take the broadcast shape (a (tori, angles) grid
+    # too), and the frequencies are an array. Each point's derivatives in its
+    # action and its angle are those of the single-torus evaluation.
+    from galpy import backend as gb
+
+    aA = _aAVI(**kw)
+    if "Es" in kw and len(kw["Es"]) == 1:
+        # one torus: a family built on a backend stores its tables as the
+        # torus's tangent lines, a row of D per point
+        js = numpy.array([aA._js[0], 0.0, aA._js[0]])
+    elif "Es" in kw:
+        js = numpy.array([aA._js[0], aA._js[1], 0.0, aA._js[1], aA._js[0]])
+    else:
+        js = numpy.array([0.02, 0.137, 0.0, 0.31, 0.137])
+    ang = _ANGLES[: len(js)]
+    ref = aA.xvFreqs(js, ang)
+    ref2 = aA(js[:, None], _ANGLES[None, :])
+    with gb.use(backend, force=True):
+        aB = _aAVI(**kw)
+    for fam, tol in ((aA, 2e-14), (aB, 1e-11)):
+        got = fam.xvFreqs(_arr(backend, js), _arr(backend, ang))
+        got2 = fam(_arr(backend, js)[:, None], _arr(backend, _ANGLES)[None, :])
+        for g, r in zip(got + got2, ref + ref2):
+            assert _is_backend(backend, g) and g.shape == r.shape
+            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=tol)
+        Om = fam.Freqs(_arr(backend, js))
+        assert _is_backend(backend, Om) and Om.shape == js.shape
+        numpy.testing.assert_allclose(as_numpy(Om), aA.Freqs(js), rtol=0.0, atol=tol)
+    # per-point derivatives (the librating points) against the single torus's
+    lib = js > 0.0
+    jl, al = js[lib], ang[lib]
+    if backend == "jax":
+        # jitted, so that the single torus compiles once for all the points
+
+        def f(j, a):
+            return jnp.stack(aA.xvFreqs(j, a)[:2])
+
+        dJ, dA = (
+            numpy.asarray(d)
+            for d in jax.jit(jax.jacfwd(f, argnums=(0, 1)))(
+                jnp.asarray(jl), jnp.asarray(al)
+            )
+        )
+        # the Jacobian is diagonal: each point depends on its own (J, theta)
+        n = len(jl)
+        off = ~numpy.eye(n, dtype=bool)
+        assert numpy.all(dJ[:, off] == 0.0) and numpy.all(dA[:, off] == 0.0)
+        dJ = numpy.stack([numpy.diag(dJ[q]) for q in range(2)])
+        dA = numpy.stack([numpy.diag(dA[q]) for q in range(2)])
+        one = jax.jit(jax.jacfwd(lambda j, a: f(j, a)[:, 0], argnums=(0, 1)))
+        ref1 = [
+            numpy.concatenate(
+                [
+                    numpy.ravel(d)
+                    for d in one(jnp.asarray(jl[k]), jnp.asarray(al[k : k + 1]))
+                ]
+            )
+            for k in range(n)
+        ]
+    else:
+        jt = _arr(backend, jl, grad=True)
+        at = _arr(backend, al, grad=True)
+        x, v = aA.xvFreqs(jt, at)[:2]
+        dJ, dA = [], []
+        for q in (x, v):
+            gJ, gA = torch.autograd.grad(q.sum(), (jt, at), retain_graph=True)
+            dJ.append(as_numpy(gJ))
+            dA.append(as_numpy(gA))
+        dJ, dA = numpy.stack(dJ), numpy.stack(dA)
+        ref1 = []
+        for k in range(len(jl)):
+            one = _jac_backend(backend, aA, jl[k], al[k : k + 1])
+            ref1.append([one[0][0], one[1][0], one[2][0], one[3][0]])
+    for k in range(len(jl)):
+        numpy.testing.assert_allclose(
+            [dJ[0, k], dJ[1, k], dA[0, k], dA[1, k]], ref1[k], rtol=1e-12, atol=1e-14
+        )
+
+
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_jax_jit():
     # the evaluation (bracketed root find included) traces under jax.jit
@@ -230,6 +320,11 @@ def test_jax_jit():
         return jnp.concatenate([jnp.ravel(v) for v in aA.xvFreqs(j, a)])
 
     got = jax.jit(f)(jnp.asarray(0.137), jnp.asarray(_ANGLES))
+    numpy.testing.assert_allclose(numpy.asarray(got), ref, rtol=0.0, atol=2e-14)
+    # and an array of actions, one per angle
+    js = numpy.array([0.02, 0.137, 0.0, 0.31, 0.137, 0.2, 0.05])
+    ref = numpy.concatenate([numpy.ravel(v) for v in aA.xvFreqs(js, _ANGLES)])
+    got = jax.jit(f)(jnp.asarray(js), jnp.asarray(_ANGLES))
     numpy.testing.assert_allclose(numpy.asarray(got), ref, rtol=0.0, atol=2e-14)
 
 
