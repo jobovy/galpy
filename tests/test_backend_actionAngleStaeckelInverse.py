@@ -1108,6 +1108,19 @@ def test_hermite_ev4_rows(backend):
                 numpy.testing.assert_allclose(
                     as_numpy(gt)[k], as_numpy(o), rtol=0.0, atol=1e-14
                 )
+    # more points than a chunk of the read holds (2604 for two tables), also
+    # under jax.jit
+    many = numpy.random.default_rng(2).uniform(
+        [0.0, 0.5, -1.0], [1.0, 2.0, 1.0], (3000, 3)
+    )
+    ref = ipn.batch_all(*many.T)
+    ev = ipb.ev4_rows
+    if backend == "jax":
+        import jax
+
+        ev = jax.jit(ipb.ev4_rows)
+    for r, gt in zip(ref, ev(*(_arr(backend, c) for c in many.T))):
+        numpy.testing.assert_allclose(as_numpy(gt), r, rtol=0.0, atol=1e-12)
 
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")

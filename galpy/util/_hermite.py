@@ -9,7 +9,7 @@
 import numpy
 from scipy.interpolate import CubicSpline
 
-from ..backend import asarray_on_device, device_of, is_backend_array
+from ..backend import asarray_on_device, device_of, is_backend_array, map_row_chunks
 from ..backend._namespaces import namespace_from_arrays, stop_gradient, under_jax_trace
 from ..backend.interpolate import cubic_spline_coeffs
 
@@ -401,9 +401,10 @@ class HermiteFamily3D:
         fxx, fxxy, fxxz = d(fx, 0, self._x), d(fxy, 0, self._x), d(fxz, 0, self._x)
         fxxyz = d(fxyz, 0, self._x)
         # the twelve quantities of a node, ordered as (f, f_x, f_xx) for each
-        # of (as is, d/dy, d/dz, d^2/dy dz)
+        # of (as is, d/dy, d/dz, d^2/dy dz), stored node by node as
+        # (nx, ny, nz, 12, k) so that a node's quantities are one block
         self._nodes = numpy.stack(
-            [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz]
+            [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz], axis=3
         )
 
     def _init_xp(self, xp, x, y, z, f, fx, fy, fz):
@@ -429,7 +430,7 @@ class HermiteFamily3D:
         fxz, fyz, fxyz = d([fx, fy, fxy], 2, z)
         fxx, fxxy, fxxz, fxxyz = d([fx, fxy, fxz, fxyz], 0, x)
         self._nodes = xp.stack(
-            [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz]
+            [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz], axis=3
         )
         return None
 
@@ -456,55 +457,20 @@ class HermiteFamily3D:
         xp = _ns(x, y, z)
         dev = device_of(x, y, z) if xp is not numpy else device_of(self._nodes)
         xp = xp if xp is not numpy else self._xp
-        xg, yg, zg, nodes = self._nodes_on(xp, dev)
         x, y, z = (
-            t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
+            xp.reshape(
+                t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0,
+                (1,),
+            )
             for t in (x, y, z)
         )
-        cells = []
-        for g, t in ((xg, x), (yg, y), (zg, z)):
-            i = xp.clip(
-                xp.searchsorted(
-                    stop_gradient(g), xp.reshape(_dense(t), (1,)), side="right"
-                )[0]
-                - 1,
-                0,
-                g.shape[0] - 2,
-            )
-            h = g[i + 1] - g[i]
-            cells.append((i, h, (t - g[i]) / h))
-        (i, hx, sv), (j, hy, tv), (l, hz, wv) = cells
-        two = asarray_on_device(xp, numpy.arange(2), dev)
-        blk = nodes[:, i + two][:, :, j + two][:, :, :, l + two]  # (12, 2, 2, 2, k)
-        K = blk.shape[-1]
-        B = xp.reshape(blk, (2, 2, 3, 2, 2, 2, K))  # (cz, cy, r, q, yn, zn, K)
-        one = 1.0 + 0.0 * hx
-        sr = xp.stack([one, hx, hx * hx])
-        sy, sz = xp.stack([one, hy]), xp.stack([one, hz])
-        B = (
-            B
-            * (sz[:, None, None] * sy[None, :, None] * sr[None, None, :])[
-                ..., None, None, None, None
-            ]
-        )
-        F = xp.reshape(xp.permute_dims(B, (3, 2, 1, 4, 0, 5, 6)), (6, 4, 4, K))
-        Mq = asarray_on_device(xp, self._Mq, dev)
-        Mc = asarray_on_device(xp, self._Mc, dev)
-        ps, dps = (_power_basis(xp, sv, 6, k, hx) for k in (0, 1))
-        pt, dpt = (_power_basis(xp, tv, 4, k, hy) for k in (0, 1))
-        pw, dpw = (_power_basis(xp, wv, 4, k, hz) for k in (0, 1))
-        wa, dwa = Mq.T @ ps, Mq.T @ dps
-        wb, dwb = Mc.T @ pt, Mc.T @ dpt
-        wc, dwc = Mc.T @ pw, Mc.T @ dpw
-        return tuple(
-            xp.einsum("a,b,c,abcK->K", A, Bv, C, F)
-            for A, Bv, C in ((wa, wb, wc), (dwa, wb, wc), (wa, dwb, wc), (wa, wb, dwc))
-        )
+        return tuple(o[0] for o in self.ev4_rows(x, y, z))
 
     def ev4_rows(self, x, y, z):
         """ev4 at many points at once (x, y, z: 1-D arrays of one length), in
-        jax/torch: four (npoints, k) arrays, each point's cell data gathered
-        in one indexing pass"""
+        jax/torch: four (npoints, k) arrays, read as batch_all reads them
+        (the eight nodes' blocks gathered, then contracted with the Hermite
+        weights z, y, x in turn)"""
         xp = _ns(x, y, z)
         dev = device_of(x, y, z) if xp is not numpy else device_of(self._nodes)
         xp = xp if xp is not numpy else self._xp
@@ -513,47 +479,47 @@ class HermiteFamily3D:
             t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
             for t in (x, y, z)
         )
-        cells = []
-        for g, t in ((xg, x), (yg, y), (zg, z)):
+
+        def cells(g, t, M):
+            # batch_all's cells: (npoints, 2, node, order) weights
             i = xp.clip(
                 xp.searchsorted(stop_gradient(g), _dense(t), side="right") - 1,
                 0,
                 g.shape[0] - 2,
             )
             h = g[i + 1] - g[i]
-            cells.append((i, h, (t - g[i]) / h))
-        (i, hx, sv), (j, hy, tv), (l, hz, wv) = cells
-        two = asarray_on_device(xp, numpy.arange(2), dev)
-        blk = nodes[
-            :,
-            (i[:, None] + two[None, :])[:, :, None, None],
-            (j[:, None] + two[None, :])[:, None, :, None],
-            (l[:, None] + two[None, :])[:, None, None, :],
-        ]  # (12, n, 2, 2, 2, k)
-        n, K = blk.shape[1], blk.shape[-1]
-        B = xp.reshape(blk, (2, 2, 3, n, 2, 2, 2, K))  # (cz, cy, r, n, q, yn, zn, K)
-        one = 1.0 + 0.0 * hx
-        sr = xp.stack([one, hx, hx * hx])
-        sy, sz = xp.stack([one, hy]), xp.stack([one, hz])
-        B = (
-            B
-            * (sz[:, None, None, :] * sy[None, :, None, :] * sr[None, None, :, :])[
-                ..., None, None, None, None
-            ]
-        )
-        F = xp.reshape(xp.permute_dims(B, (3, 4, 2, 1, 5, 0, 6, 7)), (n, 6, 4, 4, K))
-        Mq = asarray_on_device(xp, self._Mq, dev)
-        Mc = asarray_on_device(xp, self._Mc, dev)
-        ps, dps = (_power_basis(xp, sv, 6, k, hx) for k in (0, 1))
-        pt, dpt = (_power_basis(xp, tv, 4, k, hy) for k in (0, 1))
-        pw, dpw = (_power_basis(xp, wv, 4, k, hz) for k in (0, 1))
-        wa, dwa = ps @ Mq, dps @ Mq
-        wb, dwb = pt @ Mc, dpt @ Mc
-        wc, dwc = pw @ Mc, dpw @ Mc
-        return tuple(
-            xp.einsum("na,nb,nc,nabcK->nK", A, Bv, C, F)
-            for A, Bv, C in ((wa, wb, wc), (dwa, wb, wc), (wa, dwb, wc), (wa, wb, dwc))
-        )
+            s, n = (t - g[i]) / h, M.shape[0]
+            w = xp.stack([_power_basis(xp, s, n, k, h) @ M for k in (0, 1)], axis=1)
+            if n == 4:
+                w = xp.permute_dims(xp.reshape(w, (-1, 2, 2, 2)), (0, 1, 3, 2))
+            else:
+                w = xp.reshape(w, (-1, 2, 2, 3))
+            hp = xp.stack([1.0 + 0.0 * h, h, h * h][: n // 2], axis=1)
+            return i, w * hp[:, None, None, :]
+
+        i, A = cells(xg, x, asarray_on_device(xp, self._Mq, dev))
+        j, B = cells(yg, y, asarray_on_device(xp, self._Mc, dev))
+        l, C = cells(zg, z, asarray_on_device(xp, self._Mc, dev))
+        o = asarray_on_device(xp, numpy.arange(2), dev)
+        k = nodes.shape[-1]
+
+        def read(i, j, l, A, B, C):
+            n = i.shape[0]
+            G = nodes[
+                i[:, None, None, None] + o,
+                j[:, None, None, None] + o[:, None],
+                l[:, None, None, None] + o[:, None, None],
+            ]  # (n, zn, yn, xn, 12, k)
+            G = xp.permute_dims(
+                xp.reshape(G, (n, 2, 2, 2, 2, 2, 3, k)), (0, 1, 4, 2, 5, 3, 6, 7)
+            )
+            G = xp.reshape(C, (n, 2, 4)) @ xp.reshape(G, (n, 4, 24 * k))
+            G = xp.reshape(B, (n, 1, 2, 4)) @ xp.reshape(G, (n, 2, 4, 6 * k))
+            G = xp.reshape(A, (n, 1, 1, 2, 6)) @ xp.reshape(G, (n, 2, 2, 6, k))
+            return G[:, 0, 0, 0], G[:, 0, 0, 1], G[:, 0, 1, 0], G[:, 1, 0, 0]
+
+        # in chunks of batch_all's size
+        return map_row_chunks(xp, read, (i, j, l, A, B, C), max(1, 500_000 // (96 * k)))
 
     @staticmethod
     def _cell(nodes, val):
@@ -565,98 +531,57 @@ class HermiteFamily3D:
 
     def batch_all(self, x, y, z):
         """The interpolant and its three first partials at many points at
-        once, as four (npoints, k) arrays: the points' cell data are
-        gathered in one indexing pass and contracted with the four sets of
-        Hermite weights, in chunks that keep the gathered tensors to a few
-        tens of megabytes"""
+        once, as four (npoints, k) arrays: the twelve quantities of each of
+        a point's eight nodes are gathered as blocks and contracted with
+        the Hermite weights one variable after the other, each contraction
+        serving every output that shares it, in chunks that keep the
+        gathered blocks to a few megabytes"""
         x, y, z = (numpy.asarray(q, dtype="float").ravel() for q in (x, y, z))
-        k = self._nodes.shape[-1]
-        out = [numpy.empty((len(x), k)) for _ in range(4)]
-        step = max(1, 2_000_000 // (96 * k))
-        for lo in range(0, len(x), step):
-            sl = slice(lo, lo + step)
-            for o, r in zip(out, self._batch_all(x[sl], y[sl], z[sl])):
-                o[sl] = r
-        return out
 
-    # the gather pattern of a cell's data tensor F[a, b, c]: which of the
-    # twelve node quantities (f, f_x, f_xx) x (as is, d/dy, d/dz, d^2/dy dz)
-    # sits there, at which corner of the cell, and the powers of the cell
-    # widths that scale it
-    _rows = (
-        numpy.arange(6)[:, None, None]
-        + 0 * numpy.arange(4)[None, :, None]
-        + 0 * numpy.arange(4)[None, None, :]
-    )
-    _cols = (
-        0 * numpy.arange(6)[:, None, None]
-        + numpy.arange(4)[None, :, None]
-        + 0 * numpy.arange(4)[None, None, :]
-    )
-    _deps = (
-        0 * numpy.arange(6)[:, None, None]
-        + 0 * numpy.arange(4)[None, :, None]
-        + numpy.arange(4)[None, None, :]
-    )
-    _gq = _rows % 3 + 3 * (_cols // 2) + 6 * (_deps // 2)
-    _gi, _gj, _gl = _rows // 3, _cols % 2, _deps % 2
-    _px, _py, _pz = _rows % 3, _cols // 2, _deps // 2
-
-    def _batch_all(self, x, y, z):
-        def cells(nodes, vals):
+        def cells(nodes, vals, M):
+            # the cell of every point and the Hermite weights of its nodes'
+            # quantities as (npoints, 2, node, order): for the interpolant
+            # and for its derivative, with the powers of the cell's width
+            # that the node's derivatives carry
             i = numpy.clip(
                 numpy.searchsorted(nodes, vals, side="right") - 1, 0, len(nodes) - 2
             )
             h = nodes[i + 1] - nodes[i]
-            return i, h, (vals - nodes[i]) / h
-
-        i, hx, s = cells(self._x, x)
-        j, hy, t = cells(self._y, y)
-        l, hz, w = cells(self._z, z)
-        # the cells' data tensors, (6, 4, 4, n, k), in one gather
-        F = (
-            self._nodes[
-                self._gq[..., None],
-                i[None, None, None, :] + self._gi[..., None],
-                j[None, None, None, :] + self._gj[..., None],
-                l[None, None, None, :] + self._gl[..., None],
+            s, n = (vals - nodes[i]) / h, len(M)
+            P = HermiteFamily2D._powers
+            w = numpy.stack([P(s, h, False, n) @ M, P(s, h, True, n) @ M], axis=1)
+            if n == 4:  # cubic: the values at both nodes, then the slopes
+                w = w.reshape(-1, 2, 2, 2).transpose(0, 1, 3, 2)
+            else:  # quintic: (f, f_x, f_xx) at the lower node, then the upper
+                w = w.reshape(-1, 2, 2, 3)
+            return i, w * numpy.stack([h**a for a in range(n // 2)], axis=1)[
+                :, None, None, :
             ]
-            * (
-                hx[None, None, None, :] ** self._px[..., None]
-                * hy[None, None, None, :] ** self._py[..., None]
-                * hz[None, None, None, :] ** self._pz[..., None]
-            )[..., None]
-        )
-        a6, a4 = numpy.arange(6), numpy.arange(4)
-        ps, dps = (
-            s[:, None] ** a6,
-            a6 * s[:, None] ** numpy.maximum(a6 - 1, 0) / hx[:, None],
-        )
-        pt, dpt = (
-            t[:, None] ** a4,
-            a4 * t[:, None] ** numpy.maximum(a4 - 1, 0) / hy[:, None],
-        )
-        pw, dpw = (
-            w[:, None] ** a4,
-            a4 * w[:, None] ** numpy.maximum(a4 - 1, 0) / hz[:, None],
-        )
-        wa, dwa = ps @ self._Mq, dps @ self._Mq
-        wb, dwb = pt @ self._Mc, dpt @ self._Mc
-        wc, dwc = pw @ self._Mc, dpw @ self._Mc
-        Fc = numpy.einsum("abcnK,nc->abnK", F, wc)
-        Fcb = numpy.einsum("abnK,nb->anK", Fc, wb)
-        return (
-            numpy.einsum("anK,na->nK", Fcb, wa),
-            numpy.einsum("anK,na->nK", Fcb, dwa),
-            numpy.einsum("anK,na->nK", numpy.einsum("abnK,nb->anK", Fc, dwb), wa),
-            numpy.einsum(
-                "anK,na->nK",
-                numpy.einsum(
-                    "abnK,nb->anK", numpy.einsum("abcnK,nc->abnK", F, dwc), wb
-                ),
-                wa,
-            ),
-        )
+
+        i, A = cells(self._x, x, self._Mq)
+        j, B = cells(self._y, y, self._Mc)
+        l, C = cells(self._z, z, self._Mc)
+        k, o = self._nodes.shape[-1], numpy.arange(2)
+        out = numpy.empty((4, len(x), k))
+        step = max(1, 500_000 // (96 * k))
+        for lo in range(0, len(x), step):
+            sl = slice(lo, lo + step)
+            n = len(i[sl])
+            # the blocks of the eight nodes, with z's nodes outermost, and
+            # the quantities split as (d/dz order, d/dy order, d/dx order)
+            G = self._nodes[
+                i[sl, None, None, None] + o,
+                j[sl, None, None, None] + o[:, None],
+                l[sl, None, None, None] + o[:, None, None],
+            ].reshape(n, 2, 2, 2, 2, 2, 3, k)
+            G = numpy.ascontiguousarray(G.transpose(0, 1, 4, 2, 5, 3, 6, 7))
+            # z, then y, then x: each product carries the interpolant and
+            # the derivative in its variable
+            G = C[sl].reshape(n, 2, 4) @ G.reshape(n, 4, 24 * k)
+            G = B[sl].reshape(n, 1, 2, 4) @ G.reshape(n, 2, 4, 6 * k)
+            G = A[sl].reshape(n, 1, 1, 2, 6) @ G.reshape(n, 2, 2, 6, k)
+            out[:, sl] = G[:, 0, 0, 0], G[:, 0, 0, 1], G[:, 0, 1, 0], G[:, 1, 0, 0]
+        return tuple(out)
 
     def __call__(self, x, y, z, dx=0, dy=0, dz=0):
         if self._xp is not numpy or _ns(x, y, z) is not numpy:
@@ -687,7 +612,7 @@ class HermiteFamily3D:
         # the cell's data tensor: rows (f, hx f_x, hx^2 f_xx) at x_i then at
         # x_{i+1}; columns the values at y_j, y_{j+1}, then hy times the
         # y-derivatives there; likewise along z
-        blk = self._nodes[:, i : i + 2, j : j + 2, l : l + 2]
+        blk = numpy.moveaxis(self._nodes[i : i + 2, j : j + 2, l : l + 2], 3, 0)
         F = numpy.empty((6, 4, 4, blk.shape[-1]))
         for r, sr in enumerate((1.0, hx, hx * hx)):
             for cy, sy in enumerate((1.0, hy)):

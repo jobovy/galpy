@@ -20,6 +20,7 @@ from ._coerce import (
     host_eval,
     is_backend_input,
     lazy_cond,
+    map_row_chunks,
     promote_scalars,
     radial_limits,
     scalar_like,
@@ -122,4 +123,5 @@ __all__ = [
     "radial_limits",
     "branch_where",
     "lazy_cond",
+    "map_row_chunks",
 ]

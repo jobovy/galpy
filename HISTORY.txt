@@ -11,7 +11,7 @@ v2.0.0b2 (pre-release)
   a single torus takes angles of any shape and returns its frequencies as
   floats. The distinct tori of an interpolated family are evaluated in one
   vectorized pass (batched interpolation of the tables, label inversion and
-  angle solve), about forty times faster than one torus at a time. The same
+  angle solve), about eighty times faster than one torus at a time. The same
   holds on the jax and PyTorch backends, where each point's derivatives go to
   its own actions, and where under ``jax.jit`` an interpolated family's
   arrays of tori are traced as one pass, their degenerate faces and circular
