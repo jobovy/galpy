@@ -42,6 +42,7 @@ from .actionAngleInverseUtil import (
     _sine_galerkin,
     _sine_project,
     _sine_series,
+    _spaced_grid,
     _spec_eval,
 )
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
@@ -119,6 +120,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Rinf=10.0,
         nE=9,
         nLz=9,
+        Lzspacing="linear",
         nI3=9,
         mm_npt=32,
         mm_nta=None,
@@ -178,6 +180,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Number of energies of the interpolation grid.
         nLz : int, optional
             Number of angular momenta of the interpolation grid.
+        Lzspacing : str, optional
+            Spacing of the angular-momentum grid: 'linear' (default), 'sqrt'
+            (uniform in sqrt(L_z), finer at small L_z) or 'log' (uniform in
+            ln L_z).
         nI3 : int, optional
             Number of third integrals of the interpolation grid.
         mm_npt : int, optional
@@ -329,6 +335,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 nE,
                 nLz,
                 nI3,
+                Lzspacing=Lzspacing,
             )
         # sample every torus once (exact placement), then fix the frozen
         # auxiliary and lift every torus onto it, libration by libration
@@ -1478,7 +1485,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return None
 
     # ---------- the (L_z, E, I_3) interpolation grid
-    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3):
+    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3, Lzspacing="linear"):
         """Rectangular grid in (w_E, w_I, L_z): L_z between the circular
         angular momenta of Rmin and Rmax; the energies uniform, in x =
         w_E^2 with w_E uniform in [0, 1], in the logarithm of the apocentre
@@ -1516,7 +1523,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if self._target is not None:
             box = self._target_box(Lmin, Lmax)
         self._box = box
-        self._Lzgrid = numpy.linspace(box[0][0], box[0][1], nLz)
+        self._Lzgrid = _spaced_grid(box[0][0], box[0][1], nLz, Lzspacing)
         # the energy variable's bottom apocentre is that of the planar orbit
         # without angular momentum at the circular orbit's energy, which has
         # to lie inside Rinf for every L_z of the grid: Phi(Rinf, 0) must

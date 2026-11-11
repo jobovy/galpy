@@ -207,3 +207,18 @@ def _progress(iterator, desc, show):
     if show:
         return tqdm.tqdm(iterator, desc=desc, leave=False)
     return iterator
+
+
+def _spaced_grid(lo, hi, n, spacing):
+    """n grid nodes between lo and hi (both positive) spaced uniformly in the
+    variable named by spacing: "linear" (the variable itself), "sqrt" (its
+    square root, finer at the small end) or "log" (its logarithm)"""
+    if spacing == "linear":
+        return numpy.linspace(lo, hi, n)
+    if spacing == "sqrt":
+        return numpy.linspace(numpy.sqrt(lo), numpy.sqrt(hi), n) ** 2.0
+    if spacing == "log":
+        return numpy.geomspace(lo, hi, n)
+    raise ValueError(
+        f"spacing {spacing!r} not understood; use 'linear', 'sqrt' or 'log'"
+    )
