@@ -31,7 +31,6 @@ from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
-    _IsochroneAuxiliary,
     _offset_spec_coeffs,
     _progress,
     _sine_galerkin,
@@ -42,7 +41,7 @@ from .actionAngleInverseUtil import (
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 
 
-class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
+class actionAngleSphericalInverse(actionAngleInverse):
     """Inverse action-angle transformation for spherical potentials through a
     momentum-matched canonical map onto an isochrone auxiliary (the
     ``auxiliary`` attribute)"""
@@ -292,7 +291,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
                 0.5 * (pA**2 + L**2 / rA**2)
                 - self._GM / (self._b + numpy.sqrt(self._b**2 + rA**2))
             )
-            if EAs >= _BOUND_MARGIN * self._auxiliary_E(Jrq, L):
+            if EAs >= _BOUND_MARGIN * self._aAIinv._torus_E(Jrq, L):
                 raise RuntimeError(
                     "The momentum-matched lift of the (E, L) = "
                     f"({E:g}, {L:g}) torus is not bound in the fitted "
@@ -389,7 +388,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
 
         drdtau_s = 0.5 * (ra - rp) * numpy.sin(tau)
         Jrq = float(numpy.mean(pr * drdtau_s))
-        a, e = self._auxiliary_orbital_params(Jrq, L)
+        a, e = self._aAIinv._orbital_params(Jrq, L)
         ft = pr * drdtau_s  # target dA/dtau >= 0
         mt = numpy.mean(ft)
         qt_t = _antider(ft)
@@ -397,9 +396,9 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         # the auxiliary's cumulative action is closed form; its secular rate
         # is J_r to round-off (the equal-action choice of the torus), and the
         # ratio of the two rates makes the linear parts coincide exactly
-        AA = self._auxiliary_cumulative(a, e, tau)[0]
+        AA = self._aAIinv._cumulative(a, e, tau)[0]
         scale = mt / (
-            self._auxiliary_cumulative(a, e, 2.0 * numpy.pi)[0] / (2.0 * numpy.pi)
+            self._aAIinv._cumulative(a, e, 2.0 * numpy.pi)[0] / (2.0 * numpy.pi)
         )
         # pointwise Newton on the closed-form cumulative action, with the
         # closed-form flux as its derivative, started from the inverse of
@@ -409,9 +408,9 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         # diagnostic of _node_tables
         eta_s = numpy.interp(At, scale * AA, tau)
         for _ in range(200):
-            fres = scale * self._auxiliary_cumulative(a, e, eta_s)[0] - At
+            fres = scale * self._aAIinv._cumulative(a, e, eta_s)[0] - At
             fp = numpy.maximum(
-                scale * self._auxiliary_flux_derivs(a, e, eta_s)[0], 1e-10 * mt
+                scale * self._aAIinv._flux_derivs(a, e, eta_s)[0], 1e-10 * mt
             )
             eta_s += numpy.clip(-fres / fp, -0.5, 0.5)
             if numpy.max(numpy.fabs(fres)) < 1e-13 * max(mt, 1e-10):
@@ -421,7 +420,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         Dm = _sine_project(eta_s - tau, self._nforDm)
         shift, dshift = _sine_series(self._ntau, Dm, self._nforDm)
         etat, detadtau = tau + shift, 1.0 + dshift
-        rA, _, gA = self._auxiliary_profile(a, e, etat)
+        rA, _, gA = self._aAIinv._profile(a, e, etat)
         pA = pr * drdtau_s / (gA * numpy.sin(etat) * detadtau)
         return Jrq, a, e, Dm, etat, detadtau, rA, pA
 
@@ -441,7 +440,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         (its numerator vanishes with p_r), so it integrates spectrally like
         the flux itself; the auxiliary's cumulative action varies through
         its torus parameters' closed-form chains, with the closed-form
-        partials of _auxiliary_cumulative."""
+        partials of _cumulative."""
         k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
 
         def _cum(f):
@@ -460,8 +459,8 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         costau, sintau = numpy.cos(tau), numpy.sin(tau)
         drdtau = 0.5 * (ra - rp) * sintau
         dPhieff = -evaluateRforces(self._pot, r, 0.0, use_physical=False) - L**2 / r**3
-        _, FAa, FAe = self._auxiliary_cumulative(a, e, etat)
-        fAeta = self._auxiliary_flux_derivs(a, e, etat)[0]
+        _, FAa, FAe = self._aAIinv._cumulative(a, e, etat)
+        fAeta = self._aAIinv._flux_derivs(a, e, etat)[0]
         rhs = numpy.empty((self._ntau, 2))
         for kk, alpha in enumerate(("E", "L")):
             drp = self._turning_point_derivs(rp, E, L)[alpha == "L"]
@@ -472,11 +471,11 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             mt, qt, _, qt0 = _cum(dft)
             dA = mt * tau + qt - qt0
             if alpha == "E":
-                _, _, da, de = self._auxiliary_orbital_param_chains(
+                _, _, da, de = self._aAIinv._orbital_param_chains(
                     Jrq, L, 1.0 / OmR, 0.0
                 )
             else:
-                _, _, da, de = self._auxiliary_orbital_param_chains(
+                _, _, da, de = self._aAIinv._orbital_param_chains(
                     Jrq, L, -Ompsi / OmR, 1.0
                 )
             rhs[:, kk] = dA - FAa * da - FAe * de
@@ -513,7 +512,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         EA = 0.5 * (pA**2 + L**2 / rA**2) - self._GM / (
             self._b + numpy.sqrt(self._b**2 + rA**2)
         )
-        perr = float(numpy.amax(numpy.fabs(self._auxiliary_Jr(EA, L) - Jrq)) / Jrq)
+        perr = float(numpy.amax(numpy.fabs(self._aAIinv._torus_Jr(EA, L) - Jrq)) / Jrq)
         # the target's frequencies by regular quadrature in tau: dt/dtau is
         # periodic and finite (dr/dtau and p_r vanish together at the
         # turning points), so the trapezoid rule on the periodic grid is
@@ -618,7 +617,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             )
         Jal, Lal = [P, -Q], [0.0, 1.0]
         J2 = [dP[0], dP[1], -dQ[1]]
-        _, _, da, de = self._auxiliary_orbital_params2(Jrq, L)
+        _, _, da, de = self._aAIinv._orbital_params2(Jrq, L)
 
         def chain2(d):
             dJ, dL, dJJ, dJL, dLL = d
@@ -634,9 +633,9 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
 
         a1, a2 = chain2(da)
         e1, e2 = chain2(de)
-        _, AA_a, AA_e, AA_aa, AA_ae, AA_ee = self._auxiliary_cumulative2(a, e, etat)
-        fA, fA_eta = self._auxiliary_flux_eta(a, e, etat)
-        _, fA_a, fA_e = self._auxiliary_flux_derivs(a, e, etat)
+        _, AA_a, AA_e, AA_aa, AA_ae, AA_ee = self._aAIinv._cumulative2(a, e, etat)
+        fA, fA_eta = self._aAIinv._flux_eta(a, e, etat)
+        _, fA_a, fA_e = self._aAIinv._flux_derivs(a, e, etat)
         eta1 = [_sine_series(self._ntau, d, self._nforDm)[0] for d in (dDm_dE, dDm_dL)]
         rhs = numpy.empty((self._ntau, 3))
         for kk, (i, j) in enumerate(pairs):
@@ -1042,7 +1041,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
         d theta^A_r / d tau for the Newton solve of the angle relation."""
         eta, deta, smt = self._map(tau, Dm)
         se, ce = numpy.sin(eta), numpy.cos(eta)
-        rA, pA, gA = self._auxiliary_profile(a, e, eta)
+        rA, pA, gA = self._aAIinv._profile(a, e, eta)
         kap = a * e / (a + self._b)
         thetaA = eta - kap * se
         dthetaA = (1.0 - kap * ce) * deta
@@ -1053,7 +1052,7 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             numpy.fabs(st) > 1e-12, se / numpy.where(st == 0.0, 1.0, st), deta
         )
         pr = pA * gA * sratio * deta / (0.5 * (ra - rp))
-        drA_da, drA_de = self._auxiliary_radius_partials(a, e, eta)
+        drA_da, drA_de = self._aAIinv._radius_partials(a, e, eta)
         comps = []
         for da, de, drp, dra, dDm in chains:
             drA = drA_da * da + drA_de * de + gA * se * (smt @ dDm)
@@ -1216,9 +1215,9 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
                 self._match_node(jr, L)
             rc, OmR, OmL = self._circular(L)
             out = self._unlift(
-                self._aAIinv._xvFreqs(0.1 * L, jphi, jz, 0.0 * thr, anglephi, anglez)[
-                    :6
-                ],
+                self._aAIinv._xvFreqs_from_eta(
+                    0.1 * L, jphi, jz, 0.0 * thr, anglephi, anglez
+                )[:6],
                 rc + 0.0 * thr,
                 0.0 * thr,
             )
@@ -1244,25 +1243,27 @@ class actionAngleSphericalInverse(actionAngleInverse, _IsochroneAuxiliary):
             draE, draLE = self._turning_point_derivs(ra, self._Es[ii], L)
             drpJ, draJ = drpE * OmR, draE * OmR
             drpL, draL = drpLE + drpE * OmL, draLE + draE * OmL
-        a, e = self._auxiliary_orbital_params(jr, L)
+        a, e = self._aAIinv._orbital_params(jr, L)
         # the J_r-chain at fixed L compensates theta_r, the L-chain at
         # fixed J_r the psi-angles, both through the auxiliary torus's
         # parameters, the turning points, and the map's coefficients
-        _, _, daJ, deJ = self._auxiliary_orbital_param_chains(jr, L, 1.0, 0.0)
-        _, _, daL, deL = self._auxiliary_orbital_param_chains(jr, L, 0.0, 1.0)
+        _, _, daJ, deJ = self._aAIinv._orbital_param_chains(jr, L, 1.0, 0.0)
+        _, _, daL, deL = self._aAIinv._orbital_param_chains(jr, L, 0.0, 1.0)
         chainJ = (daJ, deJ, drpJ, draJ, dDmJ)
         chainL = (daL, deL, drpL, draL, dDmL)
         taus = self._tau_solve(thr, a, e, Dm, rp, ra, chainJ)
-        _, thetaAr, _, r, pr, (Delta,) = self._kernel(
+        eta, _, _, r, pr, (Delta,) = self._kernel(
             taus, a, e, Dm, rp, ra, chains=(chainL,)
         )
         thetaAz = anglez - Delta
         thetaAphi = anglephi - numpy.sign(jphi) * Delta
         # the three-dimensional reconstruction on the auxiliary torus, in one
-        # vectorized call (the auxiliary has the requested actions), then
-        # the lift undone with the kernel's radius and radial momentum
+        # vectorized call at the kernel's eccentric anomaly (the auxiliary has
+        # the requested actions, and its radial angle follows from eta, so
+        # Kepler's equation is not solved again), then the lift undone with
+        # the kernel's radius and radial momentum
         out = self._unlift(
-            self._aAIinv._xvFreqs(jr, jphi, jz, thetaAr, thetaAphi, thetaAz)[:6],
+            self._aAIinv._xvFreqs_from_eta(jr, jphi, jz, eta, thetaAphi, thetaAz)[:6],
             r,
             pr,
         )

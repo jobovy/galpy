@@ -36,7 +36,6 @@ from ..util._optional_deps import _TQDM_LOADED
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
-    _IsochroneAuxiliary,
     _offset_spec_coeffs,
     _progress,
     _sine_galerkin,
@@ -44,6 +43,7 @@ from .actionAngleInverseUtil import (
     _sine_series,
     _spec_eval,
 )
+from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 from .actionAngleStaeckel import _focal_length_of
 
 
@@ -98,7 +98,7 @@ def _parse_target(target):
     return out
 
 
-class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
+class actionAngleStaeckelInverse(actionAngleInverse):
     """Inverse action-angle transformation for axisymmetric Staeckel
     potentials through a momentum-matched canonical map onto an isochrone
     auxiliary (the ``auxiliary`` attribute); a torus is labelled by
@@ -734,7 +734,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         c) and Theta = arctan(tan(zeta)/s) continued through its branches by
         the winding number of zeta about pi; the secular rate over a
         libration is L - |L_z|, the auxiliary's polar action. As for the
-        radial cumulative action (_auxiliary_cumulative), the linear parts
+        radial cumulative action (_cumulative), the linear parts
         are gathered so that no term exceeds the O(c) result: Theta = zeta +
         psi with psi = arctan(tan(zeta)/s) - arctan(tan(zeta)) = arctan[c
         tan(zeta)/((1 + s)(s + tan^2 zeta))] (no branch to continue), and
@@ -796,6 +796,9 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             if auxiliary is not None
             else IsochronePotential(amp=self._GM, b=self._b)
         )
+        # the isochrone inverse supplies the closed forms of the auxiliary's
+        # tori that the lifts, the tables and the evaluation use
+        self._aAIinv = actionAngleIsochroneInverse(ip=self.auxiliary)
         self._lifts = []
         for ii in _progress(
             range(len(self._samples)), "lifting tori", self._progressbar
@@ -810,7 +813,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                     0.5 * (pA**2 + L**2 / rA**2)
                     - self._GM / (self._b + numpy.sqrt(self._b**2 + rA**2))
                 )
-                if EAs >= _BOUND_MARGIN * self._auxiliary_E(smp["jr"], L):
+                if EAs >= _BOUND_MARGIN * self._aAIinv._torus_E(smp["jr"], L):
                     Rinner = self._delta * numpy.sinh(smp["uc"] - smp["wu"])
                     Router = self._delta * numpy.sinh(smp["uc"] + smp["wu"])
                     raise RuntimeError(
@@ -918,16 +921,16 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         map cotangent-consistently, p^A = pi' p_u, so the reconstruction is
         the one the stored tables define)"""
         tau = smp["tau"]
-        a, e = self._auxiliary_orbital_params(jr, L)
+        a, e = self._aAIinv._orbital_params(jr, L)
         ft = smp["pu"] * smp["wu"] * numpy.sin(tau)
         Dm, eta, deta = self._match_anomaly(
             tau,
             ft,
-            lambda x: self._auxiliary_flux_derivs(a, e, x)[0],
-            lambda x: self._auxiliary_cumulative(a, e, x)[0],
+            lambda x: self._aAIinv._flux_derivs(a, e, x)[0],
+            lambda x: self._aAIinv._cumulative(a, e, x)[0],
             self._nforDm,
         )
-        rA, _, gA = self._auxiliary_profile(a, e, eta)
+        rA, _, gA = self._aAIinv._profile(a, e, eta)
         return {
             "a": a,
             "e": e,
@@ -975,7 +978,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         the flux itself; the auxiliary's cumulative action varies through
         its torus parameters' closed-form chains, with dJ^A_r/dalpha and
         dL^A/dalpha from the torus's period matrix and the closed-form
-        partials of _auxiliary_cumulative."""
+        partials of _cumulative."""
         tau, u, pu, wu = smp["tau"], smp["u"], smp["pu"], smp["wu"]
         E, Lz = smp["E"], smp["Lz"]
         d2 = self._delta**2
@@ -984,14 +987,14 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         dWdu = self._dWu(u, E, Lz)
         sh2 = numpy.sinh(u) ** 2
         dWda = (2.0 * d2 * sh2, -2.0 * d2 * numpy.ones_like(u), -2.0 * Lz / sh2)
-        _, FAa, FAe = self._auxiliary_cumulative(a, e, eta)
-        fAeta = self._auxiliary_flux_derivs(a, e, eta)[0]
+        _, FAa, FAe = self._aAIinv._cumulative(a, e, eta)
+        fAeta = self._aAIinv._flux_derivs(a, e, eta)[0]
         rhs = numpy.empty((self._ntau, 3))
         for k in range(3):
             du = dsup[0, k] - dsup[1, k] * ct
             dft = (dWda[k] + dWdu * du) / (2.0 * pu) * dudtau + pu * dsup[1, k] * st
             mt, qt, _, qt0 = _cumulative(dft)
-            _, _, da, de = self._auxiliary_orbital_param_chains(jr, L, dJr[k], dL[k])
+            _, _, da, de = self._aAIinv._orbital_param_chains(jr, L, dJr[k], dL[k])
             rhs[:, k] = mt * tau + qt - qt0 - FAa * da - FAe * de
         return _sine_galerkin(fAeta, rhs, self._nforDm)
 
@@ -1107,7 +1110,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
                 self._b + numpy.sqrt(self._b**2 + rA**2)
             )
             node["perr_u"] = float(
-                numpy.amax(numpy.fabs(self._auxiliary_Jr(EA, L) - jr)) / jr
+                numpy.amax(numpy.fabs(self._aAIinv._torus_Jr(EA, L) - jr)) / jr
             )
             node["Dmu"] = lift_u["Dm"]
             node["dDmu"] = self._map_slopes_u(
@@ -1293,13 +1296,13 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             ]
             return first, second
 
-        _, _, da, de = self._auxiliary_orbital_params2(jr, L)
+        _, _, da, de = self._aAIinv._orbital_params2(jr, L)
         a1, a2 = chain2(da)
         e1, e2 = chain2(de)
         a, e, eta = lift_u["a"], lift_u["e"], lift_u["eta"]
-        _, AA_a, AA_e, AA_aa, AA_ae, AA_ee = self._auxiliary_cumulative2(a, e, eta)
-        fA, fA_eta = self._auxiliary_flux_eta(a, e, eta)
-        _, fA_a, fA_e = self._auxiliary_flux_derivs(a, e, eta)
+        _, AA_a, AA_e, AA_aa, AA_ae, AA_ee = self._aAIinv._cumulative2(a, e, eta)
+        fA, fA_eta = self._aAIinv._flux_eta(a, e, eta)
+        _, fA_a, fA_e = self._aAIinv._flux_derivs(a, e, eta)
         eta1 = [
             _sine_series(self._ntau, node["dDmu"][:, k], self._nforDm)[0]
             for k in range(3)
@@ -2154,7 +2157,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
         the compensation p^A dr^A/dJ|_tau - p_u du/dJ|_tau."""
         eta, deta, smt = self._map(tau, Dm, self._nforDm)
         se, ce = numpy.sin(eta), numpy.cos(eta)
-        rA, pA, gA = self._auxiliary_profile(a, e, eta)
+        rA, pA, gA = self._aAIinv._profile(a, e, eta)
         kap = a * e / (a + self._b)
         thetaA = eta - kap * se
         dthetaA = (1.0 - kap * ce) * deta
@@ -2181,7 +2184,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             numpy.fabs(st) > 1e-12, se / numpy.where(st == 0.0, 1.0, st), deta
         )
         pu = pA * gA * sratio * deta / wu
-        drA_da, drA_de = self._auxiliary_radius_partials(a, e, eta)
+        drA_da, drA_de = self._aAIinv._radius_partials(a, e, eta)
         comps = [
             pA * (drA_da * da + drA_de * de + gA * se * (smt @ dDm))
             - pu * (duc - dwu * ct)
@@ -2532,7 +2535,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             )
         tab = self._tables(jr, jz, Lz)
         L = jz + numpy.fabs(Lz)
-        a, e = self._auxiliary_orbital_params(jr, L)
+        a, e = self._aAIinv._orbital_params(jr, L)
         # c = sin^2 i = 1 - L_z^2/L^2 in the product form, exact for a thin
         # vertical libration where the difference would cancel
         c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
@@ -2563,7 +2566,7 @@ class actionAngleStaeckelInverse(actionAngleInverse, _IsochroneAuxiliary):
             # target's (J^A_r = J_R), and then has no chains to speak of
             da, de = 0.0, 0.0
             if not tab["udeg"]:
-                _, _, da, de = self._auxiliary_orbital_param_chains(
+                _, _, da, de = self._aAIinv._orbital_param_chains(
                     jr, L, 1.0 if i == 0 else 0.0, dL[i]
                 )
             chains_u.append((da, de, tab["duc"][i], tab["dwu"][i], tab["dDmu"][:, i]))
