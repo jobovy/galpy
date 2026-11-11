@@ -87,6 +87,55 @@ def _sdot(smt, D):
     return numpy.einsum("nm,nm->n", smt, D)
 
 
+def _fit_isochrone_vc2(rf, lnvc2, maxiter=100):
+    """Least-squares fit of an isochrone's (GM, b) to a rotation curve, given
+    as ln v_c^2 at the radii rf: minimizes sum_i rho_i^2 with rho_i = ln GM
+    + 2 ln r_i - ln s_i - 2 ln(b + s_i) - lnvc2_i, s_i = sqrt(b^2 + r_i^2).
+    ln GM enters linearly, so at given b its optimum is the mean of the
+    other terms (variable projection), which leaves a one-dimensional
+    problem in beta = ln b solved by Newton's method with closed-form
+    derivatives (Gauss-Newton where the Hessian is not positive), the step
+    clipped at 1/2 and beta kept in [ln 1e-8, ln(1e3 r_max)], from b_0 =
+    sqrt(r_min r_max), until the step is below 1e-14 or beta sits at a
+    bound with the step pointing outward; converges in a handful of
+    iterations and is exact for an isochrone target. A rotation curve sampled
+    at a single radius to round-off (a family of one circular torus) is
+    fitted by any b, so the start b_0 = that radius is kept and GM is the
+    isochrone's through its v_c there. Returns (GM, b)."""
+    rf = numpy.asarray(rf, dtype="float")
+    lnr2 = 2.0 * numpy.log(rf) - lnvc2
+    lo, hi = numpy.log(1e-8), numpy.log(1e3 * rf[-1])
+    beta = 0.5 * (numpy.log(rf[0]) + numpy.log(rf[-1]))
+    # a single radius to round-off (a lone circular torus's range): the
+    # curvature of the rotation curve, which pins b, enters at the square of
+    # the relative range and is lost below its square root, so every b fits
+    # and the start is kept (an iteration on round-off would wander)
+    single = rf[-1] - rf[0] <= 1e-8 * rf[-1]
+    for _ in range(0 if single else maxiter):
+        b = numpy.exp(beta)
+        s = numpy.sqrt(b**2 + rf**2)
+        h = -numpy.log(s) - 2.0 * numpy.log(b + s) + lnr2
+        rho = h - numpy.mean(h)
+        t = b / s
+        q = -t * (t + 2.0)
+        dq = -2.0 * t * (1.0 + t) * (1.0 - t**2)
+        qc, dqc = q - numpy.mean(q), dq - numpy.mean(dq)
+        g = numpy.sum(rho * qc)
+        Hgn = numpy.sum(qc**2)
+        H = Hgn + numpy.sum(rho * dqc)
+        H = H if H > 0.0 else Hgn  # Gauss-Newton where the Hessian is not positive
+        d = numpy.clip(-g / H, -0.5, 0.5)
+        if (beta <= lo and d < 0.0) or (beta >= hi and d > 0.0):
+            break  # at a bound, with the step pointing outward
+        beta = numpy.clip(beta + d, lo, hi)
+        if abs(d) < 1e-14:
+            break
+    b = numpy.exp(beta)
+    s = numpy.sqrt(b**2 + rf**2)
+    h = -numpy.log(s) - 2.0 * numpy.log(b + s) + lnr2
+    return float(numpy.exp(-numpy.mean(h))), float(b)
+
+
 def _safeguarded_newton(f, lo, hi, rtol, maxiter=100, x0=None):
     """Roots of the monotonically increasing functions f(x) = (value,
     derivative), one per element of the brackets [lo, hi], by Newton steps
