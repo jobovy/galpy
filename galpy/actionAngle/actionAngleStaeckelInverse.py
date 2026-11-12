@@ -134,20 +134,42 @@ def _solve_increasing(f, fp, lo, hi):
 
 
 def _contract(smt, D):
-    """sum_m smt[:, m] D[m] for the coefficients D of one torus, (M,), or of
-    every point's own torus, (M, npoints)"""
-    return smt @ D if D.ndim == 1 else numpy.einsum("pm,mp->p", smt, D)
+    """sum_m D[m] smt[m] for the harmonics smt, (M, npoints), and the
+    coefficients D of one torus, (M,), or of every point's own torus,
+    (M, npoints)"""
+    return D @ smt if D.ndim == 1 else numpy.einsum("mp,mp->p", smt, D)
+
+
+def _harmonics(tau, ms):
+    """sin(m tau) and cos(m tau) as (M, npoints) arrays for the harmonics
+    ms = ms[0] (1, ..., M), from the sine and cosine of ms[0] tau alone:
+    the angle-addition formulae double the number of harmonics in hand at
+    every step, so that a point costs two trigonometric evaluations instead
+    of 2 M and the round-off grows only with the logarithm of M"""
+    M = len(ms)
+    S, C = numpy.empty((M, len(tau))), numpy.empty((M, len(tau)))
+    S[0], C[0] = numpy.sin(ms[0] * tau), numpy.cos(ms[0] * tau)
+    m = 1
+    while m < M:
+        # harmonics m+1 ... 2m from 1 ... m and m
+        n = min(m, M - m)
+        S[m : m + n] = S[:n] * C[m - 1] + C[:n] * S[m - 1]
+        C[m : m + n] = C[:n] * C[m - 1] - S[:n] * S[m - 1]
+        m += n
+    return S, C
 
 
 def _bk_contract(xp, smt, D):
     """_contract in jax/torch"""
-    return smt @ D if D.ndim == 1 else xp.sum(smt * xp.permute_dims(D, (1, 0)), axis=1)
+    return D @ smt if D.ndim == 1 else xp.sum(smt * D, axis=0)
 
 
-def _bk_harmonics(ms, D):
-    """The harmonics ms against the coefficients D of one torus, (M,), or of
-    every point's own torus, (M, npoints)"""
-    return ms if D.ndim == 1 else ms[:, None]
+def _bk_harmonics(xp, tau, ms):
+    """_harmonics in jax/torch, by direct sines and cosines: a vectorized
+    sine costs no more there than the angle-addition steps, which add
+    dispatches eagerly and compile time under jax.jit"""
+    mt = ms[:, None] * tau[None, :]
+    return xp.sin(mt), xp.cos(mt)
 
 
 def _parse_target(target):
@@ -991,12 +1013,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         harmonics ms, its derivative, and the sine matrix it is built from;
         the coefficients are those of one torus, (M,), or of every point's
         own torus, (M, npoints)"""
-        mt = tau[:, None] * ms[None, :]
-        smt = numpy.sin(mt)
+        smt, cmt = _harmonics(tau, ms)
         return (
             tau + _contract(smt, Dm),
-            1.0
-            + _contract(numpy.cos(mt), ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm),
+            1.0 + _contract(cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm),
             smt,
         )
 
@@ -2476,7 +2496,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """The torus at the anomaly pair (tau_u, tau_v): the auxiliary's
         radial and vertical angles with their derivatives, the point
         (u, p_u, v, p_v), the auxiliary's polar anomaly, and the total
-        compensation of each chain (the u chains and v chains paired)"""
+        compensation of each chain (the u chains and v chains paired, and
+        each libration's part on its own)"""
         n = len(tu)
         if aux["udeg"]:
             # a shell orbit: the auxiliary's radial libration is degenerate
@@ -2520,18 +2541,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "v": v,
             "pv": pv,
             "comps": [cu + cv for cu, cv in zip(comps_u, comps_v)],
+            "comps_u": comps_u,
+            "comps_v": comps_v,
         }
 
     def _newton_angles(self, thR, thz, aux, chains_u, chains_v):
         """Newton solve of the two angle relations theta_R(tau_u, tau_v) and
         theta_z(tau_u, tau_v) -- the auxiliary's angles plus the
         compensations along the J_R and J_z chains -- for the anomaly pair
-        of each requested angle pair, on the derivatives of the auxiliary
-        angles alone (the compensations are small corrections; the system
-        is triangular, the auxiliary's radial angle depending on tau_u
-        only), vectorized over the angles; returns the anomalies and the
-        indices of the pairs that did not converge within maxiter
-        iterations"""
+        of each requested angle pair, vectorized over the angles. The
+        Jacobian is that of the auxiliary's angles, in closed form, plus
+        that of the compensations, which are small and each the sum of a
+        function of tau_u and one of tau_v, so that their four slopes are
+        secants between successive iterates and the convergence is
+        superlinear; returns the anomalies and the indices of the pairs
+        that did not converge within maxiter iterations"""
 
         def wrap(f):
             return (f + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
@@ -2549,6 +2573,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # tau_u = theta_R with the map and the compensation neglected
         T0 = self._torus_at(x, 0.0 * x, aux, [], [])
         y = thz - 0.5 * numpy.pi - aux["ratio"] * T0["thetaAr"] + T0["Lam"]
+        prev, slope = None, numpy.zeros((4, len(x)))
         for _ in range(self._maxiter):
             FR, Fz, T = residuals(x, y)
             if (
@@ -2556,8 +2581,28 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 < self._angle_tol
             ):
                 return x, y, numpy.array([], dtype="int")
-            dx = numpy.clip(-FR / T["dthetaAr"], -0.5, 0.5)
-            dy = numpy.clip(-(Fz + T["dthetaAz_du"] * dx) / T["dthetaAz_dv"], -0.5, 0.5)
+            # the compensations of the (J_R, J_z) chains from the u
+            # libration, then from the v libration, and where each was taken
+            comps = numpy.array([*T["comps_u"], *T["comps_v"]])
+            at = numpy.array([x, x, y, y])
+            if prev is not None:
+                step = at - prev[0]
+                moved = numpy.fabs(step) > 1e-9
+                slope = numpy.where(
+                    moved, (comps - prev[1]) / numpy.where(moved, step, 1.0), slope
+                )
+            prev = (at, comps)
+            # a secant that would take the determinant far from the
+            # auxiliary's own is not trusted
+            det0 = T["dthetaAr"] * T["dthetaAz_dv"]
+            trusted = (T["dthetaAr"] + slope[0]) * (
+                T["dthetaAz_dv"] + slope[3]
+            ) - slope[2] * (T["dthetaAz_du"] + slope[1]) > 0.5 * det0
+            sl = numpy.where(trusted, slope, 0.0)
+            a, b = T["dthetaAr"] + sl[0], sl[2]
+            c, d = T["dthetaAz_du"] + sl[1], T["dthetaAz_dv"] + sl[3]
+            dx = numpy.clip(-(d * FR - b * Fz) / (a * d - b * c), -0.5, 0.5)
+            dy = numpy.clip(-(Fz + c * dx) / d, -0.5, 0.5)
             x += dx
             y += dy
         FR, Fz, _ = residuals(x, y)
@@ -4943,10 +4988,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _bk_kernel_u(self, xp, tau, a, e, L, Dm, uc, wu, chains):
         """_kernel_u in jax/torch"""
         ms = asarray_on_device(xp, self._nforDm * 1.0, device_of(tau))
-        mt = tau[:, None] * ms[None, :]
-        smt = xp.sin(mt)
+        smt, cmt = _bk_harmonics(xp, tau, ms)
         eta = tau + _bk_contract(xp, smt, Dm)
-        deta = 1.0 + _bk_contract(xp, xp.cos(mt), _bk_harmonics(ms, Dm) * Dm)
+        deta = 1.0 + _bk_contract(
+            xp, cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm
+        )
         se, ce = xp.sin(eta), xp.cos(eta)
         rA, pA, gA = self._aAIinv._profile(a, e, eta)
         kap = a * e / (a + self._b)
@@ -4982,10 +5028,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _bk_kernel_v(self, xp, tau, L, c, Dm, wv, chains):
         """_kernel_v in jax/torch"""
         ms = asarray_on_device(xp, self._nforDmv * 1.0, device_of(tau))
-        mt = tau[:, None] * ms[None, :]
-        smt = xp.sin(mt)
+        smt, cmt = _bk_harmonics(xp, tau, ms)
         zeta = tau + _bk_contract(xp, smt, Dm)
-        dzeta = 1.0 + _bk_contract(xp, xp.cos(mt), _bk_harmonics(ms, Dm) * Dm)
+        dzeta = 1.0 + _bk_contract(
+            xp, cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm
+        )
         sz, cz = xp.sin(zeta), xp.cos(zeta)
         sinth2 = 1.0 - c * cz**2
         fluxA = L * c * sz**2 / sinth2
@@ -5073,11 +5120,62 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "v": v,
             "pv": pv,
             "comps": [cu_ + cv_ for cu_, cv_ in zip(comps_u, comps_v)],
+            "comps_u": comps_u,
+            "comps_v": comps_v,
         }
 
+    def _bk_newton_angles(self, xp, thR, thz, aux, chains_u, chains_v):
+        """_newton_angles in jax/torch, on derivative-free inputs, each angle
+        pair frozen at its convergence; the state carries the anomalies, the
+        last iterate's compensations and where they were taken, and the four
+        secant slopes"""
+
+        def wrap(f):
+            return xp.remainder(f + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+
+        cat = getattr(xp, "concat", None) or xp.concatenate
+        x0 = thR * 1.0
+        T0 = self._bk_torus_at(xp, x0, 0.0 * x0, aux, [], [])
+        y0 = thz - 0.5 * numpy.pi - aux["ratio"] * T0["thetaAr"] + T0["Lam"]
+
+        def step(state):
+            x, y, prev, pcomps, slope = (
+                state[0],
+                state[1],
+                state[2:6],
+                state[6:10],
+                state[10:],
+            )
+            T = self._bk_torus_at(xp, x, y, aux, chains_u, chains_v)
+            FR = wrap(T["thetaAr"] + T["comps"][0] - thR)
+            Fz = wrap(T["thetaAz"] + T["comps"][1] - thz)
+            comps = xp.stack([*T["comps_u"], *T["comps_v"]])
+            at = xp.stack([x, x, y, y])
+            dat = at - prev
+            moved = xp.abs(dat) > 1e-9
+            slope = xp.where(moved, (comps - pcomps) / xp.where(moved, dat, 1.0), slope)
+            det0 = T["dthetaAr"] * T["dthetaAz_dv"]
+            trusted = (T["dthetaAr"] + slope[0]) * (
+                T["dthetaAz_dv"] + slope[3]
+            ) - slope[2] * (T["dthetaAz_du"] + slope[1]) > 0.5 * det0
+            sl = xp.where(trusted, slope, 0.0 * slope)
+            a, b = T["dthetaAr"] + sl[0], sl[2]
+            c, d = T["dthetaAz_du"] + sl[1], T["dthetaAz_dv"] + sl[3]
+            dx = xp.clip(-(d * FR - b * Fz) / (a * d - b * c), -0.5, 0.5)
+            dy = xp.clip(-(Fz + c * dx) / d, -0.5, 0.5)
+            conv = xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol
+            return xp.where(
+                conv, state, cat([xp.stack([x + dx, y + dy]), at, comps, slope])
+            )
+
+        # the first iterate's "previous" point is itself: no secant yet
+        state = cat([xp.stack([x0, y0, x0, x0, y0, y0]), 0.0 * xp.stack([x0] * 8)])
+        state = iterate_to_fixed_point(step, state, self._maxiter)
+        return state[0], state[1]
+
     def _bk_solve_angles(self, xp, thR, thz, aux, aux_sg, chains_u, chains_v):
-        """_solve_angles in jax/torch: the triangular Newton iteration on
-        derivative-free copies of the tables (aux_sg), stopped at convergence,
+        """_solve_angles in jax/torch: the Newton iteration (_bk_newton_angles)
+        on derivative-free copies of the tables (aux_sg), stopped at convergence,
         then the nested backend brentq -- tau_v(tau_u) solving the vertical
         relation inside the solve of the radial one -- from there, whose final
         Newton steps carry the implicit-function derivative of both anomalies"""
@@ -5096,20 +5194,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 T,
             )
 
-        x0 = thR_sg * 1.0
-        T0 = self._bk_torus_at(xp, x0, 0.0 * x0, aux_sg, [], [])
-        y0 = thz_sg - 0.5 * numpy.pi - aux_sg["ratio"] * T0["thetaAr"] + T0["Lam"]
-
-        def step(state):
-            x, y = state[0], state[1]
-            FR, Fz, T = resid(x, y, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
-            dx = xp.clip(-FR / T["dthetaAr"], -0.5, 0.5)
-            dy = xp.clip(-(Fz + T["dthetaAz_du"] * dx) / T["dthetaAz_dv"], -0.5, 0.5)
-            conv = xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol
-            return xp.where(conv, state, xp.stack([x + dx, y + dy]))
-
-        state = iterate_to_fixed_point(step, xp.stack([x0, y0]), self._maxiter)
-        xc, yc = state[0], state[1]
+        xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
         FR, Fz, _ = resid(xc, yc, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
         done = concretely_true(
             xp.all(xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol)
@@ -5673,8 +5758,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return tab
 
     def _bk_solve_angles_rows(self, xp, thR, thz, aux, aux_sg, chains_u, chains_v):
-        """_bk_solve_angles with every point on its own torus: the triangular
-        Newton iteration, vectorized over the points, then the nested backend
+        """_bk_solve_angles with every point on its own torus: the Newton
+        iteration, vectorized over the points, then the nested backend
         brentq from there, whose final Newton steps carry the implicit-function
         derivative; also returns which points did not converge (None when
         traced: the iteration has then run to convergence)"""
@@ -5693,20 +5778,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 T,
             )
 
-        x0 = thR_sg * 1.0
-        T0 = self._bk_torus_at(xp, x0, 0.0 * x0, aux_sg, [], [])
-        y0 = thz_sg - 0.5 * numpy.pi - aux_sg["ratio"] * T0["thetaAr"] + T0["Lam"]
-
-        def step(state):
-            x, y = state[0], state[1]
-            FR, Fz, T = resid(x, y, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
-            dx = xp.clip(-FR / T["dthetaAr"], -0.5, 0.5)
-            dy = xp.clip(-(Fz + T["dthetaAz_du"] * dx) / T["dthetaAz_dv"], -0.5, 0.5)
-            conv = xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol
-            return xp.where(conv, state, xp.stack([x + dx, y + dy]))
-
-        state = iterate_to_fixed_point(step, xp.stack([x0, y0]), self._maxiter)
-        xc, yc = state[0], state[1]
+        xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
         FR, Fz, _ = resid(xc, yc, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
         bad, ns = None, 2
         if not under_trace(FR):

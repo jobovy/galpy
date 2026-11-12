@@ -74,6 +74,7 @@ from ._namespaces import (
     name_of_namespace,
     namespace_from_arrays,
     requires_backend_grad,
+    under_jax_trace,
     under_trace,
 )
 
@@ -443,6 +444,25 @@ def lazy_cond(xp, pred, if_true, if_false):
     if isinstance(t, tuple):
         return tuple(xp.where(pred, a, b) for a, b in zip(t, f))
     return xp.where(pred, t, f)
+
+
+def map_row_chunks(xp, f, args, step):
+    """``f(*args)`` for a row-wise ``f`` (row r of each output depends on row
+    r of the inputs only, which are arrays of one length along their first
+    axis) returning a tuple of arrays, evaluated in equal chunks of at most
+    ``step`` rows so that its intermediates stay small: an eager loop, a
+    ``jax.lax.map`` under a jax trace."""
+    n = args[0].shape[0]
+    if n <= step:
+        return f(*args)
+    step = -(-n // -(-n // step))
+    if under_jax_trace(*args):
+        from ._jax.chunks import map_row_chunks as _bk
+
+        return _bk(f, args, step)
+    outs = [f(*(a[lo : lo + step] for a in args)) for lo in range(0, n, step)]
+    cat = getattr(xp, "concat", None) or xp.concatenate
+    return tuple(cat([o[k] for o in outs], axis=0) for k in range(len(outs[0])))
 
 
 def power_series(xp, x, coeffs, first):

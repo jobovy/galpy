@@ -265,6 +265,64 @@ def test_lazy_cond_tuple_arms_under_vmap(backend_name):
             numpy.testing.assert_array_equal(as_numpy(got), ref)
 
 
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_map_row_chunks(backend_name):
+    # A row-wise function evaluated in equal chunks of at most step rows has
+    # the values and derivatives of the function in one piece: eagerly (a
+    # loop over the chunks) and under jax.jit (a lax.map over chunks padded
+    # with copies of the first row), here for 11 rows in chunks of 4, 4, 3
+    from galpy.backend import map_row_chunks
+    from galpy.backend._resolver import get_namespace
+
+    pytest.importorskip(backend_name)
+    rng = numpy.random.default_rng(3)
+    x, y, W = rng.normal(size=(11, 3)), rng.normal(size=11), rng.normal(size=(3, 2))
+    with backend.use(backend_name, force=True):
+        xp = get_namespace()
+    Wb, calls = xp.asarray(W), []
+
+    def f(x, y):
+        calls.append(x.shape[0])
+        return x @ Wb + y[:, None] ** 2, xp.sum(x, axis=1) * y
+
+    def total(x, y, step):
+        return sum(xp.sum(o * (1.0 + o)) for o in map_row_chunks(xp, f, (x, y), step))
+
+    want = (x @ W + y[:, None] ** 2, x.sum(axis=1) * y)
+    for step, sizes in ((4, [4, 4, 3]), (11, [11])):
+        calls.clear()
+        got = map_row_chunks(xp, f, (xp.asarray(x), xp.asarray(y)), step)
+        assert calls == sizes
+        for g, w in zip(got, want):
+            numpy.testing.assert_allclose(as_numpy(g), w, rtol=1e-15, atol=1e-15)
+    if backend_name == "jax":
+        import jax
+
+        grads = [
+            jax.jit(jax.grad(total, argnums=(0, 1)), static_argnums=2)(
+                xp.asarray(x), xp.asarray(y), step
+            )
+            for step in (4, 11)
+        ]
+        calls.clear()
+        got = jax.jit(lambda x, y: map_row_chunks(xp, f, (x, y), 4))(
+            xp.asarray(x), xp.asarray(y)
+        )
+        assert calls == [4]  # one trace of a chunk
+        for g, w in zip(got, want):
+            numpy.testing.assert_allclose(as_numpy(g), w, rtol=1e-15, atol=1e-15)
+    else:
+        import torch
+
+        grads = []
+        for step in (4, 11):
+            xt, yt = (torch.tensor(v, requires_grad=True) for v in (x, y))
+            total(xt, yt, step).backward()
+            grads.append((xt.grad, yt.grad))
+    for g4, g11 in zip(*grads):
+        numpy.testing.assert_allclose(as_numpy(g4), as_numpy(g11), rtol=1e-14)
+
+
 # --- tracing never reads a jax tracer's .device -------------------------------
 # A jax tracer has no device, and asking for one raises an AttributeError whose
 # message, the trace's provenance, jax builds by walking the trace: ~0.4 s per
