@@ -948,3 +948,122 @@ def test_tabulated_staeckel_model():
         numpy.testing.assert_allclose(
             _flat(got), _flat(aN.xvFreqs(*J, _ANGLES, 1.0, 2.0)), rtol=0.0, atol=1e-11
         )
+
+
+# arrays of actions: the interpolated family's tori as rows (generic,
+# retrograde, the shell and planar faces, the circular orbit) and the first
+# repeated, each at its own angles
+_ARR_TORI = numpy.array(_TORI + [_TORI[0]])
+_ARR_ANG = numpy.array(
+    [
+        [0.4, 1.0, 2.0, 5.0, 3.0, 0.4],
+        [1.0, 2.5, 0.3, 3.0, 1.0, 1.0],
+        [2.0, 0.7, 4.0, 0.7, 6.0, 2.0],
+    ]
+)
+
+
+def _arr_tori(mode, explicit):
+    if mode == "interp":
+        return _ARR_TORI
+    return numpy.array(
+        [(explicit._jrs[k], explicit._Lzs[k], explicit._jzs[k]) for k in (0, 1, 0)]
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("mode", ["explicit", "interp"])
+def test_array_actions_match_numpy(backend, mode, explicit, interp):
+    # arrays of actions broadcast against the angles as on numpy and agree
+    # with it point by point: paired, every angle on every torus, an array of
+    # actions at scalar angles, and the frequencies, with the distinct tori
+    # evaluated once each (concrete actions); and paired when every point is
+    # its own torus (actions that carry a derivative: torch's requires_grad,
+    # jax's JVP tracers)
+    aA = explicit if mode == "explicit" else interp
+    J = _arr_tori(mode, explicit)
+    n = len(J)
+    ang = _ARR_ANG[:, :n]
+    cases = [
+        ((J[:, 0], J[:, 1], J[:, 2]), tuple(ang)),
+        ((J[:, 0:1], J[:, 1:2], J[:, 2:3]), (_ANGLES[:4], 0.2 + _ANGLES[:4], 1.0)),
+        ((J[:, 0], J[:, 1], J[:, 2]), (0.3, 1.0, 2.0)),
+    ]
+
+    def check(ref, got):
+        for r, g in zip(ref, got):
+            assert _is_backend(backend, g)
+            assert tuple(g.shape) == numpy.shape(r)
+            numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=_PLANE_ATOL)
+
+    for acts, angs in cases:
+        check(
+            aA.xvFreqs(*acts, *angs),
+            aA.xvFreqs(*(_arr(backend, numpy.array(a)) for a in acts), *angs),
+        )
+    acts, angs = cases[0]
+    bacts = [_arr(backend, numpy.array(a), grad=True) for a in acts]
+    if backend == "jax":
+        got = jax.jvp(
+            lambda *a: aA.xvFreqs(*a, *angs),
+            tuple(bacts),
+            tuple(jnp.ones_like(b) for b in bacts),
+        )[0]
+    else:
+        got = aA.xvFreqs(*bacts, *angs)
+    check(aA.xvFreqs(*acts, *angs), got)
+    ref = aA.Freqs(J[:, 0:1], J[:, 1:2], J[:, 2:3])
+    got = aA.Freqs(*(_arr(backend, numpy.array(J[:, k : k + 1])) for k in range(3)))
+    for r, g in zip(ref, got):
+        assert tuple(g.shape) == (n, 1)
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=0.0, atol=_PLANE_ATOL)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_array_actions_derivatives(backend, interp):
+    # each point's (x, v) depends on its own actions only, also when two
+    # points share a torus: the autodiff Jacobian in an array of radial
+    # actions is diagonal, its diagonal the finite difference of the numpy
+    # path (tori off J_R = 0, so that the stencil stays inside the domain)
+    J = _ARR_TORI[[0, 1, 3, 5]]
+    ang = _ARR_ANG[:, [0, 1, 3, 5]]
+    jphi, jz = J[:, 1], J[:, 2]
+
+    def R(jr):
+        return interp.xvFreqs(jr, jphi, jz, *ang)[0]
+
+    if backend == "jax":
+        jac = numpy.asarray(jax.jacfwd(lambda jr: R(jr))(jnp.asarray(J[:, 0])))
+    else:
+        jac = as_numpy(
+            torch.autograd.functional.jacobian(lambda jr: R(jr), torch.tensor(J[:, 0]))
+        )
+    assert numpy.all(jac[~numpy.eye(len(J), dtype=bool)] == 0.0)
+    for k in range(len(J)):
+        e = numpy.zeros(len(J))
+        e[k] = 1.0
+        fd = _fd(lambda h: numpy.asarray(R(J[:, 0] + h * e))[k], 0.0, 1e-4)
+        assert numpy.fabs(jac[k, k] - fd) < 2e-10
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_array_actions_derivatives_wrt_potential_parameters():
+    # the distinct tori of an array, each evaluated once, carry the
+    # derivatives in the potential's parameters: those of the array are the
+    # single tori's
+    pt = torch.tensor(4.0, requires_grad=True)
+    aA = _param_family(pt, "interp")
+    J = _ARR_TORI[[0, 1, 5]]
+    ang = _ARR_ANG[:, [0, 1, 5]]
+    out = aA.xvFreqs(*(J[:, k] for k in range(3)), *ang)
+    # (every evaluation shares the family's construction graph)
+    g = torch.autograd.grad(sum(o.sum() for o in out[:6]), pt, retain_graph=True)[0]
+    g1 = sum(
+        torch.autograd.grad(
+            sum(o.sum() for o in aA.xvFreqs(*J[k], *ang[:, k : k + 1])[:6]),
+            pt,
+            retain_graph=True,
+        )[0]
+        for k in range(len(J))
+    )
+    assert numpy.fabs(float(g) - float(g1)) < 1e-10 * (1.0 + numpy.fabs(float(g1)))

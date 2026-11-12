@@ -33,7 +33,12 @@ from ..backend import (
     match_input_dtype,
     to_host,
 )
-from ..backend._namespaces import stop_gradient, under_jax_trace
+from ..backend._namespaces import (
+    requires_backend_grad,
+    stop_gradient,
+    under_jax_trace,
+    under_trace,
+)
 from ..backend.optimize import brentq as _backend_brentq
 from ..backend.optimize import iterate_bracket, iterate_to_fixed_point
 from ..potential import (
@@ -2560,27 +2565,65 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return self._explicit_tables(self._match_node(jr, jz, Lz))
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
-        """(J, theta) -> (x, v): solve the two angle relations for the
-        anomaly pair of each requested angle pair, reconstruct the point
-        from the two librations (u, p_u, v, p_v) -> (R, v_R, z, v_z), and
-        take the azimuth from the auxiliary's angle relations at the
-        compensated azimuthal angle"""
+        """(J, theta) -> (x, v) and the frequencies, for actions and angles
+        that broadcast against each other by numpy's rules (scalar actions
+        with arrays of angles: one torus at those angles; arrays of actions
+        with scalar angles: that angle on every torus; equal shapes: paired
+        element by element, each star on its own torus at its own angle;
+        actions of shape (n,1) with angles of shape (m,): every angle on
+        every torus as (n,m) arrays); a single torus returns its
+        frequencies as floats"""
         xp = self._namespace(get_namespace(jr, jphi, jz, angler, anglephi, anglez))
         if xp is not numpy:
             return self._bk_xvFreqs(xp, jr, jphi, jz, angler, anglephi, anglez)
-        jr, jphi, jz = float(jr), float(jphi), float(jz)
-        if jr < 0.0 or jz < 0.0:
-            raise ValueError("J_R and J_z have to be non-negative")
-        Lz = jphi
-        if Lz == 0.0:
-            raise ValueError("L_z = 0 is not supported")
-        angler, anglephi, anglez = numpy.broadcast_arrays(
-            numpy.atleast_1d(angler).astype(float),
-            numpy.atleast_1d(anglephi).astype(float),
-            numpy.atleast_1d(anglez).astype(float),
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
+        jr, jphi, jz, angler, anglephi, anglez = numpy.broadcast_arrays(
+            *(
+                numpy.atleast_1d(numpy.asarray(t, dtype="float"))
+                for t in (jr, jphi, jz, angler, anglephi, anglez)
+            )
         )
-        thR = angler % (2.0 * numpy.pi)
-        thz = anglez % (2.0 * numpy.pi)
+        if numpy.any(jr < 0.0) or numpy.any(jz < 0.0):
+            raise ValueError("J_R and J_z have to be non-negative")
+        if numpy.any(jphi == 0.0):
+            raise ValueError("L_z = 0 is not supported")
+        shape = jr.shape
+        jr, jphi, jz, thR, anglephi, thz = (
+            t.ravel()
+            for t in (
+                jr,
+                jphi,
+                jz,
+                angler % (2.0 * numpy.pi),
+                anglephi,
+                anglez % (2.0 * numpy.pi),
+            )
+        )
+        if scalar:
+            out = self._xvFreqs_torus(jr[0], jphi[0], jz[0], thR, anglephi, thz)
+            return (*(o.reshape(shape) for o in out[:6]), *out[6:])
+        # the tables once per distinct torus, each torus at its own angles
+        out = numpy.empty((9, len(jr)))
+        tori, inv = numpy.unique(
+            numpy.stack([jr, jphi, jz], axis=1), axis=0, return_inverse=True
+        )
+        order = numpy.argsort(inv.ravel(), kind="stable")
+        starts = numpy.searchsorted(inv.ravel()[order], numpy.arange(len(tori) + 1))
+        for k, actions in enumerate(tori):
+            pts = order[starts[k] : starts[k + 1]]
+            for o, q in zip(
+                out, self._xvFreqs_torus(*actions, thR[pts], anglephi[pts], thz[pts])
+            ):
+                o[pts] = q
+        return tuple(out.reshape((9,) + shape))
+
+    def _xvFreqs_torus(self, jr, jphi, jz, thR, anglephi, thz):
+        """One torus at flat arrays of angles: solve the two angle relations
+        for the anomaly pair of each requested angle pair, reconstruct the
+        point from the two librations (u, p_u, v, p_v) -> (R, v_R, z, v_z),
+        and take the azimuth from the auxiliary's angle relations at the
+        compensated azimuthal angle; the frequencies are floats"""
+        Lz = jphi
         sgn = numpy.sign(Lz)
         if jr == 0.0 and jz == 0.0:
             # the circular orbit: the point sits at the circular radius in
@@ -2646,14 +2689,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             chains_v.append((dc[i], tab["dwv"][i], tab["dDmv"][:, i]))
         tu, tv = self._solve_angles(thR, thz, aux, chains_u[:2], chains_v[:2])
         T = self._torus_at(tu, tv, aux, chains_u, chains_v)
-        # the azimuth from the auxiliary's angle relations: phi = theta^A_phi
-        # - sgn(L_z) theta^A_z + arctan2(cos i sin psi, cos psi) with the
-        # in-plane phase psi = zeta + pi/2 and cos i = L_z / L
-        thetaAphi = anglephi - T["comps"][2]
+        Om = tab["Om"]
+        return (*self._point(T, Lz, L, anglephi), Om[0], Om[2], Om[1])
+
+    def _point(self, T, Lz, L, anglephi):
+        """(R, v_R, v_T, z, v_z, phi) from the two librations of _torus_at:
+        the azimuth from the auxiliary's angle relations, phi = theta^A_phi
+        - sgn(L_z) theta^A_z + arctan2(cos i sin psi, cos psi) with the
+        in-plane phase psi = zeta + pi/2 and cos i = L_z / L, at the
+        compensated azimuthal angle"""
         zeta = T["zeta"]
         phi = (
-            thetaAphi
-            - sgn * T["thetaAz"]
+            anglephi
+            - T["comps"][2]
+            - numpy.sign(Lz) * T["thetaAz"]
             + numpy.arctan2(Lz / L * numpy.cos(zeta), -numpy.sin(zeta))
         )
         u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
@@ -2661,7 +2710,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sn, cs = numpy.sin(v), numpy.cos(v)
         den = self._delta * (sh**2 + sn**2)
         R = self._delta * sh * sn
-        Om = tab["Om"]
         return (
             R,
             (pu * ch * sn + pv * sh * cs) / den,
@@ -2669,21 +2717,33 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._delta * ch * cs,
             (pu * sh * cs - pv * ch * sn) / den,
             phi % (2.0 * numpy.pi),
-            Om[0],
-            Om[2],
-            Om[1],
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
-        """Frequencies of the (J_R, J_z, L_z) torus: in interpolation mode
-        the stored action interpolants' own partials through the label
-        chain (the integrator contract); for explicit tori the torus's own
-        period matrix"""
+        """Frequencies of the (J_R, J_z, L_z) tori, for actions that
+        broadcast against each other: in interpolation mode the stored
+        action interpolants' own partials through the label chain (the
+        integrator contract); for explicit tori the tori's own period
+        matrices; floats for a single torus"""
         xp = self._namespace(get_namespace(jr, jphi, jz))
         if xp is not numpy:
             return self._bk_Freqs(xp, jr, jphi, jz)
-        jr, jphi, jz = float(jr), float(jphi), float(jz)
-        Lz = jphi
+        scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
+        jr, jphi, jz = numpy.broadcast_arrays(
+            *(numpy.atleast_1d(numpy.asarray(t, dtype="float")) for t in (jr, jphi, jz))
+        )
+        if scalar:
+            return self._Freqs_torus(jr[0], jphi[0], jz[0])
+        tori, inv = numpy.unique(
+            numpy.stack([t.ravel() for t in (jr, jphi, jz)], axis=1),
+            axis=0,
+            return_inverse=True,
+        )
+        Om = numpy.array([self._Freqs_torus(*actions) for actions in tori]).T
+        return tuple(o.reshape(jr.shape) for o in Om[:, inv.ravel()])
+
+    def _Freqs_torus(self, jr, Lz, jz):
+        """Frequencies of one torus, as floats"""
         if jr == 0.0 and jz == 0.0:
             if self._interp:
                 self._check_Lz(numpy.fabs(Lz))
@@ -4880,21 +4940,91 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return tab
 
     def _bk_xvFreqs(self, xp, jr, jphi, jz, angler, anglephi, anglez):
-        """_xvFreqs in jax/torch: one torus, any number of angles"""
-        ins, (jr, jphi, jz, angler, anglephi, anglez) = self._bk_inputs(
-            xp, jr, jphi, jz, angler, anglephi, anglez
+        """_xvFreqs in jax/torch: actions and angles that broadcast against
+        each other by numpy's rules; a single torus returns its frequencies
+        as 0-d arrays"""
+        ins, args = self._bk_inputs(xp, jr, jphi, jz, angler, anglephi, anglez)
+        scalar = all(t.ndim == 0 for t in args[:3])
+        jr, jphi, jz, angler, anglephi, anglez = xp.broadcast_arrays(
+            *(xp.reshape(t, (1,)) if t.ndim == 0 else t for t in args)
         )
-        jr, jphi, jz = (xp.reshape(t, ()) for t in (jr, jphi, jz))
-        angler, anglephi, anglez = xp.broadcast_arrays(
-            *(xp.reshape(t, (-1,)) for t in (angler, anglephi, anglez))
+        shape = jr.shape
+        jr, jphi, jz, angler, anglephi, anglez = (
+            xp.reshape(t, (-1,)) for t in (jr, jphi, jz, angler, anglephi, anglez)
         )
-        Lz = jphi
-        if has_concrete_truth_value(jr) and concretely_true((jr < 0.0) | (jz < 0.0)):
-            raise ValueError("J_R and J_z have to be non-negative")
-        if has_concrete_truth_value(Lz) and concretely_true(Lz == 0.0):
-            raise ValueError("L_z = 0 is not supported")
+        self._bk_check_actions(xp, jr, jphi, jz)
         thR = xp.remainder(angler, 2.0 * numpy.pi)
         thz = xp.remainder(anglez, 2.0 * numpy.pi)
+        if scalar:
+            out = self._bk_xvFreqs_torus(
+                xp, *(xp.reshape(t, ()) for t in args[:3]), thR, anglephi, thz
+            )
+            res = (*(xp.reshape(o, shape) for o in out[:6]), *out[6:])
+        else:
+            out = self._bk_per_torus(
+                xp,
+                (jr, jphi, jz),
+                (thR, anglephi, thz),
+                lambda a, ang: self._bk_xvFreqs_torus(xp, *a, *ang),
+            )
+            res = tuple(xp.reshape(o, shape) for o in out)
+        return tuple(match_input_dtype(t, *ins) for t in res)
+
+    def _bk_check_actions(self, xp, jr, jphi, jz):
+        """The actions' checks of _xvFreqs, when their values are concrete"""
+        neg = xp.any((jr < 0.0) | (jz < 0.0))
+        if has_concrete_truth_value(neg) and concretely_true(neg):
+            raise ValueError("J_R and J_z have to be non-negative")
+        zero = xp.any(jphi == 0.0)
+        if has_concrete_truth_value(zero) and concretely_true(zero):
+            raise ValueError("L_z = 0 is not supported")
+
+    def _bk_per_torus(self, xp, actions, angles, torus):
+        """Flat arrays of actions (and angles of the same length, possibly
+        none) evaluated torus by torus with torus(actions, angles), which
+        returns arrays over the angles and/or 0-d values; each output as a
+        flat array over the points. Concrete actions without a gradient are
+        grouped by distinct torus, so that each torus's tables are read once;
+        otherwise every point is its own torus, so that each point's
+        derivatives go to its own actions"""
+        n = actions[0].shape[0]
+        if under_trace(*actions) or requires_backend_grad(*actions):
+            groups = [numpy.array([ii]) for ii in range(n)]
+            reps = list(range(n))
+        else:
+            host = numpy.stack([as_numpy(stop_gradient(a)) for a in actions], axis=1)
+            tori, first, inv = numpy.unique(
+                host, axis=0, return_index=True, return_inverse=True
+            )
+            inv = inv.ravel()
+            order = numpy.argsort(inv, kind="stable")
+            starts = numpy.searchsorted(inv[order], numpy.arange(len(tori) + 1))
+            groups = [order[starts[k] : starts[k + 1]] for k in range(len(tori))]
+            reps = list(first)
+        dev = device_of(actions[0])
+        outs = []
+        for pts, rep in zip(groups, reps):
+            idx = asarray_on_device(xp, pts, dev)
+            out = torus(
+                tuple(a[int(rep)] for a in actions),
+                tuple(xp.take(a, idx, axis=0) for a in angles),
+            )
+            outs.append(
+                [
+                    o if o.ndim > 0 else xp.broadcast_to(o, (len(pts),))
+                    for o in (xp.asarray(q) for q in out)
+                ]
+            )
+        pts = numpy.concatenate(groups)
+        back = asarray_on_device(xp, numpy.argsort(pts, kind="stable"), dev)
+        return tuple(
+            xp.take(xp.concat([o[k] for o in outs]), back, axis=0)
+            for k in range(len(outs[0]))
+        )
+
+    def _bk_xvFreqs_torus(self, xp, jr, jphi, jz, thR, anglephi, thz):
+        """One torus (0-d actions) at flat arrays of angles, in jax/torch"""
+        Lz = jphi
         sgn = xp.sign(Lz)
 
         def circular():
@@ -4922,7 +5052,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 self._bk_match_node(
                     xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
                 )
-            return tuple(match_input_dtype(t, *ins) for t in circular())
+            return circular()
         tab = self._bk_tables(xp, jr, jz, Lz)
         aux, chains_u, chains_v = self._bk_aux(xp, jr, jz, Lz, tab)
         aux_sg = {
@@ -4932,12 +5062,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             xp, thR, thz, aux, aux_sg, chains_u[:2], chains_v[:2]
         )
         T = self._bk_torus_at(xp, tu, tv, aux, chains_u, chains_v)
-        L = aux["L"]
-        thetaAphi = anglephi - T["comps"][2]
+        Om = tab["Om"]
+        res = (*self._bk_point(xp, T, Lz, aux["L"], anglephi), Om[0], Om[2], Om[1])
+        if not concrete:  # a traced circular orbit
+            on_c = (jr == 0.0) & (jz == 0.0)
+            res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
+        return res
+
+    def _bk_point(self, xp, T, Lz, L, anglephi):
+        """_point in jax/torch"""
         zeta = T["zeta"]
         phi = (
-            thetaAphi
-            - sgn * T["thetaAz"]
+            anglephi
+            - T["comps"][2]
+            - xp.sign(Lz) * T["thetaAz"]
             + xp.atan2(Lz / L * xp.cos(zeta), -xp.sin(zeta))
         )
         u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
@@ -4945,27 +5083,35 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sn, cs = xp.sin(v), xp.cos(v)
         den = self._delta * (sh**2 + sn**2)
         R = self._delta * sh * sn
-        Om = tab["Om"]
-        res = (
+        return (
             R,
             (pu * ch * sn + pv * sh * cs) / den,
             Lz / R,
             self._delta * ch * cs,
             (pu * sh * cs - pv * ch * sn) / den,
             xp.remainder(phi, 2.0 * numpy.pi),
-            Om[0],
-            Om[2],
-            Om[1],
         )
-        if not concrete:  # a traced circular orbit
-            on_c = (jr == 0.0) & (jz == 0.0)
-            res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
-        return tuple(match_input_dtype(t, *ins) for t in res)
 
     def _bk_Freqs(self, xp, jr, jphi, jz):
-        """_Freqs in jax/torch"""
-        ins, (jr, jphi, jz) = self._bk_inputs(xp, jr, jphi, jz)
-        jr, jphi, jz = (xp.reshape(t, ()) for t in (jr, jphi, jz))
+        """_Freqs in jax/torch, for actions that broadcast against each
+        other; 0-d arrays for a single torus"""
+        ins, args = self._bk_inputs(xp, jr, jphi, jz)
+        if all(t.ndim == 0 for t in args):
+            res = self._bk_Freqs_torus(xp, *args)
+        else:
+            jr, jphi, jz = xp.broadcast_arrays(*args)
+            shape = jr.shape
+            out = self._bk_per_torus(
+                xp,
+                tuple(xp.reshape(t, (-1,)) for t in (jr, jphi, jz)),
+                (),
+                lambda a, ang: self._bk_Freqs_torus(xp, *a),
+            )
+            res = tuple(xp.reshape(o, shape) for o in out)
+        return tuple(match_input_dtype(t, *ins) for t in res)
+
+    def _bk_Freqs_torus(self, xp, jr, jphi, jz):
+        """The frequencies of one torus (0-d actions) in jax/torch"""
         Lz = jphi
 
         def circular():
@@ -4981,14 +5127,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 self._bk_match_node(
                     xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
                 )
-            res = circular()
-        else:
-            Om = self._bk_tables(xp, jr, jz, Lz)["Om"]
-            res = (Om[0], Om[2], Om[1])
-            if not concrete:
-                on_c = (jr == 0.0) & (jz == 0.0)
-                res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
-        return tuple(match_input_dtype(t, *ins) for t in res)
+            return circular()
+        Om = self._bk_tables(xp, jr, jz, Lz)["Om"]
+        res = (Om[0], Om[2], Om[1])
+        if not concrete:
+            on_c = (jr == 0.0) & (jz == 0.0)
+            res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
+        return res
 
     def _bk_actions_from_integrals(self, xp, E, Lz, I3):
         """_actions_from_integrals in jax/torch"""
