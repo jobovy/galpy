@@ -45,7 +45,7 @@ from ..potential.Potential import (
 )
 from ..util import conversion, galpyWarning
 from ..util._hermite import LinearHermite, slope_at_zero
-from .actionAngleInverseUtil import _chunked, _sdot
+from .actionAngleInverseUtil import _chunked, _harmonics_xp, _sdot
 
 if conversion._APY_LOADED:
     from astropy import units
@@ -124,8 +124,7 @@ def _mm_kernel(xp, tau, j, D, dDdj, K, dKdj):
     2 sum_{odd l < m} cos(l tau).
     """
     ms = asarray_on_device(xp, 2.0 * numpy.arange(1, D.shape[-1] + 1), device_of(tau))
-    mt = tau[:, None] * ms[None, :]
-    smt, cmt = xp.sin(mt), xp.cos(mt)
+    smt, cmt = _harmonics_xp(xp, tau, ms, pointwise=True)
     if xp is numpy:
         # the tables broadcast against the anomalies, one row per anomaly
         # for many tori (as in _mm_eval_tau)

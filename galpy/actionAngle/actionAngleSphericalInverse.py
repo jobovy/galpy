@@ -58,6 +58,8 @@ from .actionAngleInverseUtil import (
     _bk_matching,
     _chunked,
     _fit_isochrone_vc2,
+    _harmonics,
+    _harmonics_xp,
     _ns,
     _offset_spec_coeffs,
     _offset_spec_coeffs_xp,
@@ -419,11 +421,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
     # ---------- the momentum-matched map and its lift
     def _map(self, tau, Dm):
         """The anomaly map eta(tau) = tau + sum_m D_m sin(m tau), its
-        derivative, and the sine matrix sin(m tau) it is built from"""
-        mt = tau[:, None] * self._nforDm[None, :]
-        smt = numpy.sin(mt)
+        derivative, and the harmonics sin(m tau) it is built from"""
+        smt, cmt = _harmonics(tau, self._nforDm, pointwise=True)
         eta = tau + _sdot(smt, Dm)
-        deta = 1.0 + _sdot(numpy.cos(mt), self._nforDm * Dm)
+        deta = 1.0 + _sdot(cmt, self._nforDm * Dm)
         return eta, deta, smt
 
     def _momentum_matched_lift(self, tau, r, pr, rp, ra, L):
@@ -1181,13 +1182,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _tau_solve(self, thr, a, e, Dm, rp, ra, chainJ):
         """Newton solve of theta_r(tau) = theta^A_r(tau) + [compensation
         along the J_r-chain](tau) for the anomaly of each requested angle,
-        on the derivative of the auxiliary angle alone (the compensation is
-        a small correction), vectorized over the angles, each on its own
-        torus (the parameters and tables have one row per angle, or one row
-        for all), with the residual wrapped into (-pi, pi] so that an
-        anomaly that crosses the pericentre converges to the equivalent
-        angle, converged angles dropped from the iteration, a bracketed
-        scalar fallback for any angle that does not converge within maxiter
+        on the derivative of the auxiliary angle, in closed form, plus that
+        of the compensation, a small correction whose slope is the secant
+        between successive iterates (so that the convergence is
+        superlinear), vectorized over the angles, each on its own torus
+        (the parameters and tables have one row per angle, or one row for
+        all), with the residual wrapped into (-pi, pi] so that an anomaly
+        that crosses the pericentre converges to the equivalent angle,
+        converged angles dropped from the iteration, a bracketed scalar
+        fallback for any angle that does not converge within maxiter
         iterations, and a final Newton step on every angle that takes the
         tolerance to round-off"""
         tables = (a, e, Dm, rp, ra) + tuple(chainJ)
@@ -1205,16 +1208,30 @@ class actionAngleSphericalInverse(actionAngleInverse):
             _, thetaA, dthetaA, _, _, (compJ,) = self._kernel(
                 x, *tabs[:5], chains=(tabs[5:],)
             )
-            return thetaA + compJ, dthetaA
+            return thetaA + compJ, dthetaA, compJ
+
+        def _fp(fp, sl):
+            # the slope of the relation: the auxiliary's plus the secant of
+            # the compensation, unless that would take it far from the
+            # auxiliary's own
+            return numpy.where(fp + sl > 0.5 * fp, fp + sl, fp)
 
         x = numpy.array(thr, dtype="float")
         active = numpy.ones(n, dtype="bool")
+        # the last iterate, the compensation there, and its secant slope
+        xprev, cprev, slope = x.copy(), numpy.zeros(n), numpy.zeros(n)
         for _ in range(self._maxiter):
             idx = numpy.flatnonzero(active)
-            f, fp = _f(x[idx], _rows(idx))
+            f, fp, comp = _f(x[idx], _rows(idx))
             f = (f - thr[idx] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             conv = numpy.fabs(f) < self._angle_tol
-            x[idx] += numpy.clip(-f / fp, -0.5, 0.5) * ~conv
+            step = x[idx] - xprev[idx]
+            moved = numpy.fabs(step) > 1e-9
+            slope[idx] = numpy.where(
+                moved, (comp - cprev[idx]) / numpy.where(moved, step, 1.0), slope[idx]
+            )
+            xprev[idx], cprev[idx] = x[idx], comp
+            x[idx] += numpy.clip(-f / _fp(fp, slope[idx]), -0.5, 0.5) * ~conv
             active[idx[conv]] = False
             if not numpy.any(active):
                 break
@@ -1235,9 +1252,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # one more Newton step on every angle: the loop stops at angle_tol,
         # and the quadratic step takes that to round-off, so that the returned
         # anomaly does not depend on the tolerance
-        f, fp = _f(x, tables)
+        f, fp, _ = _f(x, tables)
         f = (f - thr + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        return x - f / fp
+        return x - f / _fp(fp, slope)
 
     def _unlift(self, out, r, pr):
         """Undo the lift: the auxiliary-chart reconstruction (R, v_R, v_T,
@@ -2569,10 +2586,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _bk_kernel(self, xp, tau, a, e, Dm, rp, ra, chains):
         """_kernel in jax/torch"""
         ms = asarray_on_device(xp, self._nforDm * 1.0, device_of(tau))
-        mt = tau[:, None] * ms[None, :]
-        smt = xp.sin(mt)
+        smt, cmt = _harmonics_xp(xp, tau, ms, pointwise=True)
         eta = tau + _bk_dot(xp, smt, Dm)
-        deta = 1.0 + _bk_dot(xp, xp.cos(mt), ms * Dm)
+        deta = 1.0 + _bk_dot(xp, cmt, ms * Dm)
         se, ce = xp.sin(eta), xp.cos(eta)
         rA, pA, gA = self._aAIinv._profile(a, e, eta)
         kap = a * e / (a + self._b)
@@ -2592,10 +2608,33 @@ class actionAngleSphericalInverse(actionAngleInverse):
             comps.append(pA * drA - pr * dr)
         return eta, thetaA, dthetaA, r, pr, comps
 
+    def _bk_tau_iterate(self, xp, _theta, thr, args, wrap):
+        """_tau_solve's clipped Newton iteration in jax/torch, without a
+        derivative: the slope is the auxiliary angle's plus the secant of the
+        J_r-chain compensation (guarded as numpy's), each angle frozen at its
+        convergence; the residual wrapped into (-pi, pi] when wrap"""
+
+        def step(s):
+            x, xprev, cprev, slope = s[0], s[1], s[2], s[3]
+            f, fp, comp = _theta(x, args)
+            f = f - thr
+            if wrap:
+                f = xp.remainder(f + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+            dx = x - xprev
+            moved = xp.abs(dx) > 1e-9
+            slope = xp.where(moved, (comp - cprev) / xp.where(moved, dx, 1.0), slope)
+            fps = xp.where(fp + slope > 0.5 * fp, fp + slope, fp)
+            new = xp.stack([x + xp.clip(-f / fps, -0.5, 0.5), x, comp, slope])
+            return xp.where(xp.abs(f) < self._angle_tol, s, new)
+
+        # the first iterate's "previous" point is itself: no secant yet
+        s0 = xp.stack([thr, thr, 0.0 * thr, 0.0 * thr])
+        return iterate_to_fixed_point(step, s0, self._maxiter)[0]
+
     def _bk_tau_solve(self, xp, thr, a, e, Dm, rp, ra, chainJ):
-        """_tau_solve in jax/torch: the clipped Newton iteration on the
-        auxiliary angle's derivative, without a derivative, until every angle
-        converges (or for maxiter steps under a trace), then the backend
+        """_tau_solve in jax/torch: the clipped Newton iteration
+        (_bk_tau_iterate), until every angle converges (or for maxiter steps
+        under a trace), then the backend
         brentq from there in the bracket [theta - s, theta + s] with s beyond
         the extreme of theta_r(tau) - tau (as the numpy fallback), whose
         Newton steps finish any unconverged angle and whose final step
@@ -2605,7 +2644,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             _, thetaA, dthetaA, _, _, (compJ,) = self._bk_kernel(
                 xp, x, *args[:5], (args[5],)
             )
-            return thetaA + compJ, dthetaA
+            return thetaA + compJ, dthetaA, compJ
 
         # the iteration on derivative-free copies of the tables (a jax
         # while_loop must carry no derivative), stopped at convergence
@@ -2616,15 +2655,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         thr_sg = stop_gradient(thr)
         if Dm.ndim == 2:
             return self._bk_tau_solve_points(xp, thr, thr_sg, _theta, sg_args)
-
-        def step(x):
-            f, fp = _theta(x, sg_args)
-            f = f - thr_sg
-            return xp.where(
-                xp.abs(f) < self._angle_tol, x, x + xp.clip(-f / fp, -0.5, 0.5)
-            )
-
-        x = iterate_to_fixed_point(step, thr_sg, self._maxiter)
+        x = self._bk_tau_iterate(xp, _theta, thr_sg, sg_args, wrap=False)
         done = concretely_true(
             xp.all(xp.abs(_theta(x, sg_args)[0] - thr_sg) < self._angle_tol)
         )
@@ -2656,14 +2687,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         around it, which always holds the root (theta_r(tau) - tau stays
         within 2 pi), in place of a scan of every torus"""
 
-        def step(x):
-            f, fp = _theta(x, sg_args)
-            f = xp.remainder(f - thr_sg + numpy.pi, 2.0 * numpy.pi) - numpy.pi
-            return xp.where(
-                xp.abs(f) < self._angle_tol, x, x + xp.clip(-f / fp, -0.5, 0.5)
-            )
-
-        x = iterate_to_fixed_point(step, thr_sg, self._maxiter)
+        x = self._bk_tau_iterate(xp, _theta, thr_sg, sg_args, wrap=True)
         th = _theta(x, sg_args)[0]
         tgt = thr + 2.0 * numpy.pi * stop_gradient(
             xp.round((th - thr_sg) / (2.0 * numpy.pi))
