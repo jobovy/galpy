@@ -600,6 +600,73 @@ def test_isochrone_inverse_grad_vs_fd(backend):
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
 
+# Arrays of actions, broadcast against the angles by numpy's rules
+_IIA_JR = numpy.array([0.05, 0.2, 0.31, 0.12])
+_IIA_JPHI = numpy.array([0.8, -0.6, 1.1, -0.95])
+_IIA_JZ = numpy.array([0.15, 0.0, 0.25, 0.07])
+
+
+def _iia_cases():
+    jr, jphi, jz = _IIA_JR, _IIA_JPHI, _IIA_JZ
+    return {
+        # every angle on every torus: (n,1) actions with (m,) angles
+        "grid": (jr[:, None], jphi[:, None], jz[:, None], _II_AR, _II_AP, _II_AZ),
+        # that angle on every torus: (n,) actions at scalar angles
+        "fixed": (jr, jphi, jz, 1.6, 2.3, 0.4),
+        # paired element by element
+        "paired": (jr, jphi, jz, _II_AR, _II_AP, _II_AZ),
+    }
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("case", ["grid", "fixed", "paired"])
+def test_isochrone_inverse_array_actions_parity(backend, case):
+    # the backends broadcast the actions against the angles as numpy does, and
+    # agree with it point by point (also under jax.jit)
+    aAIi = actionAngleIsochroneInverse(b=1.2)
+    args = _iia_cases()[case]
+    ref = aAIi._xvFreqs(*args)
+    bargs = [_arr(backend, numpy.asarray(a, dtype=float)) for a in args]
+    got = aAIi._xvFreqs(*bargs)
+    if backend == "jax":
+        jitted = jax.jit(lambda *a: aAIi._xvFreqs(*a))(*bargs)
+    for ii, (r, g) in enumerate(zip(ref, got)):
+        assert _is_backend_array(backend, g)
+        assert tuple(g.shape) == r.shape, f"output {ii} has the wrong shape"
+        numpy.testing.assert_allclose(as_numpy(g), r, rtol=1e-12, atol=1e-12)
+        if backend == "jax":
+            numpy.testing.assert_allclose(
+                as_numpy(jitted[ii]), r, rtol=1e-12, atol=1e-12
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochrone_inverse_array_actions_grad_vs_fd(backend):
+    # d(sum R)/ds through an array of tori whose radial actions are s * J_r:
+    # AD through the broadcast, flattened Kepler solve vs finite differences
+    aAIi = actionAngleIsochroneInverse(b=1.2)
+
+    def rsum(s, xp_arr):
+        out = aAIi._xvFreqs(
+            s * xp_arr(_IIA_JR[:, None]),
+            xp_arr(_IIA_JPHI[:, None]),
+            xp_arr(_IIA_JZ[:, None]),
+            xp_arr(_II_AR),
+            xp_arr(_II_AP),
+            xp_arr(_II_AZ),
+        )
+        return out[0].sum()
+
+    fd = _fd(lambda s: numpy.asarray(rsum(s, lambda v: numpy.asarray(v))), 1.0)
+    g = _grad(
+        backend,
+        lambda st: rsum(st, lambda v: _arr(backend, numpy.asarray(v, float))),
+        1.0,
+    )
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-6, atol=1e-8)
+
+
 # ====================================================================
 # actionAngleSpherical: ACTIONS (Jr,Lz,Jz via _evaluate) + _EccZmaxRperiRap.
 # Unlike the closed-form classes above, these require a bracketed root-find
