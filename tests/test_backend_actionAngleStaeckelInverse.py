@@ -1067,3 +1067,138 @@ def test_array_actions_derivatives_wrt_potential_parameters():
         for k in range(len(J))
     )
     assert numpy.fabs(float(g) - float(g1)) < 1e-10 * (1.0 + numpy.fabs(float(g1)))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hermite_ev4_rows(backend):
+    # ev4_rows evaluates many points at once as ev4 does one at a time and as
+    # the numpy batch_all does, for a family built on a backend and on numpy
+    from galpy.util._hermite import HermiteFamily3D
+
+    x, y, z = (
+        numpy.linspace(0.0, 1.0, 6) ** 2,
+        numpy.linspace(0.5, 2.0, 5),
+        numpy.linspace(-1.0, 1.0, 5),
+    )
+    X, Y, Z = numpy.meshgrid(x, y, z, indexing="ij")
+    g, e = numpy.sin(3.0 * X) * numpy.cos(Y), numpy.exp(0.5 * Z)
+    tabs = [
+        (t * e)[..., None] * numpy.array([1.0, 2.0])
+        for t in (
+            g,
+            3.0 * numpy.cos(3.0 * X) * numpy.cos(Y),
+            -numpy.sin(3.0 * X) * numpy.sin(Y),
+            0.5 * g,
+        )
+    ]
+    ipn = HermiteFamily3D(x, y, z, *tabs)
+    ipb = HermiteFamily3D(x, _arr(backend, y), z, *(_arr(backend, t) for t in tabs))
+    pts = numpy.array(
+        [(0.3, 0.7, 0.2), (x[2], y[3], z[1]), (0.999, 1.99, -0.95), (0.0, 0.5, -1.0)]
+    )
+    ref = ipn.batch_all(pts[:, 0], pts[:, 1], pts[:, 2])
+    for ip in (ipb, ipn):
+        got = ip.ev4_rows(*(_arr(backend, pts[:, k]) for k in range(3)))
+        for r, gt in zip(ref, got):
+            assert _is_backend(backend, gt) and tuple(gt.shape) == r.shape
+            numpy.testing.assert_allclose(as_numpy(gt), r, rtol=0.0, atol=1e-12)
+        for k in range(len(pts)):
+            one = ip.ev4(*(_arr(backend, v) for v in pts[k]))
+            for o, gt in zip(one, got):
+                numpy.testing.assert_allclose(
+                    as_numpy(gt)[k], as_numpy(o), rtol=0.0, atol=1e-14
+                )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_array_actions(interp):
+    # arrays of tori trace once under jax.jit, their faces and circular
+    # orbits selected by where(), and agree with numpy: paired, every angle
+    # on every torus, and the frequencies
+    J, ang = _ARR_TORI, _ARR_ANG
+    f = jax.jit(lambda a, b, c: jnp.stack(interp.xvFreqs(a, b, c, *ang)))
+    numpy.testing.assert_allclose(
+        numpy.asarray(f(*(jnp.asarray(J[:, k]) for k in range(3)))),
+        numpy.array(interp.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)),
+        rtol=0.0,
+        atol=_PLANE_ATOL,
+    )
+    a4 = _ANGLES[:4]
+    h = jax.jit(lambda a, b, c: jnp.stack(interp.xvFreqs(a, b, c, a4, 1.0, 2.0)))
+    numpy.testing.assert_allclose(
+        numpy.asarray(h(*(jnp.asarray(J[:, k : k + 1]) for k in range(3)))),
+        numpy.array(interp.xvFreqs(J[:, 0:1], J[:, 1:2], J[:, 2:3], a4, 1.0, 2.0)),
+        rtol=0.0,
+        atol=_PLANE_ATOL,
+    )
+    g = jax.jit(lambda a, b, c: jnp.stack(interp.Freqs(a, b, c)))
+    numpy.testing.assert_allclose(
+        numpy.asarray(g(*(jnp.asarray(J[:, k]) for k in range(3)))),
+        numpy.array(interp.Freqs(J[:, 0], J[:, 1], J[:, 2])),
+        rtol=0.0,
+        atol=_PLANE_ATOL,
+    )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_array_actions_adaptive():
+    # a family whose reference curve is per torus evaluates traced arrays of
+    # tori one torus at a time
+    aA = _interp(u0=lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E)
+    J, ang = _ARR_TORI[[0, 1]], _ARR_ANG[:, :2]
+    f = jax.jit(lambda a, b, c: jnp.stack(aA.xvFreqs(a, b, c, *ang)))
+    numpy.testing.assert_allclose(
+        numpy.asarray(f(*(jnp.asarray(J[:, k]) for k in range(3)))),
+        numpy.array(aA.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)),
+        rtol=0.0,
+        atol=_PLANE_ATOL,
+    )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_array_actions_fallbacks(interp):
+    # points whose vectorized solve does not converge take the one-torus
+    # path: an angle solve cut at one Newton step, and the label inversion of
+    # tiny actions; a torus beyond the family and an |L_z| beyond the grid
+    # raise as for one torus (torch: under eager jax the one-torus path's
+    # safeguarded steps take minutes)
+    J, ang = _ARR_TORI[[0, 1, 5, 0]], _ARR_ANG[:, [0, 1, 5, 2]]
+    J[3] = (0.09, 1.05, 0.05)
+    fb = copy.copy(interp)
+    fb._maxiter = 1
+    tt = [torch.tensor(J[:, k]) for k in range(3)]
+    numpy.testing.assert_allclose(
+        _flat(fb.xvFreqs(*tt, *ang)),
+        _flat(interp.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)),
+        rtol=0.0,
+        atol=1e-9,
+    )
+    tiny = numpy.array([1e-12, 1e-8, 1e-8, 0.05])
+    tinyz = numpy.array([1e-12, 1e-8, 0.05, 1e-8])
+    Lt = numpy.ones(4)
+    numpy.testing.assert_allclose(
+        _flat(interp(*(torch.tensor(v) for v in (tiny, Lt, tinyz)), 0.3, 1.0, 2.0)),
+        _flat(interp(tiny, Lt, tinyz, 0.3, 1.0, 2.0)),
+        rtol=0.0,
+        atol=1e-11,
+    )
+    # an array of one distinct torus takes the one-torus path
+    numpy.testing.assert_allclose(
+        _flat(interp(*(torch.tensor([v, v]) for v in J[0]), ang[0, :2], 1.0, 2.0)),
+        _flat(interp(*(numpy.array([v, v]) for v in J[0]), ang[0, :2], 1.0, 2.0)),
+        rtol=0.0,
+        atol=_PLANE_ATOL,
+    )
+    with pytest.raises(ValueError, match="could not be matched"):
+        interp(
+            torch.tensor([0.05, 50.0]),
+            torch.tensor([0.93, 0.93]),
+            torch.tensor([0.05, 0.1]),
+            1.0,
+            1.0,
+            1.0,
+        )
+    with pytest.raises(ValueError, match="outside the interpolation grid"):
+        interp(
+            torch.tensor([0.05, 0.06]), torch.tensor([0.93, 5.0]), 0.05, 1.0, 1.0, 1.0
+        )
