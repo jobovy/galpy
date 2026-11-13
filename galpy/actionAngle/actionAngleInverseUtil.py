@@ -60,20 +60,28 @@ def _sine_project(g, ms):
 
 
 # points per chunk of an array evaluation: a call over many distinct tori is
-# split into chunks of this size, because the per-point cost of the kernel
-# grows with the size of its arrays once they leave the cache (four times
-# from 1e4 to 1e6 points)
+# split into chunks, because the per-point cost of the kernel grows with the
+# size of its arrays once they leave the cache. The arrays hold one row of
+# harmonics per point, so the chunk holds a fixed number of elements (points
+# times harmonics) rather than of points: at most _EVAL_CHUNK points, fewer
+# for maps with many harmonics, but no fewer than _EVAL_CHUNK_MIN, below
+# which the fixed cost of a call dominates
 _EVAL_CHUNK = 16384
+_EVAL_CHUNK_ELEMENTS = 200000
+_EVAL_CHUNK_MIN = 1024
 
 
-def _chunked(fn, n, *arrays):
-    """fn(*arrays) in chunks of _EVAL_CHUNK along the first axis of each of
-    the n-long arrays, the outputs (a tuple of n-long arrays) concatenated"""
-    if n <= _EVAL_CHUNK:
+def _chunked(fn, n, *arrays, nharm=1):
+    """fn(*arrays) in chunks along the first axis of each of the n-long
+    arrays, the outputs (a tuple of n-long arrays) concatenated; the chunk
+    has at most _EVAL_CHUNK points and about _EVAL_CHUNK_ELEMENTS / nharm
+    points for a kernel with nharm harmonics per point"""
+    chunk = min(
+        _EVAL_CHUNK, max(_EVAL_CHUNK_ELEMENTS // max(nharm, 1), _EVAL_CHUNK_MIN)
+    )
+    if n <= chunk:
         return fn(*arrays)
-    parts = [
-        fn(*(a[k : k + _EVAL_CHUNK] for a in arrays)) for k in range(0, n, _EVAL_CHUNK)
-    ]
+    parts = [fn(*(a[k : k + chunk] for a in arrays)) for k in range(0, n, chunk)]
     return tuple(numpy.concatenate([p[i] for p in parts]) for i in range(len(parts[0])))
 
 
