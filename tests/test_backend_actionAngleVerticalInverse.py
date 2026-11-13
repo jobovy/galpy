@@ -500,7 +500,8 @@ def test_derivatives_wrt_potential_parameters(backend, name, p0, kw):
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_zmax_family(backend):
     # zmax= on a backend: the tori of numpy's zmax= family, with energies that
-    # follow the potential's parameters at fixed heights. The largest torus's
+    # follow the potential's parameters (through Phi(0) and Phi(zmax), at fixed
+    # zmax). The largest torus's
     # energy is Phi(zmax), exactly in its derivative too, and J(E) at that
     # energy carries the torus's own dJ/dp (before, the energies were constants
     # of the parameter: dE/dp = 0, and J(E) added dPhi/dp / Omega)

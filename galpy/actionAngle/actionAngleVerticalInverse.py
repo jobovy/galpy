@@ -214,7 +214,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Es : numpy.ndarray, optional
             energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True); default: [0.1, 0.3] when zmax is not given
         zmax : float or Quantity, optional
-            alternative to Es: maximum height of the largest torus; the tori are then those that reach the nE heights spaced uniformly between zero (the orbit at rest at the potential's minimum) and zmax, so that with setup_interp=True every torus that stays below zmax is available; cannot be combined with Es
+            alternative to Es: maximum height of the largest torus; the nE tori then run from the orbit at rest at the potential's minimum to the torus that reaches zmax, spaced uniformly in the speed with which they cross the midplane (in sqrt(E - Phi(0))), so that with setup_interp=True every torus that stays below zmax is available; cannot be combined with Es
         nE : int, optional
             number of tori between zero and zmax (only used when zmax is given)
         nta : int
@@ -274,21 +274,29 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._pot = _check_potential_list_and_deprecate(pot)
         self._aAV = actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
-        self._zgrid = None
+        self._zmax_grid = None
         if zmax is not None:
             if Es is not None:
                 raise ValueError("Specify the tori through Es= or zmax=, not both")
-            # the tori that reach heights uniform between zero and zmax
-            zs = numpy.linspace(0.0, conversion.parse_length(zmax, ro=self._ro), nE)
+            # the tori between rest and the one that reaches zmax, uniform in
+            # the midplane speed sqrt(2 [E - Phi(0)]): several times more
+            # accurate between the tori of a disk's potential than uniform
+            # heights or energies
+            zmax = conversion.parse_length(zmax, ro=self._ro)
+            u2 = numpy.linspace(0.0, 1.0, nE) ** 2
             if xp_bk is not None:
-                # their energies are computed in the backend construction,
+                # the energies are computed in the backend construction,
                 # differentiable in the potential's parameters
-                self._zgrid = zs
+                self._zmax_grid = (zmax, u2)
             else:
-                Es = evaluatelinearPotentials(self._pot, zs, use_physical=False)
+                Phi0, Phimax = (
+                    evaluatelinearPotentials(self._pot, z, use_physical=False)
+                    for z in (0.0, zmax)
+                )
+                Es = Phi0 + (Phimax - Phi0) * u2
         elif Es is None:
             Es = [0.1, 0.3]
-        if self._zgrid is None:
+        if self._zmax_grid is None:
             self._Es = numpy.sort(
                 as_numpy(
                     conversion._parse_grid_quantity(
@@ -1012,11 +1020,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Phi0 = _evalPhi(self._pot, xp.zeros(()) + 0.0)
         dev = device_of(Phi0)
         concrete = has_concrete_truth_value(Phi0)
-        if self._zgrid is not None:
-            # tori set up from their heights (zmax=): energies differentiable
-            # in the potential's parameters; the bottom torus is at zero height
-            Es = _evalPhi(self._pot, asarray_on_device(xp, self._zgrid, dev))
-            bottom = self._zgrid == 0.0
+        if self._zmax_grid is not None:
+            # tori set up by zmax=: energies differentiable in the potential's
+            # parameters, through Phi(0) and Phi(zmax); the bottom torus is
+            # the orbit at rest
+            zmax, u2 = self._zmax_grid
+            Phimax = _evalPhi(self._pot, xp.zeros(()) + zmax)
+            Es = Phi0 + (Phimax - Phi0) * asarray_on_device(xp, u2, dev)
+            bottom = u2 == 0.0
             if concrete:
                 self._Es = numpy.array(as_numpy(stop_gradient(Es)))
         else:
