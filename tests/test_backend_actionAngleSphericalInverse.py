@@ -1062,3 +1062,42 @@ def test_unconverged_anomaly_solve(backend, explicit):
     numpy.testing.assert_allclose(
         _flat(aA.xvFreqs(*ins)), _flat(explicit.xvFreqs(*ins)), rtol=0.0, atol=1e-10
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_matching_stops_at_roundoff_floor(backend, monkeypatch):
+    # The batched anomaly matching of the backend constructions (spherical and
+    # Staeckel) freezes a sample once its residual is below tol OR its Newton
+    # step is at the iterate's round-off floor: a residual whose floor exceeds
+    # tol (here, Newton oscillating between -3e-13 and 3e-13 from the root, as
+    # on the near-circular tori of a 128 x 128 spherical family) would
+    # otherwise hold every sample to maxiter = 200 steps. The final
+    # implicit-function step still lands on the root.
+    import importlib
+
+    U = importlib.import_module("galpy.actionAngle.actionAngleInverseUtil")
+    nsteps = []
+    orig = U.iterate_to_fixed_point
+
+    def counted(step, x0, n):
+        c = [0]
+
+        def s(x):
+            c[0] += 1
+            return step(x)
+
+        out = orig(s, x0, n)
+        nsteps.append(c[0])
+        return out
+
+    monkeypatch.setattr(U, "iterate_to_fixed_point", counted)
+    xp = jnp if backend == "jax" else torch
+    r = _arr(backend, numpy.linspace(0.3, 2.9, 12).reshape(3, 4))
+    resid = lambda eta: eta - r  # noqa: E731
+    floored = lambda eta: (eta - r) + 3e-13 * xp.sign(eta - r)  # noqa: E731
+    one = lambda eta: 1.0 + 0.0 * eta  # noqa: E731
+    eta = U._bk_matching(
+        xp, resid, one, floored, one, r + 1.2, _arr(backend, numpy.ones(3))
+    )
+    assert nsteps[0] < 10, f"the matching took {nsteps[0]} steps"
+    numpy.testing.assert_allclose(as_numpy(eta), as_numpy(r), rtol=0.0, atol=1e-15)
