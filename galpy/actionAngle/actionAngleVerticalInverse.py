@@ -186,7 +186,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
     def __init__(
         self,
         pot=None,
-        Es=[0.1, 0.3],
+        Es=None,
+        zmax=None,
+        nE=33,
         nta=128,
         setup_interp=False,
         use_pointtransform=False,
@@ -209,8 +211,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ----------
         pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
             a linearPotential/verticalPotential or a combined potential formed using addition (pot1+pot2+…)
-        Es : numpy.ndarray
-            energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
+        Es : numpy.ndarray, optional
+            energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True); default: [0.1, 0.3] when zmax is not given
+        zmax : float or Quantity, optional
+            alternative to Es: maximum height of the largest torus; the tori are then those that reach the nE heights spaced uniformly between zero (the orbit at rest at the potential's minimum) and zmax, so that with setup_interp=True every torus that stays below zmax is available; cannot be combined with Es
+        nE : int, optional
+            number of tori between zero and zmax (only used when zmax is given)
         nta : int
             number of auxiliary angles to sample the torus at when mapping the torus (in the momentum-matched mode this only sets the default of mm_nta)
         setup_interp : bool
@@ -268,14 +274,32 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._pot = _check_potential_list_and_deprecate(pot)
         self._aAV = actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
-        self._Es = numpy.sort(
-            as_numpy(
-                conversion._parse_grid_quantity(
-                    to_host(Es), conversion.parse_energy, vo=self._vo
+        self._zgrid = None
+        if zmax is not None:
+            if Es is not None:
+                raise ValueError("Specify the tori through Es= or zmax=, not both")
+            # the tori that reach heights uniform between zero and zmax
+            zs = numpy.linspace(0.0, conversion.parse_length(zmax, ro=self._ro), nE)
+            if xp_bk is not None:
+                # their energies are computed in the backend construction,
+                # differentiable in the potential's parameters
+                self._zgrid = zs
+            else:
+                Es = evaluatelinearPotentials(self._pot, zs, use_physical=False)
+        elif Es is None:
+            Es = [0.1, 0.3]
+        if self._zgrid is None:
+            self._Es = numpy.sort(
+                as_numpy(
+                    conversion._parse_grid_quantity(
+                        to_host(Es), conversion.parse_energy, vo=self._vo
+                    )
                 )
             )
-        )
-        self._nE = len(self._Es)
+            self._nE = len(self._Es)
+        else:  # filled in by the construction when concrete
+            self._Es = None
+            self._nE = nE
         self._mm_bk = None
         if xp_bk is not None:
             self._nta = nta
@@ -988,12 +1012,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Phi0 = _evalPhi(self._pot, xp.zeros(()) + 0.0)
         dev = device_of(Phi0)
         concrete = has_concrete_truth_value(Phi0)
-        Es = asarray_on_device(xp, self._Es, dev)
-        # the bottom tori (J = 0): a static split, from the values if concrete
-        if concrete:
-            bottom = self._Es - float(as_numpy(stop_gradient(Phi0))) < 1e-14
+        if self._zgrid is not None:
+            # tori set up from their heights (zmax=): energies differentiable
+            # in the potential's parameters; the bottom torus is at zero height
+            Es = _evalPhi(self._pot, asarray_on_device(xp, self._zgrid, dev))
+            bottom = self._zgrid == 0.0
+            if concrete:
+                self._Es = numpy.array(as_numpy(stop_gradient(Es)))
         else:
-            bottom = self._Es < 1e-10
+            Es = asarray_on_device(xp, self._Es, dev)
+            # the bottom tori (J = 0): a static split, from the values if concrete
+            if concrete:
+                bottom = self._Es - float(as_numpy(stop_gradient(Phi0))) < 1e-14
+            else:
+                bottom = self._Es < 1e-10
         nb = int(numpy.sum(bottom))
         if nb and not numpy.all(bottom[:nb]):  # pragma: no cover
             raise RuntimeError("The bottom tori must be the lowest energies")
@@ -1145,7 +1177,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 "K": ("lin", js[0], Ks[0], dKs[0]),
                 "E": ("lin", js[0], Es[0], Oms[0]),
             }
-        self._mm_bk = {"xp": xp, "js": js, "Om": Oms, "xmax": xmaxs, "tabs": tabs}
+        self._mm_bk = {
+            "xp": xp,
+            "js": js,
+            "Om": Oms,
+            "xmax": xmaxs,
+            "Es": Es,
+            "tabs": tabs,
+        }
         self._mm_npt = mm_npt
         self._mm_nta = mm_nta
         if not concrete:
@@ -1846,11 +1885,18 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
     def _J_lookup_backend(self, xp, E):
         """J(E) at a grid energy (as J), in namespace xp: the stored action, with
-        the derivative dJ/dE = 1 / Omega of the torus."""
+        the derivative dJ/dE = 1 / Omega of the torus (against the torus's own
+        energy, which moves with a potential parameter when set up by zmax=)."""
         E_in = xp.asarray(E) * 1.0
         E = at_least_float64(E_in)
         dev = device_of(E)
-        Es = asarray_on_device(xp, self._Es, dev)
+        if self._mm_bk is not None:
+            # the family's energies, which move with a potential parameter
+            # for tori set up from their heights
+            Ef = self._mm_bk["Es"]
+            Es = asarray_on_device(xp, stop_gradient(Ef), dev)
+        else:
+            Ef = Es = asarray_on_device(xp, self._Es, dev)
         indx = xp.argmin(xp.abs(E - Es))
         if has_concrete_truth_value(E) and concretely_true(
             xp.abs(E - Es[indx]) > 1e-10
@@ -1863,7 +1909,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
         else:
             js = asarray_on_device(xp, self._js, dev)[indx]
             Om = asarray_on_device(xp, self._Omegas, dev)[indx]
-        return match_input_dtype(js + (E - stop_gradient(E)) / Om, E_in)
+        dE = (E - stop_gradient(E)) - (Ef[indx] - stop_gradient(Ef[indx]))
+        return match_input_dtype(js + dE / Om, E_in)
 
     def _E_backend(self, xp, j):
         """E(j) (as E) in namespace xp: an explicit torus's energy, with the
@@ -1889,7 +1936,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             else:
                 Om = asarray_on_device(xp, self._Omegas, dev)[indx]
             dj = j - js[indx]
-            Es = asarray_on_device(xp, self._Es, dev)
+            if self._mm_bk is not None:
+                Es = self._mm_bk["Es"]
+            else:
+                Es = asarray_on_device(xp, self._Es, dev)
             return match_input_dtype(Es[indx] + Om * (dj - stop_gradient(dj)), j_in)
         if js.shape[0] > 1:
             # a one-node family is linear in J by construction and extends to
