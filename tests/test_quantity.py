@@ -13127,6 +13127,23 @@ def test_actionAngleVerticalInverse_units():
     assert numpy.fabs(aAVI._Es[0] - E) < 1e-10, (
         "actionAngleVerticalInverse does not parse an energy given as a Quantity"
     )
+    # the grid's maximum height given as a Quantity
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        zmax = 1.3
+        aAVI_z = actionAngleVerticalInverse(
+            pot=IsothermalDiskPotential(amp=1.0, sigma=0.5, ro=ro, vo=vo),
+            zmax=zmax * ro * units.kpc,
+            nE=5,
+            ro=ro,
+            vo=vo,
+        )
+        aAVI_z_int = actionAngleVerticalInverse(
+            pot=IsothermalDiskPotential(amp=1.0, sigma=0.5), zmax=zmax, nE=5
+        )
+    assert numpy.all(numpy.fabs(aAVI_z._js - aAVI_z_int._js) < 1e-10), (
+        "actionAngleVerticalInverse does not parse zmax given as a Quantity"
+    )
     assert numpy.fabs(aAVI._js[0] - aAVI_int._js[0]) < 1e-10, (
         "actionAngleVerticalInverse with a potential with ro and vo set does not give the same torus as one in internal units"
     )

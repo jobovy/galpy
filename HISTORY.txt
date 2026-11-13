@@ -1,6 +1,14 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+- ``actionAngleVerticalInverse`` can be set up from the maximum height of its
+  largest torus: ``zmax=`` (with ``nE=`` tori) builds the tori that reach
+  heights spaced uniformly between zero and ``zmax``, as an alternative to
+  the grid of energies ``Es=``; with ``setup_interp=True`` every torus that
+  stays below ``zmax`` is then available. A grid uniform in the maximum
+  height is also several times more accurate between its tori than one
+  uniform in the energy with the same number of tori.
+
 - ``actionAngleStaeckelInverse`` evaluates arrays of actions, broadcast
   against the angles by numpy's rules like the vertical and spherical
   inverses (scalar actions with arrays of angles: one torus at those angles;
