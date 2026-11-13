@@ -10299,8 +10299,9 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
 
 
 def test_actionAngleVerticalInverse_zmax():
-    # zmax= sets up the tori that reach nE heights uniform between zero and
-    # zmax: the same object as the corresponding energies given by hand, in
+    # zmax= sets up nE tori between rest and the torus that reaches zmax,
+    # uniform in the speed with which they cross the midplane: the same
+    # object as the corresponding energies given by hand, in
     # the momentum-matched and in the mapping modes, whose largest torus
     # reaches zmax, and which cannot be combined with Es=
     from galpy.actionAngle import actionAngleVerticalInverse
@@ -10308,7 +10309,7 @@ def test_actionAngleVerticalInverse_zmax():
 
     pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
     zmax, nE = 1.3, 17
-    Es = evaluatelinearPotentials(pot, numpy.linspace(0.0, zmax, nE))
+    Es = evaluatelinearPotentials(pot, zmax) * numpy.linspace(0.0, 1.0, nE) ** 2
     angles = numpy.linspace(0.0, 2.0 * numpy.pi, 21)
     for momentum_matched in (True, False):
         aAVI = actionAngleVerticalInverse(
