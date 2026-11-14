@@ -319,3 +319,98 @@ def test_orbit_center_held_outside(backend):
                 f"An Orbit center on {backend} is not held outside of its integration times"
             )
     return None
+
+
+def _ns(v):
+    # the namespace of v (numpy for numpy and Python inputs)
+    from galpy.backend import get_namespace, is_backend_array
+
+    return get_namespace(v) if is_backend_array(v) else numpy
+
+
+def _center_func(t):
+    xp = _ns(t)
+    return xp.stack(
+        [0.3 * xp.cos(0.7 * t), 0.2 * xp.sin(0.7 * t), 0.05 * t + 0.0 * xp.cos(t)]
+    )
+
+
+def _orientation_func(t):
+    # a (3,3) rotation by 0.9 t about z followed by (0.3 + 0.2 t) about x
+    xp = _ns(t)
+    a, b = 0.9 * t, 0.3 + 0.2 * t
+    ca, sa, cb, sb = xp.cos(a), xp.sin(a), xp.cos(b), xp.sin(b)
+    z0, one = 0.0 * ca, 0.0 * ca + 1.0
+    rz = xp.stack(
+        [xp.stack([ca, sa, z0]), xp.stack([-sa, ca, z0]), xp.stack([z0, z0, one])]
+    )
+    rx = xp.stack(
+        [xp.stack([one, z0, z0]), xp.stack([z0, cb, sb]), xp.stack([z0, -sb, cb])]
+    )
+    return rx @ rz
+
+
+def _function_wrappers(omega=1.3):
+    scf = potential.SCFPotential(amp=0.1, Acos=_A, Asin=0.5 * _A, a=0.2)
+    return (
+        potential.RotateAndTiltWrapperPotential(
+            pot=scf, center=_center_func, orientation=_orientation_func
+        ),
+        potential.RotateAndTiltWrapperPotential(
+            pot=scf, inclination=0.4, galaxy_pa=lambda t: omega * t + 0.2
+        ),
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_functions_of_time_parity(backend):
+    # a center and an orientation, and an angle, given as functions of time:
+    # the backends evaluate them in the backend and give numpy's values
+    for pot in _function_wrappers():
+        for R, z, phi, t in _POINTS:
+            for f in _FUNCS:
+                want = f(pot, R, z, phi=phi, t=t)
+                got = f(
+                    pot,
+                    *(_arr(backend, v) for v in (R, z)),
+                    phi=_arr(backend, phi),
+                    t=_arr(backend, t),
+                )
+                assert numpy.fabs(float(as_numpy(got)) - want) < 1e-12 * max(
+                    1.0, numpy.fabs(want)
+                ), (
+                    f"{f.__name__} of a wrapper with functions of time on {backend} does not agree with numpy"
+                )
+    return None
+
+
+def _pattern_speed_loss(omega):
+    # the radial force of an inclined SCF turning with pattern speed omega,
+    # at two points and times
+    pot = _function_wrappers(omega=omega)[1]
+    return evaluateRforces(pot, 0.9, 0.1, phi=0.3, t=0.37) + evaluateRforces(
+        pot, 1.4, -0.2, phi=2.1, t=1.21
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_functions_of_time_grad(backend):
+    # a parameter inside an angle that is a function of time (a pattern
+    # speed) is differentiable, also traced under jax.jit, and its gradient
+    # agrees with finite differences
+    fd = (_pattern_speed_loss(1.3 + 1e-6) - _pattern_speed_loss(1.3 - 1e-6)) / 2e-6
+    want = _pattern_speed_loss(1.3)
+    if backend == "jax":
+        got = jax.jit(_pattern_speed_loss)(jnp.asarray(1.3))
+        grad = jax.jit(jax.grad(_pattern_speed_loss))(jnp.asarray(1.3))
+    else:
+        om = torch.tensor(1.3, requires_grad=True)
+        got = _pattern_speed_loss(om)
+        (grad,) = torch.autograd.grad(got, om)
+    assert numpy.fabs(float(as_numpy(got)) - want) < 1e-12, (
+        f"A pattern speed on {backend} does not give numpy's value"
+    )
+    assert numpy.fabs(float(as_numpy(grad)) - fd) < 1e-7 * max(1.0, numpy.fabs(fd)), (
+        f"The gradient wrt a pattern speed on {backend} does not agree with finite differences"
+    )
+    return None

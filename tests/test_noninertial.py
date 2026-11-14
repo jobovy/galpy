@@ -2956,29 +2956,30 @@ def derive_noninert_omega(
     return (omegax, omegay, omegaz)
 
 
-def _rotating_wrapper(
-    pot=None, rot=None, omega=None, omegadot=None, omegadotdot=None, tmax=20.0
-):
+def _rotating_wrapper(pot=None, rot=None, omega=None, omegadot=None, omegadotdot=None):
     # The potential as seen in the inertial frame from the frame rotating
     # about the axis rot^T z by omega t + omegadot t^2 / 2 + omegadotdot t^3
     # / 6 (see rotate_and_omega): a RotateAndTiltWrapperPotential with the
-    # time-dependent orientation R(t) = rot^T Rz(angle) rot, tabulated finely
-    # enough that its spline interpolation is exact to ~1e-12
-    tt = numpy.linspace(0.0, tmax, 10001)
-    angle = omega * tt
-    if omegadot is not None:
-        angle += omegadot * tt**2.0 / 2.0
-    if omegadotdot is not None:
-        angle += omegadotdot * tt**3.0 / 6.0
-    rz = numpy.zeros((len(tt), 3, 3))
-    rz[:, 0, 0] = numpy.cos(angle)
-    rz[:, 0, 1] = -numpy.sin(angle)
-    rz[:, 1, 0] = numpy.sin(angle)
-    rz[:, 1, 1] = numpy.cos(angle)
-    rz[:, 2, 2] = 1.0
-    return potential.RotateAndTiltWrapperPotential(
-        pot=pot, orientation=(tt, numpy.einsum("ji,njk,kl->nil", rot, rz, rot))
-    )
+    # time-dependent orientation R(t) = rot^T Rz(angle(t)) rot, in the
+    # namespace of t (a traced time under a forced jax integration)
+    def orientation(t):
+        from galpy.backend import get_namespace, is_backend_array
+
+        xp = get_namespace(t) if is_backend_array(t) else numpy
+        angle = omega * t
+        if omegadot is not None:
+            angle = angle + omegadot * t**2.0 / 2.0
+        if omegadotdot is not None:
+            angle = angle + omegadotdot * t**3.0 / 6.0
+        c, s = xp.cos(angle), xp.sin(angle)
+        z0 = 0.0 * c
+        rz = xp.stack(
+            [xp.stack([c, -s, z0]), xp.stack([s, c, z0]), xp.stack([z0, z0, z0 + 1.0])]
+        )
+        rotx = rot if xp is numpy else xp.asarray(rot)
+        return rotx.T @ (rz @ rotx)
+
+    return potential.RotateAndTiltWrapperPotential(pot=pot, orientation=orientation)
 
 
 def _cinterp_TvsF_maxdiff(pot_builder, ic, ts, fns, method="dop853_c"):

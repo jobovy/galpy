@@ -3,23 +3,30 @@ v2.0.0b2 (pre-release)
 
 - ``RotateAndTiltWrapperPotential`` can move and turn in time: ``center=``
   places the wrapped potential's origin at a constant position, along a
-  tabulated path ``(t, xyz)``, or on an integrated ``Orbit``, and
-  ``orientation=`` gives its rotation as a function of time, tabulated as
-  unit quaternions or rotation matrices (interpolated as quaternions with
-  natural cubic splines and normalized after interpolation;
-  ``RotateAndTiltWrapperPotential.orientation_from_angles`` tabulates it from
-  angles), so that the potential is ``pot(R(t) (x - center(t)) + offset, t)``.
-  Any wrapped potential, including non-axisymmetric and time-dependent ones,
-  in Python and in C (including the variational equations), and on the
-  JAX/PyTorch backends, where the center's and the orientation's tables may
-  be backend arrays (differentiable, and traced under ``jax.jit``: their
-  splines are then built in the backend). An integer ``zvec`` now works, and
+  tabulated path ``(t, xyz)``, on an integrated ``Orbit``, or at a function
+  of time, and ``orientation=`` gives its rotation as a function of time,
+  either tabulated as unit quaternions or rotation matrices (interpolated as
+  quaternions with natural cubic splines and normalized after interpolation)
+  or as a function; the angles ``inclination``, ``galaxy_pa``, ``sky_pa``,
+  and ``zvec`` can also be functions of time (e.g., ``galaxy_pa=lambda t:
+  omega * t`` for a pattern speed), so that the potential is ``pot(R(t) (x -
+  center(t)) + offset, t)``. Any wrapped potential, including
+  non-axisymmetric and time-dependent ones, in Python and in C (including
+  the variational equations; functions of time are tabulated over the
+  integration's time range for C), and on the JAX/PyTorch backends, where
+  the center's and the orientation's tables may be backend arrays
+  (differentiable, and traced under ``jax.jit``: their splines are then
+  built in the backend) and functions of time are evaluated (and traced) in
+  the backend. An integer ``zvec`` now works, and
   ``zvec`` is no longer normalized in place (also for the triaxial
   potentials).
 
 - ``MovingObjectPotential`` supports non-axisymmetric potentials, which move
   with the object as ``RotateAndTiltWrapperPotential(pot=pot, center=orbit)``
-  (axisymmetric potentials keep their existing implementation).
+  (axisymmetric potentials keep their existing implementation), and
+  evaluates an axisymmetric potential at the height ``z - z_object`` above
+  the object rather than at ``z_object - z``, which only changes
+  potentials that are not symmetric under z -> -z (for which it was wrong).
 
 - ``actionAngleStaeckelInverse`` evaluates arrays of actions, broadcast
   against the angles by numpy's rules like the vertical and spherical
