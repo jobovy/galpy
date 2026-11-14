@@ -286,7 +286,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             the reconstruction converges spectrally in this, and a warning
             is raised when it does not suffice for a torus. The u-map needs
             a number of harmonics that grows with a torus's ratio of outer
-            to inner radius in the plane, and the v-map one that grows with
+            to inner radius in the plane, to at most about six times the
+            square root of that ratio, and the v-map one that grows with
             L / |L_z| as the torus approaches a polar orbit; on a grid the
             most demanding tori are the ones at the smallest angular
             momentum (set by Rmin) and the highest energy (set by Rinf),
@@ -953,8 +954,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         "not bound in the fitted auxiliary: the u anomaly map is "
                         "under-resolved for it. Its u libration spans the "
                         f"radii {Rinner:g} to {Router:g} in the plane, a ratio of "
-                        f"{Router / Rinner:.0f}, and the map needs a number of "
-                        "harmonics of the order of that ratio, against the "
+                        f"{Router / Rinner:.0f}, and the number of harmonics "
+                        "that the map needs grows with that ratio, to at most "
+                        "about six times its square root (about "
+                        f"{6.0 * numpy.sqrt(Router / Rinner):.0f}), against the "
                         f"mm_npt = {self._npt} given; the most eccentric torus "
                         "of a grid is the one at its smallest angular momentum "
                         "(Rmin) and highest energy (Rinf). Raise mm_npt (and, "
@@ -3480,8 +3483,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 f"({Ef:g}, {Lf:g}, {If:g}) torus is not bound in the fitted "
                 "auxiliary: the u anomaly map is under-resolved for it. Its u "
                 f"libration spans the radii {Rinner:g} to {Router:g} in the "
-                f"plane, a ratio of {Router / Rinner:.0f}, and the map needs a "
-                "number of harmonics of the order of that ratio, against the "
+                f"plane, a ratio of {Router / Rinner:.0f}, and the number of "
+                "harmonics that the map needs grows with that ratio, to at "
+                "most about six times its square root (about "
+                f"{6.0 * numpy.sqrt(Router / Rinner):.0f}), against the "
                 f"mm_npt = {self._npt} given; the most eccentric torus of a "
                 "grid is the one at its smallest angular momentum (Rmin) and "
                 "highest energy (Rinf). Raise mm_npt (and, with it, mm_nta), "
