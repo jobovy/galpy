@@ -30,7 +30,7 @@ double MovingObjectPotentialRforce(double R,double z, double phi,
 			 *(potentialArgs->acc1d+2));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate R force
-  RF= calcRforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
+  RF= calcRforce(Rdist,(z-obj_z),phi,t,potentialArgs->nwrapped,
 		 potentialArgs->wrappedPotentialArg);
   return -amp*RF*(cos(phi)*(obj_x-x)+sin(phi)*(obj_y-y))/Rdist;
 }
@@ -56,7 +56,7 @@ double MovingObjectPotentialzforce(double R,double z,double phi,
 			 *(potentialArgs->acc1d+2));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate z force
-  return -amp * calczforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
+  return amp * calczforce(Rdist,(z-obj_z),phi,t,potentialArgs->nwrapped,
 			   potentialArgs->wrappedPotentialArg);
 }
 
@@ -81,7 +81,7 @@ double MovingObjectPotentialphitorque(double R,double z,double phi,
 			 *(potentialArgs->acc1d+2));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
   // Calculate phitorque
-  RF= calcRforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
+  RF= calcRforce(Rdist,(z-obj_z),phi,t,potentialArgs->nwrapped,
 		 potentialArgs->wrappedPotentialArg);
   return -amp*RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;
 }
@@ -137,7 +137,7 @@ double MovingObjectPotentialPlanarphitorque(double R, double phi,
 // ---------------------------------------------------------------------------
 // Second derivatives for the variational equations (integrate_dxdv).
 // Phi(x,t) = amp * Psi(R'(x,y), z'(z)) with R'^2 = (x-x_o(t))^2 + (y-y_o(t))^2
-// and z' = z_o(t) - z (the same conventions as the force evaluators above).
+// and z' = z - z_o(t) (the same conventions as the force evaluators above).
 // The moving-object shift x_o(t) is a pure translation of the evaluation
 // point, so the Hessian is just the kernel's Hessian at the shifted point
 // chain-ruled to the field point's cylindrical coordinates: the
@@ -175,7 +175,7 @@ static void MovingObjectPotentialxyzHess(double R, double z, double phi,
 			 *(potentialArgs->acc1d+2));
   xd= obj_x-x;
   yd= obj_y-y;
-  zd= obj_z-z;
+  zd= z-obj_z;
   Rdist= sqrt(xd*xd+yd*yd);
   // Kernel cylindrical derivatives at the shifted point (R',z')=(Rdist,zd)
   RF= calcRforce(Rdist,zd,phi,t,potentialArgs->nwrapped,
@@ -186,15 +186,15 @@ static void MovingObjectPotentialxyzHess(double R, double z, double phi,
 		   potentialArgs->wrappedPotentialArg); // = d2Psi/dR'dz'
   z2d= calcz2deriv(Rdist,zd,phi,t,potentialArgs->nwrapped,
 		   potentialArgs->wrappedPotentialArg); // = d2Psi/dz'2
-  // Chain rule with dR'/dx = (x-obj_x)/R' = -xd/R' and dz'/dz = -1; the minus
+  // Chain rule with dR'/dx = (x-obj_x)/R' = -xd/R' and dz'/dz = 1; the minus
   // signs cancel pairwise in the pure-second-derivative terms below
   *phix= amp*RF*xd/Rdist;
   *phiy= amp*RF*yd/Rdist;
   *phixx= amp*(R2d*xd*xd/Rdist/Rdist-RF*yd*yd/Rdist/Rdist/Rdist);
   *phiyy= amp*(R2d*yd*yd/Rdist/Rdist-RF*xd*xd/Rdist/Rdist/Rdist);
   *phixy= amp*(R2d+RF/Rdist)*xd*yd/Rdist/Rdist;
-  *phixz= amp*Rzd*xd/Rdist;
-  *phiyz= amp*Rzd*yd/Rdist;
+  *phixz= -amp*Rzd*xd/Rdist;
+  *phiyz= -amp*Rzd*yd/Rdist;
   *phizz= amp*z2d;
 }
 
