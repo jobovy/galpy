@@ -1,6 +1,17 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- ``actionAngleVerticalInverse`` can be set up from the maximum height of its
+  largest torus: ``zmax=`` (with ``nE=`` tori) builds the tori between the
+  orbit at rest and the one that reaches ``zmax``, spaced uniformly in the
+  speed with which they cross the midplane, as an alternative to the grid of
+  energies ``Es=``; with ``setup_interp=True`` every torus that stays below
+  ``zmax`` is then available. In a disk's vertical potential this spacing
+  is several to a few tens of times more accurate between its tori than energies spaced
+  uniformly, with the same number of tori. On the jax and PyTorch backends
+  the energies of these tori follow the potential's parameters, so the
+  family is differentiable in them at fixed ``zmax``.
+
 - ``actionAngleStaeckelInverse`` evaluates arrays of actions, broadcast
   against the angles by numpy's rules like the vertical and spherical
   inverses (scalar actions with arrays of angles: one torus at those angles;
