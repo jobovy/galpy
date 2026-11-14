@@ -44,7 +44,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
     def __init__(
         self,
         pot=None,
-        Es=[0.1, 0.3],
+        Es=None,
+        zmax=None,
+        nE=33,
         nta=128,
         setup_interp=False,
         use_pointtransform=False,
@@ -67,8 +69,12 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ----------
         pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
             a linearPotential/verticalPotential or a combined potential formed using addition (pot1+pot2+…)
-        Es : numpy.ndarray
-            energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
+        Es : numpy.ndarray, optional
+            energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True); default: [0.1, 0.3] when zmax is not given
+        zmax : float or Quantity, optional
+            alternative to Es: maximum height of the largest torus; the nE tori then run from the orbit at rest at the potential's minimum to the torus that reaches zmax, spaced uniformly in the speed with which they cross the midplane (in sqrt(E - Phi(0))), so that with setup_interp=True every torus that stays below zmax is available; cannot be combined with Es
+        nE : int, optional
+            number of tori between zero and zmax (only used when zmax is given)
         nta : int
             number of auxiliary angles to sample the torus at when mapping the torus (in the momentum-matched mode this only sets the default of mm_nta)
         setup_interp : bool
@@ -107,6 +113,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._pot = _check_potential_list_and_deprecate(pot)
         self._aAV = actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
+        if zmax is not None:
+            if Es is not None:
+                raise ValueError("Specify the tori through Es= or zmax=, not both")
+            # the tori between rest and the one that reaches zmax, uniform in
+            # the midplane speed sqrt(2 [E - Phi(0)]): several times more
+            # accurate between the tori of a disk's potential than uniform
+            # heights or energies
+            Phi0, Phimax = (
+                evaluatelinearPotentials(self._pot, z, use_physical=False)
+                for z in (0.0, conversion.parse_length(zmax, ro=self._ro))
+            )
+            Es = Phi0 + (Phimax - Phi0) * numpy.linspace(0.0, 1.0, nE) ** 2
+        elif Es is None:
+            Es = [0.1, 0.3]
         self._Es = numpy.sort(
             conversion._parse_grid_quantity(Es, conversion.parse_energy, vo=self._vo)
         )

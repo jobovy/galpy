@@ -10298,6 +10298,52 @@ def test_actionAngleVerticalInverse_zero_energy_frequency():
     return None
 
 
+def test_actionAngleVerticalInverse_zmax():
+    # zmax= sets up nE tori between rest and the torus that reaches zmax,
+    # uniform in the speed with which they cross the midplane: the same
+    # object as the corresponding energies given by hand, in
+    # the momentum-matched and in the mapping modes, whose largest torus
+    # reaches zmax, and which cannot be combined with Es=
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    zmax, nE = 1.3, 17
+    Es = evaluatelinearPotentials(pot, zmax) * numpy.linspace(0.0, 1.0, nE) ** 2
+    angles = numpy.linspace(0.0, 2.0 * numpy.pi, 21)
+    for momentum_matched in (True, False):
+        aAVI = actionAngleVerticalInverse(
+            pot=pot,
+            zmax=zmax,
+            nE=nE,
+            setup_interp=True,
+            momentum_matched=momentum_matched,
+        )
+        aAVI_Es = actionAngleVerticalInverse(
+            pot=pot, Es=Es, setup_interp=True, momentum_matched=momentum_matched
+        )
+        Jmax = float(aAVI.J(Es[-1]))
+        for J in (0.3 * Jmax, Jmax):
+            assert numpy.all(
+                numpy.array(aAVI(J, angles)) == numpy.array(aAVI_Es(J, angles))
+            ), "zmax= does not set up the tori of the corresponding energies"
+        # (the mapping mode's torus is accurate to its generating function)
+        assert numpy.fabs(numpy.amax(aAVI(Jmax, angles)[0]) / zmax - 1.0) < (
+            1e-12 if momentum_matched else 1e-6
+        ), "The largest torus set up with zmax= does not reach zmax"
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleVerticalInverse(pot=pot, zmax=zmax, Es=Es)
+    assert "not both" in str(excinfo.value)
+    # without either, the two default tori
+    aAVI = actionAngleVerticalInverse(pot=pot)
+    aAVI_Es = actionAngleVerticalInverse(pot=pot, Es=[0.1, 0.3])
+    for E in (0.1, 0.3):
+        assert aAVI.J(E) == aAVI_Es.J(E), (
+            "The default tori are not those at E = 0.1 and 0.3"
+        )
+    return None
+
+
 def test_actionAngleVerticalInverse_momentum_matched_interpolation():
     # With setup_interp=True, J(E) and E(J) are available between the grid
     # tori, from the same Hermite energy interpolant whose derivative is the
