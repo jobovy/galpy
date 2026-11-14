@@ -1198,4 +1198,8 @@ def test_map_bucketed_rows(backend, jit):
     out = jax.jit(run)(*args) if jit else run(*args)
     assert numpy.all(as_numpy(out[0]) == bucket)
     assert numpy.all(as_numpy(out[1]) == 2.0 * x)
+    # a single function: every row through it, in chunks
+    out = map_bucketed_rows(xp, fs[2:], args[0], (args[1],), 5)
+    assert numpy.all(as_numpy(out[0]) == 2.0)
+    assert numpy.all(as_numpy(out[1]) == 2.0 * x)
     return None
