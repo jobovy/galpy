@@ -137,6 +137,7 @@ def _make_pots_forceAsDeriv():
     pots.append("mockTransientLogSpiralPotential")
     pots.append("mockFlatEllipticalDiskPotential")  # for evaluate w/ nonaxi lists
     pots.append("mockMovingObjectPotential")
+    pots.append("mockMovingObjectNonAxiPotential")
     pots.append("mockMovingObjectPotentialExplPlummer")
     pots.append("oblateHernquistPotential")
     pots.append("oblateNFWPotential")
@@ -194,6 +195,7 @@ def _make_pots_forceAsDeriv():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
@@ -309,6 +311,7 @@ def _make_pots_2ndDeriv():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
@@ -392,6 +395,7 @@ def _make_pots_poisson():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
@@ -481,6 +485,7 @@ def _make_pots_poisson_surfdens():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
@@ -549,6 +554,7 @@ def _make_pots_evaluateAndDerivs():
     pots.append("mockSteadyLogSpiralPotentialTm5")
     pots.append("mockTransientLogSpiralPotential")
     pots.append("mockMovingObjectPotential")
+    pots.append("mockMovingObjectNonAxiPotential")
     pots.append("oblateHernquistPotential")  # in cae these are ever implemented
     pots.append("oblateNFWPotential")
     pots.append("oblateJaffePotential")
@@ -595,6 +601,7 @@ def _make_pots_evaluateAndDerivs():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
@@ -670,6 +677,7 @@ def _make_pots_amp_mult_divide():
     pots.append("mockTransientLogSpiralPotential")
     pots.append("mockFlatEllipticalDiskPotential")  # for evaluate w/ nonaxi lists
     pots.append("mockMovingObjectPotential")
+    pots.append("mockMovingObjectNonAxiPotential")
     pots.append("mockMovingObjectPotentialExplPlummer")
     pots.append("oblateHernquistPotential")
     pots.append("oblateNFWPotential")
@@ -724,6 +732,7 @@ def _make_pots_amp_mult_divide():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
@@ -911,6 +920,7 @@ def _make_pots_potential_at_zero():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
@@ -1023,6 +1033,7 @@ def _make_pots_potential_at_infinity():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockMovingTurningMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
@@ -2748,6 +2759,7 @@ def test_potential_at_zero(potname):
             or p == "mockRotatedAndTiltedMWP14WrapperPotentialwInclination"
             or p == "mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination"
             or p == "mockRotatedTiltedOffsetMWP14WrapperPotential"
+            or p == "mockMovingTurningMWP14WrapperPotential"
             or p == "mockOffsetMWP14WrapperPotential"
             or "riaxial" in p
             or "oblate" in p
@@ -2797,6 +2809,7 @@ def test_potential_at_infinity(potname):
             or p == "mockRotatedAndTiltedMWP14WrapperPotentialwInclination"
             or p == "mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination"
             or p == "mockRotatedTiltedOffsetMWP14WrapperPotential"
+            or p == "mockMovingTurningMWP14WrapperPotential"
             or p == "mockOffsetMWP14WrapperPotential"
             or "noGL" in p  # EllipsoidalPotential using scipy.quad: no array support
         ):
@@ -4762,6 +4775,206 @@ def test_MovingObject_2ndderivs_fd():
 
 
 # test specialSelf for TwoPowerSphericalPotential
+def _moving_object_orbit():
+    o = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
+    o.integrate(numpy.linspace(-1.0, 2.0, 301), potential.MWPotential2014)
+    return o
+
+
+_MOVING_OBJECT_FUNCS = (
+    potential.evaluatePotentials,
+    potential.evaluateRforces,
+    potential.evaluatezforces,
+    potential.evaluatephitorques,
+    potential.evaluateR2derivs,
+    potential.evaluatez2derivs,
+    potential.evaluateRzderivs,
+    potential.evaluatephi2derivs,
+    potential.evaluateRphiderivs,
+    potential.evaluatephizderivs,
+    potential.evaluateDensities,
+)
+_MOVING_OBJECT_POINTS = (
+    (0.9, 0.1, 0.3, 0.0),
+    (1.4, -0.2, 2.1, 0.7),
+    (0.5, 0.3, -1.0, 1.3),
+)
+
+
+def _moving_object_general(o, pot):
+    # A MovingObjectPotential on the general path, which a non-axisymmetric pot
+    # takes, for an axisymmetric pot: the axisymmetry check is patched for its
+    # construction
+    import importlib
+
+    mod = importlib.import_module("galpy.potential.MovingObjectPotential")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(mod, "_isNonAxi", lambda pot: True)
+        return potential.MovingObjectPotential(o, pot=pot)
+
+
+def test_MovingObject_general_vs_fast():
+    # For axisymmetric potentials, the general path agrees with the
+    # axisymmetric fast path to round-off, in Python and in C (orbits and
+    # variational equations); both evaluate the potential at the height
+    # z - z_object, which the SCF potential with odd-l terms, which is not
+    # symmetric under z -> -z, checks
+    o = _moving_object_orbit()
+    ts = numpy.linspace(0.0, 1.5, 101)
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 1, 0] = 0.3
+    A[1, 2, 0] = 0.1
+    for pot in (
+        potential.HernquistPotential(amp=0.1, a=0.2),
+        potential.NFWPotential(amp=0.1, a=0.3),
+        potential.MiyamotoNagaiPotential(amp=0.1, a=0.2, b=0.05),
+        potential.SCFPotential(amp=0.1, Acos=A, a=0.2),
+    ):
+        fast = potential.MovingObjectPotential(o, pot=pot)
+        gen = _moving_object_general(o, pot)
+        assert not fast._general and gen._general
+        for R, z, phi, t in _MOVING_OBJECT_POINTS:
+            for f in _MOVING_OBJECT_FUNCS:
+                vf, vg = f(fast, R, z, phi=phi, t=t), f(gen, R, z, phi=phi, t=t)
+                assert numpy.fabs(vf - vg) < 1e-12 * max(1.0, numpy.fabs(vf)), (
+                    f"The general path of MovingObjectPotential does not agree with the fast path for {type(pot).__name__} in {f.__name__}"
+                )
+        orbs = []
+        for p in (fast, gen):
+            orbs.append(orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2]))
+            orbs[-1].integrate_dxdv(
+                [1.0, 0.5, -0.3, 0.2, 0.1, -0.4],
+                ts,
+                potential.MWPotential2014 + p,
+                method="dop853_c",
+                rectIn=True,
+                rectOut=True,
+            )
+        assert (
+            numpy.amax(numpy.fabs(orbs[0].getOrbit() - orbs[1].getOrbit())) < 1e-10
+        ), (
+            f"C orbit integration in the general path of MovingObjectPotential does not agree with the fast path for {type(pot).__name__}"
+        )
+        assert (
+            numpy.amax(numpy.fabs(orbs[0].getOrbit_dxdv() - orbs[1].getOrbit_dxdv()))
+            < 1e-8
+        ), (
+            f"C variational equations in the general path of MovingObjectPotential do not agree with the fast path for {type(pot).__name__}"
+        )
+    return None
+
+
+def test_MovingObject_nearly_axisymmetric():
+    # An axisymmetric potential plus a small m != 0 term converges (linearly)
+    # to the fast path of the axisymmetric potential as the term vanishes
+    o = _moving_object_orbit()
+    hp = potential.HernquistPotential(amp=0.1, a=0.2)
+    fast = potential.MovingObjectPotential(o, pot=hp)
+    A = numpy.zeros((2, 3, 3))
+    A[0, 2, 2] = 1.0
+    A[1, 2, 1] = 0.3
+    diffs = []
+    for eps in (1e-2, 1e-4, 1e-6):
+        m2 = potential.SCFPotential(amp=0.1 * eps, Acos=A, Asin=0.5 * A, a=0.2)
+        gen = potential.MovingObjectPotential(o, pot=hp + m2)
+        assert gen._general
+        diffs.append(
+            [
+                (f(gen, R, z, phi=phi, t=t) - f(fast, R, z, phi=phi, t=t)) / eps
+                for R, z, phi, t in _MOVING_OBJECT_POINTS
+                for f in _MOVING_OBJECT_FUNCS[:4]
+            ]
+        )
+    diffs = numpy.array(diffs)
+    assert numpy.amax(numpy.fabs(diffs[1:] - diffs[0])) < 1e-6 * numpy.amax(
+        numpy.fabs(diffs[0])
+    ), (
+        "A nearly axisymmetric moving object does not converge linearly to the axisymmetric fast path"
+    )
+    return None
+
+
+def test_MovingObject_rotation_about_symmetry_axis():
+    # Turning an axisymmetric potential about its own symmetry axis changes
+    # nothing
+    o = _moving_object_orbit()
+    mn = potential.MiyamotoNagaiPotential(amp=0.1, a=0.2, b=0.05)
+    fast = potential.MovingObjectPotential(o, pot=mn)
+    tt = numpy.linspace(-1.0, 2.0, 31)
+    turning = potential.RotateAndTiltWrapperPotential(
+        pot=mn,
+        center=o,
+        orientation=(tt, _quaternions_about_axis(2.0 * tt**2, [0.0, 0.0, 1.0])),
+    )
+    for R, z, phi, t in _MOVING_OBJECT_POINTS:
+        for f in _MOVING_OBJECT_FUNCS:
+            vf, vt = f(fast, R, z, phi=phi, t=t), f(turning, R, z, phi=phi, t=t)
+            assert numpy.fabs(vf - vt) < 1e-12 * max(1.0, numpy.fabs(vf)), (
+                f"Turning an axisymmetric moving object about its symmetry axis changes {f.__name__}"
+            )
+    return None
+
+
+def test_MovingObject_nonaxi_follows_object():
+    # A non-axisymmetric potential moves with the object: at the object's
+    # position plus d, it is the potential at d (as lmc-perturbation's
+    # reference, MovingFieldPotential, tests)
+    o = _moving_object_orbit()
+    A = numpy.zeros((2, 3, 3))
+    A[0, 2, 2] = 0.1
+    A[0, 2, 1] = 0.03
+    A[1, 1, 0] = 0.02
+    scf = potential.SCFPotential(Acos=A, Asin=0.5 * A, a=1.0)
+    mo = potential.MovingObjectPotential(o, pot=scf)
+    for t in (0.0, 0.37, 1.61):
+        ox, oy, oz = (float(f(t)) for f in (o.x, o.y, o.z))
+        for d in ((0.3, 0.0, 0.0), (0.0, 0.3, 0.1), (-0.2, 0.1, -0.15)):
+            x, y, z = ox + d[0], oy + d[1], oz + d[2]
+            got = potential.evaluatePotentials(
+                mo, numpy.hypot(x, y), z, phi=numpy.arctan2(y, x), t=t
+            )
+            want = potential.evaluatePotentials(
+                scf, numpy.hypot(d[0], d[1]), d[2], phi=numpy.arctan2(d[1], d[0])
+            )
+            assert numpy.fabs(got - want) < 1e-12 * max(1.0, numpy.fabs(want)), (
+                "A non-axisymmetric MovingObjectPotential does not follow the object"
+            )
+    return None
+
+
+def test_MovingObject_nonaxi_planar():
+    # A planar orbit in a non-axisymmetric MovingObjectPotential is integrated
+    # in Python (the planar C implementation is the axisymmetric one) and
+    # agrees with the C integration of the 3D orbit in the plane
+    oo = orbit.Orbit([1.0, 0.1, 1.1, 0.3])
+    oo.integrate(numpy.linspace(0.0, 2.0, 201), potential.MWPotential2014)
+    # symmetric under z -> -z (l + m even), so that the 3D orbit stays in the
+    # plane
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 2, 2] = 0.1
+    A[1, 2, 2] = 0.02
+    mo = potential.MovingObjectPotential(
+        oo, pot=potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
+    )
+    from galpy.potential.Potential import _check_c
+
+    assert not _check_c(potential.toPlanarPotential(mo))
+    ts = numpy.linspace(0.0, 1.5, 101)
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.1])
+    o3 = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    from galpy.util import galpyWarning
+
+    with pytest.warns(galpyWarning, match="Cannot use C integration"):
+        op.integrate(ts, potential.MWPotential2014 + mo, method="dop853_c")
+    o3.integrate(ts, potential.MWPotential2014 + mo, method="dop853_c")
+    assert numpy.amax(numpy.fabs(op.x(ts) - o3.x(ts))) < 1e-7, (
+        "A planar orbit in a non-axisymmetric MovingObjectPotential does not agree with the 3D orbit in the plane"
+    )
+    return None
+
+
 def test_TwoPowerSphericalPotentialSpecialSelf():
     # TODO replace manual additions with an automatic method
     # that checks the signatures all methods in all potentials
@@ -8691,6 +8904,661 @@ def test_integration_RotateAndTiltWrapper_timedependent_forcecache():
     ), (
         "C orbit integration in a time-dependent RotateAndTiltWrapperPotential does not agree with the pure-Python integration"
     )
+    return None
+
+
+def _quaternions_about_axis(angle, axis):
+    # unit quaternions (w,x,y,z) of rotations by angle about axis
+    axis = numpy.array(axis, dtype=float) / numpy.sqrt(
+        numpy.sum(numpy.array(axis) ** 2)
+    )
+    return numpy.array(
+        [numpy.cos(angle / 2.0)] + [numpy.sin(angle / 2.0) * a for a in axis]
+    ).T
+
+
+def _moving_turning_timedep_scf(offset=True, timedep=True):
+    # a (time-dependent,) non-axisymmetric SCF potential moving along a
+    # tabulated path and turning with a tabulated orientation
+    A = numpy.zeros((3, 4, 4))
+    A[0, 0, 0] = 1.0
+    A[0, 2, 2] = 0.1
+    A[0, 2, 1] = 0.03
+    A[1, 1, 0] = 0.02
+    if timedep:
+        tg = numpy.linspace(-1.0, 2.0, 7)
+        Acos = numpy.array([A * (1.0 + 0.1 * numpy.sin(t)) for t in tg])
+        scf = potential.SCFPotential(Acos=Acos, Asin=0.5 * Acos, a=1.0, tgrid=tg)
+    else:
+        scf = potential.SCFPotential(Acos=A, Asin=0.5 * A, a=1.0)
+    tc = numpy.linspace(-1.0, 2.0, 61)
+    xyz = numpy.array([0.3 * numpy.cos(tc), 0.3 * numpy.sin(tc), 0.1 * tc]).T
+    q = _quaternions_about_axis(0.9 * tc + 0.2 * tc**2, [1.0, 2.0, 2.0])
+    return potential.RotateAndTiltWrapperPotential(
+        pot=scf,
+        center=(tc, xyz),
+        orientation=(tc, q),
+        offset=[0.05, -0.02, 0.01] if offset else None,
+    )
+
+
+def test_RotateAndTiltWrapper_timedep_forces_2ndderivs_fd():
+    # A moving, turning, non-axisymmetric, time-dependent wrapped potential:
+    # the forces are minus the gradient of the potential and the second
+    # derivatives minus the gradient of the forces, at several times
+    pot = _moving_turning_timedep_scf()
+    h = 1e-6
+    for R, z, phi, t in (
+        (1.2, 0.2, 0.4, 0.2),
+        (0.8, -0.1, 1.9, 0.6),
+        (1.5, 0.3, -2.0, 1.37),
+        (0.6, 0.4, 3.0, -0.55),
+    ):
+
+        def pot_at(dR=0.0, dz=0.0, dphi=0.0):
+            return potential.evaluatePotentials(
+                pot, R + dR, z + dz, phi=phi + dphi, t=t
+            )
+
+        assert (
+            numpy.fabs(
+                potential.evaluateRforces(pot, R, z, phi=phi, t=t)
+                + (pot_at(dR=h) - pot_at(dR=-h)) / (2.0 * h)
+            )
+            < 1e-8
+        ), (
+            "The Rforce of a moving, turning RotateAndTiltWrapperPotential is not minus its R derivative"
+        )
+        assert (
+            numpy.fabs(
+                potential.evaluatezforces(pot, R, z, phi=phi, t=t)
+                + (pot_at(dz=h) - pot_at(dz=-h)) / (2.0 * h)
+            )
+            < 1e-8
+        ), (
+            "The zforce of a moving, turning RotateAndTiltWrapperPotential is not minus its z derivative"
+        )
+        assert (
+            numpy.fabs(
+                potential.evaluatephitorques(pot, R, z, phi=phi, t=t)
+                + (pot_at(dphi=h) - pot_at(dphi=-h)) / (2.0 * h)
+            )
+            < 1e-8
+        ), (
+            "The phitorque of a moving, turning RotateAndTiltWrapperPotential is not minus its phi derivative"
+        )
+        # second derivatives from the forces
+        hh = 1e-5
+        for deriv, force, d in (
+            (potential.evaluateR2derivs, potential.evaluateRforces, (hh, 0.0, 0.0)),
+            (potential.evaluatez2derivs, potential.evaluatezforces, (0.0, hh, 0.0)),
+            (potential.evaluateRzderivs, potential.evaluateRforces, (0.0, hh, 0.0)),
+            (
+                potential.evaluatephi2derivs,
+                potential.evaluatephitorques,
+                (0.0, 0.0, hh),
+            ),
+            (
+                potential.evaluateRphiderivs,
+                potential.evaluateRforces,
+                (0.0, 0.0, hh),
+            ),
+            (
+                potential.evaluatephizderivs,
+                potential.evaluatephitorques,
+                (0.0, hh, 0.0),
+            ),
+        ):
+            fd = -(
+                force(pot, R + d[0], z + d[1], phi=phi + d[2], t=t)
+                - force(pot, R - d[0], z - d[1], phi=phi - d[2], t=t)
+            ) / (2.0 * hh)
+            assert numpy.fabs(deriv(pot, R, z, phi=phi, t=t) - fd) < 1e-7, (
+                f"{deriv.__name__} of a moving, turning RotateAndTiltWrapperPotential does not agree with the derivative of the forces"
+            )
+    return None
+
+
+def test_RotateAndTiltWrapper_timedep_c_vs_python():
+    # C and Python agree for orbits and their variational equations in a
+    # moving, turning, time-dependent wrapped potential (with a host)
+    pot = potential.MWPotential2014 + _moving_turning_timedep_scf()
+    ts = numpy.linspace(0.0, 1.5, 301)
+    oc = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+    op = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+    oc.integrate(ts, pot, method="dop853_c")
+    op.integrate(ts, pot, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-9, (
+        "C orbit integration in a moving, turning RotateAndTiltWrapperPotential does not agree with the Python integration"
+    )
+    dxdv = [1.0, 0.5, -0.3, 0.2, 0.1, -0.4]
+    oc.integrate_dxdv(dxdv, ts, pot, method="dop853_c", rectIn=True, rectOut=True)
+    op.integrate_dxdv(dxdv, ts, pot, method="dop853", rectIn=True, rectOut=True)
+    assert numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv())) < 1e-7, (
+        "C variational equations in a moving, turning RotateAndTiltWrapperPotential do not agree with the Python ones"
+    )
+    return None
+
+
+def test_RotateAndTiltWrapper_constant_tables():
+    # A constant orientation table reproduces the constant orientation, a
+    # center the equivalent offset, and angles that are functions of time the
+    # rotation matrices of the angles, in Python and in C
+    pot = potential.TriaxialNFWPotential(amp=1.0, b=0.8, c=0.6)
+    static = potential.RotateAndTiltWrapperPotential(
+        pot=pot, zvec=[0.3, 0.2, 1.0], galaxy_pa=0.4, offset=[0.1, -0.2, 0.05]
+    )
+    tt = numpy.linspace(-1.0, 3.0, 5)
+    table = potential.RotateAndTiltWrapperPotential(
+        pot=pot,
+        orientation=(tt, numpy.tile(static._rot, (5, 1, 1))),
+        offset=[0.1, -0.2, 0.05],
+    )
+    c = numpy.array([0.3, -0.1, 0.2])
+    centered = potential.RotateAndTiltWrapperPotential(
+        pot=pot,
+        zvec=[0.3, 0.2, 1.0],
+        galaxy_pa=0.4,
+        offset=[0.1, -0.2, 0.05],
+        center=c,
+    )
+    shifted = potential.RotateAndTiltWrapperPotential(
+        pot=pot,
+        zvec=[0.3, 0.2, 1.0],
+        galaxy_pa=0.4,
+        offset=numpy.array([0.1, -0.2, 0.05]) - numpy.dot(static._rot, c),
+    )
+    for R, z, phi, t in ((0.9, 0.1, 0.3, 0.0), (1.4, -0.2, 2.1, 0.7)):
+        for f in (
+            potential.evaluatePotentials,
+            potential.evaluateRforces,
+            potential.evaluatezforces,
+            potential.evaluatephitorques,
+            potential.evaluateR2derivs,
+            potential.evaluateRphiderivs,
+        ):
+            assert (
+                numpy.fabs(f(table, R, z, phi=phi, t=t) - f(static, R, z, phi=phi, t=t))
+                < 1e-12
+            ), (
+                "A constant orientation table does not reproduce the constant orientation"
+            )
+            assert (
+                numpy.fabs(
+                    f(centered, R, z, phi=phi, t=t) - f(shifted, R, z, phi=phi, t=t)
+                )
+                < 1e-12
+            ), "A constant center does not act as the equivalent offset"
+    ts = numpy.linspace(0.0, 2.0, 101)
+    for p, q in ((table, static), (centered, shifted)):
+        o1 = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+        o2 = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+        o1.integrate(ts, p, method="dop853_c")
+        o2.integrate(ts, q, method="dop853_c")
+        assert numpy.amax(numpy.fabs(o1.getOrbit() - o2.getOrbit())) < 1e-10, (
+            "C orbit integration with constant tables does not agree with the constant orientation or offset"
+        )
+
+    # angles that are functions of time: at every time, the rotation of the
+    # constant angles at that time
+    def incl(t):
+        return 0.1 + 0.3 * t
+
+    def gpa(t):
+        return -0.3 + 0.4 * t
+
+    def spa(t):
+        return 0.5 + 0.5 * t
+
+    def zv(t):
+        return [0.3 * numpy.cos(t), 0.2, 1.0]
+
+    fromangles = potential.RotateAndTiltWrapperPotential(
+        pot=pot, inclination=incl, galaxy_pa=gpa, sky_pa=spa
+    )
+    fromzvec = potential.RotateAndTiltWrapperPotential(pot=pot, zvec=zv, galaxy_pa=0.4)
+    for t in (0.0, 1.0, 2.5):
+        assert numpy.all(
+            fromangles._rot_at(t)
+            == potential.RotateAndTiltWrapperPotential(
+                pot=pot, inclination=incl(t), galaxy_pa=gpa(t), sky_pa=spa(t)
+            )._rot
+        ), "Angles that are functions of time do not give the rotation of the angles"
+        assert numpy.all(
+            fromzvec._rot_at(t)
+            == potential.RotateAndTiltWrapperPotential(
+                pot=pot, zvec=zv(t), galaxy_pa=0.4
+            )._rot
+        ), "A zvec that is a function of time does not give the rotation of zvec"
+    # and the rotation matrices of a tabulated orientation are recovered at
+    # the tabulated times from the quaternions it holds
+    t4 = numpy.arange(4.0)
+    rots = numpy.array(
+        [fromangles._rot_at(t) for t in t4[:2]] + [fromzvec._rot_at(t) for t in t4[2:]]
+    )
+    table4 = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(t4, rots))
+    for ii in range(4):
+        assert numpy.amax(numpy.fabs(table4._rot_at(float(ii)) - rots[ii])) < 1e-14, (
+            "The orientation's rotation matrices are not recovered at the tabulated times"
+        )
+    return None
+
+
+def test_RotateAndTiltWrapper_quaternion_matrix_roundtrip():
+    # Rotation matrices are converted to quaternions from their largest
+    # component (w for small angles, x, y, or z for angles near pi about that
+    # axis); all four branches recover the matrix
+    from galpy.potential.RotateAndTiltWrapperPotential import (
+        _matrix_to_quaternion,
+        _quaternion_to_matrix,
+    )
+
+    q = numpy.array(
+        [
+            _quaternions_about_axis(0.3, [1.0, 2.0, 2.0]),
+            _quaternions_about_axis(3.0, [1.0, 0.1, 0.2]),
+            _quaternions_about_axis(3.0, [0.1, 1.0, 0.2]),
+            _quaternions_about_axis(3.0, [0.2, 0.1, 1.0]),
+        ]
+    )
+    rots = numpy.array([_quaternion_to_matrix(qq) for qq in q])
+    qq = _matrix_to_quaternion(rots)
+    assert numpy.all(numpy.argmax(numpy.fabs(qq), axis=1) == numpy.arange(4))
+    for ii in range(4):
+        assert numpy.amax(numpy.fabs(_quaternion_to_matrix(qq[ii]) - rots[ii])) < 1e-14
+        # the same rotation: q or -q
+        assert (
+            numpy.amin(
+                [
+                    numpy.amax(numpy.fabs(qq[ii] - q[ii])),
+                    numpy.amax(numpy.fabs(qq[ii] + q[ii])),
+                ]
+            )
+            < 1e-14
+        )
+    return None
+
+
+def test_RotateAndTiltWrapper_rotation_about_z_is_solidbody():
+    # A uniform rotation about z reproduces SolidBodyRotationWrapperPotential,
+    # and a tilted one RotateAndTiltWrapperPotential(pot=SolidBody...), in
+    # Python and in C
+    pot = potential.LogarithmicHaloPotential(normalize=1.0, b=0.8, q=0.9)
+    omega, pa = 1.3, 0.2
+    sb = potential.SolidBodyRotationWrapperPotential(pot=pot, omega=omega, pa=pa)
+    tt = numpy.linspace(0.0, 2.0, 401)
+    # the frame of pot turns by omega t + pa: R(t) is the rotation by -(omega
+    # t + pa) about z
+    q = _quaternions_about_axis(-(omega * tt + pa), [0.0, 0.0, 1.0])
+    rtw = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt, q))
+    tilt = potential.RotateAndTiltWrapperPotential(
+        pot=sb, zvec=[0.3, 0.2, 1.0], galaxy_pa=0.4
+    )
+    R0 = tilt._rot
+    rots = numpy.array(
+        [
+            numpy.dot(
+                numpy.array(
+                    [
+                        [numpy.cos(a), numpy.sin(a), 0.0],
+                        [-numpy.sin(a), numpy.cos(a), 0.0],
+                        [0.0, 0.0, 1.0],
+                    ]
+                ),
+                R0,
+            )
+            for a in omega * tt + pa
+        ]
+    )
+    rtw_tilt = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt, rots))
+
+    # the same as functions of time: a pattern speed through galaxy_pa, and
+    # the orientation as a function returning the rotation matrix or the
+    # quaternion
+    def tilted(t):
+        a = omega * t + pa
+        return numpy.dot(
+            numpy.array(
+                [
+                    [numpy.cos(a), numpy.sin(a), 0.0],
+                    [-numpy.sin(a), numpy.cos(a), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+            R0,
+        )
+
+    rtw_pa = potential.RotateAndTiltWrapperPotential(
+        pot=pot, galaxy_pa=lambda t: omega * t + pa
+    )
+    rtw_q = potential.RotateAndTiltWrapperPotential(
+        pot=pot,
+        orientation=lambda t: _quaternions_about_axis(
+            numpy.atleast_1d(-(omega * t + pa)), [0.0, 0.0, 1.0]
+        )[0],
+    )
+    rtw_tilt_f = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=tilted)
+    for R, z, phi, t in ((0.9, 0.1, 0.3, 0.123), (1.4, -0.2, 2.1, 0.7771)):
+        for f in (
+            potential.evaluatePotentials,
+            potential.evaluateRforces,
+            potential.evaluatezforces,
+            potential.evaluatephitorques,
+        ):
+            # tables to their interpolation error, functions to round-off
+            for p, q, tol in (
+                (rtw, sb, 1e-9),
+                (rtw_tilt, tilt, 1e-9),
+                (rtw_pa, sb, 1e-12),
+                (rtw_q, sb, 1e-12),
+                (rtw_tilt_f, tilt, 1e-12),
+            ):
+                assert (
+                    numpy.fabs(f(p, R, z, phi=phi, t=t) - f(q, R, z, phi=phi, t=t))
+                    < tol
+                ), (
+                    "A uniform rotation about z does not reproduce SolidBodyRotationWrapperPotential (or, tilted, RotateAndTiltWrapperPotential(pot=SolidBodyRotationWrapperPotential))"
+                )
+    ts = numpy.linspace(0.0, 2.0, 101)
+    for p, q in (
+        (rtw, sb),
+        (rtw_tilt, tilt),
+        (rtw_pa, sb),
+        (rtw_q, sb),
+        (rtw_tilt_f, tilt),
+    ):
+        o1 = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+        o2 = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+        o1.integrate(ts, p, method="dop853_c")
+        o2.integrate(ts, q, method="dop853_c")
+        assert numpy.amax(numpy.fabs(o1.getOrbit() - o2.getOrbit())) < 1e-8, (
+            "C orbit integration in a uniformly rotating RotateAndTiltWrapperPotential does not agree with that in the equivalent SolidBodyRotationWrapperPotential"
+        )
+    return None
+
+
+def test_RotateAndTiltWrapper_tables_held_outside():
+    # Outside of the tabulated times, the center and orientation are held at
+    # their end values, in Python and in C
+    pot = _moving_turning_timedep_scf(offset=False, timedep=False)
+    for t_out, t_end in ((-3.0, -1.0), (5.0, 2.0)):
+        for f in (potential.evaluatePotentials, potential.evaluateRforces):
+            assert f(pot, 1.1, 0.2, phi=0.3, t=t_out) == f(
+                pot, 1.1, 0.2, phi=0.3, t=t_end
+            ), (
+                "The tabulated center and orientation are not held outside of their times"
+            )
+    ts = numpy.linspace(2.5, 4.0, 51)
+    oc = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+    op = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
+    oc.integrate(ts, pot, method="dop853_c")
+    op.integrate(ts, pot, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-9, (
+        "C and Python do not agree outside of the tabulated times"
+    )
+    return None
+
+
+def test_RotateAndTiltWrapper_center_orbit():
+    # An integrated Orbit as the center: Python evaluates it through the
+    # Orbit, C through a spline of its integration output; with a fine
+    # integration output, the two agree
+    o = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.0])
+    # backwards in time, to check that the tabulation is reversed for C
+    o.integrate(numpy.linspace(2.0, -1.0, 3001), potential.MWPotential2014)
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 2, 2] = 0.1
+    A[1, 1, 0] = 0.02
+    scf = potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
+    rtw = potential.RotateAndTiltWrapperPotential(pot=scf, center=o)
+    for t in (-0.5, 0.3, 1.7):
+        d = numpy.array([0.2, -0.1, 0.05])
+        xyz = numpy.array([o.x(t), o.y(t), o.z(t)]).flatten() + d
+        R, phi, z = coords.rect_to_cyl(*xyz)
+        assert (
+            numpy.fabs(
+                potential.evaluatePotentials(rtw, R, z, phi=phi, t=t)
+                - potential.evaluatePotentials(
+                    scf, numpy.hypot(d[0], d[1]), d[2], phi=numpy.arctan2(d[1], d[0])
+                )
+            )
+            < 1e-12
+        ), "The potential does not follow the center= Orbit"
+    pot = potential.MWPotential2014 + rtw
+    ts = numpy.linspace(0.0, 1.5, 101)
+    oc = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc.integrate(ts, pot, method="dop853_c")
+    op.integrate(ts, pot, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
+        "C and Python orbit integration with a center= Orbit do not agree"
+    )
+    return None
+
+
+def test_RotateAndTiltWrapper_center_orbitlike_and_held_outside():
+    # An object with an Orbit's interface can be the center= (and the orbit of
+    # a non-axisymmetric MovingObjectPotential); an Orbit center is held at
+    # its end positions outside of its integration times, in Python as in C
+    from scipy import interpolate
+
+    class Trajectory:
+        def __init__(self, t, xyz):
+            self.t = t
+            self._spl = interpolate.CubicSpline(t, xyz, axis=0, bc_type="natural")
+
+        def x(self, t):
+            return self._spl(t)[..., 0]
+
+        def y(self, t):
+            return self._spl(t)[..., 1]
+
+        def z(self, t):
+            return self._spl(t)[..., 2]
+
+        def dim(self):
+            return 3
+
+        def turn_physical_off(self):
+            return None
+
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 2, 2] = 0.1
+    A[1, 1, 0] = 0.02
+    scf = potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
+    tt = numpy.linspace(0.0, 2.0, 21)
+    xyz = numpy.array([0.8 * numpy.cos(tt), 0.6 * numpy.sin(tt), 0.1 * tt]).T
+    rtw_tab = potential.RotateAndTiltWrapperPotential(pot=scf, center=(tt, xyz))
+    rtw_like = potential.RotateAndTiltWrapperPotential(
+        pot=scf, center=Trajectory(tt, xyz)
+    )
+    mop = potential.MovingObjectPotential(Trajectory(tt, xyz), pot=scf)
+    for t in (0.3, 1.45, 2.6):
+        for f in (
+            potential.evaluatePotentials,
+            potential.evaluateRforces,
+            potential.evaluatezforces,
+            potential.evaluatephitorques,
+        ):
+            ref = f(rtw_tab, 1.1, 0.2, phi=0.3, t=t)
+            for p in (rtw_like, mop):
+                assert numpy.fabs(f(p, 1.1, 0.2, phi=0.3, t=t) - ref) < 1e-14, (
+                    "An Orbit-like center= does not give the tabulated center's potential"
+                )
+    ts = numpy.linspace(0.0, 2.5, 101)
+    oc = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc.integrate(ts, potential.MWPotential2014 + mop, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + mop, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
+        "C and Python orbit integration with an Orbit-like center= do not agree"
+    )
+    # A (backward) Orbit center, held at its end positions
+    o = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.0])
+    o.integrate(numpy.linspace(2.0, -1.0, 3001), potential.MWPotential2014)
+    rtw = potential.RotateAndTiltWrapperPotential(pot=scf, center=o)
+    for t_out, t_end in ((-1.5, -1.0), (2.6, 2.0)):
+        for f in (potential.evaluatePotentials, potential.evaluateRforces):
+            assert f(rtw, 1.1, 0.2, phi=0.3, t=t_out) == f(
+                rtw, 1.1, 0.2, phi=0.3, t=t_end
+            ), "A center= Orbit is not held outside of its integration times"
+    ts = numpy.linspace(1.5, 2.5, 101)
+    oc = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc.integrate(ts, potential.MWPotential2014 + rtw, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + rtw, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
+        "C and Python do not agree outside of a center= Orbit's integration times"
+    )
+    return None
+
+
+def test_RotateAndTiltWrapper_functions_of_time():
+    # A center and an orientation given as functions of time: Python
+    # evaluates them at every time, so that the potential at
+    # x = c(t) + R(t)^T d is the wrapped potential at d; C tabulates them over
+    # the integration's time range (cinterp_n times) and agrees with Python
+    from galpy.orbit.integrateFullOrbit import _parse_pot
+
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 2, 2] = 0.1
+    A[1, 1, 0] = 0.02
+    scf = potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
+
+    def center(t):
+        return numpy.array(
+            [0.3 * numpy.cos(0.7 * t), 0.2 * numpy.sin(0.7 * t), 0.05 * t]
+        )
+
+    def orientation(t):
+        a, b = 0.9 * t, 0.3 + 0.2 * t
+        rz = numpy.array(
+            [
+                [numpy.cos(a), numpy.sin(a), 0.0],
+                [-numpy.sin(a), numpy.cos(a), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+        rx = numpy.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, numpy.cos(b), numpy.sin(b)],
+                [0.0, -numpy.sin(b), numpy.cos(b)],
+            ]
+        )
+        return numpy.dot(rx, rz)
+
+    rtw = potential.RotateAndTiltWrapperPotential(
+        pot=scf, center=center, orientation=orientation
+    )
+    for t in (-0.4, 0.3, 1.7):
+        for d in ((0.2, -0.1, 0.05), (0.0, 0.3, -0.1)):
+            x, y, z = center(t) + numpy.dot(orientation(t).T, d)
+            for f in (potential.evaluatePotentials, potential.evaluateDensities):
+                want = f(
+                    scf, numpy.hypot(d[0], d[1]), d[2], phi=numpy.arctan2(d[1], d[0])
+                )
+                got = f(rtw, numpy.hypot(x, y), z, phi=numpy.arctan2(y, x), t=t)
+                assert numpy.fabs(got - want) < 1e-12 * max(1.0, numpy.fabs(want)), (
+                    "A center and orientation given as functions of time are not followed"
+                )
+    ts = numpy.linspace(0.0, 2.0, 101)
+    oc = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc.integrate(ts, potential.MWPotential2014 + rtw, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + rtw, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
+        "C orbit integration with a center and orientation given as functions of time does not agree with Python"
+    )
+    # integrating over the same time range again reuses the tabulation
+    tables = rtw._cinterp_cache
+    oc2 = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc2.integrate(ts, potential.MWPotential2014 + rtw, method="dop853_c")
+    assert rtw._cinterp_cache is tables and numpy.all(
+        oc2.getOrbit() == oc.getOrbit()
+    ), "The tabulation of the functions of time is not reused"
+    # functions of time need the integration times in C
+    with pytest.raises(NotImplementedError, match="function of time"):
+        _parse_pot([rtw])
+    # an orientation function must return a rotation matrix or a quaternion
+    bad = potential.RotateAndTiltWrapperPotential(
+        pot=scf, orientation=lambda t: numpy.eye(2)
+    )
+    with pytest.raises(ValueError, match="orientation= function"):
+        potential.evaluatePotentials(bad, 1.0, 0.1, phi=0.2, t=0.3)
+    return None
+
+
+def test_RotateAndTiltWrapper_center_orientation_errors():
+    pot = potential.HernquistPotential()
+    tt = numpy.linspace(0.0, 1.0, 5)
+    q = _quaternions_about_axis(tt, [0.0, 0.0, 1.0])
+    with pytest.raises(ValueError, match="not both"):
+        potential.RotateAndTiltWrapperPotential(
+            pot=pot, orientation=(tt, q), zvec=[0, 0, 1]
+        )
+    with pytest.raises(ValueError, match="tuple"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, orientation=q)
+    with pytest.raises(ValueError, match=r"\(N,4\)"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt, q[:, :3]))
+    with pytest.raises(ValueError, match="rotation matrices"):
+        potential.RotateAndTiltWrapperPotential(
+            pot=pot, orientation=(tt, numpy.tile(2.0 * numpy.eye(3), (5, 1, 1)))
+        )
+    with pytest.raises(ValueError, match="increasing"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt[::-1], q))
+    with pytest.raises(ValueError, match="at least 3"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt[:2], q[:2]))
+    with pytest.raises(ValueError, match="same length"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt[:4], q))
+    with pytest.raises(ValueError, match=r"\(t, xyz\)"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, center=(tt, tt, tt))
+    with pytest.raises(ValueError, match="shape"):
+        potential.RotateAndTiltWrapperPotential(
+            pot=pot, center=(tt, numpy.zeros((5, 2)))
+        )
+    with pytest.raises(ValueError, match="constant center"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, center=[1.0, 2.0])
+    with pytest.raises(ValueError, match="integrated"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, center=orbit.Orbit())
+    with pytest.raises(ValueError, match="single object"):
+        potential.RotateAndTiltWrapperPotential(
+            pot=pot, center=orbit.Orbit([[1.0, 0.0, 1.0, 0.0, 0.0, 0.0]] * 2)
+        )
+    return None
+
+
+def test_RotateAndTiltWrapper_triaxial_integer_zvec():
+    # An integer zvec works (it used to be normalized in place, which fails
+    # for integer arrays) and the input array is not modified
+    zvec = numpy.array([0, 1, 1])
+    rtw = potential.RotateAndTiltWrapperPotential(
+        pot=potential.HernquistPotential(), zvec=zvec
+    )
+    rtwf = potential.RotateAndTiltWrapperPotential(
+        pot=potential.HernquistPotential(), zvec=[0.0, 1.0, 1.0]
+    )
+    assert numpy.all(rtw._rot == rtwf._rot), (
+        "An integer zvec gives a different rotation"
+    )
+    assert numpy.all(zvec == numpy.array([0, 1, 1])), "zvec was modified"
+    zvecf = numpy.array([0.0, 1.0, 1.0])
+    potential.RotateAndTiltWrapperPotential(
+        pot=potential.HernquistPotential(), zvec=zvecf
+    )
+    assert numpy.all(zvecf == numpy.array([0.0, 1.0, 1.0])), "zvec was modified"
+    # the same for the triaxial potentials' zvec
+    tnfw = potential.TriaxialNFWPotential(b=0.8, c=0.6, zvec=zvec)
+    tnfwf = potential.TriaxialNFWPotential(b=0.8, c=0.6, zvec=zvecf)
+    assert numpy.all(tnfw._rot == tnfwf._rot), (
+        "An integer zvec gives a different rotation for a triaxial potential"
+    )
+    assert numpy.all(zvec == numpy.array([0, 1, 1])) and numpy.all(
+        zvecf == numpy.array([0.0, 1.0, 1.0])
+    ), "zvec was modified by a triaxial potential"
     return None
 
 
@@ -13970,6 +14838,35 @@ class mockMovingObjectPotentialExplPlummer(testMWPotential):
         return 1.0 / self._rc
 
 
+class mockMovingObjectNonAxiPotential(testMWPotential):
+    # a non-axisymmetric (SCF) potential moving along an orbit (the general
+    # path of MovingObjectPotential)
+    def __init__(self, rc=0.75):
+        from galpy.orbit import Orbit
+
+        self._rc = rc
+        o = Orbit([self._rc, 0.0, 1.0, 0.1, 0.05, 0.0])
+        o.integrate(
+            numpy.linspace(-1.0, 1.0, 51),
+            potential.LogarithmicHaloPotential(normalize=1.0),
+            method="dopr54_c",
+        )
+        A = numpy.zeros((2, 3, 3))
+        A[0, 0, 0] = 1.0
+        A[0, 2, 2] = 0.1
+        A[0, 2, 1] = 0.03
+        A[1, 1, 0] = 0.02
+        self._op = potential.MovingObjectPotential(
+            o, pot=potential.SCFPotential(amp=0.06, Acos=A, Asin=0.5 * A, a=0.1)
+        )
+        testMWPotential.__init__(self, [self._op])
+        self.isNonAxi = True
+        return None
+
+    def OmegaP(self):
+        return 1.0 / self._rc
+
+
 class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
     def __init__(self, rc=0.75):
         mockMovingObjectPotential.__init__(self, rc=rc, maxt=15.0, nt=3001)
@@ -14670,6 +15567,33 @@ class mockRotatedTiltedOffsetMWP14WrapperPotential(testMWPotential):
                     ],
                     galaxy_pa=0.4,
                     offset=[1.0, 1.0, 1.0],
+                ),
+            ],
+        )
+
+    def OmegaP(self):
+        return 0.0
+
+
+class mockMovingTurningMWP14WrapperPotential(testMWPotential):
+    # MWPotential2014 moving along a tabulated path and turning with a
+    # tabulated orientation (unit quaternions), with an offset
+    def __init__(self):
+        tc = numpy.linspace(-1.0, 2.0, 31)
+        xyz = numpy.array([0.2 * numpy.cos(tc), 0.2 * numpy.sin(tc), 0.05 * tc]).T
+        ang = 0.9 * tc + 0.2 * tc**2
+        axis = numpy.array([1.0, 2.0, 2.0]) / 3.0
+        q = numpy.array(
+            [numpy.cos(ang / 2.0)] + [numpy.sin(ang / 2.0) * a for a in axis]
+        ).T
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                RotateAndTiltWrapperPotential(
+                    pot=potential.MWPotential2014,
+                    center=(tc, xyz),
+                    orientation=(tc, q),
+                    offset=[0.1, -0.1, 0.05],
                 ),
             ],
         )
