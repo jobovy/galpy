@@ -296,10 +296,8 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         return None
 
     def _center_at(self, t):
-        """The center at time t (None when there is none)"""
-        if self._center_type is None:
-            return None
-        elif self._center_type == "constant":
+        """The center at time t (for a wrapper with a center)"""
+        if self._center_type == "constant":
             return self._center_xyz
         elif self._center_type == "orbit":
             orb = self._center_orb
