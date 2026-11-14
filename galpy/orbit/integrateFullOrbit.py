@@ -42,24 +42,25 @@ if _TQDM_LOADED:
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
-def _RotateAndTiltWrapper_c_args(p, amp):
+def _RotateAndTiltWrapper_c_args(p, amp, t=None):
     """The C arguments of a RotateAndTiltWrapperPotential p with amplitude
     amp after its wrapped potentials: the spline block read by
     initRotateAndTiltWrapperPotentialSplines followed by the arguments laid
-    out in RotateAndTiltWrapperPotential.c"""
+    out in RotateAndTiltWrapperPotential.c (t: the integration times, over
+    which a center or orientation that is a function of time is tabulated)"""
+    center, orient = p._c_tables(t)
     out = []
     # spline block: nc, no, then the center's and the orientation's tables
-    center_spline = p._center_type in ("table", "orbit")
-    out.append(len(p._center_t) if center_spline else 0)
-    out.append(len(p._orient_t) if p._orientation else 0)
-    if center_spline:
-        out.extend(p._center_t)
+    out.append(0 if center is None else len(center[0]))
+    out.append(0 if orient is None else len(orient[0]))
+    if center is not None:
+        out.extend(center[0])
         for ii in range(3):
-            out.extend(p._center_xyz[:, ii])
-    if p._orientation:
-        out.extend(p._orient_t)
+            out.extend(center[1][:, ii])
+    if orient is not None:
+        out.extend(orient[0])
         for ii in range(4):
-            out.extend(p._orient_q[:, ii])
+            out.extend(orient[1][:, ii])
     out.append(amp)
     # for caching: x,y,z,t key + Fx,Fy,Fz
     out.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -75,8 +76,8 @@ def _RotateAndTiltWrapper_c_args(p, amp):
     out.append({None: 0, "constant": 1}.get(p._center_type, 2))
     out.extend(p._center_xyz if p._center_type == "constant" else [0.0, 0.0, 0.0])
     out.append(p._orientation)
-    out.extend([p._center_t[0], p._center_t[-1]] if center_spline else [0.0, 0.0])
-    out.extend([p._orient_t[0], p._orient_t[-1]] if p._orientation else [0.0, 0.0])
+    out.extend([0.0, 0.0] if center is None else [center[0][0], center[0][-1]])
+    out.extend([0.0, 0.0] if orient is None else [orient[0][0], orient[0][-1]])
     return out
 
 
@@ -500,7 +501,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
-            pot_args.extend(_RotateAndTiltWrapper_c_args(p._gen, p._amp))
+            pot_args.extend(_RotateAndTiltWrapper_c_args(p._gen, p._amp, t=t))
         elif isinstance(p, potential.MovingObjectPotential):
             pot_type.append(-6)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
@@ -608,7 +609,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
-            pot_args.extend(_RotateAndTiltWrapper_c_args(p, p._amp))
+            pot_args.extend(_RotateAndTiltWrapper_c_args(p, p._amp, t=t))
         elif isinstance(p, potential.TimeDependentAmplitudeWrapperPotential):
             pot_type.append(-9)
             # Not sure how to easily avoid this duplication

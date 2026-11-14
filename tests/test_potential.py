@@ -4801,19 +4801,38 @@ _MOVING_OBJECT_POINTS = (
 )
 
 
+def _moving_object_general(o, pot):
+    # A MovingObjectPotential on the general path, which a non-axisymmetric pot
+    # takes, for an axisymmetric pot: the axisymmetry check is patched for its
+    # construction
+    import importlib
+
+    mod = importlib.import_module("galpy.potential.MovingObjectPotential")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(mod, "_isNonAxi", lambda pot: True)
+        return potential.MovingObjectPotential(o, pot=pot)
+
+
 def test_MovingObject_general_vs_fast():
-    # For axisymmetric potentials, the general path (forced through the private
-    # _general) agrees with the axisymmetric fast path to round-off, in
-    # Python and in C (orbits and variational equations)
+    # For axisymmetric potentials, the general path agrees with the
+    # axisymmetric fast path to round-off, in Python and in C (orbits and
+    # variational equations); both evaluate the potential at the height
+    # z - z_object, which the SCF potential with odd-l terms, which is not
+    # symmetric under z -> -z, checks
     o = _moving_object_orbit()
     ts = numpy.linspace(0.0, 1.5, 101)
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 1, 0] = 0.3
+    A[1, 2, 0] = 0.1
     for pot in (
         potential.HernquistPotential(amp=0.1, a=0.2),
         potential.NFWPotential(amp=0.1, a=0.3),
         potential.MiyamotoNagaiPotential(amp=0.1, a=0.2, b=0.05),
+        potential.SCFPotential(amp=0.1, Acos=A, a=0.2),
     ):
         fast = potential.MovingObjectPotential(o, pot=pot)
-        gen = potential.MovingObjectPotential(o, pot=pot, _general=True)
+        gen = _moving_object_general(o, pot)
         assert not fast._general and gen._general
         for R, z, phi, t in _MOVING_OBJECT_POINTS:
             for f in _MOVING_OBJECT_FUNCS:
@@ -9023,8 +9042,8 @@ def test_RotateAndTiltWrapper_timedep_c_vs_python():
 
 def test_RotateAndTiltWrapper_constant_tables():
     # A constant orientation table reproduces the constant orientation, a
-    # center the equivalent offset, and orientation_from_angles the rotation
-    # matrices of the angles, in Python and in C
+    # center the equivalent offset, and angles that are functions of time the
+    # rotation matrices of the angles, in Python and in C
     pot = potential.TriaxialNFWPotential(amp=1.0, b=0.8, c=0.6)
     static = potential.RotateAndTiltWrapperPotential(
         pot=pot, zvec=[0.3, 0.2, 1.0], galaxy_pa=0.4, offset=[0.1, -0.2, 0.05]
@@ -9079,48 +9098,47 @@ def test_RotateAndTiltWrapper_constant_tables():
         assert numpy.amax(numpy.fabs(o1.getOrbit() - o2.getOrbit())) < 1e-10, (
             "C orbit integration with constant tables does not agree with the constant orientation or offset"
         )
-    # orientation_from_angles
-    incl, gpa, spa = (
-        numpy.linspace(0.1, 1.2, 4),
-        numpy.linspace(-0.3, 0.8, 4),
-        numpy.linspace(0.5, 2.0, 4),
-    )
-    t, rots = potential.RotateAndTiltWrapperPotential.orientation_from_angles(
-        numpy.arange(4.0), inclination=incl, galaxy_pa=gpa, sky_pa=spa
-    )
-    zvecs = numpy.array(
-        [[0.3, 0.2, 1.0], [0.0, 1.0, 1.0], [1.0, 0.0, 0.2], [0.1, 0.1, 1.0]]
-    )
-    t, zrots = potential.RotateAndTiltWrapperPotential.orientation_from_angles(
-        numpy.arange(4.0), zvec=zvecs, galaxy_pa=0.4
-    )
-    for ii in range(4):
-        assert numpy.all(
-            rots[ii]
-            == potential.RotateAndTiltWrapperPotential(
-                pot=pot, inclination=incl[ii], galaxy_pa=gpa[ii], sky_pa=spa[ii]
-            )._rot
-        ), "orientation_from_angles does not reproduce the rotation of the angles"
-        assert numpy.all(
-            zrots[ii]
-            == potential.RotateAndTiltWrapperPotential(
-                pot=pot, zvec=zvecs[ii], galaxy_pa=0.4
-            )._rot
-        ), "orientation_from_angles does not reproduce the rotation of zvec"
-    # and the rotation matrices of the tabulated orientation are recovered
-    # from the quaternions it holds
+
+    # angles that are functions of time: at every time, the rotation of the
+    # constant angles at that time
+    def incl(t):
+        return 0.1 + 0.3 * t
+
+    def gpa(t):
+        return -0.3 + 0.4 * t
+
+    def spa(t):
+        return 0.5 + 0.5 * t
+
+    def zv(t):
+        return [0.3 * numpy.cos(t), 0.2, 1.0]
+
     fromangles = potential.RotateAndTiltWrapperPotential(
-        pot=pot, orientation=(t, numpy.concatenate([rots[:2], zrots[2:]]))
+        pot=pot, inclination=incl, galaxy_pa=gpa, sky_pa=spa
     )
+    fromzvec = potential.RotateAndTiltWrapperPotential(pot=pot, zvec=zv, galaxy_pa=0.4)
+    for t in (0.0, 1.0, 2.5):
+        assert numpy.all(
+            fromangles._rot_at(t)
+            == potential.RotateAndTiltWrapperPotential(
+                pot=pot, inclination=incl(t), galaxy_pa=gpa(t), sky_pa=spa(t)
+            )._rot
+        ), "Angles that are functions of time do not give the rotation of the angles"
+        assert numpy.all(
+            fromzvec._rot_at(t)
+            == potential.RotateAndTiltWrapperPotential(
+                pot=pot, zvec=zv(t), galaxy_pa=0.4
+            )._rot
+        ), "A zvec that is a function of time does not give the rotation of zvec"
+    # and the rotation matrices of a tabulated orientation are recovered at
+    # the tabulated times from the quaternions it holds
+    t4 = numpy.arange(4.0)
+    rots = numpy.array(
+        [fromangles._rot_at(t) for t in t4[:2]] + [fromzvec._rot_at(t) for t in t4[2:]]
+    )
+    table4 = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(t4, rots))
     for ii in range(4):
-        assert (
-            numpy.amax(
-                numpy.fabs(
-                    fromangles._rot_at(float(ii)) - (rots[ii] if ii < 2 else zrots[ii])
-                )
-            )
-            < 1e-14
-        ), (
+        assert numpy.amax(numpy.fabs(table4._rot_at(float(ii)) - rots[ii])) < 1e-14, (
             "The orientation's rotation matrices are not recovered at the tabulated times"
         )
     return None
@@ -9193,6 +9211,33 @@ def test_RotateAndTiltWrapper_rotation_about_z_is_solidbody():
         ]
     )
     rtw_tilt = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt, rots))
+
+    # the same as functions of time: a pattern speed through galaxy_pa, and
+    # the orientation as a function returning the rotation matrix or the
+    # quaternion
+    def tilted(t):
+        a = omega * t + pa
+        return numpy.dot(
+            numpy.array(
+                [
+                    [numpy.cos(a), numpy.sin(a), 0.0],
+                    [-numpy.sin(a), numpy.cos(a), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+            R0,
+        )
+
+    rtw_pa = potential.RotateAndTiltWrapperPotential(
+        pot=pot, galaxy_pa=lambda t: omega * t + pa
+    )
+    rtw_q = potential.RotateAndTiltWrapperPotential(
+        pot=pot,
+        orientation=lambda t: _quaternions_about_axis(
+            numpy.atleast_1d(-(omega * t + pa)), [0.0, 0.0, 1.0]
+        )[0],
+    )
+    rtw_tilt_f = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=tilted)
     for R, z, phi, t in ((0.9, 0.1, 0.3, 0.123), (1.4, -0.2, 2.1, 0.7771)):
         for f in (
             potential.evaluatePotentials,
@@ -9200,22 +9245,28 @@ def test_RotateAndTiltWrapper_rotation_about_z_is_solidbody():
             potential.evaluatezforces,
             potential.evaluatephitorques,
         ):
-            assert (
-                numpy.fabs(f(rtw, R, z, phi=phi, t=t) - f(sb, R, z, phi=phi, t=t))
-                < 1e-9
-            ), (
-                "A uniform rotation about z does not reproduce SolidBodyRotationWrapperPotential"
-            )
-            assert (
-                numpy.fabs(
-                    f(rtw_tilt, R, z, phi=phi, t=t) - f(tilt, R, z, phi=phi, t=t)
+            # tables to their interpolation error, functions to round-off
+            for p, q, tol in (
+                (rtw, sb, 1e-9),
+                (rtw_tilt, tilt, 1e-9),
+                (rtw_pa, sb, 1e-12),
+                (rtw_q, sb, 1e-12),
+                (rtw_tilt_f, tilt, 1e-12),
+            ):
+                assert (
+                    numpy.fabs(f(p, R, z, phi=phi, t=t) - f(q, R, z, phi=phi, t=t))
+                    < tol
+                ), (
+                    "A uniform rotation about z does not reproduce SolidBodyRotationWrapperPotential (or, tilted, RotateAndTiltWrapperPotential(pot=SolidBodyRotationWrapperPotential))"
                 )
-                < 1e-9
-            ), (
-                "A tilted uniform rotation does not reproduce RotateAndTiltWrapperPotential(pot=SolidBodyRotationWrapperPotential)"
-            )
     ts = numpy.linspace(0.0, 2.0, 101)
-    for p, q in ((rtw, sb), (rtw_tilt, tilt)):
+    for p, q in (
+        (rtw, sb),
+        (rtw_tilt, tilt),
+        (rtw_pa, sb),
+        (rtw_q, sb),
+        (rtw_tilt_f, tilt),
+    ):
         o1 = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
         o2 = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.2])
         o1.integrate(ts, p, method="dop853_c")
@@ -9361,6 +9412,83 @@ def test_RotateAndTiltWrapper_center_orbitlike_and_held_outside():
     assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
         "C and Python do not agree outside of a center= Orbit's integration times"
     )
+    return None
+
+
+def test_RotateAndTiltWrapper_functions_of_time():
+    # A center and an orientation given as functions of time: Python
+    # evaluates them at every time, so that the potential at
+    # x = c(t) + R(t)^T d is the wrapped potential at d; C tabulates them over
+    # the integration's time range (cinterp_n times) and agrees with Python
+    from galpy.orbit.integrateFullOrbit import _parse_pot
+
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 2, 2] = 0.1
+    A[1, 1, 0] = 0.02
+    scf = potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
+
+    def center(t):
+        return numpy.array(
+            [0.3 * numpy.cos(0.7 * t), 0.2 * numpy.sin(0.7 * t), 0.05 * t]
+        )
+
+    def orientation(t):
+        a, b = 0.9 * t, 0.3 + 0.2 * t
+        rz = numpy.array(
+            [
+                [numpy.cos(a), numpy.sin(a), 0.0],
+                [-numpy.sin(a), numpy.cos(a), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+        rx = numpy.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, numpy.cos(b), numpy.sin(b)],
+                [0.0, -numpy.sin(b), numpy.cos(b)],
+            ]
+        )
+        return numpy.dot(rx, rz)
+
+    rtw = potential.RotateAndTiltWrapperPotential(
+        pot=scf, center=center, orientation=orientation
+    )
+    for t in (-0.4, 0.3, 1.7):
+        for d in ((0.2, -0.1, 0.05), (0.0, 0.3, -0.1)):
+            x, y, z = center(t) + numpy.dot(orientation(t).T, d)
+            for f in (potential.evaluatePotentials, potential.evaluateDensities):
+                want = f(
+                    scf, numpy.hypot(d[0], d[1]), d[2], phi=numpy.arctan2(d[1], d[0])
+                )
+                got = f(rtw, numpy.hypot(x, y), z, phi=numpy.arctan2(y, x), t=t)
+                assert numpy.fabs(got - want) < 1e-12 * max(1.0, numpy.fabs(want)), (
+                    "A center and orientation given as functions of time are not followed"
+                )
+    ts = numpy.linspace(0.0, 2.0, 101)
+    oc = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc.integrate(ts, potential.MWPotential2014 + rtw, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + rtw, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
+        "C orbit integration with a center and orientation given as functions of time does not agree with Python"
+    )
+    # integrating over the same time range again reuses the tabulation
+    tables = rtw._cinterp_cache
+    oc2 = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc2.integrate(ts, potential.MWPotential2014 + rtw, method="dop853_c")
+    assert rtw._cinterp_cache is tables and numpy.all(
+        oc2.getOrbit() == oc.getOrbit()
+    ), "The tabulation of the functions of time is not reused"
+    # functions of time need the integration times in C
+    with pytest.raises(NotImplementedError, match="function of time"):
+        _parse_pot([rtw])
+    # an orientation function must return a rotation matrix or a quaternion
+    bad = potential.RotateAndTiltWrapperPotential(
+        pot=scf, orientation=lambda t: numpy.eye(2)
+    )
+    with pytest.raises(ValueError, match="orientation= function"):
+        potential.evaluatePotentials(bad, 1.0, 0.1, phi=0.2, t=0.3)
     return None
 
 
