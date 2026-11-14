@@ -1,0 +1,60 @@
+name: Gaia DR3 sample for the staeckel notebook
+description: >-
+  Run the staeckel notebook's own Gaia DR3 query cell outside the notebook, so
+  that the notebook finds the file and skips its query. Only when that query
+  fails (the ESA Gaia archive and its VizieR TAP fallback both failed) or takes
+  longer than 30 minutes, download the copy attached to the v1.12.1 release
+  instead (a dedicated release would fire the wheel workflows).
+inputs:
+  token:
+    description: GitHub token, to download the release asset
+    required: true
+outputs:
+  used-release-copy:
+    description: "'true' when the release copy was used; never cache it"
+    value: ${{ steps.fetch.outputs.used }}
+runs:
+  using: composite
+  steps:
+    - id: fetch
+      shell: bash
+      working-directory: doc/source/tutorials/action_angle
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        # Exit codes: 0 query done, 1 query failed, 2 no unique query cell
+        # (an error in this action, not an outage), 124 timed out
+        set +e
+        timeout 30m python - <<'EOF'
+        import json
+        import sys
+
+        cells = [
+            "".join(cell["source"])
+            for cell in json.load(open("staeckel.ipynb", encoding="utf-8"))["cells"]
+            if cell["cell_type"] == "code"
+            and "gaia_dr3_solar_neighborhood.fits" in "".join(cell["source"])
+        ]
+        if len(cells) != 1:
+            print(f"::error::Expected one Gaia query cell in staeckel.ipynb, found {len(cells)}")
+            sys.exit(2)
+        try:
+            exec(compile(cells[0], "staeckel.ipynb Gaia query cell", "exec"), {"__name__": "__main__"})
+        except Exception as e:
+            print(f"The notebook's Gaia query failed: {type(e).__name__}: {e}")
+            sys.exit(1)
+        EOF
+        rc=$?
+        set -e
+        if [ "$rc" -eq 2 ]; then
+          exit 1
+        elif [ "$rc" -eq 0 ] && [ -f gaia_dr3_solar_neighborhood.fits ]; then
+          echo "The notebook's query succeeded: the notebook loads its result, which is cached."
+          echo "used=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "The notebook's query did not succeed (exit code $rc): using the release copy (not cached)."
+          rm -f gaia_dr3_solar_neighborhood.fits
+          gh release download v1.12.1 --repo "${{ github.repository }}" \
+            --pattern gaia_dr3_solar_neighborhood.fits --clobber
+          echo "used=true" >> "$GITHUB_OUTPUT"
+        fi
