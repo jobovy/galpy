@@ -13714,6 +13714,48 @@ def test_actionAngleSphericalInverse_harmonics_beyond_need(spherical_inverse_ecc
     return None
 
 
+def test_actionAngleSphericalInverse_frequencies_isochrone():
+    # The frequencies of a torus are a quadrature in the anomaly between its
+    # turning points, which are solved to round-off: for an isochrone
+    # target, whose radial action and frequencies are closed forms, explicit
+    # tori from nearly circular to eccentric return the radial action to
+    # 1e-13 (3e-15) and the frequencies to 5e-12 (8e-13; turning points
+    # solved to an absolute 1e-12 leave 1e-10 in the frequencies)
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import IsochronePotential
+
+    GM, b = 1.3, 0.8
+    Ls = numpy.array([0.05, 0.2, 0.2, 0.5, 0.5, 1.0, 1.0, 2.0])
+    sq = numpy.sqrt(Ls**2 + 4.0 * GM * b)
+    # fractions of the circular orbit's energy -2 GM^2 / (L + sq)^2
+    Es = (
+        -2.0
+        * GM**2
+        / (Ls + sq) ** 2
+        * numpy.array([0.9, 0.95, 0.5, 0.8, 0.3, 0.99, 0.6, 0.4])
+    )
+    aAI = actionAngleSphericalInverse(
+        pot=IsochronePotential(amp=GM, b=b), Es=Es, Ls=Ls, mm_npt=64, progressbar=False
+    )
+    jr = numpy.array([aAI.Jr(E, L) for E, L in zip(Es, Ls)])
+    OmR, Omphi, Omz = aAI.Freqs(jr, 0.7 * Ls, 0.3 * Ls)
+    OmR_true = (-2.0 * Es) ** 1.5 / GM
+    Ompsi_true = 0.5 * OmR_true * (1.0 + Ls / sq)
+    assert numpy.all(
+        numpy.fabs(jr / (GM / numpy.sqrt(-2.0 * Es) - 0.5 * (Ls + sq)) - 1.0) < 1e-13
+    ), "The radial actions of isochrone tori are not the closed form's"
+    for Om, Om_true, what in (
+        (OmR, OmR_true, "radial"),
+        (Omphi, Ompsi_true, "azimuthal"),
+        (Omz, Ompsi_true, "vertical"),
+    ):
+        assert numpy.all(numpy.fabs(Om / Om_true - 1.0) < 5e-12), (
+            "The %s frequencies of isochrone tori are not the closed form's: %g"
+            % (what, numpy.amax(numpy.fabs(Om / Om_true - 1.0)))
+        )
+    return None
+
+
 def test_actionAngleStaeckelInverse_Lzspacing():
     # The Staeckel family takes the same angular-momentum spacing option as the
     # spherical one: a family spaced in the logarithm (the default), in the

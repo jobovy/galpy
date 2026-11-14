@@ -271,7 +271,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
         def pr2(r):
             return 2.0 * (E - self._Phi(r)) - L**2 / r**2
 
-        ttol = 1e-12
+        # to round-off (brentq's own relative tolerance of four ulp decides):
+        # the frequencies' quadrature samples dt/dtau = (dr/dtau) / p_r
+        # between turning points that it takes as exact, and an error d in
+        # one of them is an error of order d / [(r_a - r_p) tau_1^2] in the
+        # samples next to it (tau_1 the anomaly of the first sample), a few
+        # hundred to a thousand times d in the frequencies
+        ttol = 1e-300
         rlo, rhi = rc, rc
         while pr2(rlo) > 0.0 and rlo > 1e-12:
             rlo /= 1.3

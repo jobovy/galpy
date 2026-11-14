@@ -9,6 +9,14 @@ v1.12.2 (expected around 2027-03-01)
   hundred fifty), and the circular radius that the grid's energy needs is
   solved for once rather than three times per call.
 
+- ``actionAngleSphericalInverse`` solves the turning points of its tori to
+  round-off rather than to an absolute 1e-12: the frequencies are a
+  quadrature between the turning points and inherited a few hundred to a
+  thousand times their error, so that the frequencies of the tori (and with
+  them the angles of the map) were accurate to 1e-11 to 1e-9 and are now
+  accurate to about 1e-13 (against the closed forms of an isochrone target
+  and against a 40-digit quadrature in a Hernquist halo).
+
 - ``actionAngleSphericalInverse`` evaluates every point of an interpolated
   family (``setup_interp=True``) with the harmonics that the tori around it
   need instead of all ``mm_npt`` of them: every torus keeps the harmonics of
