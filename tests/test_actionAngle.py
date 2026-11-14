@@ -13494,6 +13494,226 @@ def test_actionAngleSphericalInverse_Lspacing():
     return None
 
 
+@pytest.fixture(scope="module")
+def spherical_inverse_eccentric():
+    # an (E, L) grid in the logarithmic halo that reaches eccentric tori
+    # (apocentres up to fifty times the pericentre), set up with more
+    # harmonics than any of its tori keeps
+    from galpy.actionAngle import actionAngleSphericalInverse
+
+    return actionAngleSphericalInverse(
+        pot=_spherical_inverse_potential(),
+        setup_interp=True,
+        Rmin=0.2,
+        Rmax=1.0,
+        Rinf=4.0,
+        nE=8,
+        nL=8,
+        mm_npt=64,
+        progressbar=False,
+    )
+
+
+def _spherical_inverse_eccentric_jr(aAI, u, L):
+    # the radial action at the grid coordinates (u, L) of the eccentric grid
+    return aAI.Jr(_spherical_inverse_E_of_u(u, L, Rinf=4.0), L)
+
+
+def _spherical_inverse_eccentric_points(aAI):
+    # one point inside each of the 7 x 7 cells of the eccentric grid (uniform
+    # in u, logarithmic in L), with random inclinations and angles
+    us, Ls = numpy.linspace(0.0, 1.0, 8), numpy.geomspace(0.2, 1.0, 8)
+    a, b = numpy.divmod(numpy.arange(49), 7)
+    u = us[a] + 0.37 * (us[a + 1] - us[a])
+    L = Ls[b] + 0.61 * (Ls[b + 1] - Ls[b])
+    jr = numpy.array(
+        [_spherical_inverse_eccentric_jr(aAI, tu, tL) for tu, tL in zip(u, L)]
+    )
+    rng = numpy.random.default_rng(7)
+    jphi = rng.uniform(-1.0, 1.0, 49) * L
+    return (jr, jphi, L - numpy.fabs(jphi), *rng.uniform(0.0, 2.0 * numpy.pi, (3, 49)))
+
+
+def test_actionAngleSphericalInverse_adaptive_harmonics(spherical_inverse_eccentric):
+    # Every torus of an interpolated family keeps the harmonics of its map
+    # down to its round-off floor (those up to the last whose coefficient
+    # exceeds 1e-11 and as many more as three further decades take at the
+    # rate of the coefficients' fall), and every point is evaluated with the
+    # harmonics of its cell: the largest number that the four tori at its
+    # corners keep, rounded up to 16, 32, ... or mm_npt. On a grid whose
+    # cells use 16, 32 and all 64 harmonics: (a) an array of points spread
+    # over all cells, shuffled and as a 2D array, agrees with the points
+    # evaluated one at a time; (b) the points round-trip through the forward
+    # transformation within the grid's interpolation error; (c) the map is
+    # canonical in a cell of each kind; (d) it is continuous across the
+    # edges between cells that use different numbers; (e) the grid's own
+    # tori are as accurate as with all harmonics
+    from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
+
+    aAI = spherical_inverse_eccentric
+    us, Ls = numpy.linspace(0.0, 1.0, 8), numpy.geomspace(0.2, 1.0, 8)
+    # (a) the same points one at a time, in another order, and as a 2D array
+    pts = _spherical_inverse_eccentric_points(aAI)
+    out = numpy.array(aAI.xvFreqs(*pts))
+    one = numpy.array(
+        [
+            [numpy.ravel(o)[0] for o in aAI.xvFreqs(*(t[k] for t in pts))]
+            for k in range(49)
+        ]
+    ).T
+    perm = numpy.random.default_rng(8).permutation(49)
+    shuffled = numpy.empty((9, 49))
+    shuffled[:, perm] = aAI.xvFreqs(*(t[perm] for t in pts))
+    grid = numpy.array(aAI.xvFreqs(*(t.reshape(7, 7) for t in pts)))
+    assert grid.shape == (9, 7, 7), "A 2D array of points does not keep its shape"
+    for other, what in (
+        (one, "one at a time"),
+        (shuffled, "in another order"),
+        (grid.reshape(9, 49), "as a 2D array"),
+    ):
+        assert numpy.all(numpy.fabs(out - other) < 1e-11 * (1.0 + numpy.fabs(out))), (
+            "Points grouped by their numbers of harmonics differ from the same "
+            "points evaluated %s" % what
+        )
+    # (b) the round trip in a cell with 16 harmonics, one with 32 and one with
+    # 64: within the tolerance of the between-node test of the small grid
+    # where this grid's interpolation error allows, and within twice the
+    # error of the same family evaluated with all harmonics in the eccentric
+    # cell (7e-4 in the angles, 1.5e-4 in the frequencies)
+    angler = numpy.linspace(0.05, 6.2, 21)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+    cells = ((1, 3), (3, 4), (6, 5))
+    for (a, b), tols in zip(
+        cells, ((1e-4,) * 4, (1e-4,) * 4, (1e-4, 1.5e-3, 3e-4, 1e-4))
+    ):
+        L = Ls[b] + 0.61 * (Ls[b + 1] - Ls[b])
+        jr = _spherical_inverse_eccentric_jr(aAI, us[a] + 0.37 * (us[a + 1] - us[a]), L)
+        errs = _spherical_inverse_roundtrip(
+            aAI, jr, 0.6 * L, 0.4 * L, angler, anglephi, anglez
+        )
+        assert all(err < tol for err, tol in zip(errs, tols)), (
+            "The round trip (actions, angles, frequencies, energy) in the cell "
+            "(%i, %i) is not within the grid's interpolation error: %s" % (a, b, errs)
+        )
+    # (c) the symplectic defect at the finite-difference floor, with the
+    # bound of the small grid's test (the defect is 3e-10 to 2e-9 at these
+    # points, also when all harmonics are read), in a cell with 16
+    # harmonics, one with 32, and one whose tori keep different numbers
+    # (34 and 35 against 43 and 45), all away from the circular edge and
+    # from the cells' edges, where the finite differences themselves fail
+    floor = _spherical_inverse_symplectic_defect(
+        actionAngleIsochroneInverse(ip=IsochronePotential(amp=1.0, b=0.5)),
+        0.2,
+        0.6,
+        0.3,
+        0.7,
+        1.0,
+        2.0,
+    )
+    for a, b in ((1, 3), (3, 4), (5, 0)):
+        L = Ls[b] + 0.61 * (Ls[b + 1] - Ls[b])
+        jr = _spherical_inverse_eccentric_jr(aAI, us[a] + 0.37 * (us[a + 1] - us[a]), L)
+        defect = _spherical_inverse_symplectic_defect(
+            aAI, jr, 0.6 * L, 0.4 * L, 0.7, 1.0, 2.0
+        )
+        assert defect < 20.0 * floor + 1e-9, (
+            "The symplectic defect in the cell (%i, %i) is above the "
+            "finite-difference floor: %g vs %g" % (a, b, defect, floor)
+        )
+    # (d) points at a distance d either side of an edge between cells that
+    # use different numbers of harmonics differ in proportion to d (the map
+    # changes by up to 13 d there): across two edges in u and one in L
+    edges = (
+        ((1, 2), (2, 2), lambda s: (us[2] + s, 0.5 * (Ls[2] + Ls[3]))),
+        ((3, 0), (4, 0), lambda s: (us[4] + s, 0.5 * (Ls[0] + Ls[1]))),
+        ((4, 4), (4, 5), lambda s: (0.5 * (us[4] + us[5]), Ls[5] + s)),
+    )
+    for lo, hi, at in edges:
+        for d in (1e-6, 1e-9):
+            sides = []
+            for s in (-d, d):
+                u, L = at(s)
+                sides.append(
+                    numpy.ravel(
+                        aAI(
+                            _spherical_inverse_eccentric_jr(aAI, u, L),
+                            0.6 * L,
+                            0.4 * L,
+                            1.3,
+                            0.7,
+                            2.1,
+                        )
+                    )
+                )
+            assert numpy.amax(numpy.fabs(sides[1] - sides[0])) < 30.0 * d, (
+                "The map jumps across the edge between the cells %s and %s: %g "
+                "at distance %g"
+                % (lo, hi, numpy.amax(numpy.fabs(sides[1] - sides[0])), d)
+            )
+    # (e) what a torus of the grid drops is round-off: along every librating
+    # torus of the grid, the energy of the returned points is the torus's to
+    # 1e-10 of the squared speed (1.5e-11 at most and 1.5e-13 in the median;
+    # keeping only the harmonics above 1e-11 leaves 5e-10 and 1e-11)
+    from galpy.potential import evaluatePotentials
+
+    u, L = (x.ravel() for x in numpy.meshgrid(us[1:], Ls, indexing="ij"))
+    E = _spherical_inverse_E_of_u(u, L, Rinf=4.0)
+    jr = numpy.array([aAI.Jr(tE, tL) for tE, tL in zip(E, L)])
+    R, vR, vT, z, vz, _ = aAI(
+        jr,
+        0.6 * L,
+        0.4 * L,
+        *numpy.random.default_rng(4).uniform(0.0, 6.28, (3, 12, 56)),
+    )
+    v2 = vR**2 + vT**2 + vz**2
+    dE = numpy.fabs(
+        evaluatePotentials(
+            _spherical_inverse_potential(), numpy.sqrt(R**2 + z**2), 0.0 * R
+        )
+        + 0.5 * v2
+        - E
+    )
+    assert numpy.all(dE < 1e-10 * v2), (
+        "The grid's own tori do not conserve the energy to round-off: %g"
+        % numpy.amax(dE / v2)
+    )
+    return None
+
+
+def test_actionAngleSphericalInverse_harmonics_beyond_need(spherical_inverse_eccentric):
+    # A torus's harmonics beyond those that it keeps are zero, in the
+    # coefficients and in their slopes, which are solved for in the kept
+    # harmonics alone: the same grid set up with half as many harmonics
+    # again, still more than any torus keeps, is the same family, with the
+    # same numbers of harmonics torus by torus (they are decided by
+    # coefficients well above the round-off floor) and the same points to
+    # the round-off of the two set-ups (8e-11; solving the slopes in all
+    # mm_npt harmonics instead makes the two differ by 2e-9)
+    from galpy.actionAngle import actionAngleSphericalInverse
+
+    aAI = spherical_inverse_eccentric
+    more = actionAngleSphericalInverse(
+        pot=_spherical_inverse_potential(),
+        setup_interp=True,
+        Rmin=0.2,
+        Rmax=1.0,
+        Rinf=4.0,
+        nE=8,
+        nL=8,
+        mm_npt=96,
+        progressbar=False,
+    )
+    pts = _spherical_inverse_eccentric_points(aAI)
+    out, out_more = numpy.array(aAI.xvFreqs(*pts)), numpy.array(more.xvFreqs(*pts))
+    assert numpy.all(numpy.fabs(out - out_more) < 1e-9 * (1.0 + numpy.fabs(out))), (
+        "The family depends on the number of harmonics beyond those its tori keep: %g"
+        % (numpy.amax(numpy.fabs(out - out_more) / (1.0 + numpy.fabs(out))))
+    )
+    return None
+
+
 def test_actionAngleStaeckelInverse_Lzspacing():
     # The Staeckel family takes the same angular-momentum spacing option as the
     # spherical one: a family spaced in the logarithm (the default), in the
