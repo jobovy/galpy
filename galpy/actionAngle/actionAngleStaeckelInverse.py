@@ -155,7 +155,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Rinf=10.0,
         nE=9,
         nLz=9,
-        Lzspacing="linear",
+        Lzspacing="log",
         nI3=9,
         mm_npt=32,
         mm_nta=None,
@@ -216,9 +216,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         nLz : int, optional
             Number of angular momenta of the interpolation grid.
         Lzspacing : str, optional
-            Spacing of the angular-momentum grid: 'linear' (default), 'sqrt'
-            (uniform in sqrt(L_z), finer at small L_z) or 'log' (uniform in
-            ln L_z).
+            Spacing of the angular-momentum grid: 'log' (default; uniform
+            in ln L_z), 'sqrt' (uniform in sqrt(L_z), finer at small L_z)
+            or 'linear' (uniform in L_z). The default is the logarithm
+            because every cell then spans the same factor in L_z: a linear
+            grid's innermost cell spans a large factor in L_z when Rmin is
+            much smaller than Rmax, and its interpolation errors then
+            concentrate there, while its outer cells are finer than the
+            logarithmic grid's; the two differ little for a grid that
+            spans a factor of a few in L_z.
         nI3 : int, optional
             Number of third integrals of the interpolation grid.
         mm_npt : int, optional
@@ -1525,7 +1531,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return None
 
     # ---------- the (L_z, E, I_3) interpolation grid
-    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3, Lzspacing="linear"):
+    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nLz, nI3, Lzspacing="log"):
         """Rectangular grid in (w_E, w_I, L_z): L_z between the circular
         angular momenta of Rmin and Rmax; the energies uniform, in x =
         w_E^2 with w_E uniform in [0, 1], in the logarithm of the apocentre

@@ -49,7 +49,7 @@ v1.12.2 (expected around 2027-03-01)
   instance has physical units.
 - ``actionAngleSphericalInverse`` and ``actionAngleStaeckelInverse`` take the
   spacing of their angular-momentum grid as an option (``Lspacing`` and
-  ``Lzspacing``: 'linear', the default, 'sqrt' or 'log'). A linear grid
+  ``Lzspacing``: 'log', the default, 'sqrt' or 'linear'). A linear grid
   that reaches a small ``Rmin`` has an innermost cell spanning a large
   factor in angular momentum, which holds the family's most eccentric tori
   and most of its interpolation error; spaced in the logarithm, that cell's
