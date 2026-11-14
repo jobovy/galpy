@@ -91,7 +91,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         vo : float or Quantity, optional
             Velocity scale for translation into internal units (default from configuration file).
         center : numpy.ndarray, Quantity, tuple, or Orbit, optional
-            Position of the wrapped potential's origin in the (Galactocentric) frame of the evaluation point, before the rotation: a constant (x,y,z), a tabulated path ``(t, xyz)`` with ``t`` an increasing array of N >= 3 times and ``xyz`` an (N,3) array of positions (interpolated with a natural cubic spline, and held at its end values outside of the tabulated times), or an integrated ``Orbit`` (its positions; interpolated by the Orbit itself in Python and by a natural cubic spline of its integration output in C).
+            Position of the wrapped potential's origin in the (Galactocentric) frame of the evaluation point, before the rotation: a constant (x,y,z), a tabulated path ``(t, xyz)`` with ``t`` an increasing array of N >= 3 times and ``xyz`` an (N,3) array of positions (interpolated with a natural cubic spline, and held at its end values outside of the tabulated times), or an integrated ``Orbit`` (its positions; interpolated by the Orbit itself in Python and by a natural cubic spline of its integration output in C, and held at its end positions outside of the integration times). Any object with an Orbit's ``t`` attribute and ``x``, ``y``, ``z``, ``dim``, and ``turn_physical_off`` methods can stand in for the ``Orbit``.
         orientation : tuple, optional
             Time-dependent rotation R(t), as ``(t, q)`` with ``t`` an increasing array of N >= 3 times and ``q`` either an (N,4) array of unit quaternions (w,x,y,z) or an (N,3,3) array of rotation matrices; the rows of R(t) are the wrapped potential's axes in the frame of the evaluation point. The quaternions are interpolated with natural cubic splines and normalized after interpolation (held at their end values outside of the tabulated times); see ``orientation_from_angles`` to tabulate them from angles. Cannot be combined with inclination, galaxy_pa, sky_pa, or zvec.
 
@@ -187,13 +187,11 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     def _setup_center(self, center):
         """Set up the (time-dependent) center: None, constant, table, or Orbit"""
-        from ..orbit import Orbit
-
         self._center_type = None
         if center is None:
             return None
-        if isinstance(center, Orbit):
-            if center.size != 1:
+        if _orbit_like(center):
+            if getattr(center, "size", 1) != 1:
                 raise ValueError(
                     "RotateAndTiltWrapperPotential: center= Orbit must hold a single object"
                 )
@@ -300,6 +298,8 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         if self._center_type == "constant":
             return self._center_xyz
         elif self._center_type == "orbit":
+            # held at its end positions outside of the integration times, as in C
+            t = numpy.clip(t, self._center_t[0], self._center_t[-1])
             orb = self._center_orb
             return numpy.array(
                 [orb.x(t), orb.y(t), orb.z(t) if orb.dim() == 3 else 0.0],
@@ -546,6 +546,14 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         xyzp, _ = self._to_body(x, y, z, t)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         return evaluateDensities(self._pot, Rp, zp, phi=phip, t=t, use_physical=False)
+
+
+def _orbit_like(obj):
+    """Whether obj is an Orbit or has the interface of one that the center= uses"""
+    return all(
+        callable(getattr(obj, a, None))
+        for a in ("x", "y", "z", "dim", "turn_physical_off")
+    )
 
 
 def _parse_table_times(t, n, name, ro=None, vo=None):
