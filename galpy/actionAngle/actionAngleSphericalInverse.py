@@ -46,6 +46,41 @@ from .actionAngleInverseUtil import (
 )
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 
+# A torus of an interpolated family keeps the harmonics of its anomaly map
+# down to its round-off floor, and their number is decided by coefficients
+# that stand well above that floor, so that it does not change with
+# round-off (with the build, the backend, or a small change of the
+# potential). The coefficients (angles, in radians) of a resolved torus fall
+# exponentially to a floor of 1e-14 to 1e-12. The last harmonics whose
+# coefficients exceed the two tolerances of _NHARM_TOLS, three decades
+# apart, measure the rate of the fall, and the torus keeps the harmonics up
+# to the last above the smaller tolerance and as many more as the next three
+# decades take at that rate. A torus whose coefficients are still above the
+# smaller tolerance at the last harmonic keeps them all
+_NHARM_TOLS = (1e-8, 1e-11)
+
+
+def _harmonics_needed(*tabs, tol=0.0):
+    """The number of harmonics that every torus keeps, from tables of shape
+    (..., M) with the harmonics along the last axis: the last harmonic whose
+    magnitude exceeds tol in any of the tables (zero when none does), as
+    one array expression over the tori"""
+    used = numpy.any(numpy.fabs(numpy.stack(tabs)) > tol, axis=0)
+    return numpy.amax(
+        numpy.where(used, numpy.arange(1, used.shape[-1] + 1), 0), axis=-1
+    )
+
+
+def _harmonics_kept(Dm):
+    """The number of harmonics that a torus of an interpolated family keeps,
+    from the coefficients Dm of its anomaly map: with n_1 and n_2 the last
+    harmonics whose coefficients exceed the two tolerances of _NHARM_TOLS,
+    the n_2 harmonics above the smaller tolerance and n_2 - n_1 + 1 more,
+    those that the next three decades take at the measured rate of the
+    coefficients' fall; at most all of them"""
+    n1, n2 = (int(_harmonics_needed(Dm, tol=tol)) for tol in _NHARM_TOLS)
+    return min(len(Dm), 2 * n2 - n1 + 1)
+
 
 class actionAngleSphericalInverse(actionAngleInverse):
     """Inverse action-angle transformation for spherical potentials through a
@@ -127,6 +162,18 @@ class actionAngleSphericalInverse(actionAngleInverse):
             smallest angular momentum (set by Rmin) and the highest energy
             (set by Rinf), and the set-up raises when the harmonics fall
             so far short of this that the torus cannot be lifted at all.
+            With setup_interp=True this is the largest number that a torus
+            may use: every torus keeps the harmonics up to the last whose
+            coefficient exceeds 1e-11 and as many more as the next three
+            decades take at the rate at which the coefficients fall between
+            1e-8 and 1e-11 (the coefficients are angles in radians with a
+            round-off floor of 1e-14 to 1e-12), so that a torus of the grid
+            is as accurate as with all mm_npt while its number of harmonics
+            does not depend on round-off, and
+            every point is evaluated with the harmonics that the four tori
+            around it keep (the largest of their numbers, rounded up to
+            16, 32, 64, ... or mm_npt), so that harmonics that only the
+            most eccentric tori need cost nothing elsewhere.
         mm_nta : int, optional
             Number of anomaly samples per torus (even), used to sample the
             torus, to fit the map, and for the quadratures of its action
@@ -345,10 +392,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
     # ---------- the momentum-matched map and its lift
     def _map(self, tau, Dm):
         """The anomaly map eta(tau) = tau + sum_m D_m sin(m tau), its
-        derivative, and the harmonics sin(m tau) it is built from"""
-        smt, cmt = _harmonics(tau, self._nforDm, pointwise=True)
+        derivative, and the harmonics sin(m tau) it is built from, as many
+        as the coefficients given"""
+        ms = self._nforDm[: numpy.shape(Dm)[-1]]
+        smt, cmt = _harmonics(tau, ms, pointwise=True)
         eta = tau + _sdot(smt, Dm)
-        deta = 1.0 + _sdot(cmt, self._nforDm * Dm)
+        deta = 1.0 + _sdot(cmt, ms * Dm)
         return eta, deta, smt
 
     def _momentum_matched_lift(self, tau, r, pr, rp, ra, L):
@@ -408,7 +457,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         pA = pr * drdtau_s / (gA * numpy.sin(etat) * detadtau)
         return Jrq, a, e, Dm, etat, detadtau, rA, pA
 
-    def _map_slopes(self, tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi):
+    def _map_slopes(self, tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi, nharm):
         """The derivatives of the anomaly-map coefficients with respect to E
         at fixed L and to L at fixed E, on one torus from that torus alone:
         the variation of the matching condition A^A(eta(tau); a, e) =
@@ -424,7 +473,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         (its numerator vanishes with p_r), so it integrates spectrally like
         the flux itself; the auxiliary's cumulative action varies through
         its torus parameters' closed-form chains, with the closed-form
-        partials of _cumulative."""
+        partials of _cumulative. The problem is solved in the torus's first
+        nharm harmonics, and the slopes of the others are zero: the
+        projection's weight vanishes at the turning points, so that a
+        component of the solution localized there is poorly determined; it
+        spreads over all the harmonics solved for, harmless as a whole but
+        not when cut."""
         k = numpy.fft.fftfreq(self._ntau, d=1.0 / self._ntau)
 
         def _cum(f):
@@ -463,7 +517,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     Jrq, L, -Ompsi / OmR, 1.0
                 )
             rhs[:, kk] = dA - FAa * da - FAe * de
-        out = _sine_galerkin(fAeta, rhs, self._nforDm)
+        ms = self._nforDm[:nharm]
+        out = numpy.zeros((self._npt, 2))
+        out[: len(ms)] = _sine_galerkin(fAeta, rhs, ms)
         return out[:, 0], out[:, 1]
 
     # ---------- the per-torus tables, computed (never fitted)
@@ -510,15 +566,21 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         OmR = 1.0 / numpy.mean(dtdtau)
         Ompsi = numpy.mean(L / r**2 * dtdtau) * OmR
+        # a family's torus keeps the harmonics down to its round-off floor
+        # (at least one): its coefficients beyond are set to zero and its
+        # slopes are solved in those kept
+        nharm = self._npt
+        if self._interp:
+            nharm = _harmonics_kept(Dm)
         dDm_dE, dDm_dL = self._map_slopes(
-            tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi
+            tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi, nharm
         )
         return {
             "jr": Jrq,
             "perr": perr,
             "rp": rp,
             "ra": ra,
-            "Dm": Dm,
+            "Dm": numpy.where(self._nforDm <= nharm, Dm, 0.0),
             "dDm_dE": dDm_dE,
             "dDm_dL": dDm_dL,
             "OmR": OmR,
@@ -961,11 +1023,35 @@ class actionAngleSphericalInverse(actionAngleInverse):
         interpolants of J_r (in the normalized energy), of the turning
         points and of the anomaly-map coefficients (in u), quintic along
         the energy variable and cubic along L, all with their first
-        partials exact at the nodes"""
+        partials exact at the nodes. A node keeps the harmonics of the
+        anomaly map up to the last that is not zero in its tables
+        (_nharm_node); the interpolant's own second derivatives are set to
+        zero above that number too, so that a cell's interpolation
+        coefficients vanish exactly above the largest number of its four
+        nodes; that number, rounded up to the next of the fixed set
+        _nharm_buckets (16, 32, 64, ... below mm_npt, and mm_npt), is the
+        number of harmonics with which the cell's points are evaluated
+        (_nharm_cell)"""
         u, Lg = self._us, self._Lgrid
         self._jr_ip = HermiteFamily2D(u**2, Lg, self._jr_tab, self._jr_dx, self._jr_dL)
         self._sup_ip = HermiteFamily2D(u, Lg, self._sup_tab, self._sup_du, self._sup_dL)
-        self._Dm_ip = HermiteFamily2D(u, Lg, self._Dm_tab, self._Dm_du, self._Dm_dL)
+        need = _harmonics_needed(self._Dm_tab, self._Dm_du, self._Dm_dL)
+        self._Dm_ip = HermiteFamily2D(
+            u, Lg, self._Dm_tab, self._Dm_du, self._Dm_dL, nkeep=need
+        )
+        self._nharm_node = need
+        self._nharm_buckets = numpy.array(
+            [2**k for k in range(4, 31) if 2**k < self._npt] + [self._npt]
+        )
+        self._nharm_cell = self._nharm_buckets[
+            numpy.searchsorted(
+                self._nharm_buckets,
+                numpy.maximum(
+                    numpy.maximum(need[:-1, :-1], need[1:, :-1]),
+                    numpy.maximum(need[:-1, 1:], need[1:, 1:]),
+                ),
+            )
+        ]
         return None
 
     # ---------- evaluation: the manifest chain
@@ -1039,27 +1125,31 @@ class actionAngleSphericalInverse(actionAngleInverse):
             u = numpy.where(jr == jlo, ulo, numpy.where(jr == jhi, uhi, u))
         return jr, L, u
 
-    def _interp_tables(self, jr, L):
-        """Solve the implicit inverse label (u from (J_r, L) by root-finding
-        on the stored J_r interpolant -- exact-in-the-family, so canonicity
-        is untouched) and return the frequencies and the map's tables with
-        their derivatives, all the interpolants' own, combined into the
+    def _interp_freqs(self, u, L):
+        """The frequencies of the tori with grid coordinates (u, L), u the
+        implicit inverse label of _label_of (found by root-finding on the
+        stored J_r interpolant -- exact-in-the-family, so canonicity is
+        untouched): the derivatives of the grid's energy along the stored
+        J_r interpolant's own, with the common factor 2u of dE/du and
+        dJ_r/du cancelled, so that they are finite down to the circular
+        edge; one entry per torus"""
+        _, jr_dx, djr_dL = self._jr_ip.points_grad(u * u, L)
+        _, dE_dx, dE_dL = self._E_of_uL(u, L)
+        OmR = dE_dx / jr_dx
+        return OmR, dE_dL - OmR * djr_dL
+
+    def _interp_tables(self, u, L, nharm):
+        """The map's tables with their derivatives at the tori with grid
+        coordinates (u, L), all the interpolants' own, combined into the
         chains at fixed L and at fixed J_r that the evaluation needs, for
-        all the (J_r, L) tori at once, with one row per torus"""
-        jr, L, u = self._label_of(jr, L)
+        all the tori at once, with one row per torus and the first nharm
+        harmonics of the map"""
         _, jr_dx, djr_dL = self._jr_ip.points_grad(u * u, L)
         djr_du = 2.0 * u * jr_dx
-        _, dE_dx, dE_dL = self._E_of_uL(u, L)
-        # chains at fixed L resp. fixed J_r, all from the stored
-        # interpolants' own derivatives; the frequencies with the common
-        # factor 2u of dE/du and dJ_r/du cancelled, so that they are finite
-        # down to the circular edge
-        OmR = dE_dx / jr_dx
-        OmL = dE_dL - OmR * djr_dL
         sup, dsup_du, dsup_dL = self._sup_ip.points_grad(u, L)
-        Dm, dDm_du, dDm_dL = self._Dm_ip.points_grad(u, L)
+        Dm, dDm_du, dDm_dL = self._Dm_ip.points_grad(u, L, ntab=nharm)
         cJ, cL = 1.0 / djr_du[:, None], (djr_dL / djr_du)[:, None]
-        ptdata = {
+        return {
             "sup": sup,
             "dsupJ": dsup_du * cJ,
             "dsupL": dsup_dL - dsup_du * cL,
@@ -1067,7 +1157,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             "dDmJ": dDm_du * cJ,
             "dDmL": dDm_dL - dDm_du * cL,
         }
-        return u, OmR, OmL, ptdata
 
     def _kernel(self, tau, a, e, Dm, rp, ra, chains):
         """Everything the evaluation needs at anomaly tau, in one pass and
@@ -1347,29 +1436,57 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         )
         shape = jr.shape
-        out = numpy.stack(
-            _chunked(
-                self._xvFreqs_points,
-                jr.size,
-                *(
-                    t.ravel()
-                    for t in (jr, jphi, jz, angler % (2.0 * numpy.pi), anglephi, anglez)
-                ),
-                nharm=self._npt,
+        pts = tuple(
+            t.ravel()
+            for t in (jr, jphi, jz, angler % (2.0 * numpy.pi), anglephi, anglez)
+        )
+        # every point of an interpolated family is evaluated with the number
+        # of harmonics of its cell, the points of a call grouped by that
+        # number; explicit tori with all of them
+        if self._interp:
+            *labels, nharm = _chunked(self._label_points, jr.size, *pts[:3])
+        else:
+            labels, nharm = 3 * [numpy.zeros(jr.size)], numpy.full(jr.size, self._npt)
+        out = numpy.empty((9, jr.size))
+        for nh in numpy.unique(nharm):
+            idx = numpy.flatnonzero(nharm == nh)
+            out[:, idx] = _chunked(
+                lambda *group, nh=nh: self._xvFreqs_points(*group, nh),
+                len(idx),
+                *(t[idx] for t in (*pts, *labels)),
+                nharm=nh,
             )
-        ).reshape((9,) + shape)
+        out = out.reshape((9,) + shape)
         if scalar:
             return (*out[:6], *(float(o.flat[0]) for o in out[6:]))
         return tuple(out)
 
-    def _xvFreqs_points(self, jr, jphi, jz, thr, anglephi, anglez):
-        """The evaluation at flat arrays of actions and angles of one length:
-        the circular orbits by closed form, the librating tori through the
-        kernel with one row of tables per angle"""
+    def _label_points(self, jr, jphi, jz):
+        """For flat arrays of points of an interpolated family: the grid
+        coordinate u and the frequencies of each point's torus (found once
+        per distinct torus; left at zero for the circular orbits), and the
+        number of harmonics of each point's cell"""
         L = jz + numpy.fabs(jphi)
-        if self._interp:
-            self._check_L(L)
-        else:
+        self._check_L(L)
+        out, lib = numpy.zeros((3, len(jr))), jr != 0.0
+        if numpy.any(lib):
+            tori, inv = numpy.unique(
+                numpy.stack([jr[lib], L[lib]], axis=1), axis=0, return_inverse=True
+            )
+            _, Lu, u = self._label_of(tori[:, 0], tori[:, 1])
+            out[:, lib] = numpy.stack([u, *self._interp_freqs(u, Lu)])[:, inv.ravel()]
+        i, j = self._Dm_ip._cells(out[0], L)[:2]
+        return (*out, self._nharm_cell[i, j])
+
+    def _xvFreqs_points(self, jr, jphi, jz, thr, anglephi, anglez, u, OmR, OmL, nharm):
+        """The evaluation at flat arrays of actions and angles of one length
+        (with, for an interpolated family, the points' grid coordinates u
+        and frequencies from _label_points and the number of harmonics
+        nharm of their cells): the circular orbits by closed form, the
+        librating tori through the kernel with one row of tables per
+        angle"""
+        L = jz + numpy.fabs(jphi)
+        if not self._interp:
             jr = self._jrs[self._match_node(jr, L)]  # the stored tori, to round-off
         out = numpy.empty((9, len(jr)))
         circ = jr == 0.0
@@ -1384,7 +1501,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # for it, so a moderately eccentric auxiliary torus is used and
             # the lift undone with the circular radius
             Lc = L[circ]
-            rc, OmR, OmL = self._circular(Lc)
+            rc, kappa, Omc = self._circular(Lc)
             out[:6, circ] = self._unlift(
                 self._aAIinv._xvFreqs_from_eta(
                     0.1 * Lc,
@@ -1398,21 +1515,23 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 0.0 * Lc,
             )
             out[6, circ], out[7, circ], out[8, circ] = (
-                OmR,
-                numpy.sign(jphi[circ]) * OmL,
-                OmL,
+                kappa,
+                numpy.sign(jphi[circ]) * Omc,
+                Omc,
             )
         lib = ~circ
         if numpy.any(lib):
             jrl, Ll = jr[lib], L[lib]
             # the tables once per distinct torus, then one row per point
             tori, inv = numpy.unique(
-                numpy.stack([jrl, Ll], axis=1), axis=0, return_inverse=True
+                numpy.stack([jrl, Ll, u[lib], OmR[lib], OmL[lib]], axis=1),
+                axis=0,
+                return_inverse=True,
             )
             inv = inv.ravel()
-            jru, Lu = tori[:, 0], tori[:, 1]
+            jru, Lu, OmRu, OmLu = tori[:, 0], tori[:, 1], tori[:, 3], tori[:, 4]
             if self._interp:
-                _, OmRu, OmLu, pt = self._interp_tables(jru, Lu)
+                pt = self._interp_tables(tori[:, 2], Lu, nharm)
                 Dmu, dDmJu, dDmLu = pt["Dm"], pt["dDmJ"], pt["dDmL"]
                 (rpu, rau), (drpJu, draJu), (drpLu, draLu) = (
                     pt["sup"].T,
@@ -1500,7 +1619,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         lib = ~circ
         if numpy.any(lib):
             if self._interp:
-                _, OmR[lib], OmL[lib], _ = self._interp_tables(jr[lib], L[lib])
+                _, Ll, u = self._label_of(jr[lib], L[lib])
+                OmR[lib], OmL[lib] = self._interp_freqs(u, Ll)
             else:
                 OmR[lib], OmL[lib] = self._OmRs[ii[lib]], self._Ompsis[ii[lib]]
         OmR, OmL = OmR.reshape(shape), OmL.reshape(shape)
