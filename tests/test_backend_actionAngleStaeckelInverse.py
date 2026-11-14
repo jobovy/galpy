@@ -566,7 +566,7 @@ def _degenerate_labels():
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize("spacing", ["sqrt", "log"])
+@pytest.mark.parametrize("spacing", ["linear", "sqrt", "log"])
 def test_Lzspacing(backend, spacing):
     # The spacing of the L_z grid on a backend: a family built there (forced)
     # has numpy's nodes, to round-off, and numpy's tori, to its
