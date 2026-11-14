@@ -99,13 +99,27 @@ jobs:
         run: |
           gh cache delete gaia-dr3-solar-neighborhood-v1 --repo "${{ github.repository }}" \
             || echo "No prior Gaia DR3 cache to delete."
-      - name: Cache Gaia DR3 query result
+      - name: Restore Gaia DR3 query cache
         # Speeds the staeckel notebook up massively on routine runs. The cache
         # is refreshed by the scheduled workflow above (and on first run).
-        uses: actions/cache@v6
+        # Restore and save are separate steps so that the fallback below is
+        # never saved into the cache.
+        id: cache-gaia
+        uses: actions/cache/restore@v6
         with:
           path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
           key: gaia-dr3-solar-neighborhood-v1
+      - name: Run the staeckel notebook's Gaia DR3 query, or fall back to its release copy
+        # Only on a cache miss. Runs the notebook's own query cell outside the
+        # notebook, so the notebook finds the file and skips its query; the
+        # release copy is used only when that query fails or times out. The
+        # save step at the end of the job skips the release copy, so the
+        # cache is only ever filled by a real query.
+        id: gaia-fetch
+        if: steps.cache-gaia.outputs.cache-hit != 'true'
+        uses: ./.github/actions/gaia-sample
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Refresh Dierickx 2010 cache on scheduled runs
         # Delete the cached Vizier query result so the orbit/examples notebook
         # re-runs the query and stores fresh data. On non-scheduled runs we
@@ -181,6 +195,17 @@ jobs:
             done
             exit 1
           fi
+      - name: Save Gaia DR3 query cache
+        # Only after the notebooks passed (implicit success()), only on a cache
+        # miss, and never when the release copy was used above: the cache holds
+        # the archives' own answer or nothing.
+        if: >-
+          steps.cache-gaia.outputs.cache-hit != 'true'
+          && steps.gaia-fetch.outputs.used-release-copy != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
+          key: gaia-dr3-solar-neighborhood-v1
       - name: Save Dierickx 2010 thick-disk cache
         # Only after the notebooks passed (implicit success()), only on a cache
         # miss, and never when the release copy was used above: the cache holds
