@@ -1,6 +1,23 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+- ``RotateAndTiltWrapperPotential`` can move and turn in time: ``center=``
+  places the wrapped potential's origin at a constant position, along a
+  tabulated path ``(t, xyz)``, or on an integrated ``Orbit``, and
+  ``orientation=`` gives its rotation as a function of time, tabulated as
+  unit quaternions or rotation matrices (interpolated as quaternions with
+  natural cubic splines and normalized after interpolation;
+  ``RotateAndTiltWrapperPotential.orientation_from_angles`` tabulates it from
+  angles), so that the potential is ``pot(R(t) (x - center(t)) + offset, t)``.
+  Any wrapped potential, including non-axisymmetric and time-dependent ones,
+  in Python and in C (including the variational equations). An integer
+  ``zvec`` now works, and ``zvec`` is no longer normalized in place (also
+  for the triaxial potentials).
+
+- ``MovingObjectPotential`` supports non-axisymmetric potentials, which move
+  with the object as ``RotateAndTiltWrapperPotential(pot=pot, center=orbit)``
+  (axisymmetric potentials keep their existing implementation).
+
 - ``actionAngleVerticalInverse`` can be set up from the maximum height of its
   largest torus: ``zmax=`` (with ``nE=`` tori) builds the tori between the
   orbit at rest and the one that reaches ``zmax``, spaced uniformly in the
