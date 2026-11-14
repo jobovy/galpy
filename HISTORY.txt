@@ -1,6 +1,14 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+- ``actionAngleSphericalInverse`` evaluates arrays of points on an
+  interpolated family about twice as fast, with identical results: in the
+  inversion of the family's radial-action table for the points' tori every
+  torus leaves the Newton iteration once it has converged, instead of being
+  evaluated until the slowest has (most take seven iterations, one in a
+  hundred fifty), and the circular radius that the grid's energy needs is
+  solved for once rather than three times per call.
+
 - ``actionAngleSphericalInverse`` evaluates every point of an interpolated
   family (``setup_interp=True``) with the harmonics that the tori around it
   need instead of all ``mm_npt`` of them: every torus keeps the harmonics of

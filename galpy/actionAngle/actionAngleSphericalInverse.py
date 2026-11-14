@@ -849,10 +849,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._Ls = numpy.tile(self._Lgrid, nE)
         return None
 
-    def _Ec(self, L):
+    def _Ec(self, L, rc=None):
         """Energy of the circular orbit of angular momentum L, and its
-        derivative dE_c/dL = L / r_c^2 (the circular frequency)"""
-        rc = self._rc(L)
+        derivative dE_c/dL = L / r_c^2 (the circular frequency); rc is the
+        orbit's radius when it has been solved for already"""
+        if rc is None:
+            rc = self._rc(L)
         return self._Phi(rc) + L**2 / (2.0 * rc**2), L / rc**2
 
     def _circular(self, L):
@@ -876,34 +878,40 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     def _r0(self, E, rlo, rhi):
         """The apocentre of the radial orbit of energy E, Phi(r_0) = E,
-        bracketed by [rlo, rhi]; for an array of energies, by bisection on
-        all of them at once"""
+        bracketed by [rlo, rhi]; for an array of energies, by safeguarded
+        Newton steps on all of them"""
         if numpy.ndim(E) == 0:
             return brentq(lambda r: self._Phi(r) - E, rlo, rhi, xtol=1e-14)
-        lo, hi = numpy.broadcast_arrays(
-            numpy.asarray(rlo, dtype="float"), numpy.asarray(rhi, dtype="float")
+        E, lo, hi = numpy.broadcast_arrays(
+            E, numpy.asarray(rlo, dtype="float"), numpy.asarray(rhi, dtype="float")
         )
         return _safeguarded_newton(
-            lambda r: (self._Phi(r) - E, self._rdPhi(r) / r), lo, hi, 1e-14
+            lambda r, Es: (self._Phi(r) - Es, self._rdPhi(r) / r),
+            lo,
+            hi,
+            1e-14,
+            args=(E,),
         )
 
     def _r0c(self, L):
         """The apocentre of the radial orbit at the circular orbit's energy,
         r_0(E_c(L)) (above r_c, since E_c exceeds Phi(r_c) by the centrifugal
-        term), and its derivative along L by the level-set rule, dr_0/dL =
-        (dE_c/dL)/Phi'(r_0); cached for a single L, solved for all at once
-        for an array"""
+        term), r_0 Phi'(r_0) there, which gives its derivative along L by
+        the level-set rule, dr_0/dL = (dE_c/dL)/Phi'(r_0), and dE_c/dL
+        itself, all from one solve of the circular radius; cached for a
+        single L, solved for all at once for an array"""
         if numpy.ndim(L) > 0:
             if numpy.size(L) == 1:  # a single torus: through the cache
-                r0, g0 = self._r0c(float(numpy.ravel(L)[0]))
-                return numpy.array([r0]), numpy.array([g0])
-            Ec, _ = self._Ec(L)
-            r0 = self._r0(Ec, self._rc(L), self._Rinf + 0.0 * L)
-            return r0, self._rdPhi(r0)
+                r0, g0, _ = self._r0c(float(numpy.ravel(L)[0]))
+                return numpy.array([r0]), numpy.array([g0]), self._Ec(L)[1]
+            rc = self._rc(L)
+            Ec, dEc = self._Ec(L, rc)
+            r0 = self._r0(Ec, rc, self._Rinf + 0.0 * L)
+            return r0, self._rdPhi(r0), dEc
         if L not in self._r0c_cache:
             Ec, dEc = self._Ec(L)
             r0 = self._r0(Ec, self._rc(L), self._Rinf)
-            self._r0c_cache[L] = (r0, self._rdPhi(r0))
+            self._r0c_cache[L] = (r0, self._rdPhi(r0), dEc)
         return self._r0c_cache[L]
 
     def _rdPhi(self, r):
@@ -917,15 +925,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         dE/dL at fixed x (= at fixed u). The latter chains through r_0(E_c(L))
         by the level-set rule, d ln r_0/dL = (dE_c/dL)/[r_0 Phi'(r_0)], and
         is formed so that it is dE_c/dL exactly at the circular edge"""
-        r0c, g0c = self._r0c(L)
+        r0c, g0c, dEc = self._r0c(L)
         lnq = numpy.log(self._Rinf / r0c)
         r = r0c * numpy.exp(lnq * u**2)
         g = self._rdPhi(r)
-        return (
-            self._Phi(r),
-            g * lnq,
-            (1.0 - u**2) * self._Ec(L)[1] * (g / g0c),
-        )
+        return self._Phi(r), g * lnq, (1.0 - u**2) * dEc * (g / g0c)
 
     def _turning_point_derivs(self, r, E, L):
         """Closed-form derivatives of a radial turning point (a root of
@@ -1096,8 +1100,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # not to zero: for a single torus by a bracketed scalar solve on the
         # interpolant (brentq returns an end point at which the residual
         # vanishes exactly, so the grid's edges need no case), for many
-        # tori by safeguarded Newton steps on all of them at once, to
-        # round-off, with the grid's edges exact
+        # tori by safeguarded Newton steps, each torus until it has
+        # converged, to round-off, with the grid's edges exact
         if len(jr) == 1:
             u = numpy.array(
                 [
@@ -1111,9 +1115,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         else:
 
-            def _label(uu):
-                val, der = self._jr_ip.points_dx(uu * uu, L)
-                return val - jr, 2.0 * uu * der
+            def _label(uu, jrs, Ls):
+                val, der = self._jr_ip.points_dx(uu * uu, Ls)
+                return val - jrs, 2.0 * uu * der
 
             u = _safeguarded_newton(
                 _label,
@@ -1121,6 +1125,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 uhi + 0.0 * jr,
                 1e-15,
                 x0=ulo + (uhi - ulo) * numpy.sqrt((jr - jlo) / (jhi - jlo)),
+                args=(jr, L),
             )
             u = numpy.where(jr == jlo, ulo, numpy.where(jr == jhi, uhi, u))
         return jr, L, u
@@ -1409,7 +1414,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # circular orbit itself, to round-off, is the bottom of the grid
         if E <= Ec + 1e-12 * (1.0 + numpy.fabs(Ec)):
             return self._jr_ip(0.0, L)[0, 0]
-        r0c, _ = self._r0c(L)
+        r0c = self._r0c(L)[0]
         r0 = self._r0(min(E, self._Emax), r0c, self._Rinf)
         x = numpy.log(r0 / r0c) / numpy.log(self._Rinf / r0c)
         return self._jr_ip(min(x, 1.0), L)[0, 0]
