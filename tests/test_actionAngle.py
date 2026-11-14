@@ -11016,7 +11016,13 @@ def test_actionAngleSphericalInverse_convergence_warnings():
         galpyWarning, match="not converged for the \\(E, L\\) tori: \\(1.53, 0.9\\)"
     ):
         actionAngleSphericalInverse(pot=pot, Es=[1.53], Ls=[0.9], mm_npt=2, mm_nta=16)
-    with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
+    # the message states how many harmonics the torus needs: about six times
+    # the square root of its ratio of apocentre to pericentre
+    with pytest.raises(
+        RuntimeError,
+        match="not bound in the fitted auxiliary.*about six times the square "
+        "root of that ratio in harmonics",
+    ):
         actionAngleSphericalInverse(pot=pot, Es=[5.0], Ls=[0.8])
     return None
 
@@ -12184,7 +12190,11 @@ def test_actionAngleStaeckelInverse_convergence_warnings():
     # against the 0.05 at which the guard trips; four harmonics keep it bound,
     # at 0.19, and only warn)
     E, Lz, I3 = _staeckel_inverse_labels([1.0, 1.9, 0.15, 0.05, 0.05, 0.0])
-    with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
+    with pytest.raises(
+        RuntimeError,
+        match="not bound in the fitted auxiliary.*at most about six times its "
+        "square root",
+    ):
         actionAngleStaeckelInverse(
             pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=2, mm_nta=16
         )
