@@ -85,9 +85,15 @@ class HermiteFamily2D:
         ]
     )
 
-    def __init__(self, x, y, f, fx, fy):
+    def __init__(self, x, y, f, fx, fy, nkeep=None):
         # f, fx, fy: (nx, ny) for one table or (nx, ny, k) for a stack of k
-        # tables on the same grid, interpolated together
+        # tables on the same grid, interpolated together; nkeep: None, or
+        # (nx, ny) integers, the number of leading tables of the stack that
+        # each node keeps: every quantity of a node's tables beyond that
+        # number, the prescribed ones and the splines' estimates alike, is
+        # set to zero at the node, so that all coefficients of those tables
+        # vanish exactly in a cell whose four nodes drop them, with the
+        # interpolant as smooth across the cells as without
         self._x, self._y = numpy.asarray(x), numpy.asarray(y)
         nx, ny = len(x), len(y)
         f, fx, fy = (numpy.asarray(t, dtype="float") for t in (f, fx, fy))
@@ -95,9 +101,11 @@ class HermiteFamily2D:
         if self._scalar:
             f, fx, fy = f[..., None], fx[..., None], fy[..., None]
         k = f.shape[2]
-        fxy = CubicSpline(self._y, fx, axis=1)(self._y, 1)
-        fxx = CubicSpline(self._x, fx, axis=0)(self._x, 1)
-        fxxy = CubicSpline(self._x, fxy, axis=0)(self._x, 1)
+        keep = nkeep is None or numpy.arange(k) < numpy.asarray(nkeep)[..., None]
+        f, fx, fy = (numpy.where(keep, t, 0.0) for t in (f, fx, fy))
+        fxy = numpy.where(keep, CubicSpline(self._y, fx, axis=1)(self._y, 1), 0.0)
+        fxx = numpy.where(keep, CubicSpline(self._x, fx, axis=0)(self._x, 1), 0.0)
+        fxxy = numpy.where(keep, CubicSpline(self._x, fxy, axis=0)(self._x, 1), 0.0)
         self._c = numpy.empty((nx - 1, ny - 1, 6, 4, k))
         for i in range(nx - 1):
             hx = self._x[i + 1] - self._x[i]
@@ -164,17 +172,19 @@ class HermiteFamily2D:
         D[:, 1:] = numpy.arange(1, n) * P[:, :-1]
         return D / h[:, None]
 
-    def _eval_cells(self, i, j, pss, pts):
+    def _eval_cells(self, i, j, pss, pts, ntab=None):
         """sum_ab ps_a c_{ij,abk} pt_b for every point, one pair (ps, pt) per
-        requested quantity: the coefficient blocks of the points' cells are
-        gathered once, in chunks that keep them to a few megabytes, and
-        contracted with the powers in x and then with those in y"""
-        n, k = len(i), self._c.shape[-1]
+        requested quantity: the coefficient blocks of the points' cells (of
+        the first ntab tables of the stack, all by default) are gathered
+        once, in chunks that keep them to a few megabytes, and contracted
+        with the powers in x and then with those in y"""
+        coeffs = self._c if ntab is None else self._c[..., :ntab]
+        n, k = len(i), coeffs.shape[-1]
         outs = numpy.empty((len(pss), n, k))
         step = max(1, 500_000 // (24 * k))
         for lo in range(0, n, step):
             sl = slice(lo, lo + step)
-            c = self._c[i[sl], j[sl]].reshape(-1, 6, 4 * k)
+            c = coeffs[i[sl], j[sl]].reshape(-1, 6, 4 * k)
             for out, ps, pt in zip(outs, pss, pts):
                 out[sl] = (pt[sl, None, :] @ (ps[sl, None, :] @ c).reshape(-1, 4, k))[
                     :, 0
@@ -202,13 +212,14 @@ class HermiteFamily2D:
             (pt, pt),
         )
 
-    def points_grad(self, x, y):
+    def points_grad(self, x, y, ntab=None):
         """The interpolant and both of its first partials at the points
-        (x_i, y_i), from one read of the coefficients"""
+        (x_i, y_i), from one read of the coefficients; of the first ntab
+        tables of a stack only when ntab is given"""
         i, j, sv, tv, hx, hy = self._cells(x, y)
         ps, psx = self._powers(sv, hx, False, 6), self._powers(sv, hx, True, 6)
         pt, pty = self._powers(tv, hy, False, 4), self._powers(tv, hy, True, 4)
-        return self._eval_cells(i, j, (ps, psx, ps), (pt, pt, pty))
+        return self._eval_cells(i, j, (ps, psx, ps), (pt, pt, pty), ntab=ntab)
 
 
 class HermiteFamily3D:
