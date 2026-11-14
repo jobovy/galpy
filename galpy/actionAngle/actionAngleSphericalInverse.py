@@ -120,11 +120,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
             Number of harmonics of the momentum-matched anomaly map; the
             reconstruction converges spectrally in this, and a warning is
             raised when it does not suffice for a torus. The number needed
-            grows with a torus's ratio of apocentre to pericentre, roughly
-            in proportion to it; on a grid the most eccentric torus is the
-            one at the smallest angular momentum (set by Rmin) and the
-            highest energy (set by Rinf), and the set-up raises when the
-            harmonics cannot hold it.
+            grows as the square root of a torus's ratio of apocentre to
+            pericentre, and is about six times that square root (about 100
+            harmonics for a ratio of 250, and about 400 for a ratio of
+            4000); on a grid the most eccentric torus is the one at the
+            smallest angular momentum (set by Rmin) and the highest energy
+            (set by Rinf), and the set-up raises when the harmonics fall
+            so far short of this that the torus cannot be lifted at all.
         mm_nta : int, optional
             Number of anomaly samples per torus (even), used to sample the
             torus, to fit the map, and for the quadratures of its action
@@ -318,8 +320,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     f"({E:g}, {L:g}) torus is not bound in the fitted "
                     "auxiliary: the anomaly map is under-resolved for it. "
                     f"Its turning points are {rp:g} and {ra:g}, a ratio of "
-                    f"{ra / rp:.0f}, and the map needs a number of harmonics "
-                    "of the order of that ratio, against the mm_npt = "
+                    f"{ra / rp:.0f}, and the map needs about six times the "
+                    "square root of that ratio in harmonics (about "
+                    f"{6.0 * numpy.sqrt(ra / rp):.0f}), against the mm_npt = "
                     f"{self._npt} given; the most eccentric torus of a grid "
                     "is the one at its smallest angular momentum (Rmin) and "
                     "highest energy (Rinf). Raise mm_npt (and, with it, "
