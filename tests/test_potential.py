@@ -9255,6 +9255,12 @@ def _quaternions_about_axis(angle, axis):
     ).T
 
 
+def _xp_of(t):
+    # the namespace of a time handed to a function of time (traced under jax
+    # --jit)
+    return get_namespace(t) if is_backend_array(t) else numpy
+
+
 def _moving_turning_timedep_scf(offset=True, timedep=True):
     # a (time-dependent,) non-axisymmetric SCF potential moving along a
     # tabulated path and turning with a tabulated orientation
@@ -9558,27 +9564,24 @@ def test_RotateAndTiltWrapper_rotation_about_z_is_solidbody():
     # the orientation as a function returning the rotation matrix or the
     # quaternion
     def tilted(t):
+        xp = _xp_of(t)
         a = omega * t + pa
-        return numpy.dot(
-            numpy.array(
-                [
-                    [numpy.cos(a), numpy.sin(a), 0.0],
-                    [-numpy.sin(a), numpy.cos(a), 0.0],
-                    [0.0, 0.0, 1.0],
-                ]
-            ),
-            R0,
+        c, s = xp.cos(a), xp.sin(a)
+        z0 = 0.0 * c
+        rz = xp.stack(
+            [xp.stack([c, s, z0]), xp.stack([-s, c, z0]), xp.stack([z0, z0, z0 + 1.0])]
         )
+        return rz @ (R0 if xp is numpy else xp.asarray(R0))
+
+    def quaternion(t):
+        xp = _xp_of(t)
+        a = -(omega * t + pa) / 2.0
+        return xp.stack([xp.cos(a), 0.0 * a, 0.0 * a, xp.sin(a)])
 
     rtw_pa = potential.RotateAndTiltWrapperPotential(
         pot=pot, galaxy_pa=lambda t: omega * t + pa
     )
-    rtw_q = potential.RotateAndTiltWrapperPotential(
-        pot=pot,
-        orientation=lambda t: _quaternions_about_axis(
-            numpy.atleast_1d(-(omega * t + pa)), [0.0, 0.0, 1.0]
-        )[0],
-    )
+    rtw_q = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=quaternion)
     rtw_tilt_f = potential.RotateAndTiltWrapperPotential(pot=pot, orientation=tilted)
     for R, z, phi, t in ((0.9, 0.1, 0.3, 0.123), (1.4, -0.2, 2.1, 0.7771)):
         for f in (
@@ -9690,21 +9693,30 @@ def test_RotateAndTiltWrapper_center_orbitlike_and_held_outside():
             self.t = t
             self._spl = interpolate.CubicSpline(t, xyz, axis=0, bc_type="natural")
 
+        def _xyz(self, t):
+            if not is_backend_array(t):
+                return self._spl(t)
+            # backend (traced under jax --jit) times: the spline's coefficients
+            # in their namespace
+            from galpy.backend.interpolate import eval_ppoly
+
+            return eval_ppoly(get_namespace(t), self.t, self._spl.c, t)
+
         def x(self, t):
-            return self._spl(t)[..., 0]
+            return self._xyz(t)[..., 0]
 
         def y(self, t):
-            return self._spl(t)[..., 1]
+            return self._xyz(t)[..., 1]
 
         def z(self, t, **kwargs):
-            return self._spl(t)[..., 2]
+            return self._xyz(t)[..., 2]
 
         # the backends read R, phi, z with _stored=True
         def R(self, t, **kwargs):
-            return numpy.hypot(self.x(t), self.y(t))
+            return _xp_of(t).hypot(self.x(t), self.y(t))
 
         def phi(self, t, **kwargs):
-            return numpy.arctan2(self.y(t), self.x(t))
+            return _xp_of(t).arctan2(self.y(t), self.x(t))
 
         def dim(self):
             return 3
@@ -9780,28 +9792,23 @@ def test_RotateAndTiltWrapper_functions_of_time():
     A[1, 1, 0] = 0.02
     scf = potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
 
+    # in the namespace of t (traced under jax --jit)
     def center(t):
-        return numpy.array(
-            [0.3 * numpy.cos(0.7 * t), 0.2 * numpy.sin(0.7 * t), 0.05 * t]
-        )
+        xp = _xp_of(t)
+        return xp.stack([0.3 * xp.cos(0.7 * t), 0.2 * xp.sin(0.7 * t), 0.05 * t])
 
     def orientation(t):
+        xp = _xp_of(t)
         a, b = 0.9 * t, 0.3 + 0.2 * t
-        rz = numpy.array(
-            [
-                [numpy.cos(a), numpy.sin(a), 0.0],
-                [-numpy.sin(a), numpy.cos(a), 0.0],
-                [0.0, 0.0, 1.0],
-            ]
+        ca, sa, cb, sb = xp.cos(a), xp.sin(a), xp.cos(b), xp.sin(b)
+        z0, o = 0.0 * ca, 0.0 * ca + 1.0
+        rz = xp.stack(
+            [xp.stack([ca, sa, z0]), xp.stack([-sa, ca, z0]), xp.stack([z0, z0, o])]
         )
-        rx = numpy.array(
-            [
-                [1.0, 0.0, 0.0],
-                [0.0, numpy.cos(b), numpy.sin(b)],
-                [0.0, -numpy.sin(b), numpy.cos(b)],
-            ]
+        rx = xp.stack(
+            [xp.stack([o, z0, z0]), xp.stack([z0, cb, sb]), xp.stack([z0, -sb, cb])]
         )
-        return numpy.dot(rx, rz)
+        return rx @ rz
 
     rtw = potential.RotateAndTiltWrapperPotential(
         pot=scf, center=center, orientation=orientation

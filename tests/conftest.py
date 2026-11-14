@@ -849,17 +849,6 @@ def _moving_object_orbit_3d():
     return o
 
 
-def _moving_object_scf_coeffs():
-    import numpy
-
-    A = numpy.zeros((2, 3, 3))
-    A[0, 0, 0] = 1.0
-    A[0, 2, 2] = 0.1
-    A[0, 2, 1] = 0.03
-    A[1, 1, 0] = 0.02
-    return A
-
-
 def pytest_generate_tests(metafunc):
     # galpy imports must be hear to not interfere with different config settings
     # in different files
@@ -1321,16 +1310,15 @@ def pytest_generate_tests(metafunc):
                 "nonaxisymmetric",
             ),
             # a non-axisymmetric MovingObjectPotential (its general path: a
-            # RotateAndTiltWrapperPotential centered on the orbit) in a host
+            # RotateAndTiltWrapperPotential centered on the orbit) in a host;
+            # a bar rather than main's SCF kernel, whose eager-jax evaluations
+            # put the Python reference over the per-test timeout
             (
                 potential.LogarithmicHaloPotential(normalize=True)
                 + potential.MovingObjectPotential(
                     _moving_object_orbit_3d(),
-                    pot=potential.SCFPotential(
-                        amp=0.05,
-                        Acos=_moving_object_scf_coeffs(),
-                        Asin=0.5 * _moving_object_scf_coeffs(),
-                        a=0.2,
+                    pot=potential.SoftenedNeedleBarPotential(
+                        amp=0.02, a=0.3, b=0.0, c=0.1, pa=0.3, omegab=0.0
                     ),
                 ),
                 "MovingObjectPotential_nonaxisymmetric",
