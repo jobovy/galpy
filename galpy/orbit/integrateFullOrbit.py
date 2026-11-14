@@ -43,6 +43,48 @@ if _TQDM_LOADED:
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
+def _RotateAndTiltWrapper_c_args(p, amp):
+    """The C arguments of a RotateAndTiltWrapperPotential p with amplitude
+    amp after its wrapped potentials: the spline block read by
+    initRotateAndTiltWrapperPotentialSplines followed by the arguments laid
+    out in RotateAndTiltWrapperPotential.c"""
+    # arrays (also backend ones) are kept whole, so that they are converted
+    # to numpy once each (see _PotArgs)
+    out = _PotArgs()
+    # spline block: nc, no, then the center's and the orientation's tables
+    center_spline = p._center_type in ("table", "orbit")
+    if center_spline:
+        center_t, center_xyz = p._center_tables()
+    out.append(len(center_t) if center_spline else 0)
+    out.append(len(p._orient_t) if p._orientation else 0)
+    if center_spline:
+        out.extend(center_t)
+        for ii in range(3):
+            out.extend(center_xyz[:, ii])
+    if p._orientation:
+        out.extend(p._orient_t)
+        for ii in range(4):
+            out.extend(p._orient_q[:, ii])
+    out.append(amp)
+    # for caching: x,y,z,t key + Fx,Fy,Fz
+    out.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    out.extend(list(p._rot.flatten()))
+    out.append(not p._norot and not p._orientation)
+    out.append(not p._offset is None)
+    out.extend(list(p._offset) if not p._offset is None else [0.0, 0.0, 0.0])
+    # 3D-Hessian cache for the variational equations: (x,y,z,t) key
+    # (NaN = empty) + the 6 unique Cartesian Hessian components (see
+    # RotateAndTiltWrapperPotential.c)
+    out.extend([numpy.nan] * 4 + [0.0] * 6)
+    # the center and the orientation's time ranges
+    out.append({None: 0, "constant": 1}.get(p._center_type, 2))
+    out.extend(p._center_xyz if p._center_type == "constant" else [0.0, 0.0, 0.0])
+    out.append(p._orientation)
+    out.extend([center_t[0], center_t[-1]] if center_spline else [0.0, 0.0])
+    out.extend([p._orient_t[0], p._orient_t[-1]] if p._orientation else [0.0, 0.0])
+    return out
+
+
 def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
     """Parse the potential so it can be fed to C
 
@@ -452,6 +494,18 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._to, p._sigma2])
+        elif isinstance(p, potential.MovingObjectPotential) and p._general:
+            # the general path: a RotateAndTiltWrapperPotential with the
+            # object's orbit as its center
+            pot_type.append(-8)
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
+            )
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            pot_args.extend(_RotateAndTiltWrapper_c_args(p._gen, p._amp))
         elif isinstance(p, potential.MovingObjectPotential):
             pot_type.append(-6)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
@@ -559,19 +613,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
-            pot_args.extend([p._amp])
-            # for caching: x,y,z,t key + Fx,Fy,Fz
-            pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            pot_args.extend(list(p._rot.flatten()))
-            pot_args.append(not p._norot)
-            pot_args.append(not p._offset is None)
-            pot_args.extend(
-                list(p._offset) if not p._offset is None else [0.0, 0.0, 0.0]
-            )
-            # 3D-Hessian cache for the variational equations: (x,y,z,t) key
-            # (NaN = empty) + the 6 unique Cartesian Hessian components (see
-            # RotateAndTiltWrapperPotential.c)
-            pot_args.extend([numpy.nan] * 4 + [0.0] * 6)
+            pot_args.extend(_RotateAndTiltWrapper_c_args(p, p._amp))
         elif isinstance(p, potential.TimeDependentAmplitudeWrapperPotential):
             pot_type.append(-9)
             # Not sure how to easily avoid this duplication
