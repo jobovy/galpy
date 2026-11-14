@@ -613,7 +613,7 @@ def test_arbitraryaxisrotation_nullpotential():
             op = Orbit(_ic_on_backend(op))
         op.integrate(
             ts,
-            RotatingPotentialWrapperPotential(pot=np, rot=rot, omega=omega)
+            _rotating_wrapper(pot=np, rot=rot, omega=omega)
             + potential.NonInertialFrameForce(
                 cinterp=False, Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
             ),
@@ -683,7 +683,7 @@ def test_arbitraryaxisrotation_nullpotential():
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
     check_orbit(
         zvec=[2.0, 3.0, 1.0], omega=0.9, method="dop853_c", tol=1e-5
-    )  # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
+    )  # Lower tol, because the inertial and non-inertial orbits are different integrations
     return None
 
 
@@ -734,7 +734,7 @@ def test_arbitraryaxisrotation():
             op = Orbit(_ic_on_backend(op))
         op.integrate(
             ts,
-            RotatingPotentialWrapperPotential(pot=diskpot, rot=rot, omega=omega)
+            _rotating_wrapper(pot=diskpot, rot=rot, omega=omega)
             + potential.NonInertialFrameForce(
                 cinterp=False, Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
             ),
@@ -804,7 +804,7 @@ def test_arbitraryaxisrotation():
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
     check_orbit(
         zvec=[2.0, 3.0, 1.0], omega=0.9, method="dop853_c", tol=1e-5
-    )  # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
+    )  # Lower tol, because the inertial and non-inertial orbits are different integrations
     return None
 
 
@@ -858,9 +858,7 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
         # Omegadot is just a scaled version of Omega
         op.integrate(
             ts,
-            RotatingPotentialWrapperPotential(
-                pot=np, rot=rot, omega=omega, omegadot=omegadot
-            )
+            _rotating_wrapper(pot=np, rot=rot, omega=omega, omegadot=omegadot)
             + potential.NonInertialFrameForce(
                 cinterp=False,
                 Omega=numpy.array(derive_noninert_omega(omega, rot=rot)),
@@ -936,7 +934,7 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
     check_orbit(
         zvec=[2.0, 3.0, 1.0], omega=0.9, method="dop853_c", tol=1e-5
-    )  # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
+    )  # Lower tol, because the inertial and non-inertial orbits are different integrations
     return None
 
 
@@ -992,9 +990,7 @@ def test_arbitraryaxisrotation_omegadot():
         # Omegadot is just a scaled version of Omega
         op.integrate(
             ts,
-            RotatingPotentialWrapperPotential(
-                pot=diskpot, rot=rot, omega=omega, omegadot=omegadot
-            )
+            _rotating_wrapper(pot=diskpot, rot=rot, omega=omega, omegadot=omegadot)
             + potential.NonInertialFrameForce(
                 cinterp=False,
                 Omega=numpy.array(derive_noninert_omega(omega, rot=rot)),
@@ -1130,7 +1126,7 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
         )
         op.integrate(
             ts,
-            RotatingPotentialWrapperPotential(
+            _rotating_wrapper(
                 pot=np, rot=rot, omega=omega, omegadot=omegadot, omegadotdot=omegadotdot
             )
             + potential.NonInertialFrameForce(
@@ -1286,7 +1282,7 @@ def test_arbitraryaxisrotation_omegafunc():
         )
         op.integrate(
             ts,
-            RotatingPotentialWrapperPotential(
+            _rotating_wrapper(
                 pot=diskpot,
                 rot=rot,
                 omega=omega,
@@ -2960,114 +2956,29 @@ def derive_noninert_omega(
     return (omegax, omegay, omegaz)
 
 
-class RotatingPotentialWrapperPotential(parentWrapperPotential):
-    def __init__(
-        self,
-        amp=1.0,
-        pot=None,
-        rot=None,
-        omega=None,
-        omegadot=None,
-        omegadotdot=None,
-        ro=None,
-        vo=None,
-    ):
-        # Frame rotates as rot.T x omega-rotation x rot, see transformations above
-        self._rot = rot
-        self._omega = omega
-        self._omegadot = omegadot
-        self._omegadotdot = omegadotdot
-
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        xp = _xp(phi)
-        return xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1]
-
-    def _phitorque(self, R, z, phi=0.0, t=0.0):
-        Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        xp = _xp(phi)
-        return R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1])
-
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        return self._force_xyz(R, z, phi=phi, t=t)[2]
-
-    def _force_xyz(self, R, z, phi=0.0, t=0.0):
-        """Get the rectangular forces in the transformed frame"""
-        Rp, phip, zp = rotate_and_omega(
-            R,
-            z,
-            phi=phi,
-            t=t,
-            rot=self._rot,
-            omega=self._omega,
-            omegadot=self._omegadot,
-            omegadotdot=self._omegadotdot,
-        )
-        Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
-        phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
-        zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
-        xp = _xp(phip)
-        xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
-        yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
-        # Now figure out the inverse rotation matrix to rotate the forces
-        # The way this is written, we effectively compute the transpose of the
-        # rotation matrix, which is its inverse. Its rows depend on t, which is a
-        # traced value under an in-backend solver, so keep them as tuples rather
-        # than stacking them into an array.
-        inv_rot = (
-            tuple(
-                rotate_and_omega(
-                    1.0,
-                    0.0,
-                    phi=0.0,
-                    t=t,
-                    rot=self._rot,
-                    omega=self._omega,
-                    omegadot=self._omegadot,
-                    omegadotdot=self._omegadotdot,
-                    rect=True,
-                )
-            ),
-            tuple(
-                rotate_and_omega(
-                    0.0,
-                    1.0,
-                    phi=0.0,
-                    t=t,
-                    rot=self._rot,
-                    omega=self._omega,
-                    omegadot=self._omegadot,
-                    omegadotdot=self._omegadotdot,
-                    rect=True,
-                )
-            ),
-            tuple(
-                rotate_and_omega(
-                    0.0,
-                    0.0,
-                    phi=1.0,
-                    t=t,
-                    rot=self._rot,
-                    omega=self._omega,
-                    omegadot=self._omegadot,
-                    omegadotdot=self._omegadotdot,
-                    rect=True,
-                )
-            ),
-        )
-        return tuple(
-            row[0] * xforcep + row[1] * yforcep + row[2] * zforcep for row in inv_rot
-        )
-
-
-# ----------------------------------------------------------------------------
-# Tests of the cinterp=True option: on-the-fly C cubic-spline interpolation of
-# the time-dependent inputs (a0, x0, v0, Omega) over the integration time
-# range, with Omegadot obtained as the spline derivative of Omega (C pot_type
-# 45). These check agreement with the exact cinterp=False tfunc integration
-# (pot_type 39) and exercise the 2D/3D, Omegadot-derivative, multi-orbit,
-# wrapper, SOS, and constant-input code paths.
-# ----------------------------------------------------------------------------
+def _rotating_wrapper(
+    pot=None, rot=None, omega=None, omegadot=None, omegadotdot=None, tmax=20.0
+):
+    # The potential as seen in the inertial frame from the frame rotating
+    # about the axis rot^T z by omega t + omegadot t^2 / 2 + omegadotdot t^3
+    # / 6 (see rotate_and_omega): a RotateAndTiltWrapperPotential with the
+    # time-dependent orientation R(t) = rot^T Rz(angle) rot, tabulated finely
+    # enough that its spline interpolation is exact to ~1e-12
+    tt = numpy.linspace(0.0, tmax, 10001)
+    angle = omega * tt
+    if omegadot is not None:
+        angle += omegadot * tt**2.0 / 2.0
+    if omegadotdot is not None:
+        angle += omegadotdot * tt**3.0 / 6.0
+    rz = numpy.zeros((len(tt), 3, 3))
+    rz[:, 0, 0] = numpy.cos(angle)
+    rz[:, 0, 1] = -numpy.sin(angle)
+    rz[:, 1, 0] = numpy.sin(angle)
+    rz[:, 1, 1] = numpy.cos(angle)
+    rz[:, 2, 2] = 1.0
+    return potential.RotateAndTiltWrapperPotential(
+        pot=pot, orientation=(tt, numpy.einsum("ji,njk,kl->nil", rot, rz, rot))
+    )
 
 
 def _cinterp_TvsF_maxdiff(pot_builder, ic, ts, fns, method="dop853_c"):
