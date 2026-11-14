@@ -710,7 +710,7 @@ def test_public_energy(backend, mode, interp, explicit):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize("spacing", ["sqrt", "log"])
+@pytest.mark.parametrize("spacing", ["linear", "sqrt", "log"])
 def test_Lspacing(backend, spacing):
     # The spacing of the angular-momentum grid on a backend: a family built
     # there (forced) has numpy's nodes, to round-off, and numpy's tori, to its
@@ -815,10 +815,11 @@ def test_circular_orbit(backend, interp):
     J = _jacobian(backend, interp, numpy.array([0.4, 1.0, 2.0, 0.0, 0.55, 0.3]))
     assert numpy.all(numpy.isfinite(J[:, [0, 1, 2, 4, 5]]))
     # J_r(E, L) of the interpolated family is 0 at the circular orbit, with
-    # the one-sided derivative dJ_r/dE = 1/kappa there (L = 1 is a grid row)
+    # the one-sided derivative dJ_r/dE = 1/kappa there (on a grid row: the
+    # family's angular momentum node nearest to 1)
     from galpy.potential import epifreq
 
-    L1 = 1.0
+    L1 = float(interp._Lgrid[numpy.argmin(numpy.fabs(interp._Lgrid - 1.0))])
     rc1 = rl(pot, L1)
     Ec1 = evaluatePotentials(pot, rc1, 0.0) + L1**2 / (2.0 * rc1**2)
     if backend == "jax":
