@@ -184,10 +184,20 @@ jobs:
         # the cache. We just consume whatever it stored so the staeckel
         # notebook avoids the ESA Gaia archive query (typically ~5 min, but
         # observed up to ~2 h when the archive is degraded).
+        id: cache-gaia
         uses: actions/cache/restore@v6
         with:
           path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
           key: gaia-dr3-solar-neighborhood-v1
+      - name: Run the staeckel notebook's Gaia DR3 query, or fall back to its release copy
+        # Same as in test-doc-notebooks.yml: on a cache miss, run the
+        # notebook's own query cell outside the notebook, and use the copy
+        # attached to the v1.12.1 release only when that query fails or times
+        # out. Nothing is cached here.
+        if: steps.cache-gaia.outputs.cache-hit != 'true'
+        uses: ./.github/actions/gaia-sample
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Restore Dierickx 2010 thick-disk cache
         # Restore-only: refreshed by test-doc-notebooks's scheduled run. We
         # just consume whatever it stored so the orbit/examples notebook
