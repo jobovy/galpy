@@ -294,3 +294,28 @@ def test_constant_backend_center(backend):
                 < 1e-12
             ), "A backend constant center does not agree with a numpy one"
     return None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_center_held_outside(backend):
+    # an Orbit center (_MOP's) is held at its end positions outside of its
+    # integration times, as in C, on every backend and at a traced jax time
+    for t_out, t_end in ((-1.5, -1.0), (2.6, 2.0)):
+        want = evaluateRforces(_MOP, 1.1, 0.2, phi=0.3, t=t_end)
+
+        def rforce(t):
+            return evaluateRforces(
+                _MOP,
+                *(_arr(backend, v) for v in (1.1, 0.2)),
+                phi=_arr(backend, 0.3),
+                t=t,
+            )
+
+        gots = [rforce(_arr(backend, t_out))]
+        if backend == "jax":
+            gots.append(jax.jit(rforce)(jnp.asarray(t_out)))
+        for got in gots:
+            assert numpy.fabs(float(as_numpy(got)) - want) < 1e-12, (
+                f"An Orbit center on {backend} is not held outside of its integration times"
+            )
+    return None

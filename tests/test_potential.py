@@ -9625,6 +9625,94 @@ def test_RotateAndTiltWrapper_center_orbit():
     return None
 
 
+def test_RotateAndTiltWrapper_center_orbitlike_and_held_outside():
+    # An object with an Orbit's interface can be the center= (and the orbit of
+    # a non-axisymmetric MovingObjectPotential); an Orbit center is held at
+    # its end positions outside of its integration times, in Python as in C
+    from scipy import interpolate
+
+    class Trajectory:
+        def __init__(self, t, xyz):
+            self.t = t
+            self._spl = interpolate.CubicSpline(t, xyz, axis=0, bc_type="natural")
+
+        def x(self, t):
+            return self._spl(t)[..., 0]
+
+        def y(self, t):
+            return self._spl(t)[..., 1]
+
+        def z(self, t, **kwargs):
+            return self._spl(t)[..., 2]
+
+        # the backends read R, phi, z with _stored=True
+        def R(self, t, **kwargs):
+            return numpy.hypot(self.x(t), self.y(t))
+
+        def phi(self, t, **kwargs):
+            return numpy.arctan2(self.y(t), self.x(t))
+
+        def dim(self):
+            return 3
+
+        def turn_physical_off(self):
+            return None
+
+        def _cache_backend_interp(self):
+            return None
+
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 1.0
+    A[0, 2, 2] = 0.1
+    A[1, 1, 0] = 0.02
+    scf = potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
+    tt = numpy.linspace(0.0, 2.0, 21)
+    xyz = numpy.array([0.8 * numpy.cos(tt), 0.6 * numpy.sin(tt), 0.1 * tt]).T
+    rtw_tab = potential.RotateAndTiltWrapperPotential(pot=scf, center=(tt, xyz))
+    rtw_like = potential.RotateAndTiltWrapperPotential(
+        pot=scf, center=Trajectory(tt, xyz)
+    )
+    mop = potential.MovingObjectPotential(Trajectory(tt, xyz), pot=scf)
+    for t in (0.3, 1.45, 2.6):
+        for f in (
+            potential.evaluatePotentials,
+            potential.evaluateRforces,
+            potential.evaluatezforces,
+            potential.evaluatephitorques,
+        ):
+            ref = f(rtw_tab, 1.1, 0.2, phi=0.3, t=t)
+            for p in (rtw_like, mop):
+                assert numpy.fabs(f(p, 1.1, 0.2, phi=0.3, t=t) - ref) < 1e-14, (
+                    "An Orbit-like center= does not give the tabulated center's potential"
+                )
+    ts = numpy.linspace(0.0, 2.5, 101)
+    oc = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc.integrate(ts, potential.MWPotential2014 + mop, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + mop, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
+        "C and Python orbit integration with an Orbit-like center= do not agree"
+    )
+    # A (backward) Orbit center, held at its end positions
+    o = orbit.Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.0])
+    o.integrate(numpy.linspace(2.0, -1.0, 3001), potential.MWPotential2014)
+    rtw = potential.RotateAndTiltWrapperPotential(pot=scf, center=o)
+    for t_out, t_end in ((-1.5, -1.0), (2.6, 2.0)):
+        for f in (potential.evaluatePotentials, potential.evaluateRforces):
+            assert f(rtw, 1.1, 0.2, phi=0.3, t=t_out) == f(
+                rtw, 1.1, 0.2, phi=0.3, t=t_end
+            ), "A center= Orbit is not held outside of its integration times"
+    ts = numpy.linspace(1.5, 2.5, 101)
+    oc = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    oc.integrate(ts, potential.MWPotential2014 + rtw, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + rtw, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-7, (
+        "C and Python do not agree outside of a center= Orbit's integration times"
+    )
+    return None
+
+
 def test_RotateAndTiltWrapper_center_orientation_errors():
     pot = potential.HernquistPotential()
     tt = numpy.linspace(0.0, 1.0, 5)
