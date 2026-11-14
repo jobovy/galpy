@@ -465,6 +465,48 @@ def map_row_chunks(xp, f, args, step):
     return tuple(cat([o[k] for o in outs], axis=0) for k in range(len(outs[0])))
 
 
+def map_bucketed_rows(xp, fs, bucket, args, step):
+    """``fs[b](*rows)`` for the rows of bucket ``b`` (an integer array, one
+    entry per row; evaluating a row with a later function must give the same
+    result, e.g. the same sum with more terms that are zero), each function
+    row-wise and returning a tuple of arrays, in chunks of at most ``step``
+    rows; the outputs in the rows' original order. Eager torch: each bucket's
+    rows on their own, through map_row_chunks. jax (traced or not): the rows
+    sorted by bucket and chunks of equal size through ``jax.lax.map``, each
+    with the function of its largest bucket (``jax.lax.switch``), so that
+    shapes stay static."""
+    n = args[0].shape[0]
+    if len(fs) == 1:
+        return map_row_chunks(xp, fs[0], args, step)
+    if name_of_namespace(xp) == "jax":
+        from ._jax.chunks import map_bucketed_rows as _bk
+
+        return _bk(fs, bucket, args, -(-n // -(-n // step)))
+    from ._namespaces import as_numpy
+
+    bucket = numpy.asarray(as_numpy(bucket))
+    order, groups = [], []
+    for b, f in enumerate(fs):
+        idx = numpy.flatnonzero(bucket == b)
+        if not len(idx):
+            continue
+        ii = asarray_on_device(xp, idx, device_of(args[0]))
+        groups.append(
+            map_row_chunks(xp, f, tuple(xp.take(a, ii, axis=0) for a in args), step)
+        )
+        order.append(idx)
+    # the groups' rows back in the original order (gathers only, so that the
+    # result stays differentiable and on the inputs' device)
+    inv = asarray_on_device(
+        xp, numpy.argsort(numpy.concatenate(order)), device_of(args[0])
+    )
+    cat = getattr(xp, "concat", None) or xp.concatenate
+    return tuple(
+        xp.take(cat([g[k] for g in groups], axis=0), inv, axis=0)
+        for k in range(len(groups[0]))
+    )
+
+
 def power_series(xp, x, coeffs, first):
     """``sum_i coeffs[i] x^(first + i)``; ``first >= 1`` keeps the derivative
     finite at x = 0. numpy: Horner (a broadcast float power is ~12x slower).
