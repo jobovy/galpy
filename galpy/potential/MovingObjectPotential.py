@@ -54,7 +54,7 @@ class MovingObjectPotential(Potential):
 
         Notes
         -----
-        - An axisymmetric `pot` is evaluated at the cylindrical radius and the height relative to the object, with the height measured downwards (`z_object - z`), which is the same for potentials that are symmetric under z -> -z. A non-axisymmetric `pot` is evaluated at the position relative to the object, x - x_object(t), as ``RotateAndTiltWrapperPotential(pot=pot, center=orbit)``; use that wrapper directly to also rotate `pot`, with a constant or time-dependent orientation.
+        - An axisymmetric `pot` is evaluated at the cylindrical radius and the height relative to the object, with the height measured downwards (`z_object - z`), which is the same for potentials that are symmetric under z -> -z. A non-axisymmetric `pot` is evaluated at the position relative to the object, x - x_object(t), as ``RotateAndTiltWrapperPotential(pot=pot, center=orbit)`` (and, like that wrapper, at scalar inputs only with NumPy); use that wrapper directly to also rotate `pot`, with a constant or time-dependent orientation.
         - 2011-04-10 - Started - Bovy (NYU)
         - 2018-10-18 - Re-implemented to represent general object potentials using galpy potential models - James Lane (UofT)
         - 2026-11-14 - Non-axisymmetric potentials, through RotateAndTiltWrapperPotential - Bovy (UofT)
