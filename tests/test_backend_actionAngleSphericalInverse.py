@@ -1067,3 +1067,135 @@ def test_unconverged_anomaly_solve(backend, explicit):
     numpy.testing.assert_allclose(
         _flat(aA.xvFreqs(*ins)), _flat(explicit.xvFreqs(*ins)), rtol=0.0, atol=1e-10
     )
+
+
+# ---------- bucketed evaluation of the harmonics
+def _deep_family():
+    # tori that need from a few to all of mm_npt = 192 harmonics, so that the
+    # family's cells fall in all three of the backends' buckets (32, 128, 192)
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import HernquistPotential
+
+    return actionAngleSphericalInverse(
+        pot=HernquistPotential(amp=2.0, a=1.0),
+        setup_interp=True,
+        progressbar=False,
+        nE=16,
+        nL=16,
+        mm_npt=192,
+        Rmin=0.1,
+        Rmax=5.0,
+        Rinf=10.0,
+    )
+
+
+def _deep_points(n=3000):
+    rng = numpy.random.default_rng(3)
+    L = rng.uniform(0.15, 1.2, n)
+    jr = rng.uniform(0.005, 0.2, n)
+    jr[::97] = 0.0  # some circular orbits
+    return (jr, L, 0.3 * L, *(rng.uniform(0, 2 * numpy.pi, n) for _ in range(3)))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("jit", [False, True])
+def test_bucketed_evaluation(backend, jit):
+    # An array evaluation of a family on a backend reads each point's cell's
+    # coarse bucket of harmonics: the same as reading all of them (whose
+    # coefficients beyond a cell's need are zero), to round-off
+    if jit and backend != "jax":
+        pytest.skip("jax.jit only")
+    aA = _deep_family()
+    assert aA._bk_buckets == (32, 128, 192)
+    assert len(numpy.unique(aA._bk_cell_bucket)) == 3
+    pts = _deep_points()
+
+    def evaluate(bucketing):
+        aA._bk_bucketing = bucketing
+        args = tuple(_arr(backend, x) for x in pts)
+        if jit:
+            return [
+                as_numpy(o) for o in jax.jit(lambda *a: tuple(aA.xvFreqs(*a)))(*args)
+            ]
+        return [as_numpy(o) for o in aA.xvFreqs(*args)]
+
+    bucketed, full = numpy.array(evaluate(True)), numpy.array(evaluate(False))
+    # (to summation order: 1.5e-13 on outputs up to ~3 under eager jax)
+    assert numpy.amax(numpy.fabs(bucketed - full)) < 1e-12
+    assert numpy.amax(numpy.fabs(bucketed - numpy.array(aA.xvFreqs(*pts)))) < 1e-10
+    return None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_bucketed_evaluation_grad(backend):
+    # derivatives through the bucketed evaluation (sorted, chunked, scattered
+    # back) are those of reading all harmonics
+    aA = _deep_family()
+    pts = _deep_points(200)
+
+    def loss_grad(bucketing):
+        aA._bk_bucketing = bucketing
+        if backend == "jax":
+
+            def loss(jr, ar):
+                out = aA.xvFreqs(
+                    jr,
+                    *(jnp.asarray(x) for x in pts[1:3]),
+                    ar,
+                    *(jnp.asarray(x) for x in pts[4:]),
+                )
+                return jnp.sum(out[0] * out[3] + out[5])
+
+            return [
+                numpy.asarray(g)
+                for g in jax.grad(loss, argnums=(0, 1))(
+                    jnp.asarray(pts[0]), jnp.asarray(pts[3])
+                )
+            ]
+        jr = torch.tensor(pts[0], requires_grad=True)
+        ar = torch.tensor(pts[3], requires_grad=True)
+        out = aA.xvFreqs(
+            jr,
+            *(torch.as_tensor(x) for x in pts[1:3]),
+            ar,
+            *(torch.as_tensor(x) for x in pts[4:]),
+        )
+        torch.sum(out[0] * out[3] + out[5]).backward()
+        return [jr.grad.numpy(), ar.grad.numpy()]
+
+    for gb_, gf in zip(loss_grad(True), loss_grad(False)):
+        assert numpy.all(numpy.isfinite(gb_))
+        assert numpy.amax(numpy.fabs(gb_ - gf)) < 1e-10 * max(
+            1.0, numpy.amax(numpy.fabs(gf))
+        )
+    return None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("jit", [False, True])
+def test_map_bucketed_rows(backend, jit):
+    # map_bucketed_rows evaluates every row with its bucket's function (or a
+    # later one: here the functions differ, so every row must get exactly its
+    # own, which a chunk with a single bucket does) and returns the rows in
+    # their original order
+    from galpy.backend import get_namespace, map_bucketed_rows
+
+    if jit and backend != "jax":
+        pytest.skip("jax.jit only")
+    n = 36
+    bucket = numpy.repeat(numpy.arange(3), 12)[
+        numpy.random.default_rng(1).permutation(n)
+    ]
+    x = numpy.linspace(0.0, 1.0, n)
+    fs = tuple((lambda r, k=k: (r * 0.0 + k, 2.0 * r)) for k in range(3))
+    xp = get_namespace(_arr(backend, x))
+
+    def run(b, xx):
+        # jax: chunks of 12 sorted rows, i.e. one bucket each
+        return map_bucketed_rows(xp, fs, b, (xx,), 5 if backend == "torch" else 12)
+
+    args = (_arr(backend, bucket.astype("int64")), _arr(backend, x))
+    out = jax.jit(run)(*args) if jit else run(*args)
+    assert numpy.all(as_numpy(out[0]) == bucket)
+    assert numpy.all(as_numpy(out[1]) == 2.0 * x)
+    return None

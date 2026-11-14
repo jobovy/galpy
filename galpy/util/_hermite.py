@@ -245,14 +245,17 @@ class HermiteFamily2D:
         (v,) = self._bk_read(xp, c, i, j, (ps,), (pt,), shape)
         return v[..., 0] if self._scalar else v
 
-    def ev3(self, x, y):
+    def ev3(self, x, y, ntab=None):
         """The interpolant and its first partials in x and y at (x, y), as
         three ev calls would give them, in one pass (one cell lookup and one
-        coefficient gather)"""
+        coefficient gather); of the first ntab tables of a stack only when
+        ntab is given"""
         xp = _ns(x, y)
         dev = device_of(x, y) if xp is not numpy else device_of(self._c)
         xp = xp if xp is not numpy else self._xp
         xg, yg, c = self._coeffs(xp, dev)
+        if ntab is not None:
+            c = c[..., :ntab]
         x, y = (
             t if is_backend_array(t) else asarray_on_device(xp, t, dev) * 1.0
             for t in (x, y)
