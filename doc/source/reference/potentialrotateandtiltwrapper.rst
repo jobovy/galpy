@@ -4,4 +4,4 @@ Rotate-and-tilt wrapper potential
 =====================================
 
 .. autoclass:: galpy.potential.RotateAndTiltWrapperPotential
-   :members: __init__
+   :members: __init__, orientation_from_angles

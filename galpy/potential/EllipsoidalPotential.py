@@ -112,8 +112,9 @@ class EllipsoidalPotential(Potential):
             else:
                 pa_rot = numpy.eye(3)
             if not zvec is None:
-                if not isinstance(zvec, numpy.ndarray):
-                    zvec = numpy.array(zvec)
+                # a float copy: an integer zvec cannot be normalized in place,
+                # and the caller's array is not to be modified
+                zvec = numpy.array(zvec, dtype=float)
                 zvec /= numpy.sqrt(numpy.sum(zvec**2.0))
                 zvec_rot = _rotate_to_arbitrary_vector(
                     numpy.array([[0.0, 0.0, 1.0]]), zvec, inv=True

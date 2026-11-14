@@ -20,6 +20,7 @@ from .Potential import (
     evaluatez2derivs,
     evaluatezforces,
 )
+from .RotateAndTiltWrapperPotential import RotateAndTiltWrapperPotential
 
 
 class MovingObjectPotential(Potential):
@@ -28,7 +29,7 @@ class MovingObjectPotential(Potential):
     any galpy potential with an integrated galpy orbit.
     """
 
-    def __init__(self, orbit, pot=None, amp=1.0, ro=None, vo=None):
+    def __init__(self, orbit, pot=None, amp=1.0, ro=None, vo=None, _general=False):
         """
         Initialize a MovingObjectPotential.
 
@@ -37,7 +38,7 @@ class MovingObjectPotential(Potential):
         orbit : galpy.orbit.Orbit
             The orbit of the object.
         pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
-            A potential object or combination of potential objects representing the potential of the moving object; should be spherical, but this is not checked. Default is `PlummerPotential(amp=0.06,b=0.01)`.
+            A potential object or combination of potential objects representing the potential of the moving object, in a frame centered on the object with axes parallel to those of the orbit's frame. Default is `PlummerPotential(amp=0.06,b=0.01)`.
         amp : float, optional
             Another amplitude to apply to the potential. Default is 1.0.
         ro : float, optional
@@ -47,8 +48,10 @@ class MovingObjectPotential(Potential):
 
         Notes
         -----
+        - An axisymmetric `pot` is evaluated at the cylindrical radius and the height relative to the object, with the height measured downwards (`z_object - z`), which is the same for potentials that are symmetric under z -> -z. A non-axisymmetric `pot` is evaluated at the position relative to the object, x - x_object(t), as ``RotateAndTiltWrapperPotential(pot=pot, center=orbit)``; use that wrapper directly to also rotate `pot`, with a constant or time-dependent orientation.
         - 2011-04-10 - Started - Bovy (NYU)
         - 2018-10-18 - Re-implemented to represent general object potentials using galpy potential models - James Lane (UofT)
+        - 2026-11-14 - Non-axisymmetric potentials, through RotateAndTiltWrapperPotential - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         # If no potential supplied use a default Plummer sphere
@@ -57,13 +60,19 @@ class MovingObjectPotential(Potential):
             self._pot = pot
         else:
             pot = _check_potential_list_and_deprecate(pot)
-            if _isNonAxi(pot):
-                raise NotImplementedError(
-                    "MovingObjectPotential for non-axisymmetric potentials is not currently supported"
-                )
             self._pot = pot
         self._orb = copy.deepcopy(orbit)
         self._orb.turn_physical_off()
+        # The general path (a non-axisymmetric pot, or forced through the
+        # private _general for comparisons with the axisymmetric fast path):
+        # a RotateAndTiltWrapperPotential centered on the orbit
+        self._general = _general or _isNonAxi(self._pot)
+        if self._general:
+            self._gen = RotateAndTiltWrapperPotential(
+                pot=self._pot, center=self._orb, ro=self._ro, vo=self._vo
+            )
+            # the planar C implementation is the axisymmetric one
+            self.hasC_planar = False
         self.isNonAxi = True
         self.hasC = _check_c(self._pot)
         # The second derivatives (for the variational equations) are the
@@ -76,6 +85,8 @@ class MovingObjectPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._evaluate(R, z, phi=phi, t=t)
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
@@ -83,6 +94,8 @@ class MovingObjectPotential(Potential):
         return evaluatePotentials(self._pot, Rdist, orbz - z, t=t, use_physical=False)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._Rforce(R, z, phi=phi, t=t)
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
@@ -95,6 +108,8 @@ class MovingObjectPotential(Potential):
         return -RF * (numpy.cos(phi) * xd + numpy.sin(phi) * yd) / Rdist
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._zforce(R, z, phi=phi, t=t)
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
@@ -104,6 +119,8 @@ class MovingObjectPotential(Potential):
         return -evaluatezforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._phitorque(R, z, phi=phi, t=t)
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
@@ -150,6 +167,8 @@ class MovingObjectPotential(Potential):
         return (phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._R2deriv(R, z, phi=phi, t=t)
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
@@ -157,12 +176,16 @@ class MovingObjectPotential(Potential):
         return cp**2.0 * phixx + 2.0 * cp * sp * phixy + sp**2.0 * phiyy
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._z2deriv(R, z, phi=phi, t=t)
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
         return phizz
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._Rzderiv(R, z, phi=phi, t=t)
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
@@ -170,6 +193,8 @@ class MovingObjectPotential(Potential):
         return cp * phixz + sp * phiyz
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._phi2deriv(R, z, phi=phi, t=t)
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
@@ -179,6 +204,8 @@ class MovingObjectPotential(Potential):
         ) - R * (cp * phix + sp * phiy)
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._Rphideriv(R, z, phi=phi, t=t)
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
@@ -190,6 +217,8 @@ class MovingObjectPotential(Potential):
         )
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._phizderiv(R, z, phi=phi, t=t)
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
@@ -197,6 +226,8 @@ class MovingObjectPotential(Potential):
         return R * (cp * phiyz - sp * phixz)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
+        if self._general:
+            return self._gen._dens(R, z, phi=phi, t=t)
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector

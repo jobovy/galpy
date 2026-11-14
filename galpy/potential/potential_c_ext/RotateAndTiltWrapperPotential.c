@@ -1,30 +1,111 @@
 #include <stdbool.h>
 #include <math.h>
+#include <gsl/gsl_spline.h>
 #include <bovy_coords.h>
 #include <galpy_potentials.h>
 
 //RotateAndTiltWrapperPotential
+//
+//Phi(x,t) = pot( R(t) . (x - c(t)) + offset, t )
 //
 //arguments layout (args):
 //  0      : amp
 //  1- 4   : cached (x,y,z,t) force-cache key (t included because the wrapped
 //           potential may be explicitly time-dependent)
 //  5- 7   : cached rotated-back Cartesian forces (Fx,Fy,Fz), w/o amp
-//  8-16   : rotation matrix rot (row-major); x_aligned = rot . x
-//  17     : rotSet
+//  8-16   : constant rotation matrix rot (row-major); x_aligned = rot . x
+//  17     : rotSet (constant rotation)
 //  18     : offsetSet
 //  19-21  : offset (applied in the aligned frame, after the rotation)
 //  22-25  : cached (x,y,z,t) Hessian-cache key (NaN when empty)
 //  26-31  : cached rotated-back Cartesian Hessian (Hxx,Hxy,Hxz,Hyy,Hyz,Hzz),
 //           w/o amp
+//  32     : centerMode: 0 none, 1 constant (33-35), 2 splines of (x,y,z)(t)
+//  33-35  : constant center
+//  36     : orientSet: time-dependent rotation from splines of the unit
+//           quaternion (w,x,y,z)(t), normalized after interpolation
+//  37-38  : time range of the center splines (the time is clamped to it)
+//  39-40  : time range of the orientation splines (the time is clamped to it)
+//spline1d: the center's x,y,z splines (when centerMode == 2), followed by the
+//orientation's w,x,y,z splines (when orientSet), set up by
+//initRotateAndTiltWrapperPotentialSplines
+static double RotateAndTiltWrapperPotentialclamp(double t, double t0,
+                                                 double t1){
+  return t < t0 ? t0 : ( t > t1 ? t1 : t );
+}
+//The rotation matrix of the unit quaternion q = (w,x,y,z) (the same formula
+//as _quaternion_to_matrix in RotateAndTiltWrapperPotential.py)
+static void RotateAndTiltWrapperPotentialquat2rot(double * q, double * rot){
+  double w= *q, x= *(q+1), y= *(q+2), z= *(q+3);
+  *(rot  )= 1. - 2. * ( y * y + z * z );
+  *(rot+1)= 2. * ( x * y - w * z );
+  *(rot+2)= 2. * ( x * z + w * y );
+  *(rot+3)= 2. * ( x * y + w * z );
+  *(rot+4)= 1. - 2. * ( x * x + z * z );
+  *(rot+5)= 2. * ( y * z - w * x );
+  *(rot+6)= 2. * ( x * z - w * y );
+  *(rot+7)= 2. * ( y * z + w * x );
+  *(rot+8)= 1. - 2. * ( x * x + y * y );
+}
+//Transform the point (x,y,z) at time t to the aligned frame of the wrapped
+//potential: x_aligned = rot . (x - center) + offset; returns the rotation
+//matrix used in rot (when *rotSet)
+static void RotateAndTiltWrapperPotentialtobody(double * x, double * y,
+                double * z, double t, double * rot, bool * rotSet,
+                struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  int centerMode= (int) *(args+32);
+  bool orientSet= (bool) *(args+36);
+  bool offsetSet= (bool) *(args+18);
+  int ii, ispline= 0;
+  double tt, q[4], qnorm;
+  if ( centerMode == 1 ) {
+    *x -= *(args+33);
+    *y -= *(args+34);
+    *z -= *(args+35);
+  }
+  else if ( centerMode == 2 ) {
+    tt= RotateAndTiltWrapperPotentialclamp(t, *(args+37), *(args+38));
+    *x -= gsl_spline_eval(*potentialArgs->spline1d, tt, *potentialArgs->acc1d);
+    *y -= gsl_spline_eval(*(potentialArgs->spline1d+1), tt,
+                          *(potentialArgs->acc1d+1));
+    *z -= gsl_spline_eval(*(potentialArgs->spline1d+2), tt,
+                          *(potentialArgs->acc1d+2));
+    ispline= 3;
+  }
+  if ( orientSet ) {
+    tt= RotateAndTiltWrapperPotentialclamp(t, *(args+39), *(args+40));
+    qnorm= 0.;
+    for (ii=0; ii < 4; ii++) {
+      q[ii]= gsl_spline_eval(*(potentialArgs->spline1d+ispline+ii), tt,
+                             *(potentialArgs->acc1d+ispline+ii));
+      qnorm+= q[ii] * q[ii];
+    }
+    qnorm= sqrt(qnorm);
+    for (ii=0; ii < 4; ii++)
+      q[ii]/= qnorm;
+    RotateAndTiltWrapperPotentialquat2rot(q, rot);
+    *rotSet= true;
+  }
+  else {
+    for (ii=0; ii < 9; ii++)
+      *(rot+ii)= *(args+8+ii);
+    *rotSet= (bool) *(args+17);
+  }
+  if ( *rotSet )
+    rotate(x, y, z, rot);
+  if ( offsetSet ) {
+    *x += *(args+19);
+    *y += *(args+20);
+    *z += *(args+21);
+  }
+}
 void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
                  double t, double * Fx, double * Fy, double * Fz,
                  struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
-    double * rot= args+8;
-    bool rotSet= (bool) *(args+17);
-    bool offsetSet= (bool) *(args+18);
-    double * offset= args+19;
+    double rot[9];
+    bool rotSet;
     double x, y;
     double Rforce, phitorque;
     cyl_to_rect(R, phi, &x, &y);
@@ -34,14 +115,8 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
     *(args + 3)= z;
     *(args + 4)= t;
     //now get the forces in R, phi, z in the aligned frame
-    if (rotSet) {
-      rotate(&x,&y,&z,rot);
-    }
-    if (offsetSet) {
-      x += *(offset);
-      y += *(offset+1);
-      z += *(offset+2);
-    }
+    RotateAndTiltWrapperPotentialtobody(&x, &y, &z, t, rot, &rotSet,
+                                        potentialArgs);
     rect_to_cyl(x,y,&R,&phi);
     Rforce= calcRforce(R, z, phi, t, potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
@@ -118,10 +193,8 @@ static void RotateAndTiltWrapperPotentialxyzhessian(double R, double z,
                 double phi, double t, double * H,
                 struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
-    double * rot= args+8;
-    bool rotSet= (bool) *(args+17);
-    bool offsetSet= (bool) *(args+18);
-    double * offset= args+19;
+    double rot[9];
+    bool rotSet;
     double x, y;
     double Rforcep, phitorquep;
     double R2derivp, phi2derivp, z2derivp, Rzderivp, Rphiderivp, zphiderivp;
@@ -133,15 +206,10 @@ static void RotateAndTiltWrapperPotentialxyzhessian(double R, double z,
     *(args + 23)= y;
     *(args + 24)= z;
     *(args + 25)= t;
-    //transform to the aligned frame
-    if (rotSet) {
-      rotate(&x,&y,&z,rot);
-    }
-    if (offsetSet) {
-      x += *(offset);
-      y += *(offset+1);
-      z += *(offset+2);
-    }
+    //transform to the aligned frame (the center and offset do not affect
+    //the derivatives)
+    RotateAndTiltWrapperPotentialtobody(&x, &y, &z, t, rot, &rotSet,
+                                        potentialArgs);
     rect_to_cyl(x,y,&R,&phi);
     //wrapped forces and second derivatives at the transformed point
     Rforcep= calcRforce(R, z, phi, t, potentialArgs->nwrapped,
