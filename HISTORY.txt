@@ -1,6 +1,22 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- ``actionAngleSphericalInverse`` evaluates every point of an interpolated
+  family (``setup_interp=True``) with the harmonics that the tori around it
+  need instead of all ``mm_npt`` of them: every torus keeps the harmonics of
+  its anomaly map up to the last whose coefficient exceeds 1e-11 (the
+  coefficients' round-off floor is about 1e-13), the slopes of its
+  coefficients are solved for in those harmonics, every cell of the grid
+  uses the largest number of the four tori at its corners, rounded up to 16,
+  32, 64, ... or ``mm_npt``, and the points of a call are grouped by that
+  number. ``mm_npt`` is thereby the largest number that a torus may use, and
+  harmonics that only the most eccentric tori of a family need cost nothing
+  elsewhere: for the stars of a Hernquist distribution function a family
+  with ``mm_npt=384`` evaluates about three times faster and is set up about
+  one and a half times faster, and one with ``mm_npt=96`` evaluates about
+  one and a half times faster. Returned positions and velocities change by
+  less than 1e-7 of their size, and frequencies not at all.
+
 - The array evaluation of ``actionAngleVerticalInverse`` and
   ``actionAngleSphericalInverse`` works through its points in chunks whose
   size now shrinks with the number of harmonics of the map (about 200,000

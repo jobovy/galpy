@@ -108,13 +108,19 @@ class HermiteFamily2D:
         ]
     )
 
-    def __init__(self, x, y, f, fx, fy):
+    def __init__(self, x, y, f, fx, fy, nkeep=None):
         # f, fx, fy: (nx, ny) for one table or (nx, ny, k) for a stack of k
-        # tables on the same grid, interpolated together
+        # tables on the same grid, interpolated together; nkeep: None, or
+        # (nx, ny) integers, the number of leading tables of the stack that
+        # each node keeps: every quantity of a node's tables beyond that
+        # number, the prescribed ones and the splines' estimates alike, is
+        # set to zero at the node, so that all coefficients of those tables
+        # vanish exactly in a cell whose four nodes drop them, with the
+        # interpolant as smooth across the cells as without
         self._xp, self._c_on = numpy, {}
         xp = _ns(x, y, f, fx, fy)
         if xp is not numpy:
-            return self._init_xp(xp, x, y, f, fx, fy)
+            return self._init_xp(xp, x, y, f, fx, fy, nkeep=nkeep)
         self._x, self._y = numpy.asarray(x), numpy.asarray(y)
         nx, ny = len(x), len(y)
         f, fx, fy = (numpy.asarray(t, dtype="float") for t in (f, fx, fy))
@@ -122,9 +128,11 @@ class HermiteFamily2D:
         if self._scalar:
             f, fx, fy = f[..., None], fx[..., None], fy[..., None]
         k = f.shape[2]
-        fxy = CubicSpline(self._y, fx, axis=1)(self._y, 1)
-        fxx = CubicSpline(self._x, fx, axis=0)(self._x, 1)
-        fxxy = CubicSpline(self._x, fxy, axis=0)(self._x, 1)
+        keep = nkeep is None or numpy.arange(k) < numpy.asarray(nkeep)[..., None]
+        f, fx, fy = (numpy.where(keep, t, 0.0) for t in (f, fx, fy))
+        fxy = numpy.where(keep, CubicSpline(self._y, fx, axis=1)(self._y, 1), 0.0)
+        fxx = numpy.where(keep, CubicSpline(self._x, fx, axis=0)(self._x, 1), 0.0)
+        fxxy = numpy.where(keep, CubicSpline(self._x, fxy, axis=0)(self._x, 1), 0.0)
         self._c = numpy.empty((nx - 1, ny - 1, 6, 4, k))
         for i in range(nx - 1):
             hx = self._x[i + 1] - self._x[i]
@@ -146,7 +154,7 @@ class HermiteFamily2D:
                         F[r + 3 * q, 3] = tab[ii, j + 1] * sc
                 self._c[i, j] = numpy.einsum("ab,bcK,dc->adK", self._Mq, F, self._Mc)
 
-    def _init_xp(self, xp, x, y, f, fx, fy):
+    def _init_xp(self, xp, x, y, f, fx, fy, nkeep=None):
         """The construction in jax/torch, all cells at once, differentiable
         in the tables and in the grid (whose L nodes, say, may depend on a
         potential's parameters); the second partials come from not-a-knot
@@ -161,9 +169,25 @@ class HermiteFamily2D:
         if self._scalar:
             f, fx, fy = f[..., None], fx[..., None], fy[..., None]
         nx, ny, k = f.shape
-        fxy = _spline_knot_slopes(xp, y, fx, axis=1)
-        fxx = _spline_knot_slopes(xp, x, fx, axis=0)
-        fxxy = _spline_knot_slopes(xp, x, fxy, axis=0)
+        if nkeep is None:
+            fxy = _spline_knot_slopes(xp, y, fx, axis=1)
+            fxx = _spline_knot_slopes(xp, x, fx, axis=0)
+            fxxy = _spline_knot_slopes(xp, x, fxy, axis=0)
+        else:  # as in __init__, a node's tables beyond nkeep are zero
+            nkeep = (
+                nkeep
+                if is_backend_array(nkeep)
+                else asarray_on_device(xp, numpy.asarray(nkeep), dev)
+            )
+            keep = asarray_on_device(xp, numpy.arange(k), dev) < nkeep[..., None]
+
+            def _kept(t):
+                return xp.where(keep, t, 0.0 * t)
+
+            f, fx, fy = (_kept(t) for t in (f, fx, fy))
+            fxy = _kept(_spline_knot_slopes(xp, y, fx, axis=1))
+            fxx = _kept(_spline_knot_slopes(xp, x, fx, axis=0))
+            fxxy = _kept(_spline_knot_slopes(xp, x, fxy, axis=0))
         hx = (x[1:] - x[:-1])[:, None, None]
         hy = (y[1:] - y[:-1])[None, :, None]
         # the rows (f, hx f_x, hx^2 f_xx) at x_i then at x_{i+1}, and the
@@ -322,17 +346,19 @@ class HermiteFamily2D:
         D[:, 1:] = numpy.arange(1, n) * P[:, :-1]
         return D / h[:, None]
 
-    def _eval_cells(self, i, j, pss, pts):
+    def _eval_cells(self, i, j, pss, pts, ntab=None):
         """sum_ab ps_a c_{ij,abk} pt_b for every point, one pair (ps, pt) per
-        requested quantity: the coefficient blocks of the points' cells are
-        gathered once, in chunks that keep them to a few megabytes, and
-        contracted with the powers in x and then with those in y"""
-        n, k = len(i), self._c.shape[-1]
+        requested quantity: the coefficient blocks of the points' cells (of
+        the first ntab tables of the stack, all by default) are gathered
+        once, in chunks that keep them to a few megabytes, and contracted
+        with the powers in x and then with those in y"""
+        coeffs = self._c if ntab is None else self._c[..., :ntab]
+        n, k = len(i), coeffs.shape[-1]
         outs = numpy.empty((len(pss), n, k))
         step = max(1, 500_000 // (24 * k))
         for lo in range(0, n, step):
             sl = slice(lo, lo + step)
-            c = self._c[i[sl], j[sl]].reshape(-1, 6, 4 * k)
+            c = coeffs[i[sl], j[sl]].reshape(-1, 6, 4 * k)
             for out, ps, pt in zip(outs, pss, pts):
                 out[sl] = (pt[sl, None, :] @ (ps[sl, None, :] @ c).reshape(-1, 4, k))[
                     :, 0
@@ -360,13 +386,14 @@ class HermiteFamily2D:
             (pt, pt),
         )
 
-    def points_grad(self, x, y):
+    def points_grad(self, x, y, ntab=None):
         """The interpolant and both of its first partials at the points
-        (x_i, y_i), from one read of the coefficients"""
+        (x_i, y_i), from one read of the coefficients; of the first ntab
+        tables of a stack only when ntab is given"""
         i, j, sv, tv, hx, hy = self._cells(x, y)
         ps, psx = self._powers(sv, hx, False, 6), self._powers(sv, hx, True, 6)
         pt, pty = self._powers(tv, hy, False, 4), self._powers(tv, hy, True, 4)
-        return self._eval_cells(i, j, (ps, psx, ps), (pt, pt, pty))
+        return self._eval_cells(i, j, (ps, psx, ps), (pt, pt, pty), ntab=ntab)
 
 
 class HermiteFamily3D:
