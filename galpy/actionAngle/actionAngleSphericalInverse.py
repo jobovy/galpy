@@ -63,7 +63,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         Rinf=25.0,
         nE=16,
         nL=16,
-        Lspacing="linear",
+        Lspacing="log",
         mm_npt=32,
         mm_nta=None,
         auxiliary=None,
@@ -108,11 +108,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
         nL : int, optional
             Number of angular momenta of the interpolation grid.
         Lspacing : str, optional
-            Spacing of the angular-momentum grid: 'linear' (default), 'sqrt'
-            (uniform in sqrt(L), finer at small L) or 'log' (uniform in
-            ln L). A linear grid's innermost cell spans a large factor in L
-            when Rmin is small and holds the family's most eccentric tori,
-            where its interpolation errors then concentrate.
+            Spacing of the angular-momentum grid: 'log' (default; uniform
+            in ln L), 'sqrt' (uniform in sqrt(L), finer at small L) or
+            'linear' (uniform in L). The default is the logarithm because
+            every cell then spans the same factor in L, which spreads the
+            interpolation error evenly over L; a linear grid's innermost
+            cell spans a large factor in L when Rmin is small and holds
+            the family's most eccentric tori, where its interpolation
+            errors then concentrate.
         mm_npt : int, optional
             Number of harmonics of the momentum-matched anomaly map; the
             reconstruction converges spectrally in this, and a warning is
@@ -744,7 +747,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return None
 
     # ---------- the (E, L) interpolation grid
-    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nL, Lspacing="linear"):
+    def _setup_grid(self, Rmin, Rmax, Rinf, nE, nL, Lspacing="log"):
         """Rectangular grid in (u, L): L between the circular angular
         momenta of Rmin and Rmax; the energies uniform, in x = u^2 with u
         uniform in [0, 1], in the logarithm of the apocentre of the radial
