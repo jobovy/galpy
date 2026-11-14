@@ -14257,16 +14257,19 @@ def _spherical_inverse_eccentric_points(aAI):
 
 
 def test_actionAngleSphericalInverse_adaptive_harmonics(spherical_inverse_eccentric):
-    # Every torus of an interpolated family keeps the harmonics of its map up
-    # to the last whose coefficient exceeds the tolerance, and every point is
-    # evaluated with the harmonics of its cell: the largest number that the
-    # four tori at its corners keep, rounded up to 16, 32, ... or mm_npt. On
-    # a grid whose cells use 16, 32 and all 64 harmonics: (a) an array of
-    # points spread over all cells, shuffled and as a 2D array, agrees with
-    # the points evaluated one at a time; (b) the points round-trip through
-    # the forward transformation within the grid's interpolation error;
-    # (c) the map is canonical in a cell of each kind; (d) it is continuous
-    # across the edges between cells that use different numbers
+    # Every torus of an interpolated family keeps the harmonics of its map
+    # down to its round-off floor (those up to the last whose coefficient
+    # exceeds 1e-11 and as many more as three further decades take at the
+    # rate of the coefficients' fall), and every point is evaluated with the
+    # harmonics of its cell: the largest number that the four tori at its
+    # corners keep, rounded up to 16, 32, ... or mm_npt. On a grid whose
+    # cells use 16, 32 and all 64 harmonics: (a) an array of points spread
+    # over all cells, shuffled and as a 2D array, agrees with the points
+    # evaluated one at a time; (b) the points round-trip through the forward
+    # transformation within the grid's interpolation error; (c) the map is
+    # canonical in a cell of each kind; (d) it is continuous across the
+    # edges between cells that use different numbers; (e) the grid's own
+    # tori are as accurate as with all harmonics
     from galpy.actionAngle import actionAngleIsochroneInverse
     from galpy.potential import IsochronePotential
 
@@ -14320,7 +14323,7 @@ def test_actionAngleSphericalInverse_adaptive_harmonics(spherical_inverse_eccent
     # bound of the small grid's test (the defect is 3e-10 to 2e-9 at these
     # points, also when all harmonics are read), in a cell with 16
     # harmonics, one with 32, and one whose tori keep different numbers
-    # (33 and 32 against 25 and 24), all away from the circular edge and
+    # (34 and 35 against 43 and 45), all away from the circular edge and
     # from the cells' edges, where the finite differences themselves fail
     floor = _spherical_inverse_symplectic_defect(
         actionAngleIsochroneInverse(ip=IsochronePotential(amp=1.0, b=0.5)),
@@ -14345,9 +14348,9 @@ def test_actionAngleSphericalInverse_adaptive_harmonics(spherical_inverse_eccent
     # use different numbers of harmonics differ in proportion to d (the map
     # changes by up to 13 d there): across two edges in u and one in L
     edges = (
-        ((2, 2), (3, 2), lambda s: (us[3] + s, 0.5 * (Ls[2] + Ls[3]))),
-        ((4, 0), (5, 0), lambda s: (us[5] + s, 0.5 * (Ls[0] + Ls[1]))),
-        ((5, 0), (5, 1), lambda s: (0.5 * (us[5] + us[6]), Ls[1] + s)),
+        ((1, 2), (2, 2), lambda s: (us[2] + s, 0.5 * (Ls[2] + Ls[3]))),
+        ((3, 0), (4, 0), lambda s: (us[4] + s, 0.5 * (Ls[0] + Ls[1]))),
+        ((4, 4), (4, 5), lambda s: (0.5 * (us[4] + us[5]), Ls[5] + s)),
     )
     for lo, hi, at in edges:
         for d in (1e-6, 1e-9):
@@ -14371,6 +14374,38 @@ def test_actionAngleSphericalInverse_adaptive_harmonics(spherical_inverse_eccent
                 "at distance %g"
                 % (lo, hi, numpy.amax(numpy.fabs(sides[1] - sides[0])), d)
             )
+    # (e) what a torus of the grid drops is round-off: along every librating
+    # torus of the grid, the energy of the returned points is the torus's to
+    # 1e-10 of the squared speed (1.5e-11 at most and 1.5e-13 in the median;
+    # keeping only the harmonics above 1e-11 leaves 5e-10 and 1e-11)
+    from galpy.potential import evaluatePotentials
+
+    u, L = (x.ravel() for x in numpy.meshgrid(us[1:], Ls, indexing="ij"))
+    E = _spherical_inverse_E_of_u(u, L, Rinf=4.0)
+    jr = numpy.array([float(as_numpy(aAI.Jr(tE, tL))) for tE, tL in zip(E, L)])
+    R, vR, vT, z, vz, _ = (
+        as_numpy(x)
+        for x in aAI(
+            jr,
+            0.6 * L,
+            0.4 * L,
+            *numpy.random.default_rng(4).uniform(0.0, 6.28, (3, 12, 56)),
+        )
+    )
+    v2 = vR**2 + vT**2 + vz**2
+    dE = numpy.fabs(
+        as_numpy(
+            evaluatePotentials(
+                _spherical_inverse_potential(), numpy.sqrt(R**2 + z**2), 0.0 * R
+            )
+        )
+        + 0.5 * v2
+        - E
+    )
+    assert numpy.all(dE < 1e-10 * v2), (
+        "The grid's own tori do not conserve the energy to round-off: %g"
+        % numpy.amax(dE / v2)
+    )
     return None
 
 
@@ -14379,9 +14414,10 @@ def test_actionAngleSphericalInverse_harmonics_beyond_need(spherical_inverse_ecc
     # coefficients and in their slopes, which are solved for in the kept
     # harmonics alone: the same grid set up with half as many harmonics
     # again, still more than any torus keeps, is the same family, with the
-    # same numbers of harmonics torus by torus and the same points to the
-    # round-off of the two set-ups (8e-11; solving the slopes in all mm_npt
-    # harmonics instead makes the two differ by 2e-9)
+    # same numbers of harmonics torus by torus (they are decided by
+    # coefficients well above the round-off floor) and the same points to
+    # the round-off of the two set-ups (8e-11; solving the slopes in all
+    # mm_npt harmonics instead makes the two differ by 2e-9)
     from galpy.actionAngle import actionAngleSphericalInverse
 
     aAI = spherical_inverse_eccentric
@@ -14402,6 +14438,48 @@ def test_actionAngleSphericalInverse_harmonics_beyond_need(spherical_inverse_ecc
         "The family depends on the number of harmonics beyond those its tori keep: %g"
         % (numpy.amax(numpy.fabs(out - out_more) / (1.0 + numpy.fabs(out))))
     )
+    return None
+
+
+def test_actionAngleSphericalInverse_frequencies_isochrone():
+    # The frequencies of a torus are a quadrature in the anomaly between its
+    # turning points, which are solved to round-off: for an isochrone
+    # target, whose radial action and frequencies are closed forms, explicit
+    # tori from nearly circular to eccentric return the radial action to
+    # 1e-13 (3e-15) and the frequencies to 5e-12 (8e-13; turning points
+    # solved to an absolute 1e-12 leave 1e-10 in the frequencies)
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import IsochronePotential
+
+    GM, b = 1.3, 0.8
+    Ls = numpy.array([0.05, 0.2, 0.2, 0.5, 0.5, 1.0, 1.0, 2.0])
+    sq = numpy.sqrt(Ls**2 + 4.0 * GM * b)
+    # fractions of the circular orbit's energy -2 GM^2 / (L + sq)^2
+    Es = (
+        -2.0
+        * GM**2
+        / (Ls + sq) ** 2
+        * numpy.array([0.9, 0.95, 0.5, 0.8, 0.3, 0.99, 0.6, 0.4])
+    )
+    aAI = actionAngleSphericalInverse(
+        pot=IsochronePotential(amp=GM, b=b), Es=Es, Ls=Ls, mm_npt=64, progressbar=False
+    )
+    jr = numpy.array([float(as_numpy(aAI.Jr(E, L))) for E, L in zip(Es, Ls)])
+    OmR, Omphi, Omz = (as_numpy(o) for o in aAI.Freqs(jr, 0.7 * Ls, 0.3 * Ls))
+    OmR_true = (-2.0 * Es) ** 1.5 / GM
+    Ompsi_true = 0.5 * OmR_true * (1.0 + Ls / sq)
+    assert numpy.all(
+        numpy.fabs(jr / (GM / numpy.sqrt(-2.0 * Es) - 0.5 * (Ls + sq)) - 1.0) < 1e-13
+    ), "The radial actions of isochrone tori are not the closed form's"
+    for Om, Om_true, what in (
+        (OmR, OmR_true, "radial"),
+        (Omphi, Ompsi_true, "azimuthal"),
+        (Omz, Ompsi_true, "vertical"),
+    ):
+        assert numpy.all(numpy.fabs(Om / Om_true - 1.0) < 5e-12), (
+            "The %s frequencies of isochrone tori are not the closed form's: %g"
+            % (what, numpy.amax(numpy.fabs(Om / Om_true - 1.0)))
+        )
     return None
 
 

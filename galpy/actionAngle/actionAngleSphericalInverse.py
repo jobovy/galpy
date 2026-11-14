@@ -79,11 +79,17 @@ from .actionAngleInverseUtil import (
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 
 # A torus of an interpolated family keeps the harmonics of its anomaly map
-# up to the last whose coefficient (an angle, in radians) exceeds this
-# tolerance: the coefficients of a resolved torus fall exponentially to a
-# round-off floor of 1e-13 to a few 1e-12, and a torus whose coefficients
-# are still above the tolerance at the last harmonic keeps them all
-_NHARM_TOL = 1e-11
+# down to its round-off floor, and their number is decided by coefficients
+# that stand well above that floor, so that it does not change with
+# round-off (with the build, the backend, or a small change of the
+# potential). The coefficients (angles, in radians) of a resolved torus fall
+# exponentially to a floor of 1e-14 to 1e-12. The last harmonics whose
+# coefficients exceed the two tolerances of _NHARM_TOLS, three decades
+# apart, measure the rate of the fall, and the torus keeps the harmonics up
+# to the last above the smaller tolerance and as many more as the next three
+# decades take at that rate. A torus whose coefficients are still above the
+# smaller tolerance at the last harmonic keeps them all
+_NHARM_TOLS = (1e-8, 1e-11)
 
 
 def _harmonics_needed(*tabs, tol=0.0):
@@ -102,6 +108,24 @@ def _harmonics_needed_xp(xp, *tabs, tol=0.0):
     used = xp.any(xp.abs(xp.stack(tabs)) > tol, axis=0)
     m = asarray_on_device(xp, numpy.arange(1, used.shape[-1] + 1), device_of(tabs[0]))
     return xp.max(xp.where(used, m, 0 * m), axis=-1)
+
+
+def _harmonics_kept(Dm):
+    """The number of harmonics that a torus of an interpolated family keeps,
+    from the coefficients Dm of its anomaly map: with n_1 and n_2 the last
+    harmonics whose coefficients exceed the two tolerances of _NHARM_TOLS,
+    the n_2 harmonics above the smaller tolerance and n_2 - n_1 + 1 more,
+    those that the next three decades take at the measured rate of the
+    coefficients' fall; at most all of them"""
+    n1, n2 = (int(_harmonics_needed(Dm, tol=tol)) for tol in _NHARM_TOLS)
+    return min(len(Dm), 2 * n2 - n1 + 1)
+
+
+def _harmonics_kept_xp(xp, Dm):
+    """_harmonics_kept for every torus of Dm (..., M) at once, in the
+    namespace xp (integer, not differentiated)"""
+    n1, n2 = (_harmonics_needed_xp(xp, Dm, tol=tol) for tol in _NHARM_TOLS)
+    return xp.clip(2 * n2 - n1 + 1, 1, Dm.shape[-1])
 
 
 def _scalar_probe(t):
@@ -209,9 +233,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
             so far short of this that the torus cannot be lifted at all.
             With setup_interp=True this is the largest number that a torus
             may use: every torus keeps the harmonics up to the last whose
-            coefficient exceeds 1e-11 (the coefficients are angles in
-            radians, with a round-off floor of about 1e-13), and every
-            point is evaluated with the harmonics that the four tori
+            coefficient exceeds 1e-11 and as many more as the next three
+            decades take at the rate at which the coefficients fall between
+            1e-8 and 1e-11 (the coefficients are angles in radians with a
+            round-off floor of 1e-14 to 1e-12), so that a torus of the grid
+            is as accurate as with all mm_npt while its number of harmonics
+            does not depend on round-off, and
+            every point is evaluated with the harmonics that the four tori
             around it keep (the largest of their numbers, rounded up to
             16, 32, 64, ... or mm_npt), so that harmonics that only the
             most eccentric tori need cost nothing elsewhere.
@@ -335,7 +363,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
         def pr2(r):
             return 2.0 * (E - self._Phi(r)) - L**2 / r**2
 
-        ttol = 1e-12
+        # to round-off (brentq's own relative tolerance of four ulp decides):
+        # the frequencies' quadrature samples dt/dtau = (dr/dtau) / p_r
+        # between turning points that it takes as exact, and an error d in
+        # one of them is an error of order d / [(r_a - r_p) tau_1^2] in the
+        # samples next to it (tau_1 the anomaly of the first sample), a few
+        # hundred to a thousand times d in the frequencies
+        ttol = 1e-300
         rlo, rhi = rc, rc
         while pr2(rlo) > 0.0 and rlo > 1e-12:
             rlo /= 1.3
@@ -634,12 +668,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         OmR = 1.0 / numpy.mean(dtdtau)
         Ompsi = numpy.mean(L / r**2 * dtdtau) * OmR
-        # a family's torus keeps the harmonics up to the last whose
-        # coefficient exceeds the tolerance (at least one): its coefficients
-        # beyond are set to zero and its slopes are solved in those kept
+        # a family's torus keeps the harmonics down to its round-off floor
+        # (at least one): its coefficients beyond are set to zero and its
+        # slopes are solved in those kept
         nharm = self._npt
         if self._interp:
-            nharm = max(int(_harmonics_needed(Dm, tol=_NHARM_TOL)), 1)
+            nharm = _harmonics_kept(Dm)
         dDm_dE, dDm_dL = self._map_slopes(
             tau, r, pr, rp, ra, E, L, Jrq, a, e, etat, OmR, Ompsi, nharm
         )
@@ -2042,14 +2076,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     Jrq, Ls, -Ompsi / OmR, 1.0 + 0.0 * Jrq
                 )
             rhs.append(dA - FAa * da[:, None] - FAe * de[:, None])
-        # a family's torus keeps the harmonics up to the last whose
-        # coefficient exceeds the tolerance (at least one), its slopes solved
-        # in those (as _torus_tables, with the masked full-size solve)
+        # a family's torus keeps the harmonics down to its round-off floor
+        # (at least one), its slopes solved in those (as _torus_tables, with
+        # the masked full-size solve)
         nkeep = None
         if self._interp:
-            nkeep = xp.clip(
-                _harmonics_needed_xp(xp, stop_gradient(Dm), tol=_NHARM_TOL), 1, None
-            )
+            nkeep = _harmonics_kept_xp(xp, stop_gradient(Dm))
         slopes = _sine_galerkin_xp(xp, fAeta, xp.stack(rhs, axis=-1), ms, nkeep=nkeep)
         # the circular tori: no libration, the identity map, and the epicycle
         # and circular frequencies (as _node_tables)
