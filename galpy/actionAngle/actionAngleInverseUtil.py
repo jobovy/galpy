@@ -354,7 +354,14 @@ def _bk_matching(xp, resid, slope, resid_sg, slope_sg, eta0, mt, maxiter=200):
 
     def step(eta):
         f, fp = resid_sg(eta), slope_sg(eta)
-        return xp.where(xp.abs(f) < tol, eta, eta + xp.clip(-f / fp, -0.5, 0.5))
+        dx = -f / fp
+        # a sample is done when its residual is below tol or its Newton step
+        # is at the round-off floor of the iterate: on near-circular tori the
+        # residual's floor can exceed tol, and one such sample oscillating
+        # there would hold every sample to maxiter; the final step below is
+        # the next Newton step either way
+        done = (xp.abs(f) < tol) | (xp.abs(dx) < 1e-12)
+        return xp.where(done, eta, eta + xp.clip(dx, -0.5, 0.5))
 
     eta = iterate_to_fixed_point(step, eta0, maxiter)
     return eta - resid(eta) / slope(eta)
