@@ -29,14 +29,14 @@ class MovingObjectPotential(Potential):
     any galpy potential with an integrated galpy orbit.
     """
 
-    def __init__(self, orbit, pot=None, amp=1.0, ro=None, vo=None, _general=False):
+    def __init__(self, orbit, pot=None, amp=1.0, ro=None, vo=None):
         """
         Initialize a MovingObjectPotential.
 
         Parameters
         ----------
         orbit : galpy.orbit.Orbit
-            The orbit of the object.
+            The orbit of the object (or any object with an Orbit's ``t`` attribute and ``x``, ``y``, ``z``, ``R``, ``phi``, ``dim``, and ``turn_physical_off`` methods).
         pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
             A potential object or combination of potential objects representing the potential of the moving object, in a frame centered on the object with axes parallel to those of the orbit's frame. Default is `PlummerPotential(amp=0.06,b=0.01)`.
         amp : float, optional
@@ -48,10 +48,10 @@ class MovingObjectPotential(Potential):
 
         Notes
         -----
-        - An axisymmetric `pot` is evaluated at the cylindrical radius and the height relative to the object, with the height measured downwards (`z_object - z`), which is the same for potentials that are symmetric under z -> -z. A non-axisymmetric `pot` is evaluated at the position relative to the object, x - x_object(t), as ``RotateAndTiltWrapperPotential(pot=pot, center=orbit)`` (and, like that wrapper, at scalar inputs only); use that wrapper directly to also rotate `pot`, with a constant or time-dependent orientation.
+        - `pot` is evaluated at the position relative to the object, x - x_object(t). A non-axisymmetric `pot` is evaluated as ``RotateAndTiltWrapperPotential(pot=pot, center=orbit)`` (and, like that wrapper, at scalar inputs only); use that wrapper directly to also rotate `pot`, with a constant or time-dependent orientation.
         - 2011-04-10 - Started - Bovy (NYU)
         - 2018-10-18 - Re-implemented to represent general object potentials using galpy potential models - James Lane (UofT)
-        - 2026-11-14 - Non-axisymmetric potentials, through RotateAndTiltWrapperPotential - Bovy (UofT)
+        - 2026-11-14 - Non-axisymmetric potentials, through RotateAndTiltWrapperPotential; height relative to the object z - z_object (was z_object - z) - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         # If no potential supplied use a default Plummer sphere
@@ -63,10 +63,9 @@ class MovingObjectPotential(Potential):
             self._pot = pot
         self._orb = copy.deepcopy(orbit)
         self._orb.turn_physical_off()
-        # The general path (a non-axisymmetric pot, or forced through the
-        # private _general for comparisons with the axisymmetric fast path):
-        # a RotateAndTiltWrapperPotential centered on the orbit
-        self._general = _general or _isNonAxi(self._pot)
+        # A non-axisymmetric pot takes the general path: a
+        # RotateAndTiltWrapperPotential centered on the orbit
+        self._general = _isNonAxi(self._pot)
         if self._general:
             self._gen = RotateAndTiltWrapperPotential(
                 pot=self._pot, center=self._orb, ro=self._ro, vo=self._vo
@@ -91,7 +90,7 @@ class MovingObjectPotential(Potential):
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
         # Evaluate potential
-        return evaluatePotentials(self._pot, Rdist, orbz - z, t=t, use_physical=False)
+        return evaluatePotentials(self._pot, Rdist, z - orbz, t=t, use_physical=False)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self._general:
@@ -100,9 +99,9 @@ class MovingObjectPotential(Potential):
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd) = _cyldiff(self._orb.R(t), self._orb.phi(t), R, phi)
         # Evaluate cylindrical radial force
-        RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
+        RF = evaluateRforces(self._pot, Rdist, z - orbz, t=t, use_physical=False)
 
         # Return R force, negative of radial vector to evaluation location.
         return -RF * (numpy.cos(phi) * xd + numpy.sin(phi) * yd) / Rdist
@@ -114,9 +113,8 @@ class MovingObjectPotential(Potential):
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
         # Evaluate and return z force
-        return -evaluatezforces(self._pot, Rdist, zd, t=t, use_physical=False)
+        return evaluatezforces(self._pot, Rdist, z - orbz, t=t, use_physical=False)
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         if self._general:
@@ -125,9 +123,9 @@ class MovingObjectPotential(Potential):
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd) = _cyldiff(self._orb.R(t), self._orb.phi(t), R, phi)
         # Evaluate cylindrical radial force.
-        RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
+        RF = evaluateRforces(self._pot, Rdist, z - orbz, t=t, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
         return -RF * R * (numpy.cos(phi) * yd - numpy.sin(phi) * xd) / Rdist
 
@@ -137,7 +135,7 @@ class MovingObjectPotential(Potential):
         (without the overall amp, which the Potential base class applies).
 
         Phi(x,t) = Psi(R'(x,y), z'(z)) with R'^2 = (x-x_o(t))^2+(y-y_o(t))^2
-        and z' = z_o(t)-z (the conventions of the force methods above). The
+        and z' = z-z_o(t) (the conventions of the force methods above). The
         moving-object shift is a pure translation of the evaluation point, so
         the Hessian is the kernel's Hessian at the shifted point chain-ruled
         to the field point's coordinates: the time-dependence enters only
@@ -148,21 +146,22 @@ class MovingObjectPotential(Potential):
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        (xd, yd) = _cyldiff(self._orb.R(t), self._orb.phi(t), R, phi)
+        zd = z - orbz
         # Kernel cylindrical derivatives at the shifted point (R',z')=(Rdist,zd)
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         R2d = evaluateR2derivs(self._pot, Rdist, zd, t=t, use_physical=False)
         Rzd = evaluateRzderivs(self._pot, Rdist, zd, t=t, use_physical=False)
         z2d = evaluatez2derivs(self._pot, Rdist, zd, t=t, use_physical=False)
-        # Chain rule with dR'/dx = (x-x_o)/R' = -xd/R' and dz'/dz = -1; the
+        # Chain rule with dR'/dx = (x-x_o)/R' = -xd/R' and dz'/dz = 1; the
         # minus signs cancel pairwise in the pure-second-derivative terms
         phix = RF * xd / Rdist
         phiy = RF * yd / Rdist
         phixx = R2d * xd**2.0 / Rdist**2.0 - RF * yd**2.0 / Rdist**3.0
         phiyy = R2d * yd**2.0 / Rdist**2.0 - RF * xd**2.0 / Rdist**3.0
         phixy = (R2d + RF / Rdist) * xd * yd / Rdist**2.0
-        phixz = Rzd * xd / Rdist
-        phiyz = Rzd * yd / Rdist
+        phixz = -Rzd * xd / Rdist
+        phiyz = -Rzd * yd / Rdist
         phizz = z2d
         return (phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz)
 
@@ -232,9 +231,8 @@ class MovingObjectPotential(Potential):
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
         # Return the density
-        return evaluateDensities(self._pot, Rdist, zd, t=t, use_physical=False)
+        return evaluateDensities(self._pot, Rdist, z - orbz, t=t, use_physical=False)
 
 
 def _cylR(R1, phi1, R2, phi2):
@@ -243,8 +241,7 @@ def _cylR(R1, phi1, R2, phi2):
     )  # Cosine law
 
 
-def _cyldiff(R1, phi1, z1, R2, phi2, z2):
+def _cyldiff(R1, phi1, R2, phi2):
     dx = R1 * numpy.cos(phi1) - R2 * numpy.cos(phi2)
     dy = R1 * numpy.sin(phi1) - R2 * numpy.sin(phi2)
-    dz = z1 - z2
-    return (dx, dy, dz)
+    return (dx, dy)
