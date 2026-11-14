@@ -876,7 +876,11 @@ def test_backend_construction_checks(backend):
             actionAngleSphericalInverse(
                 pot=pot, Es=[1.53], Ls=[0.9], mm_npt=2, mm_nta=16, progressbar=False
             )
-        with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
+        with pytest.raises(
+            RuntimeError,
+            match="not bound in the fitted auxiliary.*about six times the square "
+            "root of that ratio in harmonics",
+        ):
             actionAngleSphericalInverse(pot=pot, Es=[5.0], Ls=[0.8], progressbar=False)
     from galpy.potential import HernquistPotential
 
