@@ -11148,9 +11148,10 @@ def test_actionAngleSphericalInverse_interpolation(spherical_inverse_interp):
     angler = numpy.linspace(0.05, 6.2, 41)
     anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
     anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
-    Lgrid = numpy.linspace(0.7, 1.4, 8)
+    Lgrid = numpy.geomspace(0.7, 1.4, 8)
     # (u, L) = (3/7, Lgrid[4]) is a node of this grid (u runs from the
-    # circular edge, 0, to 1 in eight steps), where the action, the angles,
+    # circular edge, 0, to 1 in eight steps, and L is spaced in the
+    # logarithm by default), where the action, the angles,
     # and the frequencies are all at the forward transformation's floor,
     # because the family's first partials are exact there (its frequencies
     # and the analytic slopes of its tables are Hermite constraints);
@@ -11540,11 +11541,16 @@ def test_actionAngleSphericalInverse_escape_grid():
     # L derivatives between energy nodes still lean on the neighbouring
     # columns, through the estimated cross derivatives)
     f_ = _spherical_inverse_np
-    L = numpy.linspace(0.1 * f_(vcirc(pot, 0.1)), 3.0 * f_(vcirc(pot, 3.0)), 8)[4]
+    L = numpy.geomspace(0.1 * f_(vcirc(pot, 0.1)), 3.0 * f_(vcirc(pot, 3.0)), 8)[4]
     Emax = f_(evaluatePotentials(pot, 20.0, 0.0))
     rc = f_(rl(pot, L))
     Ec = f_(evaluatePotentials(pot, rc, 0.0)) + L**2 / (2.0 * rc**2)
-    assert f_(aAI.Jr(Ec, L)) == 0.0, "The circular orbit is not the bottom of the grid"
+    jr_c = aAI.Jr(Ec, L)
+    # (exactly 0 on numpy; jax's interpolation weights at the logarithmic node
+    # leave ~1e-48)
+    assert numpy.fabs(f_(jr_c)) <= (1e-30 if is_backend_array(jr_c) else 0.0), (
+        "The circular orbit is not the bottom of the grid"
+    )
     with pytest.raises(ValueError, match="outside the interpolation grid"):
         aAI.Jr(Emax + 1e-6, L)
     # the top cell's midpoint in the grid's own variable: the apocentre of
@@ -14101,8 +14107,8 @@ def test_actionAngleVerticalInverse_small_tori():
 
 
 def test_actionAngleSphericalInverse_Lspacing():
-    # The angular-momentum grid's spacing: 'linear' (the default), 'sqrt' and
-    # 'log' all build and evaluate; a grid that reaches a small Rmin has a
+    # The angular-momentum grid's spacing: 'log' (the default), 'sqrt' and
+    # 'linear' all build and evaluate; a grid that reaches a small Rmin has a
     # linear innermost cell that spans a large factor in L and holds its
     # most eccentric tori, where the 'log' spacing is far more accurate, as
     # the family's own J_r(E, L) against the exact action of a torus set up
@@ -14112,19 +14118,19 @@ def test_actionAngleSphericalInverse_Lspacing():
 
     hp = HernquistPotential(amp=2.0, a=1.0)
     Rmin, Rmax, Rinf = 0.1, 5.0, 20.0
+    kw = dict(
+        pot=hp,
+        setup_interp=True,
+        Rmin=Rmin,
+        Rmax=Rmax,
+        Rinf=Rinf,
+        nE=8,
+        nL=8,
+        mm_npt=160,
+        progressbar=False,
+    )
     fams = {
-        sp: actionAngleSphericalInverse(
-            pot=hp,
-            setup_interp=True,
-            Rmin=Rmin,
-            Rmax=Rmax,
-            Rinf=Rinf,
-            nE=8,
-            nL=8,
-            mm_npt=160,
-            Lspacing=sp,
-            progressbar=False,
-        )
+        sp: actionAngleSphericalInverse(Lspacing=sp, **kw)
         for sp in ("linear", "sqrt", "log")
     }
 
@@ -14162,6 +14168,27 @@ def test_actionAngleSphericalInverse_Lspacing():
         assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
             "A spaced family does not evaluate"
         )
+    # the default is the 'log' spacing: the family built without Lspacing= is
+    # the 'log' one, and not the 'linear' one
+    default = actionAngleSphericalInverse(**kw)
+    point = (0.05, 0.6 * Ltest, 0.4 * Ltest, 0.3, 0.2, 1.1)
+    jr_default = default.Jr(E, Ltest)
+    # (to round-off under a forced backend: jax's CPU FFT is not bitwise
+    # reproducible from one build to the next)
+    tol = 1e-13 if is_backend_array(jr_default) else 0.0
+    jr_default = _spherical_inverse_np(jr_default)
+    assert numpy.fabs(
+        jr_default - _spherical_inverse_np(fams["log"].Jr(E, Ltest))
+    ) <= tol and numpy.all(
+        numpy.fabs(
+            _spherical_inverse_xv(default, *point)
+            - _spherical_inverse_xv(fams["log"], *point)
+        )
+        <= tol
+    ), "The default spacing of the angular-momentum grid is not 'log'"
+    assert jr_default != _spherical_inverse_np(fams["linear"].Jr(E, Ltest)), (
+        "The default spacing of the angular-momentum grid is still 'linear'"
+    )
     with pytest.raises(ValueError):
         actionAngleSphericalInverse(
             pot=hp,
@@ -14179,38 +14206,40 @@ def test_actionAngleSphericalInverse_Lspacing():
 
 def test_actionAngleStaeckelInverse_Lzspacing():
     # The Staeckel family takes the same angular-momentum spacing option as the
-    # spherical one: a family spaced in the logarithm or the square root of
-    # L_z builds and evaluates, and an unknown spacing raises
+    # spherical one: a family spaced in the logarithm (the default), in the
+    # square root of L_z or in L_z itself builds and evaluates, the family
+    # built without Lzspacing= is the 'log' one, and an unknown spacing raises
     from galpy.actionAngle import actionAngleStaeckelInverse
 
-    for sp in ("log", "sqrt"):
-        aAS = actionAngleStaeckelInverse(
-            pot=_staeckel_inverse_potential(),
-            setup_interp=True,
-            Rmin=0.7,
-            Rmax=1.6,
-            Rinf=3.5,
-            nE=4,
-            nLz=4,
-            nI3=4,
-            mm_npt=48,
-            Lzspacing=sp,
-        )
-        out = _spherical_inverse_npt(aAS.Freqs(0.02, 0.9, 0.02))
-        assert numpy.all(numpy.isfinite(out)), (
+    kw = dict(
+        pot=_staeckel_inverse_potential(),
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=4,
+        nLz=4,
+        nI3=4,
+        mm_npt=48,
+    )
+    out = {}
+    for sp in ("log", "sqrt", "linear"):
+        aAS = actionAngleStaeckelInverse(Lzspacing=sp, **kw)
+        out[sp] = numpy.array(_spherical_inverse_npt(aAS.Freqs(0.02, 0.9, 0.02)))
+        assert numpy.all(numpy.isfinite(out[sp])), (
             f"A Staeckel family with Lzspacing={sp!r} does not evaluate"
         )
+    default = actionAngleStaeckelInverse(**kw).Freqs(0.02, 0.9, 0.02)
+    # (to round-off under a forced backend: jax's CPU FFT is not bitwise
+    # reproducible from one build to the next)
+    tol = 1e-13 if is_backend_array(default[0]) else 0.0
+    default = numpy.array(_spherical_inverse_npt(default))
+    assert numpy.all(numpy.fabs(default - out["log"]) <= tol), (
+        "The default spacing of the angular-momentum grid is not 'log'"
+    )
+    assert numpy.any(default != out["linear"]), (
+        "The default spacing of the angular-momentum grid is still 'linear'"
+    )
     with pytest.raises(ValueError):
-        actionAngleStaeckelInverse(
-            pot=_staeckel_inverse_potential(),
-            setup_interp=True,
-            Rmin=0.7,
-            Rmax=1.6,
-            Rinf=3.5,
-            nE=4,
-            nLz=4,
-            nI3=4,
-            mm_npt=48,
-            Lzspacing="cubic",
-        )
+        actionAngleStaeckelInverse(Lzspacing="cubic", **kw)
     return None
