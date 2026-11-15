@@ -333,14 +333,6 @@ _JAX_FNS = {}
 _JAX_MIN_SIZE = 4096
 
 
-def _jax_on_accelerator():
-    """Whether jax stages programs for a GPU/TPU: a tracer carries no device,
-    so the default backend stands in for the device of a staged call."""
-    import jax
-
-    return jax.default_backend() != "cpu"
-
-
 def _jax_incgamma(upper):
     """jax P or Q. STAGED arrays (jit / vmap) take the vectorized series/CF
     when large (>= _JAX_MIN_SIZE) or when jax runs on an accelerator -- jax's
@@ -370,7 +362,9 @@ def _jax_incgamma(upper):
     def value(a, x):
         if _is_concrete(a) and _is_concrete(x):
             return native(a, x)
-        if _jax_on_accelerator():
+        from ..._namespaces import device_type
+
+        if device_type(x) != "cpu":
             return _both(jnp, a, x, rolled=True)[idx]
         if x.size < _JAX_MIN_SIZE:
             return native(a, x)

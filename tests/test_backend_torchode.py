@@ -199,14 +199,17 @@ def test_torch_compile_torchode_orbit_matches_eager():
             )
 
 
-def test_torchode_solve_frame_runs_eagerly_on_cuda_only():
+def test_torchode_solve_frame_runs_eagerly_on_cuda_only(monkeypatch):
     # On CUDA torchode's solve loop records a CUDA event after mutating graph
     # inputs, which dynamo rejects; torchode_solve therefore leaves the solve
     # FRAME to eager there while what it calls still compiles. Checked on CPU with
-    # a stub adjoint and a problem that merely REPORTS a cuda device.
+    # a stub adjoint and, for cuda, device_type merely REPORTING a cuda device.
+    import importlib
     from types import SimpleNamespace
 
     from galpy.backend._torch.orbit_ode import torchode_solve
+
+    _ns = importlib.import_module("galpy.backend._namespaces")
 
     def step(y):
         return torch.cos(y)
@@ -223,7 +226,9 @@ def test_torchode_solve_frame_runs_eagerly_on_cuda_only():
 
     x = torch.tensor([0.1, 0.2])
     for device, solve_traced in (("cpu", True), ("cuda", False)):
-        problem = SimpleNamespace(x=x, y0=SimpleNamespace(device=torch.device(device)))
+        problem = SimpleNamespace(x=x, y0=x)
+        if device == "cuda":
+            monkeypatch.setattr(_ns, "device_type", lambda y: "cuda")
         graphs.clear()
         torch._dynamo.reset()
         out = torch.compile(lambda p: torchode_solve(Adjoint(), p), backend=backend)(

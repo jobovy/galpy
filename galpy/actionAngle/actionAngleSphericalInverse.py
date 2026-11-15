@@ -22,13 +22,13 @@ from ..backend import (
     backend,
     concretely_true,
     device_of,
+    device_type,
     get_namespace,
     has_concrete_truth_value,
     is_backend_array,
     lazy_cond,
     map_bucketed_rows,
     match_input_dtype,
-    on_accelerator,
     to_host,
 )
 from ..backend._namespaces import stop_gradient, under_jax_trace
@@ -2996,7 +2996,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _bk_chunking(self, x):
         """The number of points in a chunk of the bucketed evaluation of the
         points x, and that up to which an eager one is a single pass"""
-        if on_accelerator(x):
+        if device_type(x) not in (None, "cpu"):
             step = max(_BK_BUCKET_STEP, _BK_GPU_ELEMENTS // self._npt)
             return step, step
         return _BK_BUCKET_STEP, _BK_SPLIT_ELEMENTS // self._npt

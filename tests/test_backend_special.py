@@ -1493,7 +1493,11 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
     # (small graph) but the series/CF on a GPU, where the native per-element
     # while_loop is slow at every size (a 0.7 s floor on the compiled Staeckel
     # transformation); the two give the same values
+    import importlib
+
     from galpy.backend.special._fallback import gammainc as mod
+
+    _ns = importlib.import_module("galpy.backend._namespaces")
 
     fn = gsp.gammaincc if upper else gsp.gammainc
     a = jnp.asarray([0.5, 1.5, 3.0, 20.0])
@@ -1507,10 +1511,10 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
         return both(xp, aa, xx, rolled)
 
     monkeypatch.setattr(mod, "_both", spy)
-    monkeypatch.setattr(mod, "_jax_on_accelerator", lambda: False)
+    monkeypatch.setattr(_ns, "device_type", lambda x: "cpu")
     on_cpu = jax.jit(fn)(a, x)
     assert not calls, "a small staged array on the CPU should use the native kernel"
-    monkeypatch.setattr(mod, "_jax_on_accelerator", lambda: True)
+    monkeypatch.setattr(_ns, "device_type", lambda x: "gpu")
     jax.clear_caches()  # jit caches the trace by function and shapes
     on_gpu = jax.jit(fn)(a, x)
     assert calls == [(x.shape, True)], (

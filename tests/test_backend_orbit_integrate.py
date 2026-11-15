@@ -1264,7 +1264,7 @@ def test_numpy_integrator_on_cuda_points_to_torchode(method, monkeypatch):
     import galpy.orbit.Orbits as orbits_module
     from galpy.backend import use
 
-    monkeypatch.setattr(orbits_module, "_forced_device_type", lambda xp: "cuda")
+    monkeypatch.setattr(orbits_module, "device_type", lambda x: "cuda")
     with use("torch", force=True):
         o = Orbit(list(_IC))
         with pytest.raises(ValueError, match="torchode"):

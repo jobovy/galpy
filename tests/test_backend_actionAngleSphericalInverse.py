@@ -1164,7 +1164,7 @@ def test_bucketed_evaluation_gpu_chunks(backend, monkeypatch):
     aA = _deep_family()
     x = _arr(backend, numpy.ones(3))
     assert aA._bk_chunking(x) == (S._BK_BUCKET_STEP, S._BK_SPLIT_ELEMENTS // 192)
-    monkeypatch.setattr(S, "on_accelerator", lambda x: True)
+    monkeypatch.setattr(S, "device_type", lambda x: "cuda")
     step = max(S._BK_BUCKET_STEP, S._BK_GPU_ELEMENTS // 192)
     assert aA._bk_chunking(x) == (step, step)
     monkeypatch.setattr(S, "_BK_GPU_ELEMENTS", 192 * 10**5)

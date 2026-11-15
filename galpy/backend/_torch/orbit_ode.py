@@ -76,8 +76,10 @@ def torchode_solve(adjoint, problem):
     compiled. CPU records no event: unchanged."""
     import torch
 
+    from .._namespaces import device_type
+
     solve = adjoint.solve
-    if problem.y0.device.type == "cuda":
+    if device_type(problem.y0) == "cuda":
         solve = torch.compiler.disable(solve, recursive=False)
     return solve(problem)
 

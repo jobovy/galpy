@@ -42,6 +42,7 @@ from ..backend import use as _use_backend
 from ..backend._namespaces import (
     compilable_singledispatchmethod,
     concretely_true,
+    device_type,
     has_concrete_truth_value,
     host_copy,
     inbackend_ode_method,
@@ -325,17 +326,12 @@ except:
     pass
 
 
-def _forced_device_type(xp):
-    """Device type ("cpu", "cuda", ...) new ``xp`` arrays land on, or None."""
-    return getattr(getattr(xp.asarray(0.0), "device", None), "type", None)
-
-
 def _refuse_numpy_integrator_on_cuda(method):
     """The numpy (python) integrators read every force on the host, which
     cannot read the CUDA arrays a forced torch backend on a GPU returns; the
     in-backend integrators run on the GPU instead."""
     xp = get_namespace()
-    if name_of_namespace(xp) != "torch" or _forced_device_type(xp) != "cuda":
+    if name_of_namespace(xp) != "torch" or device_type(xp.asarray(0.0)) != "cuda":
         return None
     raise ValueError(
         f"method='{method}' integrates with numpy on the host, which cannot read "

@@ -21,7 +21,8 @@ v2.0.0b2 (pre-release)
   so that shapes stay static), or, with PyTorch, a pass per bucket; a small
   call, in one pass with its largest bucket. On a GPU the chunks are large
   and any call that fits in one is a single pass. With the new
-  ``galpy.backend.map_bucketed_rows`` and ``galpy.backend.on_accelerator``.
+  ``galpy.backend.map_bucketed_rows`` and ``galpy.backend.device_type``
+  (now also behind galpy's other device checks).
 
 - ``actionAngleSphericalInverse`` evaluates arrays of points on an
   interpolated family about twice as fast, with identical results: in the

@@ -324,33 +324,30 @@ def test_map_row_chunks(backend_name):
 
 
 @pytest.mark.parametrize("backend_name", ["jax", "torch"])
-def test_on_accelerator(backend_name, monkeypatch):
-    # numpy arrays and Python scalars are never on an accelerator; a backend
-    # array is iff its device is not the CPU, and a jax tracer iff jax's
-    # default backend is not
-    from galpy.backend import on_accelerator
+def test_device_type(backend_name, monkeypatch):
+    # numpy arrays and Python scalars have no device type; a torch tensor has
+    # its device's type, a jax array its device's platform, and a jax tracer
+    # that of jax's default backend
+    from galpy.backend import device_type
 
     pytest.importorskip(backend_name)
-    assert not on_accelerator(numpy.ones(3)) and not on_accelerator(1.0)
+    assert device_type(numpy.ones(3)) is None and device_type(1.0) is None
     if backend_name == "torch":
         import torch
 
         x = torch.ones(3)
-        assert on_accelerator(x) == (x.device.type != "cpu")
+        assert device_type(x) == x.device.type
         return None
     import jax
     import jax.numpy as jnp
 
     x = jnp.ones(3)
-    assert on_accelerator(x) == (x.device.platform != "cpu")
-    for kind, want in (
-        (jax.default_backend(), x.device.platform != "cpu"),
-        ("gpu", True),
-    ):
+    assert device_type(x) == x.device.platform
+    for kind in (jax.default_backend(), "gpu"):
         monkeypatch.setattr(jax, "default_backend", lambda kind=kind: kind)
         seen = []
-        jax.jit(lambda y: seen.append(on_accelerator(y)) or y)(x)
-        assert seen == [want]
+        jax.jit(lambda y: seen.append(device_type(y)) or y)(x)
+        assert seen == [kind]
     return None
 
 
