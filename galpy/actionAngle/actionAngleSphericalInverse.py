@@ -34,6 +34,8 @@ from .actionAngleInverseUtil import (
     _chunked,
     _fit_isochrone_vc2,
     _harmonics,
+    _harmonics_kept,
+    _harmonics_needed,
     _offset_spec_coeffs,
     _progress,
     _safeguarded_newton,
@@ -45,41 +47,6 @@ from .actionAngleInverseUtil import (
     _spec_eval,
 )
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
-
-# A torus of an interpolated family keeps the harmonics of its anomaly map
-# down to its round-off floor, and their number is decided by coefficients
-# that stand well above that floor, so that it does not change with
-# round-off (with the build, the backend, or a small change of the
-# potential). The coefficients (angles, in radians) of a resolved torus fall
-# exponentially to a floor of 1e-14 to 1e-12. The last harmonics whose
-# coefficients exceed the two tolerances of _NHARM_TOLS, three decades
-# apart, measure the rate of the fall, and the torus keeps the harmonics up
-# to the last above the smaller tolerance and as many more as the next three
-# decades take at that rate. A torus whose coefficients are still above the
-# smaller tolerance at the last harmonic keeps them all
-_NHARM_TOLS = (1e-8, 1e-11)
-
-
-def _harmonics_needed(*tabs, tol=0.0):
-    """The number of harmonics that every torus keeps, from tables of shape
-    (..., M) with the harmonics along the last axis: the last harmonic whose
-    magnitude exceeds tol in any of the tables (zero when none does), as
-    one array expression over the tori"""
-    used = numpy.any(numpy.fabs(numpy.stack(tabs)) > tol, axis=0)
-    return numpy.amax(
-        numpy.where(used, numpy.arange(1, used.shape[-1] + 1), 0), axis=-1
-    )
-
-
-def _harmonics_kept(Dm):
-    """The number of harmonics that a torus of an interpolated family keeps,
-    from the coefficients Dm of its anomaly map: with n_1 and n_2 the last
-    harmonics whose coefficients exceed the two tolerances of _NHARM_TOLS,
-    the n_2 harmonics above the smaller tolerance and n_2 - n_1 + 1 more,
-    those that the next three decades take at the measured rate of the
-    coefficients' fall; at most all of them"""
-    n1, n2 = (int(_harmonics_needed(Dm, tol=tol)) for tol in _NHARM_TOLS)
-    return min(len(Dm), 2 * n2 - n1 + 1)
 
 
 class actionAngleSphericalInverse(actionAngleInverse):

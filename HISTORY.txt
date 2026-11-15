@@ -1,6 +1,28 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+- ``actionAngleStaeckelInverse`` evaluates every point of an interpolated
+  family (``setup_interp=True``) with the harmonics that the tori around it
+  need instead of all ``mm_npt`` of them, as ``actionAngleSphericalInverse``
+  does and by the same rule: every torus keeps the coefficients of each of
+  its two anomaly maps down to the map's round-off floor, the slopes of the
+  coefficients are solved for in those kept, every cell of the grid uses in
+  each map the largest number of the eight tori at its corners, rounded up
+  to the harmonics 16, 32, 64, ... or ``mm_npt``, and the points of a call
+  are labelled once and grouped by the two numbers of their cells (groups
+  of fewer than 128 points are evaluated together). ``mm_npt`` is thereby
+  the largest number that a torus may use: in a Kuzmin-Kutuzov potential,
+  arrays of points on distinct tori evaluate about twice as fast with
+  ``mm_npt=96`` (and with ``mm_npt=64`` on a grid of the default extent),
+  about nine times as fast with ``mm_npt=256``, and about 1.2 times as fast
+  with the default ``mm_npt=32`` on a grid of the default extent; the
+  frequencies of arrays of tori, which no longer read the maps, are returned
+  one and a half to four times faster. Frequencies are unchanged to
+  round-off; returned positions and velocities change by 1e-12 in the
+  median and by up to 1e-9 to 5e-7 in cells whose tori keep very different
+  numbers of harmonics, less than a tenth of the family's interpolation
+  error at those points.
+
 - ``actionAngleSphericalInverse`` evaluates arrays of points on an
   interpolated family about twice as fast, with identical results: in the
   inversion of the family's radial-action table for the points' tori every
