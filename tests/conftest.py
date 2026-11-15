@@ -1311,8 +1311,10 @@ def pytest_generate_tests(metafunc):
             ),
             # a non-axisymmetric MovingObjectPotential (its general path: a
             # RotateAndTiltWrapperPotential centered on the orbit) in a host;
-            # a bar rather than main's SCF kernel, whose eager-jax evaluations
-            # put the Python reference over the per-test timeout
+            # a bar rather than an SCF kernel, whose odeint finite-difference-
+            # of-flow error sat at 9.4e-5 of test_liouville_3d's 1e-4 bound
+            # (and whose eager-jax evaluations put the Python reference over
+            # the per-test timeout)
             (
                 potential.LogarithmicHaloPotential(normalize=True)
                 + potential.MovingObjectPotential(
