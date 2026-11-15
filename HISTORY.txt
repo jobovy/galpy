@@ -9,6 +9,17 @@ v2.0.0b2 (pre-release)
   round-off floor (a 128 x 128 spherical family on one CPU core under
   PyTorch: 233 s before, 12 s now).
 
+- On the JAX and PyTorch backends, an array evaluation of an interpolated
+  ``actionAngleSphericalInverse`` family reads, for every point, only the
+  harmonics of its cell's coarse bucket (32, 128 or ``mm_npt``) of the
+  harmonics its tori keep, like the numpy evaluation (the other
+  coefficients are zero): about 2.5 times faster under ``jax.jit`` and 4.5
+  times faster with PyTorch for a family whose tori need up to 192
+  harmonics, with the same outputs to round-off. The points are sorted by
+  bucket and evaluated in equal chunks (``jax.lax.map`` with
+  ``jax.lax.switch`` to each chunk's bucket under JAX, so that shapes stay
+  static), with the new ``galpy.backend.map_bucketed_rows``.
+
 - ``RotateAndTiltWrapperPotential`` can move and turn in time: ``center=``
   places the wrapped potential's origin at a constant position, along a
   tabulated path ``(t, xyz)``, on an integrated ``Orbit``, or at a function
@@ -35,17 +46,6 @@ v2.0.0b2 (pre-release)
   evaluates an axisymmetric potential at the height ``z - z_object`` above
   the object rather than at ``z_object - z``, which only changes
   potentials that are not symmetric under z -> -z (for which it was wrong).
-
-- On the JAX and PyTorch backends, an array evaluation of an interpolated
-  ``actionAngleSphericalInverse`` family reads, for every point, only the
-  harmonics of its cell's coarse bucket (32, 128 or ``mm_npt``) of the
-  harmonics its tori keep, like the numpy evaluation (the other
-  coefficients are zero): about 2.5 times faster under ``jax.jit`` and 4.5
-  times faster with PyTorch for a family whose tori need up to 192
-  harmonics, with the same outputs to round-off. The points are sorted by
-  bucket and evaluated in equal chunks (``jax.lax.map`` with
-  ``jax.lax.switch`` to each chunk's bucket under JAX, so that shapes stay
-  static), with the new ``galpy.backend.map_bucketed_rows``.
 
 - ``actionAngleSphericalInverse`` evaluates arrays of points on an
   interpolated family about twice as fast, with identical results: in the
