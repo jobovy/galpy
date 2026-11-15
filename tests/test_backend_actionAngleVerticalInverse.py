@@ -444,7 +444,13 @@ def _param_case(name, backend, p):
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("name,p0", [("iso_sigma", 0.5), ("kg_K", 1.0)])
 @pytest.mark.parametrize(
-    "kw", [{"setup_interp": True}, {"Es": [0.1, 0.3]}], ids=["interp", "two_tori"]
+    "kw",
+    [
+        {"setup_interp": True},
+        {"Es": [0.1, 0.3]},
+        {"zmax": 1.3, "nE": 9, "setup_interp": True},
+    ],
+    ids=["interp", "two_tori", "zmax"],
 )
 def test_derivatives_wrt_potential_parameters(backend, name, p0, kw):
     # the construction is differentiable in the potential's parameters: the
@@ -492,6 +498,79 @@ def test_derivatives_wrt_potential_parameters(backend, name, p0, kw):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_zmax_family(backend):
+    # zmax= on a backend: the tori of numpy's zmax= family, with energies that
+    # follow the potential's parameters (through Phi(0) and Phi(zmax), at fixed
+    # zmax). The largest torus's
+    # energy is Phi(zmax), exactly in its derivative too, and J(E) at that
+    # energy carries the torus's own dJ/dp (before, the energies were constants
+    # of the parameter: dE/dp = 0, and J(E) added dPhi/dp / Omega)
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
+
+    zmax, nE, s0 = 1.3, 9, 0.5
+    aN = actionAngleVerticalInverse(
+        pot=IsothermalDiskPotential(amp=1.0, sigma=s0), zmax=zmax, nE=nE
+    )
+    with gb.use(backend, force=True):
+        aB = actionAngleVerticalInverse(
+            pot=IsothermalDiskPotential(amp=1.0, sigma=s0), zmax=zmax, nE=nE
+        )
+    assert _is_backend(backend, aB._mm_bk["Es"])
+    numpy.testing.assert_allclose(aB._Es, aN._Es, rtol=1e-15, atol=1e-15)
+    numpy.testing.assert_allclose(
+        as_numpy(aB._mm_bk["js"]), aN._js, rtol=1e-12, atol=0.0
+    )
+    for j in aN._js[1:]:
+        ref = aN.xvFreqs(j, _ANGLES)
+        with gb.use(backend, force=True):
+            got = aB.xvFreqs(float(j), _ANGLES)
+        for g, r in zip(got[:2], ref[:2]):
+            numpy.testing.assert_allclose(
+                as_numpy(g), r, rtol=0.0, atol=1e-12 * numpy.max(numpy.abs(r))
+            )
+
+    def fam(s):
+        return actionAngleVerticalInverse(
+            pot=IsothermalDiskPotential(amp=1.0, sigma=s), zmax=zmax, nE=nE
+        )
+
+    def phimax(s):
+        return evaluatelinearPotentials(
+            IsothermalDiskPotential(amp=1.0, sigma=s), zmax, use_physical=False
+        )
+
+    def E_top(s):  # E(j) at the largest torus's own (moving) action
+        aA = fam(s)
+        return aA.E(aA._mm_bk["js"][-1])
+
+    def J_top(s):  # J(E) at the largest torus's (moving) energy
+        return fam(s).J(phimax(s))
+
+    def j_top(s):  # the largest torus's action, from the tables
+        return fam(s)._mm_bk["js"][-1]
+
+    if backend == "jax":
+        grads = [
+            float(jax.grad(f)(jnp.asarray(s0))) for f in (E_top, phimax, J_top, j_top)
+        ]
+    else:
+        grads = []
+        for f in (E_top, phimax, J_top, j_top):
+            st = torch.tensor(s0, requires_grad=True)
+            grads.append(float(torch.autograd.grad(f(st), st)[0]))
+    dE, dphi, dJ, dj = grads
+    assert abs(dphi) > 1.0  # the energies do move with sigma
+    assert abs(dE - dphi) < 1e-13 * abs(dphi)
+    assert abs(dJ - dj) < 1e-13 * abs(dj)
+    # the largest torus's dJ/dsigma at fixed height against a 5-point FD of
+    # the backend construction (as test_derivatives_wrt_potential_parameters)
+    fd = _fd(lambda s: float(as_numpy(j_top(_arr(backend, s)))), s0, 1e-3)
+    assert abs(dj - fd) < 3e-10
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_small_tori_on_a_backend(backend):
     # The smallest tori of a vertical potential measured from the midplane,
     # built on a backend: the sweep samples the momentum through the forward
@@ -533,17 +612,23 @@ def test_small_tori_on_a_backend(backend):
 
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")
-def test_jax_jit_construction():
+@pytest.mark.parametrize(
+    "grid",
+    [{"Es": numpy.linspace(0.0, 0.6, 9)}, {"zmax": 1.3, "nE": 9}],
+    ids=["Es", "zmax"],
+)
+def test_jax_jit_construction(grid):
     # the whole pipeline -- construction and evaluation -- traces under jax.jit,
-    # and its derivative in a potential parameter does too
+    # and its derivative in a potential parameter does too (with zmax=, the
+    # grid's energies are traced as well)
     from galpy.actionAngle import actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
     def f(s):
         aA = actionAngleVerticalInverse(
             pot=IsothermalDiskPotential(amp=1.0, sigma=s),
-            Es=numpy.linspace(0.0, 0.6, 9),
             setup_interp=True,
+            **grid,
         )
         x, v, O = aA.xvFreqs(0.11, jnp.asarray(_ANGLES))
         return jnp.concatenate([x, v, jnp.atleast_1d(O)])
