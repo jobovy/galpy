@@ -24,10 +24,12 @@ def map_row_chunks(f, args, step):
 def map_bucketed_rows(fs, bucket, args, step):
     """``fs[b](*rows)`` for the rows of bucket ``b``, under jax: the rows
     sorted by bucket, padded with copies of the last (largest-bucket) row to a
-    whole number of chunks of ``step`` rows, and ``jax.lax.map`` over the
-    chunks with ``jax.lax.switch`` to the function of each chunk's largest
-    bucket (static shapes: one compiled branch per function); the outputs in
-    the rows' original order"""
+    whole number of chunks of ``step`` rows, and each chunk evaluated with the
+    function of its largest bucket, through ``jax.lax.map`` and
+    ``jax.lax.switch`` under a trace (static shapes: one compiled branch per
+    function), in a loop otherwise (one shape per call size, so that eager
+    jax compiles each operation once); the outputs in the rows' original
+    order"""
     n = args[0].shape[0]
     nc = -(-n // step)
     perm = jnp.argsort(bucket, stable=True)
@@ -40,10 +42,14 @@ def map_bucketed_rows(fs, bucket, args, step):
         return jnp.reshape(a, (nc, step) + a.shape[1:])
 
     cb = jnp.max(chunked(bucket), axis=1)
-    branches = [lambda c, f=f: tuple(f(*c)) for f in fs]
-    outs = jax.lax.map(
-        lambda x: jax.lax.switch(x[0], branches, x[1]),
-        (cb, tuple(chunked(a) for a in args)),
-    )
+    cargs = tuple(chunked(a) for a in args)
+    if isinstance(cb, jax.core.Tracer):
+        branches = [lambda c, f=f: tuple(f(*c)) for f in fs]
+        outs = jax.lax.map(lambda x: jax.lax.switch(x[0], branches, x[1]), (cb, cargs))
+    else:
+        outs = [
+            tuple(fs[int(b)](*(a[k] for a in cargs))) for k, b in enumerate(cb.tolist())
+        ]
+        outs = tuple(jnp.stack(o) for o in zip(*outs))
     inv = jnp.argsort(perm)
     return tuple(jnp.reshape(o, (nc * step,) + o.shape[2:])[:n][inv] for o in outs)

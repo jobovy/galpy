@@ -1097,32 +1097,78 @@ def _deep_points(n=3000):
     return (jr, L, 0.3 * L, *(rng.uniform(0, 2 * numpy.pi, n) for _ in range(3)))
 
 
+_DEEP = {}
+
+
+def _deep_evaluated(backend):
+    # the family (one per backend, which caches its backend tables), and its
+    # evaluation at _deep_points() on numpy and on the backend reading all
+    # harmonics
+    if backend not in _DEEP:
+        aA = _deep_family()
+        pts = _deep_points()
+        aA._bk_bucketing = False
+        full = numpy.array(
+            [as_numpy(o) for o in aA.xvFreqs(*(_arr(backend, x) for x in pts))]
+        )
+        _DEEP[backend] = (aA, pts, full, numpy.array(aA.xvFreqs(*pts)))
+    return _DEEP[backend]
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("jit", [False, True])
-def test_bucketed_evaluation(backend, jit):
+@pytest.mark.parametrize("chunks", [False, True])
+def test_bucketed_evaluation(backend, jit, chunks, monkeypatch):
     # An array evaluation of a family on a backend reads each point's cell's
     # coarse bucket of harmonics: the same as reading all of them (whose
-    # coefficients beyond a cell's need are zero), to round-off
+    # coefficients beyond a cell's need are zero), to round-off; in chunks of
+    # 500 points, a pass per bucket when eager (chunks), or all points in one
+    # pass with their largest bucket, as for a small eager call or one that
+    # fits in one chunk
+    import importlib
+
     if jit and backend != "jax":
         pytest.skip("jax.jit only")
-    aA = _deep_family()
+    S = importlib.import_module("galpy.actionAngle.actionAngleSphericalInverse")
+    if chunks:
+        monkeypatch.setattr(S, "_BK_SPLIT_ELEMENTS", 0)
+        monkeypatch.setattr(S, "_BK_BUCKET_STEP", 500)
+    else:
+        monkeypatch.setattr(S, "_BK_SPLIT_ELEMENTS", 10**12)
+    aA, pts, full, ref = _deep_evaluated(backend)
     assert aA._bk_buckets == (32, 128, 192)
     assert len(numpy.unique(aA._bk_cell_bucket)) == 3
-    pts = _deep_points()
-
-    def evaluate(bucketing):
-        aA._bk_bucketing = bucketing
-        args = tuple(_arr(backend, x) for x in pts)
-        if jit:
-            return [
-                as_numpy(o) for o in jax.jit(lambda *a: tuple(aA.xvFreqs(*a)))(*args)
-            ]
-        return [as_numpy(o) for o in aA.xvFreqs(*args)]
-
-    bucketed, full = numpy.array(evaluate(True)), numpy.array(evaluate(False))
+    aA._bk_bucketing = True
+    args = tuple(_arr(backend, x) for x in pts)
+    if jit:
+        out = jax.jit(lambda *a: tuple(aA.xvFreqs(*a)))(*args)
+    else:
+        out = aA.xvFreqs(*args)
+    bucketed = numpy.array([as_numpy(o) for o in out])
     # (to summation order: 1.5e-13 on outputs up to ~3 under eager jax)
     assert numpy.amax(numpy.fabs(bucketed - full)) < 1e-12
-    assert numpy.amax(numpy.fabs(bucketed - numpy.array(aA.xvFreqs(*pts)))) < 1e-10
+    assert numpy.amax(numpy.fabs(bucketed - ref)) < 1e-10
+    return None
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_bucketed_evaluation_gpu_chunks(backend, monkeypatch):
+    # The bucketed evaluation's chunks hold _BK_BUCKET_STEP points and an
+    # eager call of at most _BK_SPLIT_ELEMENTS harmonics is one pass; on a
+    # GPU, chunks hold _BK_GPU_ELEMENTS harmonics (at least _BK_BUCKET_STEP
+    # points), as a GPU needs large chunks, and a call that fits in one is one
+    # pass
+    import importlib
+
+    S = importlib.import_module("galpy.actionAngle.actionAngleSphericalInverse")
+    aA = _deep_family()
+    x = _arr(backend, numpy.ones(3))
+    assert aA._bk_chunking(x) == (S._BK_BUCKET_STEP, S._BK_SPLIT_ELEMENTS // 192)
+    monkeypatch.setattr(S, "device_type", lambda x: "cuda")
+    step = max(S._BK_BUCKET_STEP, S._BK_GPU_ELEMENTS // 192)
+    assert aA._bk_chunking(x) == (step, step)
+    monkeypatch.setattr(S, "_BK_GPU_ELEMENTS", 192 * 10**5)
+    assert aA._bk_chunking(x) == (10**5, 10**5)
     return None
 
 
@@ -1190,13 +1236,21 @@ def test_map_bucketed_rows(backend, jit):
     fs = tuple((lambda r, k=k: (r * 0.0 + k, 2.0 * r)) for k in range(3))
     xp = get_namespace(_arr(backend, x))
 
-    def run(b, xx):
-        # jax: chunks of 12 sorted rows, i.e. one bucket each
-        return map_bucketed_rows(xp, fs, b, (xx,), 5 if backend == "torch" else 12)
+    def run(b, xx, step=5 if backend == "torch" else 12, split_min=0):
+        # jax.jit: chunks of 12 sorted rows, i.e. one bucket each
+        return map_bucketed_rows(xp, fs, b, (xx,), step, split_min=split_min)
 
     args = (_arr(backend, bucket.astype("int64")), _arr(backend, x))
     out = jax.jit(run)(*args) if jit else run(*args)
     assert numpy.all(as_numpy(out[0]) == bucket)
+    assert numpy.all(as_numpy(out[1]) == 2.0 * x)
+    # rows that fit in one chunk under jax.jit, or at most split_min rows of
+    # an eager call: all through the function of their largest bucket
+    if jit:
+        out = jax.jit(lambda b, xx: run(b, xx, step=n))(*args)
+    else:
+        out = run(*args, split_min=n)
+    assert numpy.all(as_numpy(out[0]) == 2.0)
     assert numpy.all(as_numpy(out[1]) == 2.0 * x)
     # a single function: every row through it, in chunks
     out = map_bucketed_rows(xp, fs[2:], args[0], (args[1],), 5)

@@ -674,6 +674,24 @@ def device_of(*coords):
     return None
 
 
+def device_type(x):
+    """The type of the device of the backend array ``x``: "cpu", "cuda" or
+    "mps" (torch), "gpu" or "tpu" (jax), ...; a jax tracer carries no device,
+    so jax's default backend, where a staged call runs, stands in for it;
+    None for numpy arrays and Python scalars"""
+    if _TORCH_LOADED:
+        import torch
+
+        if isinstance(x, torch.Tensor):
+            return x.device.type
+    if under_jax_trace(x):
+        import jax
+
+        return jax.default_backend()
+    device = device_of(x)
+    return None if device is None else device.platform
+
+
 _DEFAULT_DEVICE = {}
 
 
