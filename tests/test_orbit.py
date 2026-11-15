@@ -12273,10 +12273,11 @@ def test_orbitint_planar_interprz_pythonfallback():
     return None
 
 
-def test_orbitint_planar_dynamfric_pythonfallback():
-    # Planar version of ChandrasekharDynamicalFrictionForce has no C
-    # implementation in the planar C integrator; used to be silently
-    # dropped by the C parser, such that the friction had no effect
+def test_orbitint_planar_dynamfric_c():
+    # Planar ChandrasekharDynamicalFrictionForce has no planar C
+    # implementation of its own; it used to be silently dropped by the C
+    # parser, such that the friction had no effect, then fell back to Python;
+    # now it is integrated in C with its 3D C implementation in the plane
     from galpy.orbit import Orbit
 
     lp = potential.LogarithmicHaloPotential(normalize=1.0, q=1.0)
@@ -12284,25 +12285,24 @@ def test_orbitint_planar_dynamfric_pythonfallback():
         GMs=0.05, rhm=0.1, dens=lp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
     )
     pot = potential.toPlanarPotential(lp + cdf)
-    # Root cause: the planarized friction force should not advertise C support
-    assert not pot[1].hasC, (
-        "Planar ChandrasekharDynamicalFrictionForce should not advertise C support (hasC=True), because it has no planar C implementation"
+    assert pot[1].hasC, (
+        "Planar ChandrasekharDynamicalFrictionForce should advertise C support through its 3D C implementation"
     )
     o = Orbit([1.0, 0.1, 1.1, 0.1])
     ts = numpy.linspace(0.0, 10.0, 101)
-    with pytest.warns(galpyWarning) as record:
+    with warnings.catch_warnings(record=True) as record:
         warnings.simplefilter("always", galpyWarning)
         o.integrate(ts, pot, method="dop853_c")
-    raisedWarning = False
-    for rec in record:
-        raisedWarning += str(rec.message.args[0]).startswith(
+    assert not any(
+        str(rec.message.args[0]).startswith(
             "Cannot use C integration because some of the potentials are not implemented in C"
         )
-    assert raisedWarning, (
-        "Integrating a planar orbit with planar dynamical friction with a C method did not raise the Python-fallback warning"
+        for rec in record
+    ), (
+        "Integrating a planar orbit with planar dynamical friction with a C method fell back to Python"
     )
     # Check that the dynamical friction was actually applied: angular
-    # momentum should decay (it was silently dropped before this fix)
+    # momentum should decay
     Lzs = o.R(ts) * o.vT(ts)
     assert Lzs[-1] < Lzs[0] - 0.05, (
         "Dynamical friction was not applied when integrating a planar orbit with planar dynamical friction"

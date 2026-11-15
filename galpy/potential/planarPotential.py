@@ -729,13 +729,16 @@ class planarPotentialFromFullPotential(planarPotential):
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
         self._Pot = Pot
+        # A potential without a planar C implementation of its own
+        # (hasC_planar=False) integrates planar orbits in C with its 3D one at
+        # z = 0, so its planar second derivatives in C are those of its 3D
+        # Hessian
         self.hasC = Pot.hasC
-        if getattr(Pot, "hasC_planar", True):
-            self.hasC_dxdv = Pot.hasC_dxdv
-        else:
-            # No planar C implementation of its own: C uses the 3D one at
-            # z = 0, whose second derivatives are those of the 3D Hessian
-            self.hasC_dxdv = _check_c(Pot, dxdv3d=True)
+        self.hasC_dxdv = (
+            Pot.hasC_dxdv
+            if getattr(Pot, "hasC_planar", True)
+            else _check_c(Pot, dxdv3d=True)
+        )
         self.hasC_dens = Pot.hasC_dens
         return None
 

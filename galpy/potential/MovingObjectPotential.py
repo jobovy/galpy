@@ -68,7 +68,7 @@ class MovingObjectPotential(Potential):
         self._general = _isNonAxi(self._pot)
         if self._general:
             self._gen = RotateAndTiltWrapperPotential(
-                pot=self._pot, center=self._orb, ro=self._ro, vo=self._vo
+                amp=1.0, pot=self._pot, center=self._orb, ro=self._ro, vo=self._vo
             )
             # the planar C implementation is the axisymmetric one: planar
             # orbits in C use the 3D one at z = 0
