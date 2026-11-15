@@ -90,11 +90,11 @@ def _rotmats(q):
     )
 
 
-def _wrapper(A=_A, xyz=_XYZ, q=_Q):
+def _wrapper(A=_A, xyz=_XYZ, q=_Q, tt=_TT):
     return potential.RotateAndTiltWrapperPotential(
         pot=potential.SCFPotential(Acos=A, Asin=0.5 * A, a=1.0),
-        center=(_TT, xyz),
-        orientation=(_TT, q),
+        center=(tt, xyz),
+        orientation=(tt, q),
         offset=[0.05, -0.02, 0.01],
     )
 
@@ -103,6 +103,14 @@ _O3 = Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])
 _O3.integrate(numpy.linspace(-1.0, 2.0, 301), potential.MWPotential2014)
 _MOP = potential.MovingObjectPotential(
     _O3, pot=potential.SCFPotential(amp=0.1, Acos=_A, Asin=0.5 * _A, a=0.2)
+)
+_O2 = Orbit([1.1, 0.1, 1.1, 0.1])
+_O2.integrate(numpy.linspace(-1.0, 2.0, 301), potential.MWPotential2014)
+_PLANAR_CENTER = potential.RotateAndTiltWrapperPotential(
+    pot=potential.SCFPotential(amp=0.1, Acos=_A, Asin=0.5 * _A, a=0.2),
+    center=_O2,
+    inclination=0.3,
+    galaxy_pa=0.2,
 )
 
 
@@ -115,10 +123,11 @@ def _arr(backend, x):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize("which", ["wrapper", "movingobject"])
+@pytest.mark.parametrize("which", ["wrapper", "movingobject", "planar_orbit_center"])
 def test_value_parity(backend, which):
-    # numpy tables evaluated at backend coordinates: the numpy values
-    pot = _wrapper() if which == "wrapper" else _MOP
+    # numpy tables (and a planar Orbit center) evaluated at backend
+    # coordinates: the numpy values
+    pot = {"wrapper": _wrapper(), "movingobject": _MOP}.get(which, _PLANAR_CENTER)
     for R, z, phi, t in _POINTS:
         for f in _FUNCS:
             want = f(pot, R, z, phi=phi, t=t)
@@ -135,13 +144,16 @@ def test_value_parity(backend, which):
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
-@pytest.mark.parametrize("form", ["quaternions", "matrices"])
+@pytest.mark.parametrize("form", ["quaternions", "matrices", "times"])
 def test_backend_tables(backend, form):
-    # tables given as backend arrays (splines built in the backend) give the
-    # numpy tables' values
+    # tables given as backend arrays (splines built in the backend), or numpy
+    # tables at backend times, give the numpy tables' values
     pot_np = _wrapper()
-    q = _Q if form == "quaternions" else _rotmats(_Q)
-    pot_bk = _wrapper(xyz=_arr(backend, _XYZ), q=_arr(backend, q))
+    if form == "times":
+        pot_bk = _wrapper(tt=_arr(backend, _TT))
+    else:
+        q = _Q if form == "quaternions" else _rotmats(_Q)
+        pot_bk = _wrapper(xyz=_arr(backend, _XYZ), q=_arr(backend, q))
     for R, z, phi, t in _POINTS:
         for f in _FUNCS:
             want = f(pot_np, R, z, phi=phi, t=t)
@@ -362,11 +374,30 @@ def _function_wrappers(omega=1.3):
     )
 
 
+def _center_shape_wrappers():
+    # centers returned as a (3,1) array (as [o.x(t), o.y(t), o.z(t)] of an
+    # Orbit) and as a list of scalars (backend scalars at a backend t)
+    scf = potential.SCFPotential(amp=0.1, Acos=_A, Asin=0.5 * _A, a=0.2)
+    return (
+        potential.RotateAndTiltWrapperPotential(
+            pot=scf, center=lambda t: _center_func(t)[:, None]
+        ),
+        potential.RotateAndTiltWrapperPotential(
+            pot=scf,
+            center=lambda t: [
+                0.3 * _ns(t).cos(0.7 * t),
+                0.2 * _ns(t).sin(0.7 * t),
+                0.05,
+            ],
+        ),
+    )
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_functions_of_time_parity(backend):
     # a center and an orientation, and an angle, given as functions of time:
     # the backends evaluate them in the backend and give numpy's values
-    for pot in _function_wrappers():
+    for pot in _function_wrappers() + _center_shape_wrappers():
         for R, z, phi, t in _POINTS:
             for f in _FUNCS:
                 want = f(pot, R, z, phi=phi, t=t)
@@ -413,4 +444,46 @@ def test_functions_of_time_grad(backend):
     assert numpy.fabs(float(as_numpy(grad)) - fd) < 1e-7 * max(1.0, numpy.fabs(fd)), (
         f"The gradient wrt a pattern speed on {backend} does not agree with finite differences"
     )
+    return None
+
+
+# rotation by -90 deg about x: the wrapped mid-plane contains the vertical line
+_EDGE_ON = numpy.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]])
+_SPLIT_CASES = {
+    "center": dict(center=_center_func),
+    "center+offset": dict(center=_center_func, offset=[0.05, -0.02, 0.01]),
+    "center+tilt": dict(center=_center_func, zvec=[0.36, 0.48, 0.8], galaxy_pa=0.4),
+    "orientation": dict(orientation=_orientation_func),
+    "tables": dict(
+        center=(_TT, _XYZ), orientation=(_TT, _Q), offset=[0.05, -0.02, 0.01]
+    ),
+    "edge-on": dict(orientation=lambda t: _EDGE_ON),
+}
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("case", list(_SPLIT_CASES))
+def test_vertical_quad_split_time_dependent(backend, case):
+    # the vertical quadratures' split is where the wrapped potential's own z'
+    # vanishes at time t (0 edge-on), on numpy and the backends
+    pot = potential.RotateAndTiltWrapperPotential(
+        pot=potential.MiyamotoNagaiPotential(a=0.5, b=0.05), **_SPLIT_CASES[case]
+    )
+    for R, _, phi, t in _POINTS:
+        want = float(pot._vertical_quad_split(R, phi=phi, t=t))
+        got = float(
+            as_numpy(
+                pot._vertical_quad_split(
+                    _arr(backend, R), phi=_arr(backend, phi), t=_arr(backend, t)
+                )
+            )
+        )
+        assert numpy.fabs(got - want) < 1e-13, (
+            f"The vertical split of a time-dependent wrapper on {backend} does not agree with numpy"
+        )
+        if case == "edge-on":
+            assert want == 0.0
+        else:
+            zp = float(pot._rect_transformed(numpy, R, want, phi, t=t)[2])
+            assert numpy.fabs(zp) < 1e-12, f"z' = {zp:e} at the split {want:e}"
     return None
