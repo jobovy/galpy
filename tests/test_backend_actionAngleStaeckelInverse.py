@@ -840,7 +840,11 @@ def test_backend_construction_checks(backend):
         # test_actionAngle.py's deep radial orbit, whose lift with two
         # harmonics is unbound
         deep = (-0.25500291609372505, 0.15, 0.2685635457298501)
-        with pytest.raises(RuntimeError, match="not bound in the fitted auxiliary"):
+        with pytest.raises(
+            RuntimeError,
+            match="not bound in the fitted auxiliary.*at most about six times its "
+            "square root",
+        ):
             _explicit(labels=[deep], mm_npt=2, mm_nta=16)
 
 
