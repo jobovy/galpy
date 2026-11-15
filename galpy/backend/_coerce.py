@@ -465,26 +465,40 @@ def map_row_chunks(xp, f, args, step):
     return tuple(cat([o[k] for o in outs], axis=0) for k in range(len(outs[0])))
 
 
-def map_bucketed_rows(xp, fs, bucket, args, step):
+def map_bucketed_rows(xp, fs, bucket, args, step, split_min=0):
     """``fs[b](*rows)`` for the rows of bucket ``b`` (an integer array, one
     entry per row; evaluating a row with a later function must give the same
     result, e.g. the same sum with more terms that are zero), each function
     row-wise and returning a tuple of arrays, in chunks of at most ``step``
-    rows; the outputs in the rows' original order. Eager torch: each bucket's
-    rows on their own, through map_row_chunks. jax (traced or not): the rows
-    sorted by bucket and chunks of equal size through ``jax.lax.map``, each
-    with the function of its largest bucket (``jax.lax.switch``), so that
-    shapes stay static."""
+    rows; the outputs in the rows' original order. Rows that fit in one chunk
+    under jax, or at most ``split_min`` rows, are evaluated together with the
+    function of their largest bucket (``jax.lax.switch`` under a trace).
+    Otherwise, torch: each bucket's rows on their own, through
+    map_row_chunks; jax: the rows sorted by bucket and chunks of equal size,
+    each with the function of its largest bucket (``jax.lax.map`` under a
+    trace), so that shapes do not depend on the buckets (static under a
+    trace; eager jax compiles every operation for every new shape)."""
     n = args[0].shape[0]
     if len(fs) == 1:
         return map_row_chunks(xp, fs[0], args, step)
-    if name_of_namespace(xp) == "jax":
+    jax_ns = name_of_namespace(xp) == "jax"
+    if under_jax_trace(bucket, *args):
+        if n <= step:
+            import jax
+
+            branches = [lambda *a, f=f: tuple(f(*a)) for f in fs]
+            return jax.lax.switch(xp.max(bucket), branches, *args)
+    else:
+        from ._namespaces import as_numpy
+
+        nb = numpy.asarray(as_numpy(bucket))
+        if n <= (max(split_min, step) if jax_ns else split_min):
+            return tuple(fs[int(numpy.max(nb, initial=0))](*args))
+    if jax_ns:
         from ._jax.chunks import map_bucketed_rows as _bk
 
         return _bk(fs, bucket, args, -(-n // -(-n // step)))
-    from ._namespaces import as_numpy
-
-    bucket = numpy.asarray(as_numpy(bucket))
+    bucket = nb
     order, groups = [], []
     for b, f in enumerate(fs):
         idx = numpy.flatnonzero(bucket == b)

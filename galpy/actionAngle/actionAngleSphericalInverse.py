@@ -28,6 +28,7 @@ from ..backend import (
     lazy_cond,
     map_bucketed_rows,
     match_input_dtype,
+    on_accelerator,
     to_host,
 )
 from ..backend._namespaces import stop_gradient, under_jax_trace
@@ -130,9 +131,14 @@ def _harmonics_kept_xp(xp, Dm):
 
 
 # the jax/torch array evaluation of a family evaluates its points in chunks
-# of this many, each chunk with the harmonics of the coarse bucket of its
-# cells (_backend_buckets)
+# of _BK_BUCKET_STEP points (on a GPU, of _BK_GPU_ELEMENTS harmonics: a GPU
+# needs large chunks), each chunk with the harmonics of the coarse bucket of
+# its cells (_backend_buckets); an eager call of at most _BK_SPLIT_ELEMENTS
+# harmonics (on a GPU, one chunk) is evaluated in one pass, with those of its
+# largest bucket, as a pass per bucket costs more than it saves there
 _BK_BUCKET_STEP = 16384
+_BK_GPU_ELEMENTS = 2**25
+_BK_SPLIT_ELEMENTS = 2**18
 
 
 def _backend_buckets(npt, need, xp=numpy):
@@ -2950,7 +2956,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     fs,
                     self._bk_point_bucket(xp, u, L),
                     (jr_s, jphi, jz, L, thr, anglephi, anglez, u),
-                    _BK_BUCKET_STEP,
+                    *self._bk_chunking(jr),
                 )
                 return tuple(outs[:6]), outs[6], outs[7]
             tables = self._bk_interp_tables(xp, jr_s, L)
@@ -2986,6 +2992,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
             (OmR, OmL, (rp, ra), (drpJ, draJ), (drpL, draL), Dm, dDmJ, dDmL),
         )
         return tuple(out[:6]), out[6], out[7]
+
+    def _bk_chunking(self, x):
+        """The number of points in a chunk of the bucketed evaluation of the
+        points x, and that up to which an eager one is a single pass"""
+        if on_accelerator(x):
+            step = max(_BK_BUCKET_STEP, _BK_GPU_ELEMENTS // self._npt)
+            return step, step
+        return _BK_BUCKET_STEP, _BK_SPLIT_ELEMENTS // self._npt
 
     def _bk_librating_rows(self, xp, jr_s, jphi, jz, L, thr, anglephi, anglez, u, ntab):
         """_bk_librating for the points of a family at their labels u, with

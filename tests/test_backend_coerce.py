@@ -323,6 +323,37 @@ def test_map_row_chunks(backend_name):
         numpy.testing.assert_allclose(as_numpy(g4), as_numpy(g11), rtol=1e-14)
 
 
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_on_accelerator(backend_name, monkeypatch):
+    # numpy arrays and Python scalars are never on an accelerator; a backend
+    # array is iff its device is not the CPU, and a jax tracer iff jax's
+    # default backend is not
+    from galpy.backend import on_accelerator
+
+    pytest.importorskip(backend_name)
+    assert not on_accelerator(numpy.ones(3)) and not on_accelerator(1.0)
+    if backend_name == "torch":
+        import torch
+
+        x = torch.ones(3)
+        assert on_accelerator(x) == (x.device.type != "cpu")
+        return None
+    import jax
+    import jax.numpy as jnp
+
+    x = jnp.ones(3)
+    assert on_accelerator(x) == (x.device.platform != "cpu")
+    for kind, want in (
+        (jax.default_backend(), x.device.platform != "cpu"),
+        ("gpu", True),
+    ):
+        monkeypatch.setattr(jax, "default_backend", lambda kind=kind: kind)
+        seen = []
+        jax.jit(lambda y: seen.append(on_accelerator(y)) or y)(x)
+        assert seen == [want]
+    return None
+
+
 # --- tracing never reads a jax tracer's .device -------------------------------
 # A jax tracer has no device, and asking for one raises an AttributeError whose
 # message, the trace's provenance, jax builds by walking the trace: ~0.4 s per

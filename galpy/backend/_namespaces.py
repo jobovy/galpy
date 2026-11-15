@@ -674,6 +674,21 @@ def device_of(*coords):
     return None
 
 
+def on_accelerator(x):
+    """True if the backend array ``x`` lives on a GPU (or another accelerator;
+    a jax tracer: if jax computes on one by default), False on the CPU and for
+    numpy arrays and Python scalars"""
+    if under_jax_trace(x):
+        import jax
+
+        return jax.default_backend() != "cpu"
+    device = device_of(x)
+    if device is None:
+        return False
+    # torch devices have a type, jax devices a platform
+    return (getattr(device, "type", None) or device.platform) != "cpu"
+
+
 _DEFAULT_DEVICE = {}
 
 

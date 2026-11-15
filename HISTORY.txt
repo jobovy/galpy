@@ -13,12 +13,15 @@ v2.0.0b2 (pre-release)
   ``actionAngleSphericalInverse`` family reads, for every point, only the
   harmonics of its cell's coarse bucket (32, 128 or ``mm_npt``) of the
   harmonics its tori keep, like the numpy evaluation (the other
-  coefficients are zero): about 2.5 times faster under ``jax.jit`` and 4.5
-  times faster with PyTorch for a family whose tori need up to 192
-  harmonics, with the same outputs to round-off. The points are sorted by
-  bucket and evaluated in equal chunks (``jax.lax.map`` with
-  ``jax.lax.switch`` to each chunk's bucket under JAX, so that shapes stay
-  static), with the new ``galpy.backend.map_bucketed_rows``.
+  coefficients are zero): on a CPU, about 2.5 times faster under
+  ``jax.jit`` and 4.5 times faster with PyTorch for a family whose tori need
+  up to 192 harmonics, with the same outputs to round-off. A large call is
+  evaluated in equal chunks of points sorted by bucket, each with its
+  largest bucket (``jax.lax.map`` with ``jax.lax.switch`` under a JAX trace,
+  so that shapes stay static), or, with PyTorch, a pass per bucket; a small
+  call, in one pass with its largest bucket. On a GPU the chunks are large
+  and any call that fits in one is a single pass. With the new
+  ``galpy.backend.map_bucketed_rows`` and ``galpy.backend.on_accelerator``.
 
 - ``actionAngleSphericalInverse`` evaluates arrays of points on an
   interpolated family about twice as fast, with identical results: in the
