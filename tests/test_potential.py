@@ -9836,7 +9836,6 @@ def test_RotateAndTiltWrapper_functions_of_time():
     # evaluates them at every time, so that the potential at
     # x = c(t) + R(t)^T d is the wrapped potential at d; C tabulates them over
     # the integration's time range (cinterp_n times) and agrees with Python
-    from galpy.orbit.integrateFullOrbit import _parse_pot
 
     A = numpy.zeros((2, 3, 3))
     A[0, 0, 0] = 1.0
@@ -9902,9 +9901,12 @@ def test_RotateAndTiltWrapper_functions_of_time():
     ), (
         "C vertical orbit integration with a center and orientation given as functions of time does not agree with Python"
     )
-    # functions of time need the integration times in C
-    with pytest.raises(NotImplementedError, match="function of time"):
-        _parse_pot([rtw])
+    # functions of time are tabulated over the integration times in C, which
+    # a surface of section does not know in advance
+    with pytest.raises(NotImplementedError, match="surface-of-section"):
+        orbit.Orbit([1.1, 0.0, 1.0, 0.05, 0.02, 0.1]).SOS(
+            potential.MWPotential2014 + rtw, ncross=2, method="dop853_c"
+        )
     # an orientation function must return a rotation matrix or a quaternion
     bad = potential.RotateAndTiltWrapperPotential(
         pot=scf, orientation=lambda t: numpy.eye(2)
@@ -9971,16 +9973,24 @@ def test_RotateAndTiltWrapper_center_orientation_errors():
         potential.RotateAndTiltWrapperPotential(
             pot=pot, orientation=(tt, q), zvec=[0, 0, 1]
         )
-    with pytest.raises(ValueError, match="tuple"):
+    with pytest.raises(ValueError, match="constant orientation="):
         potential.RotateAndTiltWrapperPotential(pot=pot, orientation=q)
+    with pytest.raises(ValueError, match="rotation matrices"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, orientation=2.0 * numpy.eye(3))
     with pytest.raises(ValueError, match=r"\(N,4\)"):
         potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt, q[:, :3]))
     with pytest.raises(ValueError, match="rotation matrices"):
         potential.RotateAndTiltWrapperPotential(
             pot=pot, orientation=(tt, numpy.tile(2.0 * numpy.eye(3), (5, 1, 1)))
         )
-    with pytest.raises(ValueError, match="increasing"):
-        potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt[::-1], q))
+    with pytest.raises(ValueError, match="strictly increasing or decreasing"):
+        potential.RotateAndTiltWrapperPotential(
+            pot=pot, orientation=(tt[[0, 2, 1, 3, 4]], q)
+        )
+    with pytest.raises(ValueError, match="strictly increasing or decreasing"):
+        potential.RotateAndTiltWrapperPotential(
+            pot=pot, center=(tt[[0, 2, 1, 3, 4]], numpy.zeros((5, 3)))
+        )
     with pytest.raises(ValueError, match="at least 3"):
         potential.RotateAndTiltWrapperPotential(pot=pot, orientation=(tt[:2], q[:2]))
     with pytest.raises(ValueError, match="same length"):
@@ -9999,6 +10009,76 @@ def test_RotateAndTiltWrapper_center_orientation_errors():
         potential.RotateAndTiltWrapperPotential(
             pot=pot, center=orbit.Orbit([[1.0, 0.0, 1.0, 0.0, 0.0, 0.0]] * 2)
         )
+    # an Orbit's integration times are checked like a table's
+    o = orbit.Orbit([1.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+    o.integrate(tt[:2], potential.MWPotential2014)
+    with pytest.raises(ValueError, match="at least 3"):
+        potential.RotateAndTiltWrapperPotential(pot=pot, center=o)
+    return None
+
+
+def test_RotateAndTiltWrapper_constant_orientation_and_decreasing_tables():
+    # A constant orientation=, a rotation matrix or a quaternion, is the same
+    # as the angles that give that rotation, in Python and in C; and tables
+    # with decreasing times are the same as the same tables reversed
+    from galpy.potential.RotateAndTiltWrapperPotential import _matrix_to_quaternion
+
+    bar = potential.SoftenedNeedleBarPotential(
+        amp=0.02, a=0.3, b=0.0, c=0.1, pa=0.3, omegab=0.0
+    )
+    angles = potential.RotateAndTiltWrapperPotential(
+        pot=bar, inclination=0.4, galaxy_pa=0.3, sky_pa=-0.7
+    )
+    rot = angles._rot
+    tt = numpy.linspace(0.0, 2.0, 7)
+    q = _quaternions_about_axis(tt, [0.2, 0.3, 1.0])
+    xyz = numpy.array([0.1 * numpy.sin(tt), 0.2 * tt, 0.05 * tt**2]).T
+    pairs = [
+        (angles, potential.RotateAndTiltWrapperPotential(pot=bar, orientation=rot)),
+        (
+            angles,
+            potential.RotateAndTiltWrapperPotential(
+                pot=bar, orientation=_matrix_to_quaternion(rot[None])[0]
+            ),
+        ),
+        (
+            potential.RotateAndTiltWrapperPotential(
+                pot=bar, orientation=(tt, q), center=(tt, xyz)
+            ),
+            potential.RotateAndTiltWrapperPotential(
+                pot=bar, orientation=(tt[::-1], q[::-1]), center=(tt[::-1], xyz[::-1])
+            ),
+        ),
+    ]
+    ts = numpy.linspace(0.0, 2.0, 101)
+    for want, got in pairs:
+        for R, z, phi, t in ((0.9, 0.1, 0.3, 0.2), (1.2, -0.2, 2.0, 1.7)):
+            for f in (
+                potential.evaluatePotentials,
+                potential.evaluateRforces,
+                potential.evaluatezforces,
+                potential.evaluatephitorques,
+            ):
+                assert numpy.fabs(
+                    f(got, R, z, phi=phi, t=t) - f(want, R, z, phi=phi, t=t)
+                ) < 1e-13 * (1.0 + numpy.fabs(f(want, R, z, phi=phi, t=t))), (
+                    "A constant orientation= or a table with decreasing times does not give the same potential"
+                )
+        os = [orbit.Orbit([1.1, 0.1, 1.0, 0.05, 0.02, 0.3]) for _ in range(3)]
+        os[0].integrate(ts, potential.MWPotential2014 + got, method="dop853_c")
+        os[1].integrate(ts, potential.MWPotential2014 + want, method="dop853_c")
+        os[2].integrate(ts, potential.MWPotential2014 + got, method="dop853")
+        for o in os[1:]:
+            for c in ("x", "y", "z", "vx", "vy", "vz"):
+                assert (
+                    numpy.amax(
+                        numpy.fabs(
+                            as_numpy(getattr(os[0], c)(ts))
+                            - as_numpy(getattr(o, c)(ts))
+                        )
+                    )
+                    < 1e-8
+                ), "Orbits in a constant orientation= or a decreasing table differ"
     return None
 
 

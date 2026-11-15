@@ -122,11 +122,12 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
         self._voSet = Pot._voSet
         self._Pot = Pot
         self.isConservative = Pot.isConservative
-        # Only advertise C support when the wrapped force's C
-        # implementation extends to its planar version (hasC_planar)
-        _hasC_planar = getattr(Pot, "hasC_planar", True)
-        self.hasC = Pot.hasC and _hasC_planar
-        self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
+        # A force without a planar C implementation of its own
+        # (hasC_planar=False) integrates planar orbits in C with its 3D one at
+        # z = 0, v_z = 0; the planar variational equations in C have no
+        # velocity-dependent forces
+        self.hasC = Pot.hasC
+        self.hasC_dxdv = Pot.hasC_dxdv and getattr(Pot, "hasC_planar", True)
         self.hasC_dens = Pot.hasC_dens
         return None
 

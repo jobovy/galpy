@@ -711,11 +711,15 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       break;
     //ChandrasekharDynamicalFrictionForce omitted, bc no planar version
     //RotateAndTiltWrapperPotential: through PlanarFromFullPotential (-13)
-    case -13: //PlanarFromFullPotential: a 3D potential without a planar C
-              //implementation of its own (e.g., RotateAndTiltWrapperPotential
-              //or a non-axisymmetric MovingObjectPotential) at z = 0
+    case -13: //PlanarFromFullPotential: a 3D force without a planar C
+              //implementation of its own (e.g., RotateAndTiltWrapperPotential,
+              //a non-axisymmetric MovingObjectPotential, or
+              //ChandrasekharDynamicalFrictionForce) at z = 0 (and v_z = 0);
+              //velocity-dependent when a wrapped force is (set below)
       potentialArgs->planarRforce= &PlanarFromFullPotentialPlanarRforce;
       potentialArgs->planarphitorque= &PlanarFromFullPotentialPlanarphitorque;
+      potentialArgs->planarRforceVelocity= &PlanarFromFullPotentialPlanarRforceVelocity;
+      potentialArgs->planarphitorqueVelocity= &PlanarFromFullPotentialPlanarphitorqueVelocity;
       potentialArgs->planarR2deriv= &PlanarFromFullPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &PlanarFromFullPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &PlanarFromFullPotentialPlanarRphideriv;
@@ -770,10 +774,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->wrappedPotentialArg= \
 	(struct potentialArg *) malloc ( potentialArgs->nwrapped	\
 					 * sizeof (struct potentialArg) );
-      if ( *(*pot_type-1) == -13 ) // PlanarFromFullPotential wraps 3D ones
+      if ( *(*pot_type-1) == -13 ) { // PlanarFromFullPotential wraps 3D ones
 	parse_leapFuncArgs_Full(potentialArgs->nwrapped,
 				potentialArgs->wrappedPotentialArg,
 				pot_type,pot_args,pot_tfuncs);
+	for (jj=0; jj < potentialArgs->nwrapped; jj++)
+	  if ( (potentialArgs->wrappedPotentialArg+jj)->requiresVelocity )
+	    potentialArgs->requiresVelocity= true;
+      }
       else
 	parse_leapFuncArgs(potentialArgs->nwrapped,
 			   potentialArgs->wrappedPotentialArg,

@@ -171,6 +171,58 @@ def test_backend_tables(backend, form):
     return None
 
 
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_backend_constant_orientation_and_decreasing_tables(backend):
+    # backend tables with decreasing times (reversed in the backend) and a
+    # constant orientation= given as a backend rotation matrix or quaternion
+    # give the numpy values
+    from galpy.potential.RotateAndTiltWrapperPotential import _matrix_to_quaternion
+
+    scf = potential.SCFPotential(Acos=_A, Asin=0.5 * _A, a=1.0)
+    angles = potential.RotateAndTiltWrapperPotential(
+        pot=scf, inclination=0.4, galaxy_pa=0.3, sky_pa=-0.7
+    )
+    rot = angles._rot
+    pairs = (
+        (
+            _wrapper(),
+            _wrapper(
+                xyz=_arr(backend, _XYZ[::-1].copy()),
+                q=_arr(backend, _Q[::-1].copy()),
+                tt=_arr(backend, _TT[::-1].copy()),
+            ),
+        ),
+        (
+            angles,
+            potential.RotateAndTiltWrapperPotential(
+                pot=scf, orientation=_arr(backend, rot)
+            ),
+        ),
+        (
+            angles,
+            potential.RotateAndTiltWrapperPotential(
+                pot=scf, orientation=_arr(backend, _matrix_to_quaternion(rot[None])[0])
+            ),
+        ),
+    )
+    for want_pot, got_pot in pairs:
+        for R, z, phi, t in _POINTS:
+            for f in _FUNCS:
+                want = f(want_pot, R, z, phi=phi, t=t)
+                got = f(
+                    got_pot,
+                    *(_arr(backend, v) for v in (R, z)),
+                    phi=_arr(backend, phi),
+                    t=_arr(backend, t),
+                )
+                assert numpy.fabs(float(as_numpy(got)) - want) < 1e-12 * max(
+                    1.0, numpy.fabs(want)
+                ), (
+                    f"{f.__name__} with a decreasing backend table or a constant backend orientation= on {backend} does not agree with numpy"
+                )
+    return None
+
+
 def _fd_grad(fun, x, h=1e-6, valid=None):
     # central finite-difference gradient of a scalar numpy function (zero
     # outside of the valid entries)

@@ -51,13 +51,18 @@ def _parse_pot(pot, t=None):
     pot_tfuncs = []
     npot = len(pot)
     for p in pot:
-        if isinstance(p, planarPotentialFromFullPotential) and not getattr(
-            p._Pot, "hasC_planar", True
-        ):
-            # A 3D potential without a planar C implementation of its own
+        if isinstance(
+            p,
+            (
+                planarPotentialFromFullPotential,
+                planarDissipativeForceFromFullDissipativeForce,
+            ),
+        ) and not getattr(p._Pot, "hasC_planar", True):
+            # A 3D force without a planar C implementation of its own
             # (RotateAndTiltWrapperPotential, a non-axisymmetric
-            # MovingObjectPotential, or a wrapper of one): its 3D C
-            # implementation at z = 0 (PlanarFromFullPotential)
+            # MovingObjectPotential, a wrapper of one, or
+            # ChandrasekharDynamicalFrictionForce): its 3D C implementation at
+            # z = 0, v_z = 0 (PlanarFromFullPotential)
             from .integrateFullOrbit import _parse_pot as _parse_pot_full
 
             pot_type.append(-13)

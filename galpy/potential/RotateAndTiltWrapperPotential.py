@@ -118,9 +118,9 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         vo : float or Quantity, optional
             Velocity scale for translation into internal units (default from configuration file).
         center : numpy.ndarray, Quantity, tuple, Orbit, or callable, optional
-            Position of the wrapped potential's origin in the (Galactocentric) frame of the evaluation point, before the rotation: a constant (x,y,z), a tabulated path ``(t, xyz)`` with ``t`` an increasing array of N >= 3 times and ``xyz`` an (N,3) array of positions (interpolated with a natural cubic spline, and held at its end values outside of the tabulated times), an integrated ``Orbit`` (its positions; interpolated by the Orbit itself in Python and by a natural cubic spline of its integration output in C, and held at its end positions outside of the integration times), or a function of time (in internal units) returning (x,y,z) (in internal units). Any object with an Orbit's ``t`` attribute and ``x``, ``y``, ``z``, ``dim``, and ``turn_physical_off`` methods (and, for the JAX and PyTorch backends, ``R``, ``phi``, and ``z`` that take ``_stored=True``) can stand in for the ``Orbit``.
-        orientation : tuple or callable, optional
-            Time-dependent rotation R(t), as a table ``(t, q)`` with ``t`` an increasing array of N >= 3 times and ``q`` either an (N,4) array of unit quaternions (w,x,y,z) or an (N,3,3) array of rotation matrices (the quaternions are interpolated with natural cubic splines and normalized after interpolation, and held at their end values outside of the tabulated times), or as a function of time (in internal units) returning a (3,3) rotation matrix or a (4,) quaternion; the rows of R(t) are the wrapped potential's axes in the frame of the evaluation point. Cannot be combined with inclination, galaxy_pa, sky_pa, or zvec.
+            Position of the wrapped potential's origin in the (Galactocentric) frame of the evaluation point, before the rotation: a constant (x,y,z), a tabulated path ``(t, xyz)`` with ``t`` an increasing or decreasing array of N >= 3 times and ``xyz`` an (N,3) array of positions (interpolated with a natural cubic spline, and held at its end values outside of the tabulated times), an integrated ``Orbit`` (its positions; interpolated by the Orbit itself in Python and by a natural cubic spline of its integration output in C, and held at its end positions outside of the integration times), or a function of time (in internal units) returning (x,y,z) (in internal units). Any object with an Orbit's ``t`` attribute and ``x``, ``y``, ``z``, ``dim``, and ``turn_physical_off`` methods (and, for the JAX and PyTorch backends, ``R``, ``phi``, and ``z`` that take ``_stored=True``) can stand in for the ``Orbit``.
+        orientation : numpy.ndarray, tuple, or callable, optional
+            Rotation R of the wrapped potential: constant, as a (3,3) rotation matrix or a (4,) unit quaternion (w,x,y,z), or time-dependent, R(t), as a table ``(t, q)`` with ``t`` an increasing or decreasing array of N >= 3 times and ``q`` either an (N,4) array of unit quaternions (w,x,y,z) or an (N,3,3) array of rotation matrices (the quaternions are interpolated with natural cubic splines and normalized after interpolation, and held at their end values outside of the tabulated times), or as a function of time (in internal units) returning a (3,3) rotation matrix or a (4,) quaternion; the rows of R(t) are the wrapped potential's axes in the frame of the evaluation point. Cannot be combined with inclination, galaxy_pa, sky_pa, or zvec.
         cinterp_n : int, optional
             For C orbit integration, a center, orientation, or angles given as functions of time are tabulated at this many times over the integration's time range and interpolated with natural cubic splines (held at their end values outside of that range), as for ``NonInertialFrameForce``'s ``cinterp``; in Python and with the JAX and PyTorch backends, the functions are evaluated at every time (with the backends, they are traced and differentiated if they are written in the array namespace, e.g., ``jax.numpy``). Default is 3000.
 
@@ -238,7 +238,12 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         return (zvec, galaxy_pa + xp.atan2(pa[1], pa[0]))
 
     def _setup_zvec_pa(self, zvec, pa):
-        self._rot = _zvec_pa_rotation(zvec, pa)
+        self._set_rot(_zvec_pa_rotation(zvec, pa))
+        return None
+
+    def _set_rot(self, rot):
+        """Set the constant rotation matrix and its inverse"""
+        self._rot = rot
         if is_backend_array(self._rot):
             self._inv_rot = namespace_from_arrays((self._rot,)).linalg.inv(self._rot)
         else:
@@ -275,6 +280,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             # its integration times' range, outside of which it is held
             tc = self._center_orb.t
             tc = tc if is_backend_array(tc) else numpy.asarray(tc, dtype=float)
+            _increasing_table(tc, None, "a center= Orbit's integration")
             self._center_trange = (tc.min(), tc.max())
         elif isinstance(center, tuple):
             if len(center) != 2:
@@ -292,8 +298,12 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
                     "RotateAndTiltWrapperPotential: a tabulated center= (t, xyz) needs xyz of shape (len(t), 3)"
                 )
             self._center_type = "table"
-            self._center_t, self._center_xyz = tc, xyzc
-            self._center_spline, self._center_c = _table_spline(tc, xyzc)
+            self._center_t, self._center_xyz = _increasing_table(
+                tc, xyzc, "a tabulated center="
+            )
+            self._center_spline, self._center_c = _table_spline(
+                self._center_t, self._center_xyz
+            )
         else:
             if isinstance(center, list) and any(is_backend_array(c) for c in center):
                 ref = next(c for c in center if is_backend_array(c))
@@ -327,7 +337,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         if tabulate:
             if t is None:
                 raise NotImplementedError(
-                    "RotateAndTiltWrapperPotential: a center or orientation that is a function of time is only supported in C for orbit integration"
+                    "RotateAndTiltWrapperPotential: a center or orientation that is a function of time is tabulated for C over the integration's time range, which is not known in advance for a surface-of-section (SOS) integration (or in the C action-angle methods); use a Python integrator for those (e.g., method='dop853')"
                 )
             tn = numpy.asarray(as_numpy(t), dtype=float)
             key = (float(numpy.amin(tn)), float(numpy.amax(tn)), self._cinterp_n)
@@ -347,9 +357,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
                     as_numpy(orb.z(tc)) if orb.dim() == 3 else numpy.zeros_like(tc),
                 ]
             ).T
-            if tc[-1] < tc[0]:
-                tc, xyzc = tc[::-1], xyzc[::-1]
-            center = (tc, xyzc)
+            center = _increasing_table(tc, xyzc, "a center= Orbit's integration")
         elif self._center_type == "function":
             center = (
                 tgrid,
@@ -377,9 +385,24 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         elif callable(orientation):
             self._orient_type = "function"
             self._orient_func = orientation
-        elif orientation is not None:
+        elif isinstance(orientation, tuple) and len(orientation) == 2:
             self._orient_type = "table"
             self._setup_orientation_table(orientation)
+        elif orientation is not None:
+            # a constant rotation, like one that the angles set
+            rot = (
+                orientation
+                if is_backend_array(orientation)
+                else numpy.array(orientation, dtype=float)
+            )
+            if tuple(rot.shape) == (3, 3):
+                _check_rotation_matrices(rot)
+            self._set_rot(
+                _as_rotation_matrix(
+                    rot, "a constant orientation= (else a table (t, q) or a function)"
+                )
+            )
+            self._norot = False
         self._orientation = self._orient_type is not None
         if self._orientation:
             self._norot = False
@@ -388,10 +411,6 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
     def _setup_orientation_table(self, orientation):
         """Set up the orientation from a table of quaternions or rotation
         matrices"""
-        if not isinstance(orientation, tuple) or len(orientation) != 2:
-            raise ValueError(
-                "RotateAndTiltWrapperPotential: orientation= is a tuple (t, quaternions or rotation matrices)"
-            )
         q = orientation[1]
         if not is_backend_array(q):
             q = numpy.array(q, dtype=float)
@@ -399,19 +418,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         # get_namespace would return)
         xp = get_namespace(q) if is_backend_array(q) else numpy
         if q.ndim == 3 and tuple(q.shape[1:]) == (3, 3):
-            if not (under_trace(q) or requires_backend_grad(q)) and (
-                numpy.amax(
-                    numpy.fabs(
-                        numpy.einsum("nij,nkj->nik", as_numpy(q), as_numpy(q))
-                        - numpy.eye(3)
-                    )
-                )
-                > 1e-8
-                or numpy.any(numpy.linalg.det(as_numpy(q)) < 0.0)
-            ):
-                raise ValueError(
-                    "RotateAndTiltWrapperPotential: orientation= matrices must be rotation matrices"
-                )
+            _check_rotation_matrices(q)
             q = (
                 _matrix_to_quaternion(q)
                 if xp is numpy
@@ -421,13 +428,17 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             raise ValueError(
                 "RotateAndTiltWrapperPotential: orientation= needs an (N,4) array of quaternions or an (N,3,3) array of rotation matrices"
             )
+        self._orient_t, q = _increasing_table(
+            _parse_table_times(
+                orientation[0], q.shape[0], "orientation", ro=self._ro, vo=self._vo
+            ),
+            q,
+            "a tabulated orientation=",
+        )
         if xp is numpy:
             q = _continuous_unit_quaternions(q)
         else:
             q = _continuous_unit_quaternions_xp(xp, q)
-        self._orient_t = _parse_table_times(
-            orientation[0], q.shape[0], "orientation", ro=self._ro, vo=self._vo
-        )
         self._orient_q = q
         self._orient_spline, self._orient_c = _table_spline(self._orient_t, q)
         return None
@@ -480,20 +491,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         """The rotation matrix at time t in xp (None when there is no
         rotation)"""
         if self._orient_type == "function":
-            rot = _function_value(xp, self._orient_func(t), ref)
-            if tuple(rot.shape) == (4,):
-                rxp = numpy if not is_backend_array(rot) else get_namespace(rot)
-                rot = rot / rxp.sqrt(rxp.sum(rot * rot))
-                return (
-                    _quaternion_to_matrix(rot)
-                    if rxp is numpy
-                    else _quaternion_to_matrix_xp(rxp, rot)
-                )
-            if tuple(rot.shape) != (3, 3):
-                raise ValueError(
-                    "RotateAndTiltWrapperPotential: an orientation= function must return a (3,3) rotation matrix or a (4,) quaternion (w,x,y,z)"
-                )
-            return rot
+            return _as_rotation_matrix(_function_value(xp, self._orient_func(t), ref))
         elif self._orient_type == "angles":
             inclination, galaxy_pa, sky_pa, zvec = (
                 angle(t) if callable(angle) else angle for angle in self._angle_funcs
@@ -870,8 +868,8 @@ def _orbit_like(obj):
 
 
 def _parse_table_times(t, n, name, ro=None, vo=None):
-    """Times of a center= or orientation= table, checked to be increasing
-    (when concrete)"""
+    """Times of a center= or orientation= table, a 1D array of the table's
+    length"""
     t = conversion.parse_time(t, ro=ro, vo=vo)
     if not is_backend_array(t):
         t = numpy.array(t, dtype=float)
@@ -879,17 +877,68 @@ def _parse_table_times(t, n, name, ro=None, vo=None):
         raise ValueError(
             f"RotateAndTiltWrapperPotential: the times of a tabulated {name}= must be a 1D array of the same length as the table"
         )
-    if n < 3:
-        raise ValueError(
-            f"RotateAndTiltWrapperPotential: a tabulated {name}= needs at least 3 times"
-        )
-    if not (under_trace(t) or requires_backend_grad(t)) and numpy.any(
-        numpy.diff(as_numpy(t)) <= 0.0
-    ):
-        raise ValueError(
-            f"RotateAndTiltWrapperPotential: the times of a tabulated {name}= must be increasing"
-        )
     return t
+
+
+def _flip(a):
+    """a reversed along its first axis (numpy or backend)"""
+    if is_backend_array(a):
+        return namespace_from_arrays((a,)).flip(a, axis=0)
+    return a[::-1]
+
+
+def _increasing_table(t, values, what):
+    """The table (t, values) with increasing times (reversed if they
+    decrease), checked to have at least 3 strictly monotonic times (when
+    concrete: traced or differentiated times are taken to increase)"""
+    if t.shape[0] < 3:
+        raise ValueError(
+            f"RotateAndTiltWrapperPotential: {what} needs at least 3 times"
+        )
+    if under_trace(t) or requires_backend_grad(t):
+        return t, values
+    tn = numpy.asarray(as_numpy(t), dtype=float)
+    if tn[-1] < tn[0]:
+        t, tn = _flip(t), tn[::-1]
+        values = None if values is None else _flip(values)
+    if numpy.any(numpy.diff(tn) <= 0.0):
+        raise ValueError(
+            f"RotateAndTiltWrapperPotential: the times of {what} must be strictly increasing or decreasing"
+        )
+    return t, values
+
+
+def _check_rotation_matrices(m):
+    """Raise unless the (..., 3, 3) m are rotation matrices (when concrete)"""
+    if under_trace(m) or requires_backend_grad(m):
+        return None
+    mn = numpy.asarray(as_numpy(m), dtype=float)
+    if numpy.amax(
+        numpy.fabs(numpy.einsum("...ij,...kj->...ik", mn, mn) - numpy.eye(3))
+    ) > 1e-8 or numpy.any(numpy.linalg.det(mn) < 0.0):
+        raise ValueError(
+            "RotateAndTiltWrapperPotential: orientation= matrices must be rotation matrices"
+        )
+    return None
+
+
+def _as_rotation_matrix(rot, what="an orientation= function's value"):
+    """The rotation matrix of rot (numpy or backend), a (3,3) matrix or a
+    (4,) quaternion (w,x,y,z), the value of an orientation= function by
+    default"""
+    if tuple(rot.shape) == (4,):
+        rxp = numpy if not is_backend_array(rot) else get_namespace(rot)
+        rot = rot / rxp.sqrt(rxp.sum(rot * rot))
+        return (
+            _quaternion_to_matrix(rot)
+            if rxp is numpy
+            else _quaternion_to_matrix_xp(rxp, rot)
+        )
+    if tuple(rot.shape) != (3, 3):
+        raise ValueError(
+            f"RotateAndTiltWrapperPotential: {what} must be a (3,3) rotation matrix or a (4,) quaternion (w,x,y,z)"
+        )
+    return rot
 
 
 def _table_spline(t, table):
