@@ -26,6 +26,7 @@ from ..backend import (
     has_concrete_truth_value,
     is_backend_array,
     lazy_cond,
+    map_bucketed_rows,
     match_input_dtype,
     to_host,
 )
@@ -126,6 +127,27 @@ def _harmonics_kept_xp(xp, Dm):
     namespace xp (integer, not differentiated)"""
     n1, n2 = (_harmonics_needed_xp(xp, Dm, tol=tol) for tol in _NHARM_TOLS)
     return xp.clip(2 * n2 - n1 + 1, 1, Dm.shape[-1])
+
+
+# the jax/torch array evaluation of a family evaluates its points in chunks
+# of this many, each chunk with the harmonics of the coarse bucket of its
+# cells (_backend_buckets)
+_BK_BUCKET_STEP = 16384
+
+
+def _backend_buckets(npt, need, xp=numpy):
+    """The jax/torch evaluation's coarse buckets of harmonics (32, 128 and
+    mm_npt: few, as each is a compiled branch under jax.jit) and the index in
+    them of every cell's number, the largest need of its four nodes"""
+    buckets = tuple(b for b in (32, 128) if b < npt) + (npt,)
+    cell = xp.maximum(
+        xp.maximum(need[:-1, :-1], need[1:, :-1]),
+        xp.maximum(need[:-1, 1:], need[1:, 1:]),
+    )
+    idx = 0 * cell
+    for b in buckets[:-1]:
+        idx = idx + xp.where(cell > b, 1, 0)
+    return buckets, idx
 
 
 def _scalar_probe(t):
@@ -1149,6 +1171,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._nharm_buckets = numpy.array(
             [2**k for k in range(4, 31) if 2**k < self._npt] + [self._npt]
         )
+        self._bk_buckets, self._bk_cell_bucket = _backend_buckets(self._npt, need)
         self._nharm_cell = self._nharm_buckets[
             numpy.searchsorted(
                 self._nharm_buckets,
@@ -2455,6 +2478,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             xp, *(stop_gradient(t) for t in (Dm_tab, Dm_du, Dm_dL))
         )
         self._Dm_ip = HermiteFamily2D(us, Lg, Dm_tab, Dm_du, Dm_dL, nkeep=need)
+        self._bk_buckets, self._bk_cell_bucket = _backend_buckets(self._npt, need, xp)
         return None
 
     # ---------- evaluation on a backend (jax/torch)
@@ -2523,6 +2547,16 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 (1.0 - uf**2) * (Lf / rc**2) * (g / g0c),
             )
         )
+
+    def _bk_point_bucket(self, xp, u, L):
+        """The index in _bk_buckets of the cell of each point (u, L)"""
+        dev = device_of(u, L)
+        xg, yg, _ = self._Dm_ip._coeffs(xp, dev)
+        i, j, *_ = self._Dm_ip._bk_cells(xp, xg, yg, u, L)
+        table = self._bk_cell_bucket
+        if not is_backend_array(table):
+            table = asarray_on_device(xp, table, dev)
+        return xp.take(xp.reshape(table, (-1,)), i * (yg.shape[0] - 1) + j)
 
     def _bk_check_L(self, L):
         # stop_gradient first: inside a lax.cond branch a concrete L comes
@@ -2639,9 +2673,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
             dDm_dL - dDm_du * djr_dL / djr_du,
         )
 
-    def _bk_interp_tables_points(self, xp, u, L):
+    def _bk_interp_tables_points(self, xp, u, L, ntab=None):
         """_bk_interp_tables for vectors of tori at their labels u: the tables
-        and chains with one row per torus"""
+        and chains with one row per torus (with the map's first ntab
+        harmonics, all by default)"""
         x = u * u
         _, jr_dx, djr_dL = self._jr_ip.ev3(x, L)
         djr_du = 2.0 * u * jr_dx
@@ -2649,7 +2684,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         OmR = dE_dx / jr_dx
         OmL = dE_dL - OmR * djr_dL
         sup, dsup_du, dsup_dL = self._sup_ip.ev3(u, L)
-        Dm, dDm_du, dDm_dL = self._Dm_ip.ev3(u, L)
+        Dm, dDm_du, dDm_dL = self._Dm_ip.ev3(u, L, ntab=ntab)
         cJ, cL = 1.0 / djr_du, djr_dL / djr_du
         return (
             OmR,
@@ -2755,7 +2790,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     def _bk_kernel(self, xp, tau, a, e, Dm, rp, ra, chains):
         """_kernel in jax/torch"""
-        ms = asarray_on_device(xp, self._nforDm * 1.0, device_of(tau))
+        ms = asarray_on_device(xp, self._nforDm[: Dm.shape[-1]] * 1.0, device_of(tau))
         smt, cmt = _harmonics_xp(xp, tau, ms, pointwise=True)
         eta = tau + _bk_dot(xp, smt, Dm)
         deta = 1.0 + _bk_dot(xp, cmt, ms * Dm)
@@ -2894,12 +2929,35 @@ class actionAngleSphericalInverse(actionAngleInverse):
     def _bk_librating(self, xp, jr, jphi, jz, L, thr, anglephi, anglez, circ):
         """The (x, v) and the frequencies of a librating torus in jax/torch
         (the numpy _xvFreqs below its circular case); a circular request that
-        reaches it under a trace reads a stand-in torus"""
+        reaches it under a trace reads a stand-in torus. The points of an
+        array evaluation of a family are evaluated with the harmonics of
+        their cell's coarse bucket (_bk_buckets; as many as the numpy
+        evaluation would use, or more, whose coefficients are zero)"""
         if self._interp:
             jr_s = xp.where(circ, 0.5 * self._jr_ip.ev(1.0 + 0.0 * jr, L), jr)
-            OmR, OmL, (rp, ra), (drpJ, draJ), (drpL, draL), Dm, dDmJ, dDmL = (
-                self._bk_interp_tables(xp, jr_s, L)
+            if (
+                jr.ndim
+                and len(self._bk_buckets) > 1
+                and getattr(self, "_bk_bucketing", True)
+            ):
+                u = self._bk_label_of(xp, jr_s, L)
+                fs = tuple(
+                    (lambda *rows, nb=nb: self._bk_librating_rows(xp, *rows, ntab=nb))
+                    for nb in self._bk_buckets
+                )
+                outs = map_bucketed_rows(
+                    xp,
+                    fs,
+                    self._bk_point_bucket(xp, u, L),
+                    (jr_s, jphi, jz, L, thr, anglephi, anglez, u),
+                    _BK_BUCKET_STEP,
+                )
+                return tuple(outs[:6]), outs[6], outs[7]
+            tables = self._bk_interp_tables(xp, jr_s, L)
+            out = self._bk_librating_tables(
+                xp, jr_s, jphi, jz, L, thr, anglephi, anglez, tables
             )
+            return tuple(out[:6]), out[6], out[7]
         else:
             tabs = self._bk_node_tables(xp, device_of(jr))
             ii = self._bk_match_node(xp, tabs, jr, L)
@@ -2916,6 +2974,41 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ) = self._bk_node(xp, tabs, ii, jr, L)
             jr_s = xp.where(circ, 0.01 * L, jr_s)
             rp, ra = xp.where(circ, 0.9 * rp, rp), xp.where(circ, 1.1 * ra, ra)
+        out = self._bk_librating_tables(
+            xp,
+            jr_s,
+            jphi,
+            jz,
+            L,
+            thr,
+            anglephi,
+            anglez,
+            (OmR, OmL, (rp, ra), (drpJ, draJ), (drpL, draL), Dm, dDmJ, dDmL),
+        )
+        return tuple(out[:6]), out[6], out[7]
+
+    def _bk_librating_rows(self, xp, jr_s, jphi, jz, L, thr, anglephi, anglez, u, ntab):
+        """_bk_librating for the points of a family at their labels u, with
+        the map's first ntab harmonics: (x, v) and the frequencies as one
+        tuple"""
+        return self._bk_librating_tables(
+            xp,
+            jr_s,
+            jphi,
+            jz,
+            L,
+            thr,
+            anglephi,
+            anglez,
+            self._bk_interp_tables_points(xp, u, L, ntab=ntab),
+        )
+
+    def _bk_librating_tables(
+        self, xp, jr_s, jphi, jz, L, thr, anglephi, anglez, tables
+    ):
+        """The (x, v) and the frequencies of librating tori from their tables,
+        as one tuple"""
+        OmR, OmL, (rp, ra), (drpJ, draJ), (drpL, draL), Dm, dDmJ, dDmL = tables
         a, e = self._aAIinv._orbital_params(jr_s, L)
         one, zero = 1.0 + 0.0 * jr_s, 0.0 * jr_s
         _, _, daJ, deJ = self._aAIinv._orbital_param_chains(jr_s, L, one, zero)
@@ -2938,7 +3031,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             r,
             pr,
         )
-        return out, OmR, OmL
+        return (*out, OmR, OmL)
 
     def _bk_circular(self, xp, L, jphi, jz, thr, anglephi, anglez, explicit_jr=None):
         """The circular orbit of angular momentum L in jax/torch (as the numpy
