@@ -32,8 +32,9 @@ if _TQDM_LOADED:
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
-def _parse_pot(pot):
-    """Parse the potential so it can be fed to C"""
+def _parse_pot(pot, t=None):
+    """Parse the potential so it can be fed to C (t: the integration times,
+    over which a function of time of a wrapped potential is tabulated)"""
     from .integrateFullOrbit import _parse_scf_pot
 
     # Initialize everything
@@ -117,7 +118,7 @@ def _parse_pot(pot):
             pot_args.extend([p._amp * p._sigma2 / p._H, 2.0 * p._H])
         # All other potentials can be handled in the same way as follows:
         elif isinstance(p, verticalPotential):
-            _, pt, pa, ptf = _parse_pot_full(p._Pot)
+            _, pt, pa, ptf = _parse_pot_full(p._Pot, t=t)
             pot_type.extend(pt)
             pot_args.extend(pa)
             pot_tfuncs.extend(ptf)
@@ -172,7 +173,7 @@ def integrateLinearOrbit_c(
     yo = numpy.atleast_2d(yo)
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
@@ -438,7 +439,7 @@ def integrateLinearOrbit_dxdv_c(
 
     """
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
