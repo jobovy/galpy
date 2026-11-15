@@ -18,6 +18,7 @@ from .Potential import (
     _INF,
     Potential,
     PotentialError,
+    _check_c,
     _check_potential_list_and_deprecate,
     lindbladR,
     plotEscapecurve,
@@ -728,11 +729,13 @@ class planarPotentialFromFullPotential(planarPotential):
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
         self._Pot = Pot
-        # Only advertise C support when the wrapped potential's C
-        # implementation extends to its planar version (hasC_planar)
-        _hasC_planar = getattr(Pot, "hasC_planar", True)
-        self.hasC = Pot.hasC and _hasC_planar
-        self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
+        self.hasC = Pot.hasC
+        if getattr(Pot, "hasC_planar", True):
+            self.hasC_dxdv = Pot.hasC_dxdv
+        else:
+            # No planar C implementation of its own: C uses the 3D one at
+            # z = 0, whose second derivatives are those of the 3D Hessian
+            self.hasC_dxdv = _check_c(Pot, dxdv3d=True)
         self.hasC_dens = Pot.hasC_dens
         return None
 

@@ -210,6 +210,18 @@ double calcLinear2deriv(double, double, int, struct potentialArg *);
 double calcDensity(double, double, double,double, int, struct potentialArg *);
 void rotate(double *, double *, double *, double *);
 void rotate_force(double *, double *, double *,double *);
+//PlanarFromFullPotential: a 3D potential without a planar C implementation
+//of its own, at z = 0
+double PlanarFromFullPotentialPlanarRforce(double,double,double,
+					   struct potentialArg *);
+double PlanarFromFullPotentialPlanarphitorque(double,double,double,
+					      struct potentialArg *);
+double PlanarFromFullPotentialPlanarR2deriv(double,double,double,
+					    struct potentialArg *);
+double PlanarFromFullPotentialPlanarphi2deriv(double,double,double,
+					      struct potentialArg *);
+double PlanarFromFullPotentialPlanarRphideriv(double,double,double,
+					      struct potentialArg *);
 //ZeroForce
 double ZeroPlanarForce(double,double,double,
 		       struct potentialArg *);

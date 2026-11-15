@@ -70,7 +70,8 @@ class MovingObjectPotential(Potential):
             self._gen = RotateAndTiltWrapperPotential(
                 pot=self._pot, center=self._orb, ro=self._ro, vo=self._vo
             )
-            # the planar C implementation is the axisymmetric one
+            # the planar C implementation is the axisymmetric one: planar
+            # orbits in C use the 3D one at z = 0
             self.hasC_planar = False
         self.isNonAxi = True
         self.hasC = _check_c(self._pot)

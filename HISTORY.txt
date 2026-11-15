@@ -35,7 +35,10 @@ v1.12.2 (expected around 2027-03-01)
   center(t)) + offset, t)``. Any wrapped potential, including
   non-axisymmetric and time-dependent ones, in Python and in C (including
   the variational equations; functions of time are tabulated over the
-  integration's time range for C). An integer ``zvec`` now works, and
+  integration's time range for C), for 3D, planar, and vertical orbits
+  (planar orbits in C use the 3D C implementation in the plane, as do
+  planar orbits in a non-axisymmetric ``MovingObjectPotential``, also when
+  wrapped). An integer ``zvec`` now works, and
   ``zvec`` is no longer normalized in place (also for the triaxial
   potentials).
 
