@@ -40,6 +40,8 @@ from .actionAngleInverseUtil import (
     _chunked,
     _fit_isochrone_vc2,
     _harmonics,
+    _harmonics_kept,
+    _harmonics_needed,
     _offset_spec_coeffs,
     _progress,
     _sine_galerkin,
@@ -50,6 +52,12 @@ from .actionAngleInverseUtil import (
 )
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 from .actionAngleStaeckel import _focal_length_of
+
+# The points of an array evaluation on a family are grouped by the numbers of
+# harmonics of their cells, and every group is one vectorized pass with a
+# fixed cost (that of some tens of points): groups of fewer points than this
+# are evaluated together, with the largest numbers among them
+_EVAL_GROUP_MIN = 128
 
 
 def _cumulative(f):
@@ -240,6 +248,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             most demanding tori are the ones at the smallest angular
             momentum (set by Rmin) and the highest energy (set by Rinf),
             and the set-up raises when the harmonics cannot hold them.
+            With setup_interp=True this is the largest number that a torus
+            may use: every torus keeps the coefficients of each map up to
+            the last that exceeds 1e-11 and as many more as the next three
+            decades take at the rate at which they fall between 1e-8 and
+            1e-11 (down to their round-off floor, so that a torus of the
+            grid is as accurate as with all mm_npt, while the number does
+            not depend on round-off), and every point is evaluated with
+            the harmonics that the eight tori around it keep (the highest
+            of them in each map, rounded up to 16, 32, 64, ... or mm_npt),
+            so that harmonics that only the most demanding tori need cost
+            nothing elsewhere.
         mm_nta : int, optional
             Number of anomaly samples per libration (even), used to sample
             the torus, to fit the maps, and for the quadratures of its
@@ -1001,7 +1020,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "pA": ft * sinth / (numpy.sqrt(c) * numpy.sin(zeta) * dzeta),
         }
 
-    def _map_slopes_u(self, smp, jr, L, a, e, eta, dJr, dL, dsup):
+    def _map_slopes_u(self, smp, jr, L, a, e, eta, dJr, dL, dsup, nharm):
         """The derivatives of the u map's coefficients with respect to
         (E, I_3, L_z), on one torus from that torus alone: the variation of
         the matching condition A^A(eta(tau); a, e) = A(tau; E, L_z, I_3) at
@@ -1018,7 +1037,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         the flux itself; the auxiliary's cumulative action varies through
         its torus parameters' closed-form chains, with dJ^A_r/dalpha and
         dL^A/dalpha from the torus's period matrix and the closed-form
-        partials of _cumulative."""
+        partials of _cumulative. The problem is solved in the map's first
+        nharm harmonics, and the slopes of the others are zero."""
         tau, u, pu, wu = smp["tau"], smp["u"], smp["pu"], smp["wu"]
         E, Lz = smp["E"], smp["Lz"]
         d2 = self._delta**2
@@ -1036,9 +1056,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             mt, qt, _, qt0 = _cumulative(dft)
             _, _, da, de = self._aAIinv._orbital_param_chains(jr, L, dJr[k], dL[k])
             rhs[:, k] = mt * tau + qt - qt0 - FAa * da - FAe * de
-        return _sine_galerkin(fAeta, rhs, self._nforDm)
+        out = numpy.zeros((self._npt, 3))
+        out[:nharm] = _sine_galerkin(fAeta, rhs, self._nforDm[:nharm])
+        return out
 
-    def _map_slopes_v(self, smp, L, c, zeta, dL, dwv):
+    def _map_slopes_v(self, smp, L, c, zeta, dL, dwv, nharm):
         """The derivatives of the v map's coefficients with respect to
         (E, I_3, L_z), as _map_slopes_u for the u map: the auxiliary's polar
         cumulative action depends on its torus through (L, c = 1 -
@@ -1060,7 +1082,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             dft = (dWda[k] + dWdv * dv) / (2.0 * pv) * dvdtau + pv * dwv[k] * st
             mt, qt, _, qt0 = _cumulative(dft)
             rhs[:, k] = mt * tau + qt - qt0 - FL * dL[k] - Fc * dc[k]
-        return _sine_galerkin(fAzeta, rhs, self._nforDmv)
+        out = numpy.zeros((self._nptv, 3))
+        out[:nharm] = _sine_galerkin(fAzeta, rhs, self._nforDmv[:nharm])
+        return out
 
     # ---------- the per-torus tables, computed (never fitted)
     def _node_tables(self, ii):
@@ -1124,6 +1148,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
         dJr, dL = M[0], M[1] + numpy.array([0.0, 0.0, numpy.sign(Lz)])
         lift_u, lift_v = self._lifts[ii]
+
+        def kept(Dm):
+            # a family's torus keeps the coefficients of each of its maps
+            # down to the map's round-off floor (_harmonics_kept): those
+            # beyond are set to zero, and the slopes are solved in those kept
+            nh = _harmonics_kept(Dm) if self._interp else len(Dm)
+            return nh, numpy.where(numpy.arange(len(Dm)) < nh, Dm, 0.0)
+
         node = {
             "jr": jr,
             "jz": jz,
@@ -1152,9 +1184,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             node["perr_u"] = float(
                 numpy.amax(numpy.fabs(self._aAIinv._torus_Jr(EA, L) - jr)) / jr
             )
-            node["Dmu"] = lift_u["Dm"]
+            nh, node["Dmu"] = kept(lift_u["Dm"])
             node["dDmu"] = self._map_slopes_u(
-                smp, jr, L, lift_u["a"], lift_u["e"], lift_u["eta"], dJr, dL, dsup
+                smp, jr, L, lift_u["a"], lift_u["e"], lift_u["eta"], dJr, dL, dsup, nh
             )
         if not vdeg:
             # likewise the auxiliary's polar action along the lifted v
@@ -1163,8 +1195,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             node["perr_v"] = float(
                 numpy.amax(numpy.fabs(LA - numpy.fabs(Lz) - jz)) / jz
             )
-            node["Dmv"] = lift_v["Dm"]
-            node["dDmv"] = self._map_slopes_v(smp, L, c, lift_v["zeta"], dL, dsup[2])
+            nh, node["Dmv"] = kept(lift_v["Dm"])
+            node["dDmv"] = self._map_slopes_v(
+                smp, L, c, lift_v["zeta"], dL, dsup[2], nh
+            )
         return node
 
     def _second_order_tables(self, ii, node):
@@ -1989,7 +2023,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _rebuild_interp(self):
         """(Re)build the interpolants from the stored tables: Hermite
         interpolants, quintic along the energy variable and cubic along the
-        other two, all with their first partials exact at the nodes"""
+        other two, all with their first partials exact at the nodes. A node
+        keeps the coefficients of each map up to the last that is not zero
+        in its tables (_nharm_node_u, _nharm_node_v; the v map's are those
+        of its even harmonics), and the interpolant's own mixed and second
+        derivatives are set to zero beyond that number too, so that a
+        cell's interpolant vanishes exactly beyond the largest number of
+        its eight nodes; that number, rounded up to the next of a fixed set
+        (_nharm_buckets_u: 16, 32, 64, ... below mm_npt, and mm_npt;
+        _nharm_buckets_v: their halves, the even harmonics up to the same),
+        is the number of coefficients with which the cell's points are
+        evaluated (_nharm_cell_u, _nharm_cell_v); all of these in the order
+        of the map's own interpolant"""
         wE, Lz = self._wEs, self._Lzgrid
         self._A_ip = HermiteFamily3D(
             wE**2, self._ys, Lz, self._A_tab, self._A_dx, self._A_dy, self._A_dL
@@ -1997,19 +2042,37 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # s_u = cos(pi w_I/2) decreases along the grid: the u tables are
         # reversed along w_I so that their second variable increases
         su = numpy.cos(0.5 * numpy.pi * self._wIs)[::-1]
-        self._U_ip = HermiteFamily3D(
-            wE,
-            su,
-            Lz,
-            self._U_tab[:, ::-1],
-            self._U_dwE[:, ::-1],
-            self._U_dsu[:, ::-1],
-            self._U_dL[:, ::-1],
-        )
         sv = numpy.sin(0.5 * numpy.pi * self._wIs)
-        self._V_ip = HermiteFamily3D(
-            wE, sv, Lz, self._V_tab, self._V_dwE, self._V_dsv, self._V_dL
+        utabs = [
+            t[:, ::-1] for t in (self._U_tab, self._U_dwE, self._U_dsu, self._U_dL)
+        ]
+        vtabs = [self._V_tab, self._V_dwE, self._V_dsv, self._V_dL]
+        self._nharm_buckets_u = numpy.array(
+            [2**k for k in range(4, 31) if 2**k < self._npt] + [self._npt]
         )
+        self._nharm_buckets_v = numpy.unique(self._nharm_buckets_u // 2)
+        out = []
+        for s, tabs, buckets in (
+            (su, utabs, self._nharm_buckets_u),
+            (sv, vtabs, self._nharm_buckets_v),
+        ):
+            # the tables' first entry is the half-width, which every node keeps
+            need = _harmonics_needed(*(t[..., 1:] for t in tabs))
+            # where the circular face meets the face on which this map's
+            # libration is degenerate, all of a node's tables vanish, yet the
+            # coefficients grow out of that edge as the product of the two
+            # variables: the mixed derivative there, which the interpolant
+            # estimates, belongs to the harmonics of the next nodes
+            need[0, 0] = numpy.maximum(
+                need[0, 0], numpy.maximum(need[0, 1], need[1, 0])
+            )
+            cell = numpy.maximum(need[:-1], need[1:])
+            cell = numpy.maximum(cell[:, :-1], cell[:, 1:])
+            cell = numpy.maximum(cell[:, :, :-1], cell[:, :, 1:])
+            cell = buckets[numpy.searchsorted(buckets, cell)]
+            out += [HermiteFamily3D(wE, s, Lz, *tabs, nkeep=1 + need), need, cell]
+        self._U_ip, self._nharm_node_u, self._nharm_cell_u = out[:3]
+        self._V_ip, self._nharm_node_v, self._nharm_cell_v = out[3:]
         return None
 
     # ---------- evaluation: the manifest chain
@@ -2246,11 +2309,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             x[ii], y[ii] = self._interp_coords(jr[ii], jz[ii], ell[ii])
         return x, y
 
-    def _interp_tables_array(self, jr, jz, Lz):
-        """The family's tables of many (J_R, J_z, L_z) tori at once, none on
-        a degenerate face, as _interp_tables returns them for one torus but
-        with a leading point axis (the maps' coefficients as (M, npoints),
-        their chains as (M, npoints, 3))"""
+    def _label_tori(self, jr, jz, Lz):
+        """What the evaluation of many (J_R, J_z, L_z) tori of a family,
+        none on a degenerate face, needs that does not involve the maps'
+        harmonics, with a leading torus axis: the grid coordinates (x, y)
+        from the label inversion, the frequencies and the u midpoint with
+        its chain, as _interp_tables returns them for one torus, the
+        derivatives d(x, y, |L_z|)/d(J_R, J_z, J_phi), and the group of the
+        torus's cell, which is the pair of the cell's numbers of
+        coefficients of the u and of the v map (_nharm_cell_u,
+        _nharm_cell_v) as one integer"""
         ell, sgn = numpy.fabs(Lz), numpy.sign(Lz)
         outside = (ell < self._Lzgrid[0]) | (ell > self._Lzgrid[-1])
         if numpy.any(outside):
@@ -2265,21 +2333,34 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         N[:, 1, 2] = -(N[:, 1, 0] * AL[:, 0] + N[:, 1, 1] * AL[:, 1]) * sgn
         N[:, 2, 2] = sgn
         _, dE_dx, dE_dL = self._E_of_xL_array(x, ell)
-        tab = {
-            "Om": dE_dx[:, None] * N[:, 0] + dE_dL[:, None] * N[:, 2],
-            "uc": A[:, 2],
-            "duc": Ax[:, 2, None] * N[:, 0]
+        wE = numpy.sqrt(x)
+        return (
+            x,
+            y,
+            dE_dx[:, None] * N[:, 0] + dE_dL[:, None] * N[:, 2],
+            A[:, 2],
+            Ax[:, 2, None] * N[:, 0]
             + Ay[:, 2, None] * N[:, 1]
             + AL[:, 2, None] * N[:, 2],
-            "udeg": False,
-            "vdeg": False,
-        }
-        wE = numpy.sqrt(x)
-        for ip, sv, fs, key in (
-            (self._U_ip, numpy.sqrt(1.0 - y), -1.0, "u"),
-            (self._V_ip, numpy.sqrt(y), 1.0, "v"),
+            N,
+            self._nharm_cell_u[self._U_ip.cells(wE, numpy.sqrt(1.0 - y), ell)]
+            * (self._nptv + 1)
+            + self._nharm_cell_v[self._V_ip.cells(wE, numpy.sqrt(y), ell)],
+        )
+
+    def _interp_tables_array(self, Lz, x, y, Om, uc, duc, N, nharm):
+        """The family's tables of many tori at once, none on a degenerate
+        face, from their labels (_label_tori), as _interp_tables returns
+        them for one torus but with a leading point axis and with the first
+        nharm = (u, v) coefficients of the two maps (the maps' coefficients
+        as (M, npoints), their chains as (M, npoints, 3))"""
+        tab = {"Om": Om, "uc": uc, "duc": duc, "udeg": False, "vdeg": False}
+        wE, ell = numpy.sqrt(x), numpy.fabs(Lz)
+        for ip, sv, fs, key, nh in (
+            (self._U_ip, numpy.sqrt(1.0 - y), -1.0, "u", nharm[0]),
+            (self._V_ip, numpy.sqrt(y), 1.0, "v", nharm[1]),
         ):
-            T, TwE, Ts, TL = ip.batch_all(wE, sv, ell)
+            T, TwE, Ts, TL = ip.batch_all(wE, sv, ell, ntab=1 + nh)
             dT = (
                 TwE[:, :, None] * N[:, None, 0, :] / (2.0 * wE)[:, None, None]
                 + Ts[:, :, None] * N[:, None, 1, :] * fs / (2.0 * sv)[:, None, None]
@@ -2325,8 +2406,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         target's u and p_u (the flux identity p_u du/dtau = p^A dr^A/dtau,
         with sin(eta)/sin(tau) grouped so that every factor is regular at
         the turning points), and, for each chain (da, de, duc, dwu, dDm),
-        the compensation p^A dr^A/dJ|_tau - p_u du/dJ|_tau."""
-        eta, deta, smt = self._map(tau, Dm, self._nforDm)
+        the compensation p^A dr^A/dJ|_tau - p_u du/dJ|_tau. The map has as
+        many harmonics as coefficients are given."""
+        eta, deta, smt = self._map(tau, Dm, self._nforDm[: len(Dm)])
         se, ce = numpy.sin(eta), numpy.cos(eta)
         rA, pA, gA = self._aAIinv._profile(a, e, eta)
         kap = a * e / (a + self._b)
@@ -2371,7 +2453,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         p^A_theta d theta^A/dJ|_tau - p_v dv/dJ|_tau, whose auxiliary part
         is grouped as -L sin(zeta) cos(zeta) / [2 sin^2 theta^A] dc, regular
         down to the planar edge, plus the flux times the map's shift."""
-        zeta, dzeta, smt = self._map(tau, Dm, self._nforDmv)
+        zeta, dzeta, smt = self._map(tau, Dm, self._nforDmv[: len(Dm)])
         sz, cz = numpy.sin(zeta), numpy.cos(zeta)
         sinth2 = 1.0 - c * cz**2
         fluxA = L * c * sz**2 / sinth2
@@ -2733,21 +2815,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if scalar:
             out = self._xvFreqs_torus(jr[0], jphi[0], jz[0], thR, anglephi, thz)
             return (*(o.reshape(shape) for o in out[:6]), *out[6:])
-        return tuple(
-            numpy.stack(
-                _chunked(
-                    self._xvFreqs_points, len(jr), jr, jphi, jz, thR, anglephi, thz
-                )
-            ).reshape((9,) + shape)
-        )
+        out = self._xvFreqs_points(jr, jphi, jz, thR, anglephi, thz)
+        return tuple(o.reshape(shape) for o in out)
 
     def _xvFreqs_points(self, jr, jphi, jz, thR, anglephi, thz):
         """The evaluation at flat arrays of actions and angles of one length:
         the tables are read once per distinct torus; a family's tori with
-        both librations are evaluated in one vectorized pass with one row
-        of tables per point, and the others (explicit tori, tori on a
-        degenerate face, a single distinct torus, and any point whose angle
-        solve does not converge) through the one-torus path"""
+        both librations are labelled once and evaluated in vectorized
+        passes with one row of tables per point, the points grouped by
+        their cells' numbers of coefficients of the two maps, which are all
+        that a pass reads and sums (the groups of few points gathered into
+        one with the largest numbers among them); the others (explicit
+        tori, tori on a degenerate face, a single distinct torus, and any
+        point whose angle solve does not converge) go through the
+        one-torus path"""
         out = numpy.empty((9, len(jr)))
 
         def one_torus(actions, pts):
@@ -2771,11 +2852,34 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             pts = numpy.flatnonzero(~single[inv])
             # each point's row among the tori of the vectorized pass
             rows = (numpy.cumsum(~single) - 1)[inv[pts]]
-            out[:, pts], bad = self._xvFreqs_rows(
-                tori[~single], rows, thR[pts], anglephi[pts], thz[pts]
+            tsel = tori[~single]
+            *labels, group = _chunked(
+                self._label_tori, len(tsel), tsel[:, 0], tsel[:, 2], tsel[:, 1]
             )
-            for ii in pts[bad]:
-                one_torus(tori[inv[ii]], numpy.array([ii]))
+            group = group[rows]
+            _, ginv, counts = numpy.unique(
+                group, return_inverse=True, return_counts=True
+            )
+            small = (counts < _EVAL_GROUP_MIN)[ginv]
+            nhu, nhv = divmod(group[small], self._nptv + 1)
+            group[small] = numpy.amax(nhu, initial=0) * (self._nptv + 1) + numpy.amax(
+                nhv, initial=0
+            )
+            for g in numpy.unique(group):
+                idx, nharm = pts[group == g], divmod(g, self._nptv + 1)
+                *out[:, idx], bad = _chunked(
+                    lambda *args, nharm=nharm: self._xvFreqs_rows(
+                        tsel, labels, *args, nharm
+                    ),
+                    len(idx),
+                    rows[group == g],
+                    thR[idx],
+                    anglephi[idx],
+                    thz[idx],
+                    nharm=nharm[0],
+                )
+                for ii in idx[bad]:
+                    one_torus(tori[inv[ii]], numpy.array([ii]))
         return tuple(out)
 
     def _xvFreqs_torus(self, jr, jphi, jz, thR, anglephi, thz):
@@ -2880,16 +2984,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             phi % (2.0 * numpy.pi),
         )
 
-    def _xvFreqs_rows(self, tori, rows, thR, anglephi, thz):
-        """The vectorized pass over a family's tori with both librations,
-        given as rows of (J_R, J_phi, J_z), at points that each sit on the
-        torus rows[point]: the batched label inversion and tables of the
-        tori, one row of them per point, the kernels with per-point
+    def _xvFreqs_rows(self, tori, labels, rows, thR, anglephi, thz, nharm):
+        """A vectorized pass over a family's tori with both librations,
+        given as rows of (J_R, J_phi, J_z) with their labels (_label_tori),
+        at points that each sit on the torus rows[point]: the tables of the
+        points' tori with the first nharm = (u, v) coefficients of the
+        maps, one row of them per point, the kernels with per-point
         coefficients, and the Newton solve of the angle relations; returns
-        the nine outputs and the points whose solve did not converge"""
-        jr, Lz, jz = tori.T
+        the nine outputs and whether each point's solve failed to converge"""
+        used, rows = numpy.unique(rows, return_inverse=True)
+        jr, Lz, jz = tori[used].T
         sgn, ell = numpy.sign(Lz), numpy.fabs(Lz)
-        tab = self._interp_tables_array(jr, jz, Lz)
+        tab = self._interp_tables_array(Lz, *(t[used] for t in labels), nharm)
         L = jz + ell
         a, e = self._aAIinv._orbital_params(jr, L)
         c = jz * (jz + 2.0 * ell) / L**2
@@ -2932,10 +3038,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         T = self._torus_at(tu, tv, aux, chains_u, chains_v)
         Om = tab["Om"][rows]
         return (
-            numpy.stack(
-                [*self._point(T, Lz[rows], L[rows], anglephi), *Om[:, [0, 2, 1]].T]
-            ),
-            bad,
+            *self._point(T, Lz[rows], L[rows], anglephi),
+            *Om[:, [0, 2, 1]].T,
+            numpy.isin(numpy.arange(len(rows)), bad),
         )
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
@@ -2962,9 +3067,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         for k in numpy.flatnonzero(single):
             Om[:, k] = self._Freqs_torus(*tori[k])
         if not numpy.all(single):
-            Om[:, ~single] = self._interp_tables_array(
+            Om[:, ~single] = self._label_tori(
                 tori[~single, 0], tori[~single, 2], tori[~single, 1]
-            )["Om"][:, [0, 2, 1]].T
+            )[2][:, [0, 2, 1]].T
         return tuple(o.reshape(jr.shape) for o in Om[:, inv.ravel()])
 
     def _Freqs_torus(self, jr, Lz, jz):
