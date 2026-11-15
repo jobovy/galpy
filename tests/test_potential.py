@@ -5291,8 +5291,15 @@ def test_MovingObject_nonaxi_follows_object():
 
 def test_MovingObject_nonaxi_planar():
     # A planar orbit in a non-axisymmetric MovingObjectPotential is integrated
-    # in Python (the planar C implementation is the axisymmetric one) and
-    # agrees with the C integration of the 3D orbit in the plane
+    # in C through the 3D C implementation at z = 0 (the planar C
+    # implementation is the axisymmetric one), also when wrapped, alone or in
+    # a sum, and agrees with Python and, for an object in the plane, with the
+    # C integration of the 3D orbit in the plane
+    from galpy.potential.Potential import _check_c
+
+    def xy(o, ts):
+        return numpy.array([as_numpy(f(ts)) for f in (o.x, o.y, o.vx, o.vy)])
+
     oo = orbit.Orbit([1.0, 0.1, 1.1, 0.3])
     oo.integrate(numpy.linspace(0.0, 2.0, 201), potential.MWPotential2014)
     # symmetric under z -> -z (l + m even), so that the 3D orbit stays in the
@@ -5304,41 +5311,64 @@ def test_MovingObject_nonaxi_planar():
     mo = potential.MovingObjectPotential(
         oo, pot=potential.SCFPotential(amp=0.1, Acos=A, Asin=0.5 * A, a=0.2)
     )
-    from galpy.potential.Potential import _check_c
-
-    assert not _check_c(potential.toPlanarPotential(mo))
+    assert _check_c(potential.toPlanarPotential(mo))
     ts = numpy.linspace(0.0, 1.5, 101)
     op = orbit.Orbit([1.1, 0.0, 1.0, 0.1])
     o3 = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
-    from galpy.util import galpyWarning
-
-    with pytest.warns(galpyWarning, match="Cannot use C integration"):
-        op.integrate(ts, potential.MWPotential2014 + mo, method="dop853_c")
+    op.integrate(ts, potential.MWPotential2014 + mo, method="dop853_c")
     o3.integrate(ts, potential.MWPotential2014 + mo, method="dop853_c")
     assert numpy.amax(numpy.fabs(as_numpy(op.x(ts)) - as_numpy(o3.x(ts)))) < 1e-7, (
         "A planar orbit in a non-axisymmetric MovingObjectPotential does not agree with the 3D orbit in the plane"
     )
-    # also when wrapped, alone or in a sum: a wrapper's planar C
-    # implementation wraps those of the wrapped potentials
-    dsw = potential.DehnenSmoothWrapperPotential(pot=mo, tform=-1.0, tsteady=0.5)
-    for wrapped in (
-        dsw,
-        potential.DehnenSmoothWrapperPotential(
-            pot=potential.MWPotential2014 + mo, tform=-1.0, tsteady=0.5
+    # an object out of the plane (the potential at z = 0, as in Python), bare,
+    # wrapped (growing during the integration), and in a wrapped sum; a
+    # wrapper of potentials with a planar C implementation keeps its own
+    o3d = orbit.Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])
+    o3d.integrate(numpy.linspace(-1.0, 6.0, 701), potential.MWPotential2014)
+    mob = potential.MovingObjectPotential(
+        o3d,
+        pot=potential.SoftenedNeedleBarPotential(
+            amp=0.3, a=0.3, b=0.0, c=0.1, pa=0.3, omegab=0.0
         ),
-    ):
-        assert not wrapped.hasC_planar
-        assert not _check_c(potential.toPlanarPotential(wrapped))
+    )
+    dsw = potential.DehnenSmoothWrapperPotential(pot=mob, tform=0.5, tsteady=1.0)
+    dsws = potential.DehnenSmoothWrapperPotential(
+        pot=potential.MWPotential2014 + mob, tform=0.5, tsteady=1.0
+    )
+    assert not dsw.hasC_planar and not dsws.hasC_planar
     assert potential.DehnenSmoothWrapperPotential(
         pot=potential.DehnenBarPotential()
     ).hasC_planar, "A wrapper of a potential with a planar C implementation lost it"
-    op = orbit.Orbit([1.1, 0.0, 1.0, 0.1])
-    o3 = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
-    with pytest.warns(galpyWarning, match="Cannot use C integration"):
-        op.integrate(ts, potential.MWPotential2014 + dsw, method="dop853_c")
-    o3.integrate(ts, potential.MWPotential2014 + dsw, method="dop853_c")
-    assert numpy.amax(numpy.fabs(as_numpy(op.x(ts)) - as_numpy(o3.x(ts)))) < 1e-7, (
-        "A planar orbit in a wrapped non-axisymmetric MovingObjectPotential does not agree with the 3D orbit in the plane"
+    ts = numpy.linspace(0.0, 5.0, 301)
+    for pot in (
+        potential.LogarithmicHaloPotential(normalize=True) + mob,
+        potential.LogarithmicHaloPotential(normalize=True) + dsw,
+        dsws,
+    ):
+        assert _check_c(potential.toPlanarPotential(pot))
+        assert _check_c(potential.toPlanarPotential(pot), dxdv=True)
+        oc = orbit.Orbit([1.0, 0.1, 1.0, 0.2])
+        opy = orbit.Orbit([1.0, 0.1, 1.0, 0.2])
+        oc.integrate(ts, pot, method="dop853_c")
+        opy.integrate(ts, pot, method="dop853")
+        assert numpy.amax(numpy.fabs(xy(oc, ts) - xy(opy, ts))) < 1e-8, (
+            "A planar C orbit in a (wrapped) non-axisymmetric MovingObjectPotential does not agree with Python"
+        )
+    # the planar variational equations in C use the 3D Hessian at z = 0
+    out = []
+    for method in ("dop853_c", "dop853"):
+        od = orbit.Orbit([1.0, 0.1, 1.0, 0.2])
+        od.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0],
+            ts[:121],
+            potential.LogarithmicHaloPotential(normalize=True) + dsw,
+            method=method,
+            rectIn=True,
+            rectOut=True,
+        )
+        out.append(as_numpy(od.getOrbit_dxdv()))
+    assert numpy.amax(numpy.fabs(out[0] - out[1])) < 1e-8, (
+        "The planar variational equations in C for a wrapped non-axisymmetric MovingObjectPotential do not agree with Python"
     )
     return None
 
@@ -9881,6 +9911,55 @@ def test_RotateAndTiltWrapper_functions_of_time():
     )
     with pytest.raises(ValueError, match="orientation= function"):
         potential.evaluatePotentials(bad, 1.0, 0.1, phi=0.2, t=0.3)
+    return None
+
+
+def test_RotateAndTiltWrapper_planar_c():
+    # Planar orbits in a RotateAndTiltWrapperPotential (a tilted bar, and a
+    # bar with a center and an orientation that are functions of time)
+    # integrate in C through the 3D C implementation at z = 0 and agree with
+    # Python
+    from galpy.potential.Potential import _check_c
+
+    bar = potential.SoftenedNeedleBarPotential(
+        amp=0.3, a=0.3, b=0.0, c=0.1, pa=0.3, omegab=0.0
+    )
+    ts = numpy.linspace(0.0, 5.0, 301)
+    for rtw in (
+        potential.RotateAndTiltWrapperPotential(
+            pot=potential.DehnenBarPotential(),
+            zvec=[0.36, 0.48, 0.8],
+            galaxy_pa=0.4,
+        ),
+        potential.RotateAndTiltWrapperPotential(
+            pot=bar,
+            center=lambda t: [
+                0.3 * _xp_of(t).cos(0.7 * t),
+                0.2 * _xp_of(t).sin(0.7 * t),
+                0.0,
+            ],
+            inclination=0.3,
+            galaxy_pa=0.0,
+            sky_pa=lambda t: 0.4 * t,
+        ),
+    ):
+        pot = potential.LogarithmicHaloPotential(normalize=True) + rtw
+        assert _check_c(potential.toPlanarPotential(pot))
+        oc = orbit.Orbit([1.0, 0.1, 1.0, 0.2])
+        op = orbit.Orbit([1.0, 0.1, 1.0, 0.2])
+        oc.integrate(ts, pot, method="dop853_c")
+        op.integrate(ts, pot, method="dop853")
+        for f in ("x", "y", "vx", "vy"):
+            assert (
+                numpy.amax(
+                    numpy.fabs(
+                        as_numpy(getattr(oc, f)(ts)) - as_numpy(getattr(op, f)(ts))
+                    )
+                )
+                < 1e-7
+            ), (
+                "A planar C orbit in a RotateAndTiltWrapperPotential does not agree with Python"
+            )
     return None
 
 

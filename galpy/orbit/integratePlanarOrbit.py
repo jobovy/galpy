@@ -51,6 +51,24 @@ def _parse_pot(pot, t=None):
     pot_tfuncs = []
     npot = len(pot)
     for p in pot:
+        if isinstance(p, planarPotentialFromFullPotential) and not getattr(
+            p._Pot, "hasC_planar", True
+        ):
+            # A 3D potential without a planar C implementation of its own
+            # (RotateAndTiltWrapperPotential, a non-axisymmetric
+            # MovingObjectPotential, or a wrapper of one): its 3D C
+            # implementation at z = 0 (PlanarFromFullPotential)
+            from .integrateFullOrbit import _parse_pot as _parse_pot_full
+
+            pot_type.append(-13)
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot_full(
+                p._Pot, t=t
+            )
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            continue
         # Prepare for wrappers
         if (
             (
@@ -603,17 +621,6 @@ def _parse_pot(pot, t=None):
             pot_args.extend(p._orb.y(p._orb.t, use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0], p._orb.t[-1]])  # t_0, t_f
-        elif (
-            (
-                isinstance(p, planarPotentialFromFullPotential)
-                or isinstance(p, planarPotentialFromRZPotential)
-            )
-            and isinstance(p._Pot, potential.RotateAndTiltWrapperPotential)
-        ) or isinstance(p, potential.RotateAndTiltWrapperPotential):  # pragma: no cover
-            raise NotImplementedError(
-                "Planar orbit integration in C for RotateAndTiltWrapperPotential not implemented; please integrate an orbit with (z,vz) = (0,0) instead"
-            )
-            # Note that potential.RotateAndTiltWrapperPotential would be -8
         elif (
             (
                 isinstance(p, planarPotentialFromFullPotential)

@@ -178,6 +178,9 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         # complete iff the wrapped one is).
         self.hasC_dxdv3d = True
         self.isNonAxi = True
+        # No planar C implementation of its own: planar orbits in C use the
+        # 3D one at z = 0
+        self.hasC_planar = False
 
     def _parse_inclination(self, inclination, sky_pa, zvec, galaxy_pa):
         if inclination is None:

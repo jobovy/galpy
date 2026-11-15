@@ -126,8 +126,8 @@ class WrapperPotential(Potential):
                 "WrapperPotential cannot currently wrap non-Potential Force objects"
             )
         self.isNonAxi = _isNonAxi(self._pot)
-        # The planar C implementation wraps those of the wrapped potentials
-        # (e.g., not for a non-axisymmetric MovingObjectPotential)
+        # A planar C implementation of its own when the wrapped potentials
+        # have one (otherwise, planar orbits in C use the 3D one at z = 0)
         self.hasC_planar = all(
             getattr(p, "hasC_planar", True)
             for p in (
