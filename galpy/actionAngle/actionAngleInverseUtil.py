@@ -328,9 +328,12 @@ def _sine_series_xp(xp, N, Dm, ms):
     return s, ds
 
 
-def _sine_galerkin_xp(xp, w, rhs, ms):
+def _sine_galerkin_xp(xp, w, rhs, ms, nkeep=None):
     """_sine_galerkin batched over tori: w (..., N) and rhs (..., N, ncol)
-    give (..., len(ms), ncol)"""
+    give (..., len(ms), ncol); with nkeep (...,), each torus's problem in its
+    harmonics m <= nkeep only, zero beyond (the static-shape form of
+    _sine_galerkin with ms[:nkeep]: identity rows and columns beyond, with
+    zero right-hand side, so that the leading block is that system)"""
     N = w.shape[-1]
     M = ms[-1]
     j = numpy.arange(2 * M + 1)
@@ -346,7 +349,14 @@ def _sine_galerkin_xp(xp, w, rhs, ms):
     G = xp.reshape(0.5 * (Gd - Gs), tuple(C.shape[:-1]) + (nm, nm))
     Fr = xp.take(xp.fft.fft(rhs, axis=-2), _const(xp, ms, w), axis=-2)
     ph = _const(xp, numpy.exp(1j * ms * numpy.pi / N), w)
-    return xp.linalg.solve(G, xp.imag(ph[:, None] * xp.conj(Fr)))
+    b = xp.imag(ph[:, None] * xp.conj(Fr))
+    if nkeep is not None:
+        keep = _const(xp, ms * 1.0, w) <= nkeep[..., None]
+        G = xp.where(
+            keep[..., :, None] & keep[..., None, :], G, _const(xp, numpy.eye(nm), w)
+        )
+        b = xp.where(keep[..., None], b, 0.0 * b)
+    return xp.linalg.solve(G, b)
 
 
 def _bk_matching(xp, resid, slope, resid_sg, slope_sg, eta0, mt, maxiter=200):
