@@ -4972,6 +4972,28 @@ def test_MovingObject_nonaxi_planar():
     assert numpy.amax(numpy.fabs(op.x(ts) - o3.x(ts))) < 1e-7, (
         "A planar orbit in a non-axisymmetric MovingObjectPotential does not agree with the 3D orbit in the plane"
     )
+    # also when wrapped, alone or in a sum: a wrapper's planar C
+    # implementation wraps those of the wrapped potentials
+    dsw = potential.DehnenSmoothWrapperPotential(pot=mo, tform=-1.0, tsteady=0.5)
+    for wrapped in (
+        dsw,
+        potential.DehnenSmoothWrapperPotential(
+            pot=potential.MWPotential2014 + mo, tform=-1.0, tsteady=0.5
+        ),
+    ):
+        assert not wrapped.hasC_planar
+        assert not _check_c(potential.toPlanarPotential(wrapped))
+    assert potential.DehnenSmoothWrapperPotential(
+        pot=potential.DehnenBarPotential()
+    ).hasC_planar, "A wrapper of a potential with a planar C implementation lost it"
+    op = orbit.Orbit([1.1, 0.0, 1.0, 0.1])
+    o3 = orbit.Orbit([1.1, 0.0, 1.0, 0.0, 0.0, 0.1])
+    with pytest.warns(galpyWarning, match="Cannot use C integration"):
+        op.integrate(ts, potential.MWPotential2014 + dsw, method="dop853_c")
+    o3.integrate(ts, potential.MWPotential2014 + dsw, method="dop853_c")
+    assert numpy.amax(numpy.fabs(op.x(ts) - o3.x(ts))) < 1e-7, (
+        "A planar orbit in a wrapped non-axisymmetric MovingObjectPotential does not agree with the 3D orbit in the plane"
+    )
     return None
 
 
@@ -9480,6 +9502,14 @@ def test_RotateAndTiltWrapper_functions_of_time():
     assert rtw._cinterp_cache is tables and numpy.all(
         oc2.getOrbit() == oc.getOrbit()
     ), "The tabulation of the functions of time is not reused"
+    # the vertical (linear) C integration tabulates them over its times too
+    vp = potential.toVerticalPotential(rtw, 1.1, phi=0.3)
+    ol = [orbit.Orbit([0.05, 0.02]) for _ in range(2)]
+    ol[0].integrate(ts, vp, method="dop853_c")
+    ol[1].integrate(ts, vp, method="dop853")
+    assert numpy.amax(numpy.fabs(ol[0].getOrbit() - ol[1].getOrbit())) < 1e-7, (
+        "C vertical orbit integration with a center and orientation given as functions of time does not agree with Python"
+    )
     # functions of time need the integration times in C
     with pytest.raises(NotImplementedError, match="function of time"):
         _parse_pot([rtw])
