@@ -14522,3 +14522,167 @@ def test_actionAngleStaeckelInverse_Lzspacing():
     with pytest.raises(ValueError):
         actionAngleStaeckelInverse(Lzspacing="cubic", **kw)
     return None
+
+
+def _staeckel_inverse_node_actions(aAI, n):
+    # (J_R, L_z, J_z) of the nodes of a family's n^3 grid, as (n, n, n, 3)
+    # along (E, I_3, L_z)
+    return numpy.array(
+        [
+            [aAI.JR(E, Lz, I3), Lz, aAI.Jz(E, Lz, I3)]
+            for E, Lz, I3 in zip(aAI._Es, aAI._Lzs, aAI._I3s)
+        ]
+    ).reshape(n, n, n, 3)
+
+
+def _staeckel_inverse_between(J, axes=(0, 1, 2)):
+    # the mean actions of the nodes that are neighbours along the given axes
+    # of the grid: along all three, a torus inside each cell
+    for axis in axes:
+        m = J.shape[axis]
+        J = 0.5 * (J.take(range(m - 1), axis) + J.take(range(1, m), axis))
+    return J
+
+
+def test_actionAngleStaeckelInverse_adaptive_harmonics(staeckel_inverse_interp):
+    # Every torus of an interpolated family keeps the coefficients of each of
+    # its two maps down to the map's round-off floor, and every point is
+    # evaluated with the harmonics of its cell: in each map the largest
+    # number that the eight tori at the cell's corners keep, rounded up to
+    # the harmonics 16, 32, ... or mm_npt, the points of a call being grouped
+    # by the two numbers. On the small grid, whose cells read (16, 8), (16,
+    # 16), (16, 24), (32, 16) and (32, 24) coefficients of the (u, v) maps:
+    # (a) an array of points spread over all cells agrees with the same
+    # points in another order, as a 2D array, in a call of few points (whose
+    # groups are evaluated together) and one at a time (with all harmonics);
+    # (b) a torus inside a cell of each group round-trips through the
+    # forward transformation within the tolerances of the between-node test;
+    # (c) the grid's own tori are as accurate as with all harmonics; (d) the
+    # map is continuous across faces between cells of different groups
+    from galpy.potential import evaluatePotentials
+
+    aAI = staeckel_inverse_interp
+    nodes = _staeckel_inverse_node_actions(aAI, 8)
+    cells = _staeckel_inverse_between(nodes)
+    # (a) four points on a torus inside each of the 7^3 cells: 184 to 516
+    # points per group; they differ by 3e-13 at most from one at a time
+    rng = numpy.random.default_rng(7)
+    pts = [numpy.repeat(q, 4) for q in cells.reshape(-1, 3).T]
+    pts += list(rng.uniform(0.0, 2.0 * numpy.pi, (3, 1372)))
+    out = numpy.array(aAI.xvFreqs(*pts))
+    perm, sub = rng.permutation(1372), slice(None, None, 29)
+    shuffled = numpy.empty((9, 1372))
+    shuffled[:, perm] = aAI.xvFreqs(*(t[perm] for t in pts))
+    grid = numpy.array(aAI.xvFreqs(*(t.reshape(343, 4) for t in pts)))
+    assert grid.shape == (9, 343, 4), "A 2D array of points does not keep its shape"
+    few = numpy.array(aAI.xvFreqs(*(t[sub] for t in pts)))
+    one = numpy.array(
+        [
+            [numpy.ravel(o)[0] for o in aAI.xvFreqs(*(t[k] for t in pts))]
+            for k in range(0, 1372, 29)
+        ]
+    ).T
+    for ref, other, what in (
+        (out, shuffled, "in another order"),
+        (out, grid.reshape(9, 1372), "as a 2D array"),
+        (out[:, sub], few, "in a call of few points"),
+        (out[:, sub], one, "one at a time"),
+    ):
+        assert numpy.all(numpy.fabs(ref - other) < 1e-11 * (1.0 + numpy.fabs(ref))), (
+            "Points grouped by their numbers of harmonics differ from the same "
+            "points evaluated %s" % what
+        )
+    assert numpy.all(numpy.array(aAI.Freqs(*pts[:3])) == out[6:]), (
+        "Freqs and xvFreqs disagree for arrays of tori"
+    )
+    # (b) the round trip in a cell of each of the five groups, and in a cell
+    # on the edge where the circular face meets the shell face, at the
+    # grid's interpolation error there (1.8e-4 in the angles; 2.4e-4 if the
+    # nodes on that edge, all of whose tables vanish, kept no harmonics)
+    angler = numpy.linspace(0.05, 6.2, 21)
+    anglephi = (0.3 + 1.7 * angler) % (2.0 * numpy.pi)
+    anglez = (0.7 + 2.3 * angler) % (2.0 * numpy.pi)
+    for cell in ((1, 0, 3), (2, 3, 3), (3, 4, 4), (5, 1, 5), (5, 2, 5), (0, 6, 3)):
+        jr, Lz, jz = cells[cell]
+        errs = _staeckel_inverse_roundtrip(aAI, jr, Lz, jz, angler, anglephi, anglez)
+        tols = (1e-5, 2.1e-4 if cell[0] == 0 else 1e-4, 1e-4, 1e-5)
+        assert all(err < tol for err, tol in zip(errs, tols)), (
+            "The round trip (actions, angles, frequencies, energy) in the cell %s "
+            "is not within the grid's interpolation error: %s" % (cell, errs)
+        )
+    # (c) what a torus of the grid drops is round-off: along every torus of
+    # the grid with both librations, the energy of the returned points is
+    # the torus's, relative to the squared speed, to 5e-14 in the median
+    # (2e-13 when all harmonics are read) and to 4e-7 at most, on the tori
+    # whose v map this grid's mm_npt does not resolve, which keep all of it
+    jr, Lz, jz = nodes[1:, 1:-1].reshape(-1, 3).T
+    R, vR, vT, z, vz, _ = (
+        as_numpy(a)
+        for a in aAI(
+            jr, Lz, jz, *numpy.random.default_rng(4).uniform(0.0, 6.28, (3, 12, 336))
+        )
+    )
+    v2 = vR**2 + vT**2 + vz**2
+    dE = numpy.amax(
+        numpy.fabs(
+            as_numpy(evaluatePotentials(_staeckel_inverse_potential(), R, z))
+            + 0.5 * v2
+            - aAI._Es.reshape(8, 8, 8)[1:, 1:-1].ravel()
+        )
+        / v2,
+        axis=0,
+    )
+    assert numpy.median(dE) < 1e-12 and numpy.all(dE < 1e-6), (
+        "The grid's own tori do not conserve the energy as with all harmonics: "
+        "median %g, maximum %g" % (numpy.median(dE), numpy.amax(dE))
+    )
+    # (d) points at a distance d either side of a face between cells of
+    # different groups differ in proportion to d (by 2.2 d at most on this
+    # grid): across three nodes of L_z at the mean actions of the face's
+    # four nodes, where the number of the v map, of the u map and of both
+    # changes
+    faces = _staeckel_inverse_between(nodes, axes=(0, 1))
+    for face in ((2, 0, 5), (3, 0, 2), (5, 2, 6)):
+        jr, Lz, jz = faces[face]
+        for d in (1e-6, 1e-9):
+            lo, hi = (numpy.ravel(aAI(jr, Lz + s, jz, 1.3, 0.7, 2.1)) for s in (-d, d))
+            assert numpy.amax(numpy.fabs(hi - lo)) < 10.0 * d, (
+                "The map jumps across the face %s between cells of different "
+                "groups: %g at distance %g" % (face, numpy.amax(numpy.fabs(hi - lo)), d)
+            )
+    return None
+
+
+def test_actionAngleStaeckelInverse_harmonics_beyond_need():
+    # A torus's coefficients beyond those that it keeps are zero, in both
+    # maps and in their slopes, which are solved for in the kept harmonics
+    # alone: a grid whose tori all keep fewer coefficients than mm_npt=72
+    # allows (18 of 72 in the u map and 31 of 36 in the v map at most), set
+    # up with mm_npt=96 instead, is the same family, with the same points at
+    # a torus inside each cell to the round-off of the two set-ups (1e-11)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    fams = [
+        actionAngleStaeckelInverse(
+            pot=_staeckel_inverse_potential(),
+            setup_interp=True,
+            Rmin=0.9,
+            Rmax=1.2,
+            Rinf=2.2,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=mm_npt,
+            progressbar=False,
+        )
+        for mm_npt in (72, 96)
+    ]
+    cells = _staeckel_inverse_between(_staeckel_inverse_node_actions(fams[0], 4))
+    pts = [q[:, None] for q in cells.reshape(-1, 3).T]
+    pts += list(numpy.random.default_rng(7).uniform(0.0, 2.0 * numpy.pi, (3, 27, 8)))
+    out, more = (numpy.array(aAI.xvFreqs(*pts)) for aAI in fams)
+    assert numpy.all(numpy.fabs(out - more) < 1e-10 * (1.0 + numpy.fabs(out))), (
+        "The family depends on the number of harmonics beyond those its tori keep: %g"
+        % (numpy.amax(numpy.fabs(out - more) / (1.0 + numpy.fabs(out))))
+    )
+    return None
