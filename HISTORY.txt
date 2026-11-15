@@ -41,7 +41,10 @@ v2.0.0b2 (pre-release)
   the center's and the orientation's tables may be backend arrays
   (differentiable, and traced under ``jax.jit``: their splines are then
   built in the backend) and functions of time are evaluated (and traced) in
-  the backend. An integer ``zvec`` now works, and
+  the backend, also at one time per point (as torchode integrates every
+  orbit at its own time), so that orbits are integrated in the backend with
+  diffrax and torchode (differentiably, also on a GPU). An integer ``zvec``
+  now works, and
   ``zvec`` is no longer normalized in place (also for the triaxial
   potentials).
 

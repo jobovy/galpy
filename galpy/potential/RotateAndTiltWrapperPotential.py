@@ -13,6 +13,7 @@ from ..backend import (
     coerce_coords,
     concretely_true,
     get_namespace,
+    has_concrete_truth_value,
     is_backend_array,
     promote_scalars,
     to_host,
@@ -478,7 +479,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
                 oz = 0.0 * oR
             return xp.reshape(
                 xp.stack([oR * xp.cos(ophi), oR * xp.sin(ophi), oz * (oR * 0.0 + 1.0)]),
-                (3,),
+                (3,) + tuple(tb.shape),
             )
         if xp is numpy and self._center_spline is not None and not is_backend_array(t):
             return self._center_spline(
@@ -514,6 +515,42 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             q = eval_ppoly(xp, self._orient_t, self._orient_c, tb, extrapolate="clip")
             return _quaternion_to_matrix_xp(xp, q / xp.sqrt(xp.sum(q * q)))
         return None if self._norot else as_backend_constant(xp, self._rot, ref)
+
+    def _point_times(self, xp, t, npoint):
+        """The times of an evaluation at npoint points for its center and
+        orientation: (t, None) for a single time (a vector of times that are
+        concretely all equal, e.g., of the orbits of an in-backend integration
+        at their start, reduced to one), else (None, one time per point)
+        (torchode steps every orbit at its own time)"""
+        if (
+            not is_backend_array(t)
+            or t.ndim == 0
+            or (self._center_type in (None, "constant") and not self._orientation)
+        ):
+            return t, None
+        tv = xp.reshape(t, (-1,))
+        if has_concrete_truth_value(tv[0]) and concretely_true(xp.all(tv == tv[0])):
+            return tv[0], None
+        return None, xp.reshape(t + xp.zeros((npoint,), dtype=t.dtype), (-1,))
+
+    def _center_points(self, xp, tv, ref):
+        """The center (3, N) at the N times tv (None when there is none)"""
+        if self._center_type in ("table", "orbit"):
+            c = self._center_at(xp, tv, ref)
+            return c.T if self._center_type == "table" else c
+        if self._center_type == "function":
+            return xp.stack([self._center_at(xp, ti, ref) for ti in tv], axis=1)
+        c = self._center_at(xp, tv, ref)
+        return None if c is None else xp.reshape(c, (3, 1))
+
+    def _rot_points(self, xp, tv, ref):
+        """The rotation matrices (N, 3, 3) at the N times tv"""
+        if self._orient_type == "table":
+            q = eval_ppoly(xp, self._orient_t, self._orient_c, tv, extrapolate="clip")
+            return _quaternion_to_matrix_xp(
+                xp, q / xp.sqrt(xp.sum(q * q, axis=-1, keepdims=True))
+            )
+        return xp.stack([self._rot_at(xp, ti, ref) for ti in tv])
 
     def _eval_namespace(self, R, z, phi, t):
         """The namespace of an evaluation and its coordinates: the
@@ -623,6 +660,28 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         # rank 0 and rank 1; (3,3) @ (3,N) is the same matmul as (3,3) @ (3,).
         x, y, z = xp.broadcast_arrays(x, y, z)
         xyzp = xp.stack([x, y, z])
+        shape = tuple(xyzp.shape)
+        t, tv = self._point_times(xp, t, max(1, int(numpy.prod(shape[1:]))))
+        if tv is not None:
+            # one time per point: (N, 3, 3) rotations of the (3, N) points
+            xyzp = xp.reshape(xyzp, (3, -1))
+            center = self._center_points(xp, tv, xyzp)
+            if center is not None:
+                xyzp = xyzp - center
+            rot = None
+            if self._orientation:
+                rot = self._rot_points(xp, tv, xyzp)
+                xyzp = (rot @ xyzp.T[..., None])[..., 0].T
+            elif not self._norot:
+                xyzp = as_backend_constant(xp, self._rot, xyzp) @ xyzp
+            if self._offset is not None:
+                xyzp = xyzp + xp.reshape(
+                    as_backend_constant(xp, self._offset, xyzp), (3, 1)
+                )
+            xyzp = xp.reshape(xyzp, shape)
+            if guard_inf:
+                xyzp = where(xp, Rinf & xp.isnan(xyzp), 0.0, xyzp)
+            return (xyzp, rot) if return_rot else xyzp
         center = self._center_at(xp, t, xyzp)
         if center is not None:
             # (3,), with a trailing singleton per node axis, as the offset
@@ -693,6 +752,10 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         if xp is numpy:  # a backend-parameter potential under a forced numpy
             Fxyzp = to_host(Fxyzp)
         Fxyzp = xp.stack(Fxyzp)
+        if rot is not None and rot.ndim == 3:  # one rotation per point
+            shape = tuple(Fxyzp.shape)
+            F = xp.reshape(Fxyzp, (3, -1))
+            return xp.reshape((rot.mT @ F.T[..., None])[..., 0].T, shape)
         if rot is not None:
             return rot.T @ Fxyzp
         return as_backend_constant(xp, self._inv_rot, Fxyzp) @ Fxyzp
@@ -821,6 +884,10 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             ],
             axis=-2,
         )
+        if rot is not None and rot.ndim == 3:  # one rotation per point
+            shape = tuple(deriv2p.shape)
+            d = xp.reshape(deriv2p, (-1, 3, 3))
+            return xp.reshape(rot.mT @ (d @ rot), shape)
         if rot is not None:
             return rot.T @ (deriv2p @ rot)
         inv_rot = as_backend_constant(xp, self._inv_rot, deriv2p)
@@ -957,8 +1024,9 @@ def _table_spline(t, table):
 
 
 def _quaternion_to_matrix_xp(xp, q):
-    """_quaternion_to_matrix in the namespace xp (differentiable)"""
-    w, x, y, z = q[0], q[1], q[2], q[3]
+    """_quaternion_to_matrix in the namespace xp (differentiable), for a
+    quaternion (4,) or a stack of them (..., 4) -> (..., 3, 3)"""
+    w, x, y, z = q[..., 0], q[..., 1], q[..., 2], q[..., 3]
     return xp.stack(
         [
             xp.stack(
@@ -966,23 +1034,27 @@ def _quaternion_to_matrix_xp(xp, q):
                     1.0 - 2.0 * (y * y + z * z),
                     2.0 * (x * y - w * z),
                     2.0 * (x * z + w * y),
-                ]
+                ],
+                axis=-1,
             ),
             xp.stack(
                 [
                     2.0 * (x * y + w * z),
                     1.0 - 2.0 * (x * x + z * z),
                     2.0 * (y * z - w * x),
-                ]
+                ],
+                axis=-1,
             ),
             xp.stack(
                 [
                     2.0 * (x * z - w * y),
                     2.0 * (y * z + w * x),
                     1.0 - 2.0 * (x * x + y * y),
-                ]
+                ],
+                axis=-1,
             ),
-        ]
+        ],
+        axis=-2,
     )
 
 

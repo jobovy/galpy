@@ -223,6 +223,158 @@ def test_backend_constant_orientation_and_decreasing_tables(backend):
     return None
 
 
+def _per_point_cases():
+    # a moving and turning bar from tables, a bar turning through angles that
+    # are functions of time, and a non-axisymmetric MovingObjectPotential
+    bar = potential.SoftenedNeedleBarPotential(
+        amp=0.05, a=0.4, b=0.0, c=0.1, pa=0.0, omegab=0.0
+    )
+    return {
+        "tables": potential.RotateAndTiltWrapperPotential(
+            pot=bar, center=(_TT, _XYZ), orientation=(_TT, _Q)
+        ),
+        "functions": potential.RotateAndTiltWrapperPotential(
+            pot=bar, galaxy_pa=lambda t: 1.3 * t, inclination=0.2
+        ),
+        "movingobject": potential.MovingObjectPotential(
+            _O3,
+            pot=potential.SoftenedNeedleBarPotential(
+                amp=0.02, a=0.05, b=0.0, c=0.01, omegab=4.0
+            ),
+        ),
+    }
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_per_point_times(backend):
+    # One time per point (as torchode, which steps every orbit at its own
+    # time, evaluates the forces): each point with the center and orientation
+    # at its own time, as a loop over the points does; equal times reduce to
+    # one
+    R, z, phi = (
+        numpy.array([0.9, 1.2, 1.6]),
+        numpy.array([0.1, -0.2, 0.05]),
+        numpy.array([0.3, 1.1, -0.7]),
+    )
+    for tt in (numpy.array([0.2, 0.9, 1.7]), numpy.array([0.9, 0.9, 0.9])):
+        for name, pot in _per_point_cases().items():
+            for f in _FUNCS + (potential.evaluateDensities,):
+                want = numpy.array(
+                    [f(pot, R[i], z[i], phi=phi[i], t=tt[i]) for i in range(3)]
+                )
+                got = as_numpy(
+                    f(
+                        pot,
+                        _arr(backend, R),
+                        _arr(backend, z),
+                        phi=_arr(backend, phi),
+                        t=_arr(backend, tt),
+                    )
+                )
+                assert numpy.amax(numpy.fabs(got - want)) < 1e-12 * max(
+                    1.0, numpy.amax(numpy.fabs(want))
+                ), (
+                    f"{f.__name__} of {name} at one time per point on {backend} does not agree with a loop over the points"
+                )
+    return None
+
+
+_ICS = [
+    [1.1, 0.1, 1.05, 0.05, 0.05, 0.3],
+    [1.0, 0.0, 1.0, 0.1, 0.0, 1.0],
+    [1.3, -0.1, 0.9, 0.0, 0.1, 2.0],
+]
+_TS = numpy.linspace(0.0, 1.0, 11)
+
+
+def _c_orbits(pot):
+    o = Orbit(_ICS)
+    o.integrate(_TS, potential.MWPotential2014 + pot, method="dop853_c")
+    return numpy.array([o.x(_TS), o.y(_TS), o.z(_TS)])
+
+
+def _c_fd_center_scale(h=1e-4):
+    # d x(t_end) / d (scale of the center's table) of the first orbit, by
+    # central finite differences of C orbits (which agree with the in-backend
+    # integrators to ~1e-11, far below what the step needs)
+    def x(scale):
+        pot = potential.RotateAndTiltWrapperPotential(
+            pot=_per_point_cases()["tables"]._pot,
+            center=(_TT, scale * _XYZ),
+            orientation=(_TT, _Q),
+        )
+        o = Orbit(_ICS[0])
+        o.integrate(_TS, potential.MWPotential2014 + pot, method="dop853_c")
+        return o.x(_TS[-1])
+
+    return (x(1.0 + h) - x(1.0 - h)) / (2.0 * h)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_torchode_moving_turning():
+    # torchode integrates orbits through moving and turning potentials as C
+    # does, each orbit at its own time, and differentiates through them with
+    # respect to the center's table
+    def T(x):
+        return torch.as_tensor(numpy.asarray(x), dtype=torch.float64)
+
+    for name, pot in _per_point_cases().items():
+        o = Orbit(T(_ICS))
+        o.integrate(T(_TS), potential.MWPotential2014 + pot, method="torchode")
+        got = numpy.array([as_numpy(f(T(_TS))) for f in (o.x, o.y, o.z)])
+        assert numpy.amax(numpy.fabs(got - _c_orbits(pot))) < 1e-9, (
+            f"torchode orbits in {name} do not agree with C"
+        )
+
+    def final_x(scale):
+        pot = potential.RotateAndTiltWrapperPotential(
+            pot=_per_point_cases()["tables"]._pot,
+            center=(_TT, scale * T(_XYZ)),
+            orientation=(_TT, T(_Q)),
+        )
+        o = Orbit(T(_ICS[0]))
+        o.integrate(T(_TS), potential.MWPotential2014 + pot, method="torchode")
+        return o.x(T(_TS[-1]))
+
+    scale = torch.tensor(1.0, dtype=torch.float64, requires_grad=True)
+    final_x(scale).backward()
+    fd = _c_fd_center_scale()
+    assert numpy.fabs(float(scale.grad) - fd) < 1e-6 * numpy.fabs(fd), (
+        "The torchode gradient through a moving potential does not agree with finite differences"
+    )
+    return None
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_diffrax_moving_turning():
+    # diffrax integrates orbits through a moving and turning potential as C
+    # does, and differentiates through them with respect to the center's table
+    pot = _per_point_cases()["tables"]
+    o = Orbit(jnp.asarray(_ICS))
+    o.integrate(jnp.asarray(_TS), potential.MWPotential2014 + pot, method="diffrax")
+    got = numpy.array([as_numpy(f(jnp.asarray(_TS))) for f in (o.x, o.y, o.z)])
+    assert numpy.amax(numpy.fabs(got - _c_orbits(pot))) < 1e-9, (
+        "diffrax orbits in a moving and turning potential do not agree with C"
+    )
+
+    def final_x(scale):
+        p = potential.RotateAndTiltWrapperPotential(
+            pot=pot._pot,
+            center=(_TT, scale * jnp.asarray(_XYZ)),
+            orientation=(_TT, jnp.asarray(_Q)),
+        )
+        oo = Orbit(jnp.asarray(_ICS[0]))
+        oo.integrate(jnp.asarray(_TS), potential.MWPotential2014 + p, method="diffrax")
+        return oo.x(jnp.asarray(_TS[-1]))
+
+    g = float(jax.grad(final_x)(1.0))
+    fd = _c_fd_center_scale()
+    assert numpy.fabs(g - fd) < 1e-6 * numpy.fabs(fd), (
+        "The diffrax gradient through a moving potential does not agree with finite differences"
+    )
+    return None
+
+
 def _fd_grad(fun, x, h=1e-6, valid=None):
     # central finite-difference gradient of a scalar numpy function (zero
     # outside of the valid entries)
