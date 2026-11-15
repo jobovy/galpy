@@ -1464,6 +1464,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     t.ravel()
                     for t in (jr, jphi, jz, angler % (2.0 * numpy.pi), anglephi, anglez)
                 ),
+                nharm=self._npt,
             )
         ).reshape((9,) + shape)
         if scalar:

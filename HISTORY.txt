@@ -1,16 +1,24 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- The array evaluation of ``actionAngleVerticalInverse`` and
+  ``actionAngleSphericalInverse`` works through its points in chunks whose
+  size now shrinks with the number of harmonics of the map (about 200,000
+  points times harmonics per chunk, at most 16,384 and at least 1,024
+  points), so that the arrays of a chunk stay in the cache: maps with a
+  hundred harmonics evaluate about a third faster and maps with several
+  hundred harmonics about three times faster, with identical results.
+
 - ``actionAngleVerticalInverse`` can be set up from the maximum height of its
   largest torus: ``zmax=`` (with ``nE=`` tori) builds the tori between the
   orbit at rest and the one that reaches ``zmax``, spaced uniformly in the
   speed with which they cross the midplane, as an alternative to the grid of
   energies ``Es=``; with ``setup_interp=True`` every torus that stays below
   ``zmax`` is then available. In a disk's vertical potential this spacing
-  is several to a few tens of times more accurate between its tori than energies spaced
-  uniformly, with the same number of tori. On the jax and PyTorch backends
-  the energies of these tori follow the potential's parameters, so the
-  family is differentiable in them at fixed ``zmax``.
+  is several to a few tens of times more accurate between its tori than
+  energies spaced uniformly, with the same number of tori. On the jax and
+  PyTorch backends the energies of these tori follow the potential's
+  parameters, so the family is differentiable in them at fixed ``zmax``.
 
 - ``actionAngleStaeckelInverse`` evaluates arrays of actions, broadcast
   against the angles by numpy's rules like the vertical and spherical

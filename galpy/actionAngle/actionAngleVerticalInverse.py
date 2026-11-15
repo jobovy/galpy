@@ -1723,7 +1723,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         lib = j > 0.0
         if numpy.any(lib):
             x[lib], p[lib] = _chunked(
-                self._mm_xp_points, int(lib.sum()), j[lib], angle[lib]
+                self._mm_xp_points,
+                int(lib.sum()),
+                j[lib],
+                angle[lib],
+                nharm=self._mm_npt,
             )
         return x.reshape(shape), p.reshape(shape)
 
