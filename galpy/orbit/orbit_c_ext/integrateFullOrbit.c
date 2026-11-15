@@ -62,6 +62,8 @@ void evalRectDeriv_dxdv(double,double *, double *,
 void evalRectForce_dxdv(double, double *, double *,
 			int, struct potentialArg *, int);
 void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
+void initRotateAndTiltWrapperPotentialSplines(struct potentialArg *,
+					       double ** pot_args);
 void initChandrasekharDynamicalFrictionSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
@@ -992,7 +994,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phi2deriv= &RotateAndTiltWrapperPotentialphi2deriv;
       potentialArgs->Rphideriv= &RotateAndTiltWrapperPotentialRphideriv;
       potentialArgs->zphideriv= &RotateAndTiltWrapperPotentialzphideriv;
-      potentialArgs->nargs= 32;
+      potentialArgs->nargs= 41;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -1058,6 +1060,7 @@ void parse_leapFuncArgs_Full(int npot,
       break;
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
+    int setupRotateAndTiltWrapperPotentialSplines = *(*pot_type-1) == -8 ? 1 : 0;
     // Need to set up the same sigma_r spline for both Chandrasekhar and FDM dynamical friction
     int setupChandrasekharDynamicalFrictionSplines = (*(*pot_type-1) == -7 || *(*pot_type-1) == -11) ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
@@ -1074,6 +1077,8 @@ void parse_leapFuncArgs_Full(int npot,
     }
     if (setupMovingObjectSplines)
       initMovingObjectSplines(potentialArgs, pot_args);
+    if (setupRotateAndTiltWrapperPotentialSplines)
+      initRotateAndTiltWrapperPotentialSplines(potentialArgs, pot_args);
     if (setupChandrasekharDynamicalFrictionSplines )
       initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
     if ( setupNonInertialFrameForceSplines )
@@ -1504,6 +1509,49 @@ void initMovingObjectSplines(struct potentialArg * potentialArgs,
 
   *pot_args = *pot_args + (int) (1+4*nPts);
   free(t);
+}
+
+void initRotateAndTiltWrapperPotentialSplines(struct potentialArg * potentialArgs,
+					       double ** pot_args){
+  // RotateAndTiltWrapperPotential (pot_type -8): the block at the front of
+  // pot_args is nc, no, then the center's table tc[nc], x[nc], y[nc], z[nc]
+  // (when nc > 0) and the orientation's table to[no], w[no], x[no], y[no],
+  // z[no] (when no > 0), with increasing times. Natural cubic splines in the
+  // raw time, the center's three first in spline1d (see
+  // RotateAndTiltWrapperPotential.c)
+  int nc= (int) *(*pot_args)++;
+  int no= (int) *(*pot_args)++;
+  int ii, ispline= 0;
+  int nspline= ( nc > 0 ? 3 : 0 ) + ( no > 0 ? 4 : 0 );
+  potentialArgs->nspline1d= nspline;
+  if ( nspline == 0 )
+    return;
+  potentialArgs->spline1d= (gsl_spline **) \
+    malloc ( nspline * sizeof ( gsl_spline * ) );
+  potentialArgs->acc1d= (gsl_interp_accel **) \
+    malloc ( nspline * sizeof ( gsl_interp_accel * ) );
+  if ( nc > 0 ) {
+    for (ii=0; ii < 3; ii++) {
+      *(potentialArgs->spline1d+ispline)= gsl_spline_alloc(gsl_interp_cspline,
+							    nc);
+      *(potentialArgs->acc1d+ispline)= gsl_interp_accel_alloc();
+      gsl_spline_init(*(potentialArgs->spline1d+ispline), *pot_args,
+		      *pot_args+(ii+1)*nc, nc);
+      ispline++;
+    }
+    *pot_args+= 4 * nc;
+  }
+  if ( no > 0 ) {
+    for (ii=0; ii < 4; ii++) {
+      *(potentialArgs->spline1d+ispline)= gsl_spline_alloc(gsl_interp_cspline,
+							    no);
+      *(potentialArgs->acc1d+ispline)= gsl_interp_accel_alloc();
+      gsl_spline_init(*(potentialArgs->spline1d+ispline), *pot_args,
+		      *pot_args+(ii+1)*no, no);
+      ispline++;
+    }
+    *pot_args+= 5 * no;
+  }
 }
 
 void initNonInertialFrameForceSplines(struct potentialArg * potentialArgs,
