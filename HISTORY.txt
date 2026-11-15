@@ -1,6 +1,14 @@
 v2.0.0b2 (pre-release)
 ======================
 
+- On the jax and PyTorch backends, the construction of an
+  ``actionAngleSphericalInverse`` or ``actionAngleStaeckelInverse`` family no
+  longer runs the anomaly matching of all its tori to the 200-step cap when
+  a few samples on near-circular tori stall at the round-off floor of their
+  residual: a sample is also done once its Newton step is at the iterate's
+  round-off floor (a 128 x 128 spherical family on one CPU core under
+  PyTorch: 233 s before, 12 s now).
+
 - On the JAX and PyTorch backends, an array evaluation of an interpolated
   ``actionAngleSphericalInverse`` family reads, for every point, only the
   harmonics of its cell's coarse bucket (32, 128 or ``mm_npt``) of the
