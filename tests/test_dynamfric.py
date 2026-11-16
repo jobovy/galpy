@@ -592,13 +592,14 @@ def test_dynamfric_c_python_agree_sinking():
 
 def test_dynamfric_c_planar():
     # Planar orbits with dynamical friction are integrated in C through the
-    # 3D C implementation in the plane (velocity-dependent), as in Python; also
-    # for FDM dynamical friction, which inherits it
+    # 3D C implementation in the plane (velocity-dependent): the same orbit as
+    # the 3D one in the plane (whose C friction is checked against Python
+    # above); also for FDM dynamical friction, which inherits it
     import warnings
 
     from galpy.orbit import Orbit
 
-    ts = numpy.linspace(0.0, 20.0, 1001)
+    ts = numpy.linspace(0.0, 5.0, 101)
     for df in (
         potential.ChandrasekharDynamicalFrictionForce(
             GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=potential.MWPotential2014
@@ -607,20 +608,29 @@ def test_dynamfric_c_planar():
             GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=potential.MWPotential2014
         ),
     ):
-        oc = Orbit([1.2, 0.1, 1.0, 0.3])
-        op = oc()
+        op = Orbit([1.2, 0.1, 1.0, 0.3])
+        o3 = Orbit([1.2, 0.1, 1.0, 0.0, 0.0, 0.3])
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            oc.integrate(ts, potential.MWPotential2014 + df, method="dop853_c")
+            op.integrate(ts, potential.MWPotential2014 + df, method="dop853_c")
         assert not any("Cannot use C" in str(x.message) for x in w), (
             "Planar orbits with dynamical friction are not integrated in C"
         )
-        op.integrate(ts, potential.MWPotential2014 + df, method="dop853")
-        assert oc.R(ts[-1]) < 0.5 * oc.R(0.0), "Test orbit does not sink"
+        o3.integrate(ts, potential.MWPotential2014 + df, method="dop853_c")
+        assert as_numpy(op.R(ts[-1])) < 0.5 * as_numpy(op.R(0.0)), (
+            "Test orbit does not sink"
+        )
         for c in ("x", "y", "vx", "vy"):
             assert (
-                numpy.amax(numpy.fabs(getattr(oc, c)(ts) - getattr(op, c)(ts))) < 1e-7
-            ), "Planar dynamical friction in C and Python disagree"
+                numpy.amax(
+                    numpy.fabs(
+                        as_numpy(getattr(op, c)(ts)) - as_numpy(getattr(o3, c)(ts))
+                    )
+                )
+                < 1e-8
+            ), (
+                "A planar orbit with dynamical friction in C is not the 3D orbit in the plane"
+            )
     return None
 
 

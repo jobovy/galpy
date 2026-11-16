@@ -236,6 +236,14 @@ def _per_point_cases():
         "functions": potential.RotateAndTiltWrapperPotential(
             pot=bar, galaxy_pa=lambda t: 1.3 * t, inclination=0.2
         ),
+        # a center that is a function of time, a constant tilt, and an offset
+        "function_center": potential.RotateAndTiltWrapperPotential(
+            pot=bar,
+            center=lambda t: [0.1 * t, 0.05 * t - 0.02, 0.02 * t],
+            inclination=0.3,
+            galaxy_pa=0.2,
+            offset=[0.01, -0.02, 0.03],
+        ),
         "movingobject": potential.MovingObjectPotential(
             _O3,
             pot=potential.SoftenedNeedleBarPotential(
@@ -341,6 +349,21 @@ def test_torchode_moving_turning():
     fd = _c_fd_center_scale()
     assert numpy.fabs(float(scale.grad) - fd) < 1e-6 * numpy.fabs(fd), (
         "The torchode gradient through a moving potential does not agree with finite differences"
+    )
+    return None
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_traced_table_times():
+    # the times of the tables traced inside jax.jit (their order cannot be
+    # checked, and they are taken to increase): numpy's values
+    def pot_at(tt):
+        return evaluatePotentials(_wrapper(tt=tt), 0.9, 0.1, phi=0.3, t=0.37)
+
+    want = pot_at(_TT)
+    got = float(jax.jit(pot_at)(jnp.asarray(_TT)))
+    assert numpy.fabs(got - want) < 1e-12 * max(1.0, numpy.fabs(want)), (
+        "jax.jit with traced table times does not agree with numpy"
     )
     return None
 
