@@ -10,7 +10,13 @@ with
 When all are taken, add 20 more after the last one. Unused slots are removed
 at release.]
 
-- [slot 01]
+- ``KingPotential`` and ``kingdf`` solve their Poisson equation to a
+  relative tolerance of 1e-10 (before, scipy's default 1e-3 left errors of
+  1e-4 to 1e-2 in the potential, forces, and density), and the forces and
+  second derivatives of ``PowerSphericalPotentialwCutoff``,
+  ``EinastoPotential`` (inside its scale radius ``h``, from a series without
+  the cancellation of the closed form), and ``DehnenBarPotential`` change at
+  the round-off level, so that their values are those of galpy 2.0.
 
 - [slot 02]
 
