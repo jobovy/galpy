@@ -14526,13 +14526,13 @@ def test_actionAngleStaeckelInverse_Lzspacing():
 
 def _staeckel_inverse_node_actions(aAI, n):
     # (J_R, L_z, J_z) of the nodes of a family's n^3 grid, as (n, n, n, 3)
-    # along (E, I_3, L_z)
-    return numpy.array(
-        [
-            [aAI.JR(E, Lz, I3), Lz, aAI.Jz(E, Lz, I3)]
-            for E, Lz, I3 in zip(aAI._Es, aAI._Lzs, aAI._I3s)
-        ]
-    ).reshape(n, n, n, 3)
+    # along (E, I_3, L_z): the set-up's own actions, which JR and Jz return
+    # at the nodes to round-off (1024 calls of those take minutes under an
+    # eager backend)
+    A = as_numpy(aAI._A_tab)
+    return numpy.stack(
+        [A[..., 0], as_numpy(aAI._Lzs).reshape(n, n, n), A[..., 1]], axis=-1
+    )
 
 
 def _staeckel_inverse_between(J, axes=(0, 1, 2)):
