@@ -1,9 +1,11 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
-[New entries: replace the lowest-numbered "- [slot NN]" line below that no
-other open pull request has taken, so that pull requests do not conflict
-here; list the taken ones with
+[New entries: just before opening the pull request (a slot is taken only once
+an open pull request fills it; keep the entry elsewhere until then), replace
+the lowest-numbered "- [slot NN]" line below that no other open pull request
+has taken, so that pull requests do not conflict here; list the taken ones
+with
   for p in $(gh pr list --base main --json number -q '.[].number'); do gh pr diff $p | grep '^-- \[slot'; done
 When all are taken, add 20 more after the last one. Unused slots are removed
 at release.]
