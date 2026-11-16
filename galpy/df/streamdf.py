@@ -20,7 +20,6 @@ from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..orbit import Orbit
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import (
-    ars,
     conversion,
     coords,
     fast_cholesky_invert,
@@ -30,6 +29,7 @@ from ..util import (
     stable_cho_factor,
 )
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+from ..util._sampling import ensure_strictly_increasing, linear_inverse_cdf_sample
 from ..util.conversion import physical_conversion
 from .df import df
 from .streamTrack import StreamTrack
@@ -71,6 +71,13 @@ _labelDict = {
     "pmbb": r"$\mu_b\,(\mathrm{mas\,yr}^{-1})$",
     "vlos": r"$V_{\mathrm{los}}\,(\mathrm{km\,s}^{-1})$",
 }
+
+
+# the frequency-offset CDF's grid (_dOmega_inverse_cdf_grid)
+_DO1_NGRID = 1000
+_DO1_FRAC = numpy.linspace(0.0, 1.0, _DO1_NGRID)
+_SQRT2 = numpy.sqrt(2.0)
+_SQRT2PI = numpy.sqrt(2.0 * numpy.pi)
 
 
 class streamdf(df):
@@ -3753,36 +3760,52 @@ class streamdf(df):
                     )
                 return out
 
-    def _sample_aAt(self, n):
-        """Sampling frequencies, angles, and times part of sampling"""
-        # Sample frequency along largest eigenvalue using ARS
-        dO1s = ars.ars(
-            [0.0, 0.0],
-            [True, False],
-            [
-                self._meandO - numpy.sqrt(self._sortedSigOEig[2]),
-                self._meandO + numpy.sqrt(self._sortedSigOEig[2]),
-            ],
-            _h_ars,
-            _hp_ars,
-            nsamples=n,
-            hxparams=(self._meandO, self._sortedSigOEig[2]),
-            maxn=100,
+    def _dOmega_inverse_cdf_grid(self, mO, sig):
+        """(omega_grid, cdf_grid) of the frequency offset along the largest
+        eigenvalue, which follows the tilted Gaussian ``p(O) propto O exp(-0.5
+        (O - mO)^2 / sig)`` on ``O > 0`` (``mO`` the mean offset ``_meandO``,
+        ``sig`` the variance ``_sortedSigOEig[2]``), whose CDF is closed form,
+        on ``O in [max(eps, mO - 8 sqrt(sig)), mO + 8 sqrt(sig)]``"""
+        s = numpy.sqrt(sig)
+        lo = numpy.maximum(mO - 8.0 * s, mO * 0.0 + 1e-8)
+        hi = mO + 8.0 * s
+        og = lo + (hi - lo) * _DO1_FRAC
+        Phi = lambda z: 0.5 * (1.0 + special.erf(z / _SQRT2))
+        pref = s * mO * _SQRT2PI
+        expo0 = numpy.exp(-0.5 * mO**2.0 / sig)
+        G = pref * (Phi((og - mO) / s) - Phi(-mO / s)) + sig * (
+            expo0 - numpy.exp(-0.5 * (og - mO) ** 2.0 / sig)
         )
-        dO1s = numpy.array(dO1s) * self._sigMeanSign
-        dO2s = numpy.random.normal(size=n) * numpy.sqrt(self._sortedSigOEig[1])
-        dO3s = numpy.random.normal(size=n) * numpy.sqrt(self._sortedSigOEig[0])
+        Ginf = pref * Phi(mO / s) + sig * expo0
+        # saturated float tails can leave zero steps
+        return og, ensure_strictly_increasing(G / Ginf)
+
+    def _sample_aAt(self, n):
+        """Sampling frequencies, angles, and times part of sampling: the
+        frequency along the largest eigenvalue by linear inverse-CDF sampling
+        of its closed-form CDF (adaptive rejection sampling before 2026-11), the
+        other frequencies and the angles by Gaussians, and the time by a
+        uniform"""
+        u1 = numpy.random.uniform(0.0, 1.0, size=(n,))
+        og, cg = self._dOmega_inverse_cdf_grid(self._meandO, self._sortedSigOEig[2])
+        dO1s = linear_inverse_cdf_sample(og, cg, u1) * self._sigMeanSign
+        dO2s = numpy.random.normal(0.0, 1.0, size=(n,)) * numpy.sqrt(
+            self._sortedSigOEig[1]
+        )
+        dO3s = numpy.random.normal(0.0, 1.0, size=(n,)) * numpy.sqrt(
+            self._sortedSigOEig[0]
+        )
         # Rotate into dOs in R,phi,z coordinates
-        dO = numpy.vstack((dO3s, dO2s, dO1s))
-        dO = numpy.dot(self._sigomatrixEig[1][:, self._sigomatrixEigsortIndx], dO)
-        Om = dO + numpy.tile(self._progenitor_Omega.T, (n, 1)).T
+        dO = numpy.stack([dO3s, dO2s, dO1s], axis=0)
+        dO = self._sigomatrixEig[1][:, self._sigomatrixEigsortIndx] @ dO
+        Om = dO + self._progenitor_Omega[:, None]
         # Also generate angles
-        da = numpy.random.normal(size=(3, n)) * self._sigangle
+        da = numpy.random.normal(0.0, 1.0, size=(3, n)) * self._sigangle
         # And a random time
         dt = self.sample_t(n)
         # Integrate the orbits relative to the progenitor
-        da += dO * numpy.tile(dt, (3, 1))
-        angle = da + numpy.tile(self._progenitor_angle.T, (n, 1)).T
+        da = da + dO * dt[None, :]
+        angle = da + self._progenitor_angle[:, None]
         return (Om, angle, dt)
 
     def sample_t(self, n):
@@ -3803,19 +3826,7 @@ class streamdf(df):
         -----
         - 2015-09-16 - Written - Bovy (UofT)
         """
-        return numpy.random.uniform(size=n) * self._tdisrupt
-
-
-def _h_ars(x, params):
-    """ln p(Omega) for ARS"""
-    mO, sO2 = params
-    return -0.5 * (x - mO) ** 2.0 / sO2 + numpy.log(x)
-
-
-def _hp_ars(x, params):
-    """d ln p(Omega) / d Omega for ARS"""
-    mO, sO2 = params
-    return -(x - mO) / sO2 + 1.0 / x
+        return numpy.random.uniform(0.0, 1.0, size=(n,)) * self._tdisrupt
 
 
 def _determine_stream_track_single(
