@@ -12,7 +12,17 @@ at release.]
 
 - [slot 01]
 
-- [slot 02]
+- Potentials and forces no longer hold lambda functions or closures that
+  galpy builds itself, so that they can be pickled (e.g., to send them to
+  other processes with ``multiprocessing``) whenever the functions given to
+  them can: ``AnySphericalPotential``,
+  ``AnyAxisymmetricRazorThinDiskPotential`` (also with densities in astropy
+  units), ``DiskSCFPotential``, ``DiskMultipoleExpansionPotential``, the
+  time-dependent ``MultipoleExpansionPotential`` (from density functions
+  without sine terms, ``from_density``, or ``from_scf``), and
+  ``NonInertialFrameForce`` (with a constant or time-dependent ``a0``,
+  ``x0``/``v0``, or an ``Omega`` without ``Omegadot``). A user-supplied
+  lambda still cannot be pickled.
 
 - [slot 03]
 

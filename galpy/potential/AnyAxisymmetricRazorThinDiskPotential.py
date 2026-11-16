@@ -3,6 +3,8 @@
 #                                             potential of an arbitrary
 #                                             axisymmetric, razor-thin disk
 ###############################################################################
+import copy
+
 import numpy
 from scipy import integrate, special
 
@@ -125,13 +127,19 @@ def _finite_part_quad(integrand_d, R, az, C):
     return -4 * (inner + integrate.quad(integrand_d, R, numpy.inf)[0])
 
 
+def _default_surfdens(R):
+    # A module-level function rather than a lambda, so that the default
+    # potential pickles (pickle looks a function up by its qualified name)
+    return 1.5 * numpy.exp(-3.0 * R)
+
+
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\\Sigma(R)`"""
 
     def __init__(
         self,
         amp=1.0,
-        surfdens=lambda R: 1.5 * numpy.exp(-3.0 * R),
+        surfdens=_default_surfdens,
         normalize=False,
         ro=None,
         vo=None,
@@ -159,44 +167,34 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         # Parse surface density: does it have units? does it expect them?
+        self._sdens_input = surfdens
+        self._sdens_unit_input = False
+        self._sdens_unit_output = False
         if _APY_LOADED:
-            _sdens_unit_input = False
             try:
                 surfdens(1)
             except (units.UnitConversionError, units.UnitTypeError):
-                _sdens_unit_input = True
-            _sdens_unit_output = False
-            if _sdens_unit_input:
+                self._sdens_unit_input = True
+            if self._sdens_unit_input:
                 try:
                     surfdens(1.0 * units.kpc).to(units.Msun / units.pc**2)
                 except (AttributeError, units.UnitConversionError):
                     pass
                 else:
-                    _sdens_unit_output = True
+                    self._sdens_unit_output = True
             else:
                 try:
                     surfdens(1.0).to(units.Msun / units.pc**2)
                 except (AttributeError, units.UnitConversionError):
                     pass
                 else:
-                    _sdens_unit_output = True
-            if _sdens_unit_input and _sdens_unit_output:
-                self._sdens = lambda R: conversion.parse_surfdens(
-                    surfdens(R * self._ro * units.kpc), ro=self._ro, vo=self._vo
-                )
-            elif _sdens_unit_input:
-                self._sdens = lambda R: surfdens(R * self._ro * units.kpc)
-            elif _sdens_unit_output:
-                self._sdens = lambda R: conversion.parse_surfdens(
-                    surfdens(R), ro=self._ro, vo=self._vo
-                )
-            if _sdens_unit_output:
+                    self._sdens_unit_output = True
+            if self._sdens_unit_output:
                 # When sdens (like other potential's amplitude) gives outputs in units,
                 # turn on physical output
                 self._roSet = True
                 self._voSet = True
-        if not hasattr(self, "_sdens"):  # unitless
-            self._sdens = surfdens
+        self._set_sdens()
         # The potential at zero, in case it's asked for
         self._pot_zero = (
             -2.0 * numpy.pi * integrate.quad(lambda a: self._sdens(a), 0, numpy.inf)[0]
@@ -205,6 +203,39 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
+
+    def _set_sdens(self):
+        """Wrap the input surface density so that it takes and returns internal
+        units; called from ``__init__`` and again on unpickling, because the
+        wrappers are closures (see ``__getstate__``)"""
+        surfdens = self._sdens_input
+        if self._sdens_unit_input and self._sdens_unit_output:
+            self._sdens = lambda R: conversion.parse_surfdens(
+                surfdens(R * self._ro * units.kpc), ro=self._ro, vo=self._vo
+            )
+        elif self._sdens_unit_input:
+            self._sdens = lambda R: surfdens(R * self._ro * units.kpc)
+        elif self._sdens_unit_output:
+            self._sdens = lambda R: conversion.parse_surfdens(
+                surfdens(R), ro=self._ro, vo=self._vo
+            )
+        else:  # unitless: use the input surface density directly
+            self._sdens = surfdens
+        return None
+
+    # Pickling functions
+    def __getstate__(self):
+        pdict = copy.copy(self.__dict__)
+        if self._sdens_unit_input or self._sdens_unit_output:
+            # rm the units wrapper (a lambda); _sdens_input that it closes over
+            # stays, so a surfdens that is itself unpicklable still raises
+            del pdict["_sdens"]
+        return pdict
+
+    def __setstate__(self, pdict):
+        self.__dict__ = pdict
+        self._set_sdens()
+        return None
 
     @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
