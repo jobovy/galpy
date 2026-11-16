@@ -15,6 +15,8 @@ _NSIGMA = 4.0
 _INTERPDEGREE = 3
 _RMIN = 10.0**-10.0
 _MAXD_REJECTLOS = 4.0
+# nodes of the actual surface density's table along a line of sight
+_NDSAMPLE_ACTUAL = 201
 _PROFILE = False
 import copy
 import functools
@@ -579,6 +581,10 @@ class diskdf(df):
         - 2011-03-24 - Written - Bovy (NYU)
 
         """
+        l = conversion.parse_angle(l)
+        maxd = conversion.parse_length(maxd, ro=self._ro)
+        if maxd is None:
+            maxd = _MAXD_REJECTLOS
         # First calculate where the maximum is
         if target:
             minR = optimize.fmin_bfgs(
@@ -590,17 +596,19 @@ class diskdf(df):
             )[0]
             maxSM = self.targetSurfacemassLOS(minR, l, deg=False, use_physical=False)
         else:
-            minR = optimize.fmin_bfgs(
-                lambda x: -self.surfacemassLOS(x, l, deg=False, use_physical=False),
-                0.0,
-                disp=False,
-            )[0]
-            maxSM = self.surfacemassLOS(minR, l, deg=False, use_physical=False)
+            # the actual surface density takes a quadrature per evaluation, so
+            # it is tabulated once along the line of sight and interpolated
+            dgrid = numpy.linspace(0.0, maxd, _NDSAMPLE_ACTUAL)
+            sgrid = numpy.array(
+                [
+                    self.surfacemassLOS(
+                        d, l, deg=False, target=False, use_physical=False
+                    )
+                    for d in dgrid
+                ]
+            )
+            maxSM = numpy.amax(sgrid)
         # Now rejection-sample
-        l = conversion.parse_angle(l)
-        maxd = conversion.parse_length(maxd, ro=self._ro)
-        if maxd is None:
-            maxd = _MAXD_REJECTLOS
         out = []
         while len(out) < n:
             # sample
@@ -610,9 +618,7 @@ class diskdf(df):
                     prop, l, deg=False, use_physical=False
                 )
             else:
-                surfmassatprop = self.surfacemassLOS(
-                    prop, l, deg=False, use_physical=False
-                )
+                surfmassatprop = numpy.interp(prop, dgrid, sgrid)
             if surfmassatprop / maxSM > numpy.random.random():  # accept
                 out.append(prop)
         return numpy.array(out)
@@ -1630,15 +1636,15 @@ class diskdf(df):
             xE = numpy.exp(E - 0.5)
         else:  # non-flat rotation curve
             xE = (2.0 * E / (1.0 + 1.0 / self._beta)) ** (1.0 / 2.0 / self._beta)
-        _, _, rperi, rap = self._aA.EccZmaxRperiRap(
-            xE,
-            numpy.sqrt(2.0 * (E - self._psp(xE)) - L**2.0 / xE**2.0),
-            L / xE,
-            0.0,
-            0.0,
+        # the orbit (E, L) at its guiding radius xE, which it reaches
+        vR = numpy.sqrt(
+            numpy.maximum(2.0 * (E - self._psp(xE)) - L**2.0 / xE**2.0, 0.0)
         )
+        _, _, rperi, rap = self._aA.EccZmaxRperiRap(xE, vR, L / xE, 0.0, 0.0)
+        # the radial frequency of that orbit (with vR = 0 at xE, it was that of
+        # an orbit of another energy)
         return (
-            self._aA._aAS.actionsFreqs(xE, 0.0, L / xE, 0.0, 0.0)[3][0],
+            self._aA._aAS.actionsFreqs(xE, vR, L / xE, 0.0, 0.0)[3][0],
             rap[0],
             rperi[0],
         )
@@ -2090,7 +2096,9 @@ class dehnendf(diskdf):
                     )
                 else:
                     thisOrbit = thisOrbit(tr)
-                kappa = _kappa(thisOrbit.vxvv[0, 0], self._beta)
+                # the weight is kappa at the guiding radius over the orbit's
+                # radial frequency (the DF's measure in the sampled variables)
+                kappa = _kappa(xE[ii], self._beta)
                 if not rrange == None:
                     if (
                         thisOrbit.vxvv[0, 0] < rrange[0]
@@ -2498,7 +2506,9 @@ class shudf(diskdf):
                     )
                 else:
                     thisOrbit = thisOrbit(tr)
-                kappa = _kappa(thisOrbit.vxvv[0, 0], self._beta)
+                # the weight is kappa at the guiding radius over the orbit's
+                # radial frequency (the DF's measure in the sampled variables)
+                kappa = _kappa(xL[ii], self._beta)
                 if not rrange == None:
                     if (
                         thisOrbit.vxvv[0, 0] < rrange[0]

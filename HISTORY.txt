@@ -30,7 +30,17 @@ at release.]
   ``x0``/``v0``, or an ``Omega`` without ``Omegadot``). A user-supplied
   lambda still cannot be pickled.
 
-- [slot 03]
+- Fixed the samplers of the two-dimensional disk DFs (``dehnendf``,
+  ``shudf``): ``sample`` weighted each orbit by the epicycle frequency at the
+  sampled radius over the radial frequency of an orbit of another energy
+  (that with vR = 0 at the guiding radius), which made the mean azimuthal
+  velocity of the samples 3-4 per cent too high and biased their radial
+  distribution; it now uses the epicycle frequency at the guiding radius over
+  the orbit's own radial frequency, the DF's measure in the sampled variables
+  (and samples the orbital phase with the orbit's own radial period).
+  ``sampledSurfacemassLOS`` and ``sampleLOS`` with ``target=False`` sampled the
+  target surface density anyway; they now sample the DF's actual surface
+  density (tabulated along the line of sight).
 
 - [slot 04]
 

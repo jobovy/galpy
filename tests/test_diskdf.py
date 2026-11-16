@@ -2205,8 +2205,10 @@ def test_sampledSurfacemassLOS():
     # Sample a large number of points, then check some moments against the analytic distribution
     ds = dfc.sampledSurfacemassLOS(numpy.pi / 4.0, n=10000, target=False)
     xds = numpy.linspace(0.001, 4.0, 101)
-    # check against target, bc that's easy to calculate
-    pds = numpy.array([dfc.surfacemassLOS(d, 45.0, deg=True, target=True) for d in xds])
+    # the actual surface density (the target's mean differs by 0.015)
+    pds = numpy.array(
+        [dfc.surfacemassLOS(d, 45.0, deg=True, target=False) for d in xds]
+    )
     md = numpy.sum(xds * pds) / numpy.sum(pds)
     sd = numpy.sqrt(numpy.sum(xds**2.0 * pds) / numpy.sum(pds) - md**2.0)
     assert numpy.fabs(numpy.mean(ds) - md) < 10.0**-2.0, (
@@ -2317,8 +2319,10 @@ def test_sampleLOS():
     os = dfc.sampleLOS(45.0, n=1000, targetSurfmass=False, deg=True)
     ds = numpy.array([o.dist(ro=1.0, obs=[1.0, 0.0, 0.0]) for o in os])
     xds = numpy.linspace(0.001, 4.0, 101)
-    # check against target, bc that's easy to calculate
-    pds = numpy.array([dfc.surfacemassLOS(d, 45.0, deg=True, target=True) for d in xds])
+    # the actual surface density (the target's mean differs by 0.015)
+    pds = numpy.array(
+        [dfc.surfacemassLOS(d, 45.0, deg=True, target=False) for d in xds]
+    )
     md = numpy.sum(xds * pds) / numpy.sum(pds)
     sd = numpy.sqrt(numpy.sum(xds**2.0 * pds) / numpy.sum(pds) - md**2.0)
     assert numpy.fabs(numpy.mean(ds) - md) < 10.0**-2.0, (
@@ -2339,12 +2343,12 @@ def test_dehnendf_sample_sampleLOS():
     dfc = dehnendf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     # Sample a large number of points, then check some moments against the analytic distribution
     numpy.random.seed(1)
-    os = dfc.sampleLOS(45.0, n=2, targetSurfmass=False, deg=True)
+    os = dfc.sampleLOS(45.0, n=2, targetSurfmass=True, deg=True)
     rs = numpy.array([o.R() for o in os])
     vrs = numpy.array([o.vR() for o in os])
     vts = numpy.array([o.vT() for o in os])
     numpy.random.seed(1)
-    os2 = dfc.sample(los=45.0, n=2, targetSurfmass=False, losdeg=True)
+    os2 = dfc.sample(los=45.0, n=2, targetSurfmass=True, losdeg=True)
     rs2 = numpy.array([o.R() for o in os2])
     vrs2 = numpy.array([o.vR() for o in os2])
     vts2 = numpy.array([o.vT() for o in os2])
@@ -2366,12 +2370,12 @@ def test_shudf_sample_sampleLOS():
     dfc = shudf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     # Sample a large number of points, then check some moments against the analytic distribution
     numpy.random.seed(1)
-    os = dfc.sampleLOS(45.0, n=2, targetSurfmass=False, deg=True)
+    os = dfc.sampleLOS(45.0, n=2, targetSurfmass=True, deg=True)
     rs = numpy.array([o.R() for o in os])
     vrs = numpy.array([o.vR() for o in os])
     vts = numpy.array([o.vT() for o in os])
     numpy.random.seed(1)
-    os2 = dfc.sample(los=45.0, n=2, targetSurfmass=False, losdeg=True)
+    os2 = dfc.sample(los=45.0, n=2, targetSurfmass=True, losdeg=True)
     rs2 = numpy.array([o.R() for o in os2])
     vrs2 = numpy.array([o.vR() for o in os2])
     vts2 = numpy.array([o.vT() for o in os2])
@@ -2415,11 +2419,31 @@ def test_dehnendf_sample_flat_returnROrbit():
     return None
 
 
+def test_sample_weights_mean_vT():
+    # sample() weights each orbit by kappa at its guiding radius over its own
+    # radial frequency (the DF's measure in the sampled variables); kappa at the
+    # sampled radius over the radial frequency of an orbit of another energy
+    # made the mean azimuthal velocity 3-4% too high (3.7 and 3.8 standard
+    # errors here)
+    for cls in (dehnendf, shudf):
+        numpy.random.seed(5)
+        dfc = cls(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.2))
+        os = dfc.sample(n=4000, returnROrbit=True)
+        R = numpy.array([o.R() for o in os])
+        vT = numpy.array([o.vT() for o in os])
+        ring = (R > 0.9) & (R < 1.1)
+        se = numpy.std(vT[ring]) / numpy.sqrt(numpy.sum(ring))
+        assert numpy.fabs(numpy.mean(vT[ring]) - dfc.meanvT(1.0)) < 2.5 * se, (
+            f"The mean azimuthal velocity of {cls.__name__}'s samples at R = 1 is not that of the DF"
+        )
+    return None
+
+
 def test_dehnendf_sample_flat_returnROrbit_rrange():
     beta = 0.0
     dfc = dehnendf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnROrbit=True, rrange=[0.0, 1.0])
+    os = dfc.sample(n=1000, returnROrbit=True, rrange=[0.0, 1.0])
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     assert numpy.fabs(numpy.mean(rs) - 0.419352) < 0.05, (
@@ -2475,7 +2499,7 @@ def test_dehnendf_sample_flat_returnOrbit():
     beta = 0.0
     dfc = dehnendf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnOrbit=True)
+    os = dfc.sample(n=1000, returnOrbit=True)
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     phis = numpy.array([o.phi() for o in os])
@@ -2529,7 +2553,7 @@ def test_shudf_sample_flat_returnROrbit():
     beta = 0.0
     dfc = shudf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     numpy.random.seed(1)
-    os = dfc.sample(n=50, returnROrbit=True)
+    os = dfc.sample(n=1000, returnROrbit=True)
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     assert numpy.fabs(numpy.mean(rs) - 0.5) < 0.1, (
@@ -2557,7 +2581,7 @@ def test_shudf_sample_flat_returnROrbit_rrange():
     beta = 0.0
     dfc = shudf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnROrbit=True, rrange=[0.0, 1.0])
+    os = dfc.sample(n=1000, returnROrbit=True, rrange=[0.0, 1.0])
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     assert numpy.fabs(numpy.mean(rs) - 0.419352) < 0.05, (
@@ -2585,7 +2609,7 @@ def test_shudf_sample_powerrise_returnROrbit():
     beta = 0.2
     dfc = shudf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnROrbit=True)
+    os = dfc.sample(n=1000, returnROrbit=True)
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     assert numpy.fabs(numpy.mean(rs) - 0.5) < 0.1, (
@@ -2613,11 +2637,13 @@ def test_shudf_sample_flat_returnOrbit():
     beta = 0.0
     dfc = shudf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnOrbit=True)
+    os = dfc.sample(n=1000, returnOrbit=True)
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     phis = numpy.array([o.phi() for o in os])
-    assert numpy.fabs(numpy.mean(rs) - 0.5) < 0.05, (
+    # the uncorrected Shu DF's own surface density has mean R 0.550 (that of
+    # the target profile is 0.5), which its samples follow
+    assert numpy.fabs(numpy.mean(rs) - 0.55) < 0.05, (
         "mean R of sampled points does not agree with that of the input surface profile"
     )
     assert numpy.fabs(numpy.mean(phis) - numpy.pi) < 0.2, (
@@ -2999,7 +3025,7 @@ def test_dehnendf_sample_flat_returnROrbit_wcorrections():
     beta = 0.0
     dfc = ddf_correct2_flat
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnROrbit=True)
+    os = dfc.sample(n=1000, returnROrbit=True)
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     assert numpy.fabs(numpy.mean(rs) - 0.5) < 0.05, (
@@ -3056,7 +3082,7 @@ def test_shudf_sample_flat_returnROrbit_wcorrections():
     beta = 0.0
     dfc = sdf_correct_flat
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnROrbit=True)
+    os = dfc.sample(n=1000, returnROrbit=True)
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     assert numpy.fabs(numpy.mean(rs) - 0.5) < 0.05, (
