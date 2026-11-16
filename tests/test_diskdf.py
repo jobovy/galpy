@@ -2419,6 +2419,30 @@ def test_dehnendf_sample_flat_returnROrbit():
     return None
 
 
+def test_sample_nphi_rrange():
+    # nphi copies of every sampled orbit, at different azimuths, and points
+    # outside rrange redrawn until there are n of them
+    numpy.random.seed(2)
+    dfc = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2))
+    os = dfc.sample(n=40, returnOrbit=True, nphi=2)
+    assert len(os) == 80, "dehnendf.sample with nphi=2 does not return 2n orbits"
+    Rs = numpy.array([o.R() for o in os])
+    phis = numpy.array([o.phi() for o in os])
+    same = numpy.fabs(Rs[1:] - Rs[:-1]) < 1e-12
+    assert numpy.sum(same) >= 40, (
+        "dehnendf.sample with nphi=2 does not repeat the sampled orbits"
+    )
+    assert numpy.all(numpy.fabs(phis[1:] - phis[:-1])[same] > 0.0), (
+        "dehnendf.sample with nphi=2 repeats orbits at the same azimuth"
+    )
+    dfc = shudf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2))
+    os = dfc.sample(n=40, returnROrbit=True, rrange=[0.0, 0.5])
+    Rs = numpy.array([o.R() for o in os])
+    assert len(os) == 40, "shudf.sample with rrange does not return n orbits"
+    assert numpy.all(Rs <= 0.5), "shudf.sample with rrange returns R outside rrange"
+    return None
+
+
 def test_sample_weights_mean_vT():
     # sample() weights each orbit by kappa at its guiding radius over its own
     # radial frequency (the DF's measure in the sampled variables); kappa at the
