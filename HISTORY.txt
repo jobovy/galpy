@@ -1,6 +1,55 @@
 v1.12.2 (expected around 2027-03-01)
 ====================
 
+[New entries: just before opening the pull request (a slot is taken only once
+an open pull request fills it; keep the entry elsewhere until then), replace
+the lowest-numbered "- [slot NN]" line below that no other open pull request
+has taken, so that pull requests do not conflict here; list the taken ones
+with
+  for p in $(gh pr list --base main --json number -q '.[].number'); do gh pr diff $p | grep '^-- \[slot'; done
+When all are taken, add 20 more after the last one. Unused slots are removed
+at release.]
+
+- [slot 01]
+
+- [slot 02]
+
+- [slot 03]
+
+- [slot 04]
+
+- [slot 05]
+
+- [slot 06]
+
+- [slot 07]
+
+- [slot 08]
+
+- [slot 09]
+
+- [slot 10]
+
+- [slot 11]
+
+- [slot 12]
+
+- [slot 13]
+
+- [slot 14]
+
+- [slot 15]
+
+- [slot 16]
+
+- [slot 17]
+
+- [slot 18]
+
+- [slot 19]
+
+- [slot 20]
+
 - ``actionAngleStaeckelInverse`` evaluates every point of an interpolated
   family (``setup_interp=True``) with the harmonics that the tori around it
   need instead of all ``mm_npt`` of them, as ``actionAngleSphericalInverse``
