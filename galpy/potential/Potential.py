@@ -75,7 +75,19 @@ def check_potential_inputs_not_arrays(func):
             )
         return func(self, R, z, phi, t)
 
+    func_wrapper._galpy_scalar_only = True
     return func_wrapper
+
+
+def _accepts_node_array(pot, *methods):
+    """Whether ``pot``'s ``methods`` broadcast over an array of positions:
+    False if any of them carries the scalar-only marker set by
+    :func:`check_potential_inputs_not_arrays`"""
+    for name in methods:
+        meth = getattr(type(pot), name, None)
+        if meth is not None and getattr(meth, "_galpy_scalar_only", False):
+            return False
+    return True
 
 
 def potential_positional_arg(func):

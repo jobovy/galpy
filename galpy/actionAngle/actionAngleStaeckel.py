@@ -10,11 +10,11 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-import copy
+import math
 import warnings
+from functools import lru_cache
 
 import numpy
-from scipy import integrate, optimize
 
 from ..potential import (
     CompositePotential,
@@ -29,7 +29,9 @@ from ..potential import (
     verticalfreq,
 )
 from ..potential.Potential import (
+    Potential,
     PotentialError,
+    _accepts_node_array,
     _check_c,
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -57,6 +59,599 @@ def _focal_length_of(pot):
             return None
         return deltas[0]
     return getattr(pot, "_delta", None)
+
+
+def _coerce_delta_arraylike(delta):
+    """A plain Python sequence delta (individual deltas) as an ndarray, so it
+    broadcasts against the phase-space arrays; scalars and arrays pass through"""
+    return numpy.array(delta) if isinstance(delta, (list, tuple)) else delta
+
+
+class _PointwisePotential(Potential):
+    """A potential with a component whose methods take scalar coordinates only
+    (e.g., DoubleExponentialDiskPotential), evaluated point by point for the
+    vectorized core"""
+
+    def __init__(self, pot):
+        Potential.__init__(self, amp=1.0)
+        self._pot = pot
+
+    def _pointwise(self, func, R, z):
+        R, z = numpy.broadcast_arrays(R, z)
+        return numpy.reshape(
+            numpy.array(
+                [func(self._pot, r, zz) for r, zz in zip(R.ravel(), z.ravel())]
+            ),
+            R.shape,
+        )
+
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
+        return self._pointwise(_evaluatePotentials, R, z)
+
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
+        return self._pointwise(_evaluateRforces, R, z)
+
+    def _zforce(self, R, z, phi=0.0, t=0.0):
+        return self._pointwise(_evaluatezforces, R, z)
+
+
+def _staeckel_pot(pot):
+    """pot, or its point-by-point evaluation if a component's potential or
+    forces take scalar coordinates only"""
+    comps = list(pot) if isinstance(pot, CompositePotential) else [pot]
+    if all(_accepts_node_array(p, "_evaluate", "_Rforce", "_zforce") for p in comps):
+        return pot
+    return _PointwisePotential(pot)
+
+
+# ----------------------------------------------------------------------------
+# The pure-Python (c=False) Staeckel core, vectorized over all phase-space
+# points (as on galpy's v2 branch): elementwise setup, the turning points by a
+# fixed-schedule bracket-and-bisect, and the action, frequency, and angle
+# integrals by the chi-anomaly quadrature of _staeckel_chi_quads
+# (q = qmin + D sin^2(chi/2) makes sqrt(S) analytic at the turning points) on
+# C's mesh (_staeckel_nchi). v0=pi/2 for the u (J_R) integral, u0=ux for the
+# v (J_z) integral (u0 does not matter for the actions, frequencies, and
+# angles).
+
+# cap on the bisection halvings (a degenerate, zero-width bracket gets it)
+_BISECT_MAXITER = 100
+
+
+def _iterate_bracket(step, x0, n):
+    """Run x = step(x) up to n times, stopping at a fixed point"""
+    for _ in range(n):
+        x1 = step(x0)
+        if numpy.all(x1 == x0):
+            return x1
+        x0 = x1
+    return x0
+
+
+def _bisect_root(f, a, b, xtol, maxiter):
+    """Root of f on [a, b] (arrays, f(a) and f(b) of opposite sign) by a fixed
+    number of halvings: enough to shrink the widest bracket below xtol"""
+    lo = numpy.asarray(a) * 1.0
+    hi = numpy.asarray(b) * 1.0
+    width = float(numpy.max(numpy.abs(numpy.asarray(b) - numpy.asarray(a))))
+    n = (
+        max(1, min(int(math.ceil(math.log2(width / xtol))) + 1, maxiter))
+        if width > 0.0
+        else min(maxiter, _BISECT_MAXITER)
+    )
+    slo = numpy.sign(f(lo))
+    for _ in range(n):
+        mid = 0.5 * (lo + hi)
+        same = numpy.sign(f(mid)) == slo
+        lo, hi = numpy.where(same, mid, lo), numpy.where(same, hi, mid)
+    return 0.5 * (lo + hi)
+
+
+def _staeckel_setup(R, vR, vT, z, vz, pot, delta):
+    """The setup quantities of every phase-space point"""
+    ux, vx = coords.Rz_to_uv(R, z, delta=delta)
+    sinvx, cosvx = numpy.sin(vx), numpy.cos(vx)
+    coshux, sinhux = numpy.cosh(ux), numpy.sinh(ux)
+    pux = delta * (vR * coshux * sinvx + vz * sinhux * cosvx)
+    pvx = delta * (vR * sinhux * cosvx - vz * coshux * sinvx)
+    E, Lz = calcELStaeckel(R, vR, vT, z, vz, pot)
+    u0 = ux  # u0 does not matter for a single action evaluation
+    sinh2u0 = numpy.sinh(u0) ** 2.0
+    v0u = numpy.pi / 2.0
+    sin2v0u = numpy.sin(v0u) ** 2.0
+    potu0v0 = potentialStaeckel(u0, v0u, pot, delta)
+    I3U = (
+        E * sinhux**2.0
+        - pux**2.0 / 2.0 / delta**2.0
+        - Lz**2.0 / 2.0 / delta**2.0 / sinhux**2.0
+        - (sinhux**2.0 + sin2v0u) * potentialStaeckel(ux, v0u, pot, delta)
+        + (sinh2u0 + sin2v0u) * potu0v0
+    )
+    cosh2u0v = numpy.cosh(u0) ** 2.0
+    sinh2u0v = sinh2u0
+    potupi2 = potentialStaeckel(u0, numpy.pi / 2.0, pot, delta)
+    dV = cosh2u0v * potupi2 - (sinh2u0v + sinvx**2.0) * potentialStaeckel(
+        u0, vx, pot, delta
+    )
+    I3V = (
+        -E * sinvx**2.0
+        + pvx**2.0 / 2.0 / delta**2.0
+        + Lz**2.0 / 2.0 / delta**2.0 / sinvx**2.0
+        - dV
+    )
+    return {
+        "ux": ux, "vx": vx, "pux": pux, "pvx": pvx, "E": E, "Lz": Lz,
+        "u0": u0, "sinh2u0": sinh2u0, "v0u": v0u, "sin2v0u": sin2v0u,
+        "potu0v0": potu0v0, "I3U": I3U, "cosh2u0v": cosh2u0v,
+        "sinh2u0v": sinh2u0v, "potupi2": potupi2, "I3V": I3V,
+    }  # fmt: skip
+
+
+def _staeckel_jr_args(s, pot, delta):
+    return (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+            s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
+
+
+def _staeckel_jz_args(s, pot, delta):
+    return (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
+            s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
+
+
+def _staeckel_uminumax(s, pot, delta):
+    """(umin, umax, unbound): bracket-and-bisect roots of the J_R integrand^2"""
+    args = _staeckel_jr_args(s, pot, delta)
+    f = lambda u: _JRStaeckelIntegrandSquared(u, *args)
+    ux, eps = s["ux"], 1e-8
+    at_turn = (numpy.abs(s["pux"]) < 1e-7) | (numpy.abs(f(ux)) < 1e-10)
+    peps, meps = f(ux + eps), f(ux - eps)
+    at_umin = at_turn & (peps > 0.0) & (meps < 0.0)
+    at_umax = at_turn & (peps < 0.0) & (meps > 0.0)
+    circular = at_turn & ~at_umin & ~at_umax
+    # lower bracket: halve below ux until f < 0 (60 halvings reach ~1e-18, so
+    # even a near-axis turning point of a nearly radial orbit is straddled)
+    lo = _iterate_bracket(
+        lambda l: numpy.where((f(l) >= 0.0) & (l > 1e-10), l * 0.5, l), ux * 0.5, 60
+    )
+    # f still >= 0 at the floor: the orbit reaches the symmetry axis, umin=0
+    reaches_axis = f(lo) >= 0.0
+    # upper bracket: expand above ux until f < 0 (up to u=100)
+    hi = _iterate_bracket(
+        lambda h: numpy.where((f(h) >= 0.0) & (h < 100.0), h * 1.1, h), ux * 1.1, 80
+    )
+    # no upper turning point below u=100: unbound
+    unbound = (f(100.0 * numpy.ones_like(ux)) >= 0.0) & ~(at_umax | circular)
+    # an orbit exactly at a turning point has f(ux) ~ 0 of either sign, so the
+    # other turning point is bracketed from strictly inside the allowed region
+    u_lo_umax = numpy.where(at_umin, ux + eps, ux)
+    u_hi_umin = numpy.where(at_umax, ux - eps, ux)
+    umin = _bisect_root(f, lo, u_hi_umin, xtol=1e-13, maxiter=200)
+    umax = _bisect_root(f, u_lo_umax, hi, xtol=1e-13, maxiter=200)
+    umin = numpy.where(at_umin | circular, ux, umin)
+    umax = numpy.where(at_umax | circular, ux, umax)
+    # a circular orbit is a double root of f at ux, so f(ux +- eps) is at the
+    # level of f's rounding noise and its classification as at a turning point
+    # is decided by the last bits: a turning-point pair closer than the
+    # frequencies' circular threshold cannot be resolved, so it is circular
+    unresolved = at_turn & ((umax - umin) < 1e-6 * umax)
+    umin = numpy.where(unresolved, ux, umin)
+    umax = numpy.where(unresolved, ux, umax)
+    umin = numpy.where(reaches_axis, numpy.zeros_like(umin), umin)
+    return umin, umax, unbound
+
+
+def _staeckel_vmin(s, pot, delta):
+    """vmin: bracket-and-bisect root of the J_z integrand^2 below vx"""
+    args = _staeckel_jz_args(s, pot, delta)
+    f = lambda v: _JzStaeckelIntegrandSquared(v, *args)
+    vx, eps = s["vx"], 1e-8
+    at_turn = (numpy.abs(s["pvx"]) < 1e-7) | (numpy.abs(f(vx)) < 1e-10)
+    at_vmin = at_turn & (f(vx + eps) > 0.0) & (f(vx - eps) < 0.0)
+    vlo = _iterate_bracket(
+        lambda v: numpy.where((f(v) >= 0.0) & (v > 1e-9), v * 0.9, v), vx * 0.9, 80
+    )
+    vmin = _bisect_root(f, vlo, vx, xtol=1e-13, maxiter=200)
+    return numpy.where(at_vmin, vx, vmin)
+
+
+def _staeckel_eval_flat(func, q, args):
+    """func(q, *args) on an (N, nnodes) grid, evaluated on the raveled grid
+    (the potentials' functions take 1D coordinates) and reshaped"""
+    shp = q.shape
+    fargs = tuple(
+        numpy.reshape(numpy.broadcast_to(a, shp), (-1,))
+        if getattr(a, "ndim", 0) >= 1
+        else a
+        for a in args
+    )
+    return numpy.reshape(func(numpy.reshape(q, (-1,)), *fargs), shp)
+
+
+def _staeckel_chi_mesh_edges(e):
+    """10-node GL rule on each panel of the edge list e, raveled"""
+    mid = 0.5 * (e[:-1] + e[1:])
+    half = 0.5 * (e[1:] - e[:-1])
+    t = (mid[:, None] + _CHIQUAD_GLX[None, :] * half[:, None]).ravel()
+    w = (half[:, None] * _CHIQUAD_GLW[None, :]).ravel()
+    return t, w
+
+
+@lru_cache(maxsize=None)
+def _staeckel_chi_mesh(nchi):
+    """The composite rule on the normalized anomaly t in [0,1]: nchi uniform
+    panels of the 10-node GL rule (normalized, so that the upper anomaly may
+    differ per orbit, as for the angles' incomplete integrals)"""
+    return _staeckel_chi_mesh_edges(numpy.linspace(0.0, 1.0, nchi + 1))
+
+
+@lru_cache(maxsize=None)
+def _staeckel_chi_mesh_nearaxis(nchi):
+    """The J_R action meshes of a batch with near-axis orbits, at one node
+    count so that the choice is per orbit: (uniform, graded). The graded one
+    is C's glfixed_graded on the low half t in [0, 1/2] -- panels halving
+    toward the cusp at the axis -- plus the uniform high half"""
+    nhigh = nchi // 2
+    lo = [0.0] + [0.5 * 2.0 ** (k + 1 - _STAECKEL_NEARAXIS_NPANELS)
+                  for k in range(_STAECKEL_NEARAXIS_NPANELS)]  # fmt: skip
+    hi = list(numpy.linspace(0.5, 1.0, nhigh + 1)[1:])
+    graded = _staeckel_chi_mesh_edges(numpy.array(lo + hi))
+    uniform = _staeckel_chi_mesh(_STAECKEL_NEARAXIS_NPANELS + nhigh)
+    return uniform, graded
+
+
+def _staeckel_chi_quads(
+    Ssq, dSsq, args, qmin, D, order, chimax=numpy.pi, vside=False, nearaxis=None
+):
+    """Chi-anomaly quadratures of sqrt(S) over the turning-point interval.
+
+    S vanishes linearly at each turning point, so sqrt(S) has a square-root
+    branch point there. In the anomaly q = qmin + D sin^2(chi/2), with
+    y = sin^2(chi/2) and Q = S/[y(1-y)] smooth and nonzero,
+
+        int sqrt(S) dq = (D/4) int sqrt(Q) sin^2(chi) dchi,
+        int f/sqrt(S) dq = D int f/sqrt(Q) dchi,
+
+    both analytic in chi (the rule C is regularized to, so c=True and c=False
+    agree to machine precision). Near a turning point the direct S is a
+    difference of O(1) potential terms, which dividing by y(1-y) amplifies;
+    there Q is rebuilt from the analytic derivative as
+    S ~ (q - q0)[S'(q0) + S'(q)]/2.
+
+    chimax is the anomaly of the upper limit: pi for a complete integral, pi/2
+    for the z action (whose anomaly spans the whole v loop [vmin, pi - vmin];
+    the midplane is a symmetry point of S_z), or a per-orbit
+    2 arcsin(sqrt((q-qmin)/D)) for the angles' incomplete integrals.
+
+    nearaxis (the J_R action only, as in C) masks the orbits reaching the axis,
+    umin < _STAECKEL_NEARAXIS: there S picks up the potential's inner cusp,
+    S ~ A - B u^0.2, against which a uniform rule converges only algebraically
+    and the S' edge model is wrong; those orbits get C's graded mesh and the
+    direct Q, the rest of the batch the uniform rule at the same node count.
+
+    Returns (action, sqrt(Q), q, wts), so that every quadrature on this mesh
+    comes from one evaluation of S.
+    """
+    nchi = _staeckel_nchi(order, vside)
+    if nearaxis is None:
+        t, w = _staeckel_chi_mesh(nchi)
+    else:
+        (tu, wu), (tg, wg) = _staeckel_chi_mesh_nearaxis(nchi)
+        na = nearaxis[..., None]
+        t = numpy.where(na, tg, tu)
+        w = numpy.where(na, wg, wu)
+    chi = chimax * t
+    wts = chimax * w
+    y = numpy.sin(chi / 2.0) ** 2.0
+    y1my = y * (1.0 - y)
+    # masks: the denominators of the unused branches are kept finite
+    ones = numpy.ones_like(y1my)
+    is_edge = y1my <= _STAECKEL_CHI_EDGE
+    if nearaxis is not None:
+        is_edge = is_edge & ~na
+    is_lo = y < 0.5
+    y1my_safe = numpy.where(is_edge, ones, y1my)
+    omy_safe = numpy.where(is_lo, 1.0 - y, ones)
+    y_safe = numpy.where(is_lo, ones, y)
+    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in args)
+    q = qmin[..., None] + D[..., None] * y
+    Q = _staeckel_eval_flat(Ssq, q, a2) / y1my_safe
+    dS_n = _staeckel_eval_flat(dSsq, q, a2)
+    dS_lo = _staeckel_eval_flat(dSsq, qmin[..., None], a2)
+    dS_hi = _staeckel_eval_flat(dSsq, (qmin + D)[..., None], a2)
+    Q_edge = numpy.where(
+        is_lo,
+        D[..., None] * (dS_lo + dS_n) / 2.0 / omy_safe,
+        D[..., None] * (-dS_hi - dS_n) / 2.0 / y_safe,
+    )
+    Q = numpy.where(is_edge, Q_edge, Q)
+    tiny = numpy.finfo(float).tiny
+    Q = numpy.where(Q > tiny, Q, tiny * ones)
+    sqQ = numpy.sqrt(Q)
+    action = (D / 4.0) * numpy.sum(wts * sqQ * numpy.sin(chi) ** 2.0, axis=-1)
+    return action, sqQ, q, wts
+
+
+def _staeckel_prep(R, vR, vT, z, vz, pot, delta):
+    """Setup quantities and turning points, shared by the actions,
+    frequencies, and angles: (setup, umin, umax, vmin)"""
+    s = _staeckel_setup(R, vR, vT, z, vz, pot, delta)
+    umin, umax, unbound = _staeckel_uminumax(s, pot, delta)
+    if numpy.any(unbound):
+        raise UnboundError("Orbit seems to be unbound")
+    vmin = _staeckel_vmin(s, pot, delta)
+    # planar orbit (jz=0): snap vmin to exactly pi/2 (the bisection lands
+    # ~1e-8 off), so that jz=0, the J_z panels vanish, and zmax=0 exactly
+    vmin = numpy.where(
+        (numpy.pi / 2.0 - vmin) < 1e-7, numpy.pi / 2.0 * numpy.ones_like(vmin), vmin
+    )
+    return s, umin, umax, vmin
+
+
+def _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order):
+    """(jr, jz) from the setup quantities and turning points"""
+    sqrt2 = numpy.sqrt(2.0)
+    jr = (
+        _staeckel_chi_quads(
+            _JRStaeckelIntegrandSquared,
+            _dJRStaeckelIntegrandSquareddu,
+            _staeckel_jr_args(s, pot, delta),
+            umin,
+            umax - umin,
+            order,
+            nearaxis=umin < _STAECKEL_NEARAXIS,
+        )[0]
+        * sqrt2
+        * delta
+        / numpy.pi
+    )
+    jz = (
+        _staeckel_chi_quads(
+            _JzStaeckelIntegrandSquared,
+            _dJzStaeckelIntegrandSquareddv,
+            _staeckel_jz_args(s, pot, delta),
+            vmin,
+            numpy.pi - 2.0 * vmin,  # the full v loop; the midplane is chi = pi/2
+            order,
+            chimax=numpy.pi / 2.0,
+            vside=True,
+        )[0]
+        * 2.0
+        * sqrt2
+        * delta
+        / numpy.pi
+    )
+    jr = numpy.where((umax - umin) / umax < 1e-6, numpy.zeros_like(jr), jr)
+    jz = numpy.where((numpy.pi / 2.0 - vmin) < 1e-7, numpy.zeros_like(jz), jz)
+    return jr, jz
+
+
+def _staeckel_actions(R, vR, vT, z, vz, pot, delta, order):
+    """(jr, Lz, jz)"""
+    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta)
+    jr, jz = _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order)
+    return jr, s["Lz"], jz
+
+
+# Weight functions of the 1/p_u and 1/p_v profile integrals, in the order
+# (dE, dI3, dLz)
+def _sinh2(u):
+    return numpy.sinh(u) ** 2.0
+
+
+def _sin2(v):
+    return numpy.sin(v) ** 2.0
+
+
+def _one_over_sinh2(u):
+    return 1.0 / numpy.sinh(u) ** 2.0
+
+
+def _one_over_sin2(v):
+    return 1.0 / numpy.sin(v) ** 2.0
+
+
+_CHIQUAD_UWEIGHTS = (_sinh2, numpy.ones_like, _one_over_sinh2)
+_CHIQUAD_VWEIGHTS = (_sin2, numpy.ones_like, _one_over_sin2)
+
+
+def _staeckel_chi_profiles(
+    Ssq, dSsq, args, qmin, D, order, weight_fns, chimax=numpy.pi, vside=False
+):
+    """The 1/p profile integrals int f/sqrt(S) dq for every f in weight_fns,
+    on the same chi mesh as the action: int f/sqrt(S) dq = D int f/sqrt(Q) dchi
+    (one evaluation of S serves all of them)"""
+    _, sqQ, q, wts = _staeckel_chi_quads(Ssq, dSsq, args, qmin, D, order, chimax, vside)
+    return [D * numpy.sum(wts * f(q) / sqQ, axis=-1) for f in weight_fns]
+
+
+def _staeckel_jacobian(s, umin, umax, vmin, pot, delta, order):
+    """The six Leibniz derivatives (djrdE, djrdLz, djrdI3, djzdE, djzdLz,
+    djzdI3), shared by the frequencies and the angles"""
+    sqrt2 = numpy.sqrt(2.0)
+    Lz = s["Lz"]
+    prefr = delta / numpy.pi / sqrt2
+    prefz = sqrt2 * delta / numpy.pi
+    duE, duI3, duLz = _staeckel_chi_profiles(
+        _JRStaeckelIntegrandSquared,
+        _dJRStaeckelIntegrandSquareddu,
+        _staeckel_jr_args(s, pot, delta),
+        umin,
+        umax - umin,
+        order,
+        _CHIQUAD_UWEIGHTS,
+    )
+    dvE, dvI3, dvLz = _staeckel_chi_profiles(
+        _JzStaeckelIntegrandSquared,
+        _dJzStaeckelIntegrandSquareddv,
+        _staeckel_jz_args(s, pot, delta),
+        vmin,
+        numpy.pi - 2.0 * vmin,  # the full v loop; the midplane is chi = pi/2
+        order,
+        _CHIQUAD_VWEIGHTS,
+        chimax=numpy.pi / 2.0,
+        vside=True,
+    )
+    djrdE = duE * prefr
+    djrdLz = duLz * (-Lz / numpy.pi / sqrt2 / delta)
+    djrdI3 = duI3 * (-prefr)
+    djzdE = dvE * prefz
+    djzdLz = dvLz * (-Lz * sqrt2 / numpy.pi / delta)
+    djzdI3 = dvI3 * prefz
+    return djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3
+
+
+def _staeckel_freqs(umin, umax, vmin, jac):
+    """(Omegar, Omegaphi, Omegaz) from the Leibniz derivatives; NaN for
+    circular orbits (the caller substitutes epifreq/omegac/verticalfreq, as
+    the C wrapper does) and, for planar eccentric orbits, NaN Omegar and
+    Omegaphi with an infinite Omegaz (C's 0/0 and x/0)"""
+    djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = jac
+    detA = djrdE * djzdI3 - djzdE * djrdI3
+    circ = (umax - umin) / umax < 1e-6  # circular in R: the J_R panels vanish
+    planar = (numpy.pi / 2.0 - vmin) < 1e-7  # planar: the J_z panels vanish
+    degen = circ | planar
+    detsafe = numpy.where(degen, numpy.ones_like(detA), detA)
+    nan = numpy.nan * numpy.ones_like(detA)
+    inf = numpy.inf * numpy.ones_like(detA)
+    Omegar = numpy.where(degen, nan, djzdI3 / detsafe)
+    Omegaz = numpy.where(circ, nan, numpy.where(planar, inf, -djrdI3 / detsafe))
+    Omegaphi = numpy.where(degen, nan, (djrdI3 * djzdLz - djzdI3 * djrdLz) / detsafe)
+    return Omegar, Omegaphi, Omegaz
+
+
+def _staeckel_actions_freqs(R, vR, vT, z, vz, pot, delta, order):
+    """(jr, Lz, jz, Omegar, Omegaphi, Omegaz); the frequencies are NaN for
+    circular orbits (see _staeckel_freqs)"""
+    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta)
+    jr, jz = _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order)
+    jac = _staeckel_jacobian(s, umin, umax, vmin, pot, delta, order)
+    Omegar, Omegaphi, Omegaz = _staeckel_freqs(umin, umax, vmin, jac)
+    return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz
+
+
+def _staeckel_angles(s, umin, umax, vmin, pot, delta, order, jac):
+    """(angler, anglephi without the azimuth, anglez); angler and anglez in
+    [0, 2pi), all three zero for circular or planar orbits.
+
+    The angles need partial Leibniz integrals, from a turning point to the
+    current u/v. The u partial from the low turning point has upper anomaly
+    chi(ux) = 2 arcsin(sqrt((ux-umin)/Du)), that from the high one is the
+    complete integral minus it; the v anomaly spans the full loop
+    [vmin, pi-vmin], and chi(pi-v) = pi - chi(v), so the v partials are one
+    partial and the integral to the midplane. A reflection constant K and a
+    sign, functions of the momentum's sign and the position's quadrant, map
+    each partial onto the full angle (C's calcAnglesStaeckel)."""
+    sqrt2 = numpy.sqrt(2.0)
+    pi = numpy.pi
+    Lz = s["Lz"]
+    ux, vx, pux, pvx = s["ux"], s["vx"], s["pux"], s["pvx"]
+    djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = jac
+    detA = djrdE * djzdI3 - djzdE * djrdI3
+    circ = (umax - umin) / umax < 1e-6
+    planar = (pi / 2.0 - vmin) < 1e-7
+    detsafe = numpy.where(circ | planar, numpy.ones_like(detA), detA)
+    Omegar = djzdI3 / detsafe
+    Omegaz = -djrdI3 / detsafe
+    Omegaphi = (djrdI3 * djzdLz - djzdI3 * djrdLz) / detsafe
+    dI3dJR = -djzdE / detsafe
+    dI3dJz = djrdE / detsafe
+    dI3dLz = -(djrdE * djzdLz - djzdE * djrdLz) / detsafe
+    jr_args = _staeckel_jr_args(s, pot, delta)
+    jz_args = _staeckel_jz_args(s, pot, delta)
+    JRsq, JZsq = _JRStaeckelIntegrandSquared, _JzStaeckelIntegrandSquared
+    dJRsq, dJZsq = _dJRStaeckelIntegrandSquareddu, _dJzStaeckelIntegrandSquareddv
+    # u
+    Du = umax - umin
+    Du_safe = numpy.where(Du > 0.0, Du, numpy.ones_like(Du))
+    chi_ux = 2.0 * numpy.arcsin(numpy.sqrt(numpy.clip((ux - umin) / Du_safe, 0.0, 1.0)))
+    high_u = ux > umin + 0.5 * Du
+    part_u = _staeckel_chi_profiles(
+        JRsq, dJRsq, jr_args, umin, Du, order, _CHIQUAD_UWEIGHTS,
+        chimax=chi_ux[..., None],
+    )  # fmt: skip
+    full_u = _staeckel_chi_profiles(
+        JRsq, dJRsq, jr_args, umin, Du, order, _CHIQUAD_UWEIGHTS
+    )
+    PE, PI, PL = (numpy.where(high_u, fu - pu, pu) for pu, fu in zip(part_u, full_u))
+    pos_u = pux > 0.0
+    K_u = numpy.where(high_u, pi, numpy.where(pos_u, 0.0, 2.0 * pi)) * numpy.ones_like(
+        ux
+    )
+    s_u = numpy.where(
+        high_u, numpy.where(pos_u, -1.0, 1.0), numpy.where(pos_u, 1.0, -1.0)
+    )
+    Or1 = K_u * djrdE + s_u * (delta / sqrt2) * PE
+    I3r1 = K_u * djrdI3 - s_u * (delta / sqrt2) * PI  # leading minus in u
+    aphi_u = K_u * djrdLz - s_u * (Lz / delta / sqrt2) * PL
+    # v
+    Dv = numpy.pi - 2.0 * vmin
+    Dv_safe = numpy.where(Dv > 0.0, Dv, numpy.ones_like(Dv))
+    chi_vx = 2.0 * numpy.arcsin(numpy.sqrt(numpy.clip((vx - vmin) / Dv_safe, 0.0, 1.0)))
+    mid_v_pt = vmin + 0.5 * (pi / 2.0 - vmin)
+    low_v = (vx < mid_v_pt) | (vx > (pi - mid_v_pt))
+    above = vx > pi / 2.0
+    # low_v panels integrate from the vmin turning point; by the pi/2 symmetry
+    # the ones above the midplane are the mirrored partial, anomaly pi - chi(vx)
+    chimax_v = numpy.where(low_v & above, numpy.pi - chi_vx, chi_vx)
+    part_v = _staeckel_chi_profiles(
+        JZsq, dJZsq, jz_args, vmin, Dv, order, _CHIQUAD_VWEIGHTS,
+        chimax=chimax_v[..., None], vside=True,
+    )  # fmt: skip
+    half_v = _staeckel_chi_profiles(
+        JZsq, dJZsq, jz_args, vmin, Dv, order, _CHIQUAD_VWEIGHTS,
+        chimax=numpy.pi / 2.0, vside=True,
+    )  # fmt: skip
+    QE, QI, QL = (
+        numpy.where(low_v, pv, numpy.where(above, pv - hv, hv - pv))
+        for pv, hv in zip(part_v, half_v)
+    )
+    pos_v = pvx > 0.0
+    K_v = numpy.where(
+        low_v,
+        numpy.where(
+            pos_v, numpy.where(above, pi, 0.0), numpy.where(above, pi, 2.0 * pi)
+        ),
+        numpy.where(pos_v, pi / 2.0, 1.5 * pi),
+    ) * numpy.ones_like(vx)
+    s_v = numpy.where(
+        low_v,
+        numpy.where(
+            pos_v, numpy.where(above, -1.0, 1.0), numpy.where(above, 1.0, -1.0)
+        ),
+        numpy.where(
+            pos_v, numpy.where(above, 1.0, -1.0), numpy.where(above, -1.0, 1.0)
+        ),
+    )
+    Or2 = K_v * djzdE + s_v * (delta / sqrt2) * QE
+    I3r2 = K_v * djzdI3 + s_v * (delta / sqrt2) * QI  # no leading minus in v
+    phitmp = K_v * djzdLz - s_v * (Lz / delta / sqrt2) * QL
+    # assembly (C's calcAnglesStaeckel)
+    Or_sum = Or1 + Or2
+    I3_sum = I3r1 + I3r2
+    angler = Omegar * Or_sum + dI3dJR * I3_sum
+    anglez = Omegaz * Or_sum + dI3dJz * I3_sum + pi / 2.0
+    anglephi = aphi_u + phitmp + Omegaphi * Or_sum + dI3dLz * I3_sum
+    angler = numpy.remainder(angler, 2.0 * pi)
+    anglez = numpy.remainder(anglez, 2.0 * pi)
+    zeros = numpy.zeros_like(angler)
+    degen = circ | planar  # both degeneracies: C's calcAngles returns 0
+    angler = numpy.where(degen, zeros, angler)
+    anglez = numpy.where(degen, zeros, anglez)
+    anglephi = numpy.where(degen, zeros, anglephi)
+    return angler, anglephi, anglez
+
+
+def _staeckel_actions_freqs_angles(R, vR, vT, z, vz, phi, pot, delta, order):
+    """(jr, Lz, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez), the
+    azimuth folded into anglephi"""
+    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta)
+    jr, jz = _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order)
+    jac = _staeckel_jacobian(s, umin, umax, vmin, pot, delta, order)
+    Omegar, Omegaphi, Omegaz = _staeckel_freqs(umin, umax, vmin, jac)
+    angler, anglephi, anglez = _staeckel_angles(
+        s, umin, umax, vmin, pot, delta, order, jac
+    )
+    anglephi = numpy.remainder(anglephi + phi, 2.0 * numpy.pi)
+    return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez
 
 
 class actionAngleStaeckel(actionAngle):
@@ -121,7 +716,9 @@ class actionAngleStaeckel(actionAngle):
             self._c = False
         self._useu0 = kwargs.get("useu0", False)
         self._order = kwargs.get("order", 10)
-        self._delta = conversion.parse_length(delta, ro=self._ro)
+        self._delta = _coerce_delta_arraylike(
+            conversion.parse_length(delta, ro=self._ro)
+        )
         # Check the units
         self._check_consistent_units()
         return None
@@ -145,11 +742,9 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
+            number of points to use in the Gauss-Legendre numerical integration of the relevant integrals (C); on the pure-Python path, it sets the mesh of the composite chi-anomaly Gauss-Legendre quadrature (see the class's order).
         fixed_quad: bool, optional
-            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
-        **kwargs: dict, optional
-            scipy.integrate.fixed_quad or .quad keywords when not using C
+            no longer used: the pure-Python path always uses the composite chi-anomaly Gauss-Legendre quadrature, which is machine-converged.
 
         Returns
         -------
@@ -221,38 +816,17 @@ class actionAngleStaeckel(actionAngle):
                     galpyWarning,
                 )
             kwargs.pop("c", None)
-            if len(R) > 1:
-                ojr = numpy.zeros(len(R))
-                olz = numpy.zeros(len(R))
-                ojz = numpy.zeros(len(R))
-                for ii in range(len(R)):
-                    targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
-                    tkwargs = copy.copy(kwargs)
-                    try:
-                        tkwargs["delta"] = delta[ii]
-                    except (TypeError, IndexError):
-                        tkwargs["delta"] = delta
-                    tjr, tlz, tjz = self(*targs, **tkwargs)
-                    ojr[ii] = tjr[0]
-                    ojz[ii] = tjz[0]
-                    olz[ii] = tlz[0]
-                return (ojr, olz, ojz)
-            else:
-                # Set up the actionAngleStaeckelSingle object
-                aASingle = actionAngleStaeckelSingle(
-                    R[0],
-                    vR[0],
-                    vT[0],
-                    z[0],
-                    vz[0],
-                    pot=self._pot,
-                    delta=delta[0] if hasattr(delta, "__len__") else delta,
-                )
-                return (
-                    numpy.atleast_1d(aASingle.JR(**copy.copy(kwargs))),
-                    numpy.atleast_1d(aASingle._R * aASingle._vT),
-                    numpy.atleast_1d(aASingle.Jz(**copy.copy(kwargs))),
-                )
+            jr, Lz, jz = _staeckel_actions(
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                _staeckel_pot(self._pot),
+                _coerce_delta_arraylike(delta),
+                order,
+            )
+            return (numpy.atleast_1d(jr), numpy.atleast_1d(Lz), numpy.atleast_1d(jz))
 
     def _actionsFreqs(self, *args, **kwargs):
         """
@@ -273,11 +847,9 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
+            number of points to use in the Gauss-Legendre numerical integration of the relevant integrals (C); on the pure-Python path, it sets the mesh of the composite chi-anomaly Gauss-Legendre quadrature (see the class's order).
         fixed_quad: bool, optional
-            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
-        **kwargs: dict, optional
-            scipy.integrate.fixed_quad or .quad keywords when not using C
+            no longer used: the pure-Python path always uses the composite chi-anomaly Gauss-Legendre quadrature, which is machine-converged.
 
         Returns
         -------
@@ -387,42 +959,24 @@ class actionAngleStaeckel(actionAngle):
                 vz = numpy.array([vz])
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
-            Lz = R * vT
-            jr = numpy.zeros(len(R))
-            jz = numpy.zeros(len(R))
-            Omegar = numpy.zeros(len(R))
-            Omegaphi = numpy.zeros(len(R))
-            Omegaz = numpy.zeros(len(R))
-            for ii in range(len(R)):
-                tdelta = delta[ii] if hasattr(delta, "__len__") else delta
-                singlekw = {
-                    "pot": self._pot,
-                    "delta": tdelta,
-                    "_v0u": numpy.pi / 2.0,
-                }
-                if self._useu0:
-                    E = (
-                        _evaluatePotentials(self._pot, R[ii], z[ii])
-                        + vR[ii] ** 2.0 / 2.0
-                        + vz[ii] ** 2.0 / 2.0
-                        + vT[ii] ** 2.0 / 2.0
-                    )
-                    singlekw["u0"] = calcu0(E, Lz[ii], self._pot, tdelta)[0]
-                aASingle = actionAngleStaeckelSingle(
-                    R[ii], vR[ii], vT[ii], z[ii], vz[ii], **singlekw
-                )
-                jr[ii] = numpy.atleast_1d(aASingle.JR(fixed_quad=True, order=order))[0]
-                jz[ii] = numpy.atleast_1d(aASingle.Jz(fixed_quad=True, order=order))[0]
-                with numpy.errstate(divide="ignore", invalid="ignore"):
-                    tOr, tOp, tOz, _, _, _, _ = aASingle.calcFreqs(order=order)
-                Omegar[ii] = tOr
-                Omegaphi[ii] = tOp
-                Omegaz[ii] = tOz
-            # Adjustments for close-to-circular orbits (mirror the C wrapper)
-            indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
-                jz < 10.0**-3.0
+            # the u0 reference of useu0 does not change the actions and
+            # frequencies, so it is not needed here
+            jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                _staeckel_pot(self._pot),
+                _coerce_delta_arraylike(delta),
+                order,
             )
-            if numpy.sum(indx) > 0:
+            # Close-to-circular orbits: the frequencies are NaN (det(A)=0);
+            # substitute epifreq/omegac/verticalfreq (as the C wrapper does)
+            indx = (numpy.isnan(Omegar) & (jr < 10.0**-3.0)) | (
+                numpy.isnan(Omegaz) & (jz < 10.0**-3.0)
+            )
+            if numpy.any(indx):
                 Omegar[indx] = [
                     epifreq(self._pot, r, use_physical=False) for r in R[indx]
                 ]
@@ -453,11 +1007,9 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
+            number of points to use in the Gauss-Legendre numerical integration of the relevant integrals (C); on the pure-Python path, it sets the mesh of the composite chi-anomaly Gauss-Legendre quadrature (see the class's order).
         fixed_quad: bool, optional
-            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
-        **kwargs: dict, optional
-            scipy.integrate.fixed_quad or .quad keywords when not using C
+            no longer used: the pure-Python path always uses the composite chi-anomaly Gauss-Legendre quadrature, which is machine-converged.
 
         Returns
         -------
@@ -574,52 +1126,36 @@ class actionAngleStaeckel(actionAngle):
                 phi = numpy.array([phi])
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
-            Lz = R * vT
-            jr = numpy.zeros(len(R))
-            jz = numpy.zeros(len(R))
-            Omegar = numpy.zeros(len(R))
-            Omegaphi = numpy.zeros(len(R))
-            Omegaz = numpy.zeros(len(R))
-            angler = numpy.zeros(len(R))
-            anglephi = numpy.zeros(len(R))
-            anglez = numpy.zeros(len(R))
-            for ii in range(len(R)):
-                tdelta = delta[ii] if hasattr(delta, "__len__") else delta
-                singlekw = {
-                    "pot": self._pot,
-                    "delta": tdelta,
-                    "_v0u": numpy.pi / 2.0,
-                }
-                if self._useu0:
-                    E = (
-                        _evaluatePotentials(self._pot, R[ii], z[ii])
-                        + vR[ii] ** 2.0 / 2.0
-                        + vz[ii] ** 2.0 / 2.0
-                        + vT[ii] ** 2.0 / 2.0
-                    )
-                    singlekw["u0"] = calcu0(E, Lz[ii], self._pot, tdelta)[0]
-                aASingle = actionAngleStaeckelSingle(
-                    R[ii], vR[ii], vT[ii], z[ii], vz[ii], **singlekw
-                )
-                jr[ii] = numpy.atleast_1d(aASingle.JR(fixed_quad=True, order=order))[0]
-                jz[ii] = numpy.atleast_1d(aASingle.Jz(fixed_quad=True, order=order))[0]
-                with numpy.errstate(divide="ignore", invalid="ignore"):
-                    tOr, tOp, tOz, tar, taphi, taz = aASingle.calcAngles(order=order)
-                Omegar[ii] = tOr
-                Omegaphi[ii] = tOp
-                Omegaz[ii] = tOz
-                angler[ii] = tar
-                # Assemble Anglephi as in the C wrapper: (raw + phi%2pi)%2pi
-                taphi = (taphi + phi[ii] % (2.0 * numpy.pi)) % (2.0 * numpy.pi)
-                if taphi < 0.0:  # pragma: no cover (Python % is non-negative)
-                    taphi += 2.0 * numpy.pi
-                anglephi[ii] = taphi
-                anglez[ii] = taz
-            # Adjustments for close-to-circular orbits (mirror the C wrapper)
-            indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
-                jz < 10.0**-3.0
+            # the u0 reference of useu0 does not change the actions,
+            # frequencies, and angles, so it is not needed here
+            (
+                jr,
+                Lz,
+                jz,
+                Omegar,
+                Omegaphi,
+                Omegaz,
+                angler,
+                anglephi,
+                anglez,
+            ) = _staeckel_actions_freqs_angles(
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                phi,
+                _staeckel_pot(self._pot),
+                _coerce_delta_arraylike(delta),
+                order,
             )
-            if numpy.sum(indx) > 0:
+            # Close-to-circular orbits: the frequencies are NaN (det(A)=0);
+            # substitute epifreq/omegac/verticalfreq (as the C wrapper does; the
+            # angles are already zero there)
+            indx = (numpy.isnan(Omegar) & (jr < 10.0**-3.0)) | (
+                numpy.isnan(Omegaz) & (jz < 10.0**-3.0)
+            )
+            if numpy.any(indx):
                 Omegar[indx] = [
                     epifreq(self._pot, r, use_physical=False) for r in R[indx]
                 ]
@@ -759,35 +1295,14 @@ class actionAngleStaeckel(actionAngle):
                     galpyWarning,
                 )
             kwargs.pop("c", None)
-            if len(R) > 1:
-                oumin = numpy.zeros(len(R))
-                oumax = numpy.zeros(len(R))
-                ovmin = numpy.zeros(len(R))
-                for ii in range(len(R)):
-                    targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
-                    tkwargs = copy.copy(kwargs)
-                    tkwargs["delta"] = delta[ii] if len(delta) > 1 else delta[0]
-                    tumin, tumax, tvmin = self._uminumaxvmin(*targs, **tkwargs)
-                    oumin[ii] = tumin[0]
-                    oumax[ii] = tumax[0]
-                    ovmin[ii] = tvmin[0]
-                return (oumin, oumax, ovmin)
-            else:
-                # Set up the actionAngleStaeckelSingle object
-                aASingle = actionAngleStaeckelSingle(
-                    R[0], vR[0], vT[0], z[0], vz[0], pot=self._pot, delta=delta[0]
-                )
-                umin, umax = aASingle.calcUminUmax()
-                vmin = aASingle.calcVmin()
-                return (
-                    numpy.atleast_1d(umin),
-                    numpy.atleast_1d(umax),
-                    numpy.atleast_1d(vmin),
-                )
+            _, umin, umax, vmin = _staeckel_prep(
+                R, vR, vT, z, vz, _staeckel_pot(self._pot), delta
+            )
+            return (umin, umax, vmin)
 
 
 class actionAngleStaeckelSingle(actionAngle):
-    """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
+    """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation for a single phase-space point (deprecated: use actionAngleStaeckel with c=False)"""
 
     def __init__(self, *args, **kwargs):
         """
@@ -797,19 +1312,25 @@ class actionAngleStaeckelSingle(actionAngle):
         ----------
         *args : tuple
             Either:
-            a) R,vR,vT,z,vz[,phi]:
-                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            a) R,vR,vT,z,vz[,phi]: floats, phase-space value for a single object (phi is optional) (each can be a Quantity)
             b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         pot: Potential or a combined potential formed using addition (pot1+pot2+…)
             Potential to use
-        delta: float, optional
+        delta: float
             focal length of confocal coordinate system
 
         Notes
         -----
         - 2012-11-27 - Written - Bovy (IAS)
+        - 2026-11-16 - Deprecated; now evaluates actionAngleStaeckel's vectorized pure-Python implementation - Bovy (UofT)
         """
+        warnings.warn(
+            "actionAngleStaeckelSingle is deprecated and will be removed in "
+            "versions after 1.13.x; use actionAngleStaeckel with c=False, "
+            "which evaluates the same pure-Python implementation for any "
+            "number of phase-space points",
+            DeprecationWarning,
+        )
         self._parse_eval_args(*args, _noOrbUnitsCheck=True, **kwargs)
         self._R = self._eval_R
         self._vR = self._eval_vR
@@ -818,66 +1339,18 @@ class actionAngleStaeckelSingle(actionAngle):
         self._vz = self._eval_vz
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleStaeckelSingle")
-        self._pot = kwargs["pot"]
+        self._pot = _staeckel_pot(kwargs["pot"])
         if not "delta" in kwargs:  # pragma: no cover
             raise OSError("Must specify delta= for actionAngleStaeckel")
         self._delta = kwargs["delta"]
-        # Pre-calculate everything
-        self._ux, self._vx = coords.Rz_to_uv(self._R, self._z, delta=self._delta)
-        self._sinvx = numpy.sin(self._vx)
-        self._cosvx = numpy.cos(self._vx)
-        self._coshux = numpy.cosh(self._ux)
-        self._sinhux = numpy.sinh(self._ux)
-        self._pux = self._delta * (
-            self._vR * self._coshux * self._sinvx
-            + self._vz * self._sinhux * self._cosvx
+        self._s, self._umin, self._umax, self._vmin = _staeckel_prep(
+            *(
+                numpy.atleast_1d(numpy.asarray(x, dtype=float))
+                for x in (self._R, self._vR, self._vT, self._z, self._vz)
+            ),
+            self._pot,
+            self._delta,
         )
-        self._pvx = self._delta * (
-            self._vR * self._sinhux * self._cosvx
-            - self._vz * self._coshux * self._sinvx
-        )
-        EL = self.calcEL()
-        self._E = EL[0]
-        self._Lz = EL[1]
-        # Determine umin and umax
-        self._u0 = kwargs.pop(
-            "u0", self._ux
-        )  # u0 as defined by Binney does not matter for a
-        # single action evaluation, so we don't determine it here
-        self._sinhu0 = numpy.sinh(self._u0)
-        # All Staeckel integrals (actions, frequencies, angles) use v0=pi/2 for
-        # the u (J_R) integral and u0 for the v (J_z) integral, matching the C
-        # implementation. (_v0u is still overridable.)
-        self._v0u = kwargs.pop("_v0u", numpy.pi / 2.0)
-        self._sinv0u = numpy.sin(self._v0u)
-        self._potu0v0 = potentialStaeckel(self._u0, self._v0u, self._pot, self._delta)
-        # I3U with the dU reference at (u0, v0u); robust to u0!=ux (useu0=True),
-        # reduces to the bare I3 when u0=ux.
-        self._I3U = (
-            self._E * self._sinhux**2.0
-            - self._pux**2.0 / 2.0 / self._delta**2.0
-            - self._Lz**2.0 / 2.0 / self._delta**2.0 / self._sinhux**2.0
-            - (self._sinhux**2.0 + self._sinv0u**2.0)
-            * potentialStaeckel(self._ux, self._v0u, self._pot, self._delta)
-            + (self._sinhu0**2.0 + self._sinv0u**2.0) * self._potu0v0
-        )
-        self._u0v = self._u0
-        self._coshu0v = numpy.cosh(self._u0v)
-        self._sinhu0v = numpy.sinh(self._u0v)
-        self._potupi2 = potentialStaeckel(
-            self._u0v, numpy.pi / 2.0, self._pot, self._delta
-        )
-        dV = self._coshu0v**2.0 * self._potupi2 - (
-            self._sinhu0v**2.0 + self._sinvx**2.0
-        ) * potentialStaeckel(self._u0v, self._vx, self._pot, self._delta)
-        self._I3V = (
-            -self._E * self._sinvx**2.0
-            + self._pvx**2.0 / 2.0 / self._delta**2.0
-            + self._Lz**2.0 / 2.0 / self._delta**2.0 / self._sinvx**2.0
-            - dV
-        )
-        self.calcUminUmax()
-        self.calcVmin()
         return None
 
     def angleR(self, **kwargs):
@@ -899,83 +1372,47 @@ class actionAngleStaeckelSingle(actionAngle):
     def Jphi(self):  # pragma: no cover
         return self._R * self._vT
 
+    def _jr_jz(self, order):
+        return _staeckel_jr_jz(
+            self._s,
+            self._umin,
+            self._umax,
+            self._vmin,
+            self._pot,
+            self._delta,
+            order,
+        )
+
+    def _jacobian(self, order):
+        return _staeckel_jacobian(
+            self._s,
+            self._umin,
+            self._umax,
+            self._vmin,
+            self._pot,
+            self._delta,
+            order,
+        )
+
     def JR(self, **kwargs):
         """
         Calculate the radial action
 
         Parameters
         ----------
-        fixed_quad : bool, optional
-            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= sets the mesh as nchi = max(2, order/5) panels in u, twice that in v) instead of adaptive scipy.integrate.quad. Default is False.
-        **kwargs
-            scipy.integrate.quad keywords
+        order : int, optional
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
 
         Returns
         -------
         float
-            J_R(R,vT,vT)/ro/vc + estimate of the error (nan for fixed_quad)
+            J_R(R,vT,vT)/ro/vc
 
         Notes
         -----
         - 2012-11-27 - Written - Bovy (IAS)
-
         """
-        order = kwargs.pop("order", 10)
-        fixed_quad = kwargs.pop("fixed_quad", False)
-        if hasattr(self, "_JR") and self._JR_key == (fixed_quad, order):
-            return self._JR
-        umin, umax = self.calcUminUmax()
-        # print self._ux, self._pux, (umax-umin)/umax
-        if (umax - umin) / umax < 10.0**-6:
-            return numpy.array([0.0])
-        self._JR_key = (fixed_quad, order)
-        if fixed_quad:
-            # chi-anomaly composite quadrature: machine-converged, with the
-            # sqrt turning-point behavior absorbed by the parametrization;
-            # as in C, an orbit reaching the axis integrates the inner cusp
-            # on the graded mesh (the action only; the 1/p_u profiles of the
-            # frequencies and angles keep the uniform mesh)
-            if umin < _STAECKEL_NEARAXIS:
-                quad = _staeckelChiQuadratures(
-                    _JRStaeckelIntegrandSquared,
-                    _dJRStaeckelIntegrandSquareddu,
-                    self._uIntegrandArgs(),
-                    umin,
-                    umax - umin,
-                    (),
-                    nchi=_staeckel_nchi(order, vside=False),
-                    graded=True,
-                )[0]
-            else:
-                quad = self._chiQuadsU(order=order)[0]
-            # factor in next line bc integrand=/2delta^2
-            self._JR = 1.0 / numpy.pi * numpy.sqrt(2.0) * self._delta * quad
-        else:
-            self._JR = (
-                1.0
-                / numpy.pi
-                * numpy.sqrt(2.0)
-                * self._delta
-                * integrate.quad(
-                    _JRStaeckelIntegrand,
-                    umin,
-                    umax,
-                    args=(
-                        self._E,
-                        self._Lz,
-                        self._I3U,
-                        self._delta,
-                        self._u0,
-                        self._sinhu0**2.0,
-                        self._v0u,
-                        self._sinv0u**2.0,
-                        self._potu0v0,
-                        self._pot,
-                    ),
-                    **kwargs,
-                )[0]
-            )
-        return self._JR
+        return self._jr_jz(kwargs.get("order", 10))[0][0]
 
     def Jz(self, **kwargs):
         """
@@ -983,74 +1420,23 @@ class actionAngleStaeckelSingle(actionAngle):
 
         Parameters
         ----------
-        fixed_quad : bool, optional
-            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= sets the mesh as nchi = max(2, order/5) panels in u, twice that in v) instead of adaptive scipy.integrate.quad. Default is False.
-        **kwargs
-            scipy.integrate.quad keywords
+        order : int, optional
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
 
         Returns
         -------
         float
-            J_z(R,vT,vT)/ro/vc + estimate of the error
+            J_z(R,vT,vT)/ro/vc
 
         Notes
         -----
         - 2012-11-27 - Written - Bovy (IAS)
         """
-        order = kwargs.pop("order", 10)
-        fixed_quad = kwargs.pop("fixed_quad", False)
-        if hasattr(self, "_JZ") and self._JZ_key == (fixed_quad, order):
-            return self._JZ
-        vmin = self.calcVmin()
-        if (numpy.pi / 2.0 - vmin) < 10.0**-7:
-            return numpy.array([0.0])
-        self._JZ_key = (fixed_quad, order)
-        if fixed_quad:
-            # chi-anomaly composite quadrature: machine-converged, with the
-            # sqrt turning-point behavior absorbed by the parametrization
-            # factor in next line bc integrand=/2delta^2
-            self._JZ = (
-                2.0
-                / numpy.pi
-                * numpy.sqrt(2.0)
-                * self._delta
-                * self._chiQuadsV(order=order)[0]
-            )
-        else:
-            # factor in next line bc integrand=/2delta^2
-            self._JZ = (
-                2.0
-                / numpy.pi
-                * numpy.sqrt(2.0)
-                * self._delta
-                * integrate.quad(
-                    _JzStaeckelIntegrand,
-                    vmin,
-                    numpy.pi / 2,
-                    args=(
-                        self._E,
-                        self._Lz,
-                        self._I3V,
-                        self._delta,
-                        self._u0v,
-                        self._coshu0v**2.0,
-                        self._sinhu0v**2.0,
-                        self._potupi2,
-                        self._pot,
-                    ),
-                    **kwargs,
-                )[0]
-            )
-        return self._JZ
+        return self._jr_jz(kwargs.get("order", 10))[1][0]
 
     def calcEL(self, **kwargs):
         """
         Calculate the energy and angular momentum.
-
-        Parameters
-        ----------
-        **kwargs : dict
-            scipy.integrate.quadrature keywords
 
         Returns
         -------
@@ -1061,487 +1447,69 @@ class actionAngleStaeckelSingle(actionAngle):
         -----
         - 2012-11-27 - Written - Bovy (IAS)
         """
-        E, L = calcELStaeckel(self._R, self._vR, self._vT, self._z, self._vz, self._pot)
-        return (E, L)
+        return (self._s["E"][0], self._s["Lz"][0])
 
     def calcUminUmax(self, **kwargs):
         """
-        Calculate the u 'apocenter' and 'pericenter'
+        Calculate the u turning points
 
         Returns
         -------
         tuple
-            (umin,umax)
+            (umin, umax)
 
         Notes
         -----
         - 2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self, "_uminumax"):  # pragma: no cover
-            return self._uminumax
-        E, L = self._E, self._Lz
-        # Calculate value of the integrand at current point, to check whether
-        # we are at a turning point
-        current_val = _JRStaeckelIntegrandSquared(
-            self._ux,
-            E,
-            L,
-            self._I3U,
-            self._delta,
-            self._u0,
-            self._sinhu0**2.0,
-            self._v0u,
-            self._sinv0u**2.0,
-            self._potu0v0,
-            self._pot,
-        )
-        if (
-            numpy.fabs(self._pux) < 1e-7 or numpy.fabs(current_val) < 1e-10
-        ):  # We are at umin or umax
-            eps = 10.0**-8.0
-            peps = _JRStaeckelIntegrandSquared(
-                self._ux + eps,
-                E,
-                L,
-                self._I3U,
-                self._delta,
-                self._u0,
-                self._sinhu0**2.0,
-                self._v0u,
-                self._sinv0u**2.0,
-                self._potu0v0,
-                self._pot,
-            )
-            meps = _JRStaeckelIntegrandSquared(
-                self._ux - eps,
-                E,
-                L,
-                self._I3U,
-                self._delta,
-                self._u0,
-                self._sinhu0**2.0,
-                self._v0u,
-                self._sinv0u**2.0,
-                self._potu0v0,
-                self._pot,
-            )
-            if peps < 0.0 and meps > 0.0:  # we are at umax
-                umax = self._ux
-                rstart, prevr = _uminUmaxFindStart(
-                    self._ux,
-                    E,
-                    L,
-                    self._I3U,
-                    self._delta,
-                    self._u0,
-                    self._sinhu0**2.0,
-                    self._v0u,
-                    self._sinv0u**2.0,
-                    self._potu0v0,
-                    self._pot,
-                )
-                if rstart == 0.0:
-                    umin = 0.0
-                else:
-                    try:
-                        umin = optimize.brentq(
-                            _JRStaeckelIntegrandSquared,
-                            numpy.atleast_1d(rstart)[0],
-                            numpy.atleast_1d(self._ux)[0] - eps,
-                            (
-                                E,
-                                L,
-                                self._I3U,
-                                self._delta,
-                                self._u0,
-                                self._sinhu0**2.0,
-                                self._v0u,
-                                self._sinv0u**2.0,
-                                self._potu0v0,
-                                self._pot,
-                            ),
-                            maxiter=200,
-                            xtol=1e-15,
-                            rtol=8.9e-16,
-                        )
-                    except RuntimeError:  # pragma: no cover
-                        raise UnboundError("Orbit seems to be unbound")
-            elif peps > 0.0 and meps < 0.0:  # we are at umin
-                umin = self._ux
-                rend, prevr = _uminUmaxFindStart(
-                    self._ux,
-                    E,
-                    L,
-                    self._I3U,
-                    self._delta,
-                    self._u0,
-                    self._sinhu0**2.0,
-                    self._v0u,
-                    self._sinv0u**2.0,
-                    self._potu0v0,
-                    self._pot,
-                    umax=True,
-                )
-                umax = optimize.brentq(
-                    _JRStaeckelIntegrandSquared,
-                    numpy.atleast_1d(self._ux)[0] + eps,
-                    numpy.atleast_1d(rend)[0],
-                    (
-                        E,
-                        L,
-                        self._I3U,
-                        self._delta,
-                        self._u0,
-                        self._sinhu0**2.0,
-                        self._v0u,
-                        self._sinv0u**2.0,
-                        self._potu0v0,
-                        self._pot,
-                    ),
-                    maxiter=200,
-                    xtol=1e-15,
-                    rtol=8.9e-16,
-                )
-            else:  # circular orbit
-                umin = self._ux
-                umax = self._ux
-        else:
-            rstart, prevr = _uminUmaxFindStart(
-                self._ux,
-                E,
-                L,
-                self._I3U,
-                self._delta,
-                self._u0,
-                self._sinhu0**2.0,
-                self._v0u,
-                self._sinv0u**2.0,
-                self._potu0v0,
-                self._pot,
-            )
-            if rstart == 0.0:  # pragma: no cover (plunge to u=0; bound orbits don't)
-                umin = 0.0
-            else:
-                if numpy.fabs(prevr - self._ux) < 10.0**-2.0:
-                    rup = self._ux
-                else:
-                    rup = prevr
-                try:
-                    umin = optimize.brentq(
-                        _JRStaeckelIntegrandSquared,
-                        rstart,
-                        rup,
-                        (
-                            E,
-                            L,
-                            self._I3U,
-                            self._delta,
-                            self._u0,
-                            self._sinhu0**2.0,
-                            self._v0u,
-                            self._sinv0u**2.0,
-                            self._potu0v0,
-                            self._pot,
-                        ),
-                        maxiter=200,
-                        xtol=1e-15,
-                        rtol=8.9e-16,
-                    )
-                except RuntimeError:  # pragma: no cover
-                    raise UnboundError("Orbit seems to be unbound")
-            rend, prevr = _uminUmaxFindStart(
-                self._ux,
-                E,
-                L,
-                self._I3U,
-                self._delta,
-                self._u0,
-                self._sinhu0**2.0,
-                self._v0u,
-                self._sinv0u**2.0,
-                self._potu0v0,
-                self._pot,
-                umax=True,
-            )
-            umax = optimize.brentq(
-                _JRStaeckelIntegrandSquared,
-                prevr,
-                rend,
-                (
-                    E,
-                    L,
-                    self._I3U,
-                    self._delta,
-                    self._u0,
-                    self._sinhu0**2.0,
-                    self._v0u,
-                    self._sinv0u**2.0,
-                    self._potu0v0,
-                    self._pot,
-                ),
-                maxiter=200,
-                xtol=1e-15,
-                rtol=8.9e-16,
-            )
-        self._uminumax = (umin, umax)
-        return self._uminumax
+        return (self._umin[0], self._umax[0])
 
     def calcVmin(self, **kwargs):
         """
-        Calculate the v 'pericenter'
+        Calculate the v turning point
 
         Returns
         -------
         float
-            v_min(R,vT,vT)/vc + estimate of the error
+            vmin
 
         Notes
         -----
         - 2012-11-28 - Written - Bovy (IAS)
         """
-        if hasattr(self, "_vmin"):  # pragma: no cover
-            return self._vmin
-        E, L = self._E, self._Lz
-        if numpy.fabs(self._pvx) < 10.0**-7.0:  # We are at vmin or vmax
-            eps = 10.0**-8.0
-            peps = _JzStaeckelIntegrandSquared(
-                self._vx + eps,
-                E,
-                L,
-                self._I3V,
-                self._delta,
-                self._u0v,
-                self._coshu0v**2.0,
-                self._sinhu0v**2.0,
-                self._potupi2,
-                self._pot,
-            )
-            meps = _JzStaeckelIntegrandSquared(
-                self._vx - eps,
-                E,
-                L,
-                self._I3V,
-                self._delta,
-                self._u0v,
-                self._coshu0v**2.0,
-                self._sinhu0v**2.0,
-                self._potupi2,
-                self._pot,
-            )
-            if peps < 0.0 and meps > 0.0:  # pragma: no cover
-                # we are at vmax, which cannot happen
-                raise RuntimeError(
-                    "Orbit is at the vmax turning point in v, which mathematically cannot happen; something is very wrong!!"
-                )
-            elif peps > 0.0 and meps < 0.0:  # we are at vmin
-                vmin = self._vx
-            else:  # planar orbit
-                vmin = self._vx
-        else:
-            rstart = _vminFindStart(
-                self._vx,
-                E,
-                L,
-                self._I3V,
-                self._delta,
-                self._u0v,
-                self._coshu0v**2.0,
-                self._sinhu0v**2.0,
-                self._potupi2,
-                self._pot,
-            )
-            if rstart == 0.0:  # pragma: no cover (reach v=0 pole; bound orbits don't)
-                vmin = 0.0
-            else:
-                try:
-                    vmin = optimize.brentq(
-                        _JzStaeckelIntegrandSquared,
-                        rstart,
-                        rstart / 0.9,
-                        (
-                            E,
-                            L,
-                            self._I3V,
-                            self._delta,
-                            self._u0v,
-                            self._coshu0v**2.0,
-                            self._sinhu0v**2.0,
-                            self._potupi2,
-                            self._pot,
-                        ),
-                        maxiter=200,
-                        xtol=1e-15,
-                        rtol=8.9e-16,
-                    )
-                except RuntimeError:  # pragma: no cover
-                    raise UnboundError("Orbit seems to be unbound")
-        self._vmin = vmin
-        return self._vmin
-
-    def _uIntegrandArgs(self):
-        return (
-            self._E,
-            self._Lz,
-            self._I3U,
-            self._delta,
-            self._u0,
-            self._sinhu0**2.0,
-            self._v0u,
-            self._sinv0u**2.0,
-            self._potu0v0,
-            self._pot,
-        )
-
-    def _vIntegrandArgs(self):
-        return (
-            self._E,
-            self._Lz,
-            self._I3V,
-            self._delta,
-            self._u0v,
-            self._coshu0v**2.0,
-            self._sinhu0v**2.0,
-            self._potupi2,
-            self._pot,
-        )
-
-    def _chiQuadsU(self, order=10, uupp=None):
-        """All u quadratures (the action integral and the three 1/p_u
-        profile integrals int f/sqrt(S_R) du for f = sinh^2 u, 1,
-        1/sinh^2 u) from umin up to uupp (default: the complete integral
-        to umax), from a single vectorized evaluation of the momentum on
-        the chi mesh; cached"""
-        nchi = _staeckel_nchi(order, vside=False)
-        umin, umax = self.calcUminUmax()
-        chimax = (
-            numpy.pi
-            if uupp is None
-            else 2.0
-            * numpy.arcsin(
-                numpy.sqrt(numpy.clip((uupp - umin) / (umax - umin), 0.0, 1.0))
-            )
-        )
-        if not hasattr(self, "_chiQuadsUCache"):
-            self._chiQuadsUCache = {}
-        if (nchi, chimax) not in self._chiQuadsUCache:
-            self._chiQuadsUCache[(nchi, chimax)] = _staeckelChiQuadratures(
-                _JRStaeckelIntegrandSquared,
-                _dJRStaeckelIntegrandSquareddu,
-                self._uIntegrandArgs(),
-                umin,
-                umax - umin,
-                _CHIQUAD_UWEIGHTS,
-                nchi=nchi,
-                chimax=chimax,
-            )
-        return self._chiQuadsUCache[(nchi, chimax)]
-
-    def _chiQuadsV(self, order=10, vupp=None):
-        """All v quadratures (the action integral and the three 1/p_v
-        profile integrals int f/sqrt(S_z) dv for f = sin^2 v, 1,
-        1/sin^2 v) from vmin up to vupp (default: to the midplane pi/2),
-        from a single vectorized evaluation of the momentum on the chi
-        mesh; cached. The anomaly always spans the full v loop
-        [vmin, pi - vmin] (the midplane is a symmetry point of S_z, not a
-        turning point), so integrating to the midplane is chimax = pi/2"""
-        nchi = _staeckel_nchi(order, vside=True)
-        vmin = self.calcVmin()
-        chimax = (
-            numpy.pi / 2.0
-            if vupp is None
-            else 2.0
-            * numpy.arcsin(
-                numpy.sqrt(
-                    numpy.clip((vupp - vmin) / (numpy.pi - 2.0 * vmin), 0.0, 1.0)
-                )
-            )
-        )
-        if not hasattr(self, "_chiQuadsVCache"):
-            self._chiQuadsVCache = {}
-        if (nchi, chimax) not in self._chiQuadsVCache:
-            self._chiQuadsVCache[(nchi, chimax)] = _staeckelChiQuadratures(
-                _JzStaeckelIntegrandSquared,
-                _dJzStaeckelIntegrandSquareddv,
-                self._vIntegrandArgs(),
-                vmin,
-                numpy.pi - 2.0 * vmin,
-                _CHIQUAD_VWEIGHTS,
-                nchi=nchi,
-                chimax=chimax,
-            )
-        return self._chiQuadsVCache[(nchi, chimax)]
+        return self._vmin[0]
 
     def calcdJR(self, order=10):
         """
-        Calculate the derivatives djr/dE, djr/dLz, djr/dI3.
+        Calculate the derivatives of the radial action with respect to E, Lz, and I3.
 
         Parameters
         ----------
         order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
 
         Returns
         -------
         tuple
             (djrdE, djrdLz, djrdI3)
-
-        Notes
-        -----
-        - Port of the C calcdJRStaeckel.
         """
-        if hasattr(self, "_djrdE") and self._djrd_order == order:
-            return (self._djrdE, self._djrdLz, self._djrdI3)
-        self._djrd_order = order
-        umin, umax = self.calcUminUmax()
-        if (umax - umin) / umax < 1e-6:  # circular
-            self._djrdE = 0.0
-            self._djrdLz = 0.0
-            self._djrdI3 = 0.0
-            return (self._djrdE, self._djrdLz, self._djrdI3)
-        _, (djrdE, djrdI3, djrdLz) = self._chiQuadsU(order=order)
-        djrdE *= self._delta / numpy.pi / numpy.sqrt(2.0)
-        djrdLz *= -self._Lz / numpy.pi / numpy.sqrt(2.0) / self._delta
-        djrdI3 *= -self._delta / numpy.pi / numpy.sqrt(2.0)
-        self._djrdE = djrdE
-        self._djrdLz = djrdLz
-        self._djrdI3 = djrdI3
-        return (self._djrdE, self._djrdLz, self._djrdI3)
+        return tuple(d[0] for d in self._jacobian(order)[:3])
 
     def calcdJz(self, order=10):
         """
-        Calculate the derivatives djz/dE, djz/dLz, djz/dI3.
+        Calculate the derivatives of the vertical action with respect to E, Lz, and I3.
 
         Parameters
         ----------
         order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
 
         Returns
         -------
         tuple
             (djzdE, djzdLz, djzdI3)
-
-        Notes
-        -----
-        - Port of the C calcdJzStaeckel.
         """
-        if hasattr(self, "_djzdE") and self._djzd_order == order:
-            return (self._djzdE, self._djzdLz, self._djzdI3)
-        self._djzd_order = order
-        vmin = self.calcVmin()
-        if (numpy.pi / 2.0 - vmin) / numpy.pi * 2.0 < 1e-6:  # circular
-            self._djzdE = 0.0
-            self._djzdLz = 0.0
-            self._djzdI3 = 0.0
-            return (self._djzdE, self._djzdLz, self._djzdI3)
-        _, (djzdE, djzdI3, djzdLz) = self._chiQuadsV(order=order)
-        djzdE *= numpy.sqrt(2.0) * self._delta / numpy.pi
-        djzdLz *= -self._Lz * numpy.sqrt(2.0) / numpy.pi / self._delta
-        djzdI3 *= numpy.sqrt(2.0) * self._delta / numpy.pi
-        self._djzdE = djzdE
-        self._djzdLz = djzdLz
-        self._djzdI3 = djzdI3
-        return (self._djzdE, self._djzdLz, self._djzdI3)
+        return tuple(d[0] for d in self._jacobian(order)[3:])
 
     def calcFreqs(self, order=10):
         """
@@ -1551,25 +1519,18 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
 
         Returns
         -------
         tuple
-            (Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, detA)
-
-        Notes
-        -----
-        - Port of the C calcFreqsFromDerivsStaeckel + calcdI3dJFromDerivsStaeckel.
+            (Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, detA), all NaN except detA for a circular or planar orbit (for which detA = 0)
         """
-        djrdE, djrdLz, djrdI3 = self.calcdJR(order=order)
-        djzdE, djzdLz, djzdI3 = self.calcdJz(order=order)
+        djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = (
+            d[0] for d in self._jacobian(order)
+        )
         detA = djrdE * djzdI3 - djzdE * djrdI3
         if detA == 0.0:
-            # Exactly circular: the derivatives all vanish (circular guards in
-            # calcdJR/calcdJz). The C path gets IEEE 0/0=NaN here and the caller
-            # substitutes epifreq/omegac/verticalfreq; a Python scalar 0.0/0.0
-            # would raise instead, so emit NaN explicitly to trigger that path.
             nan = numpy.nan
             return (nan, nan, nan, nan, nan, nan, detA)
         Omegar = djzdI3 / detA
@@ -1583,191 +1544,30 @@ class actionAngleStaeckelSingle(actionAngle):
     def calcAngles(self, order=10):
         """
         Calculate the angles angler, anglephi, anglez in the Staeckel
-        approximation (port of the C calcAnglesStaeckel).
+        approximation.
 
         Parameters
         ----------
         order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
+            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
 
         Returns
         -------
         tuple
-            (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
-
-        Notes
-        -----
-        - Port of the C calcAnglesStaeckel.
+            (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez), anglephi without the azimuth phi; the angles are zero for a circular or planar orbit
         """
-        umin, umax = self.calcUminUmax()
-        if (umax - umin) / umax < 1e-6:  # circular
-            # Angles are 0 (as in C calcAnglesStaeckel); the frequencies are
-            # left to the close-to-circular fallback in the caller (they are
-            # NaN/inf here, mirroring the C extension).
-            Omegar, Omegaphi, Omegaz = self.calcFreqs(order=order)[:3]
-            return (Omegar, Omegaphi, Omegaz, 0.0, 0.0, 0.0)
-        djrdE, djrdLz, djrdI3 = self.calcdJR(order=order)
-        djzdE, djzdLz, djzdI3 = self.calcdJz(order=order)
-        Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, _ = self.calcFreqs(
-            order=order
+        Omegar, Omegaphi, Omegaz = self.calcFreqs(order=order)[:3]
+        angler, anglephi, anglez = _staeckel_angles(
+            self._s,
+            self._umin,
+            self._umax,
+            self._vmin,
+            self._pot,
+            self._delta,
+            order,
+            self._jacobian(order),
         )
-        delta = self._delta
-        Lz = self._Lz
-        sqrt2 = numpy.sqrt(2.0)
-        ux = self._ux
-        vx = self._vx
-        pux = self._pux
-        pvx = self._pvx
-        vmin = self._vmin
-
-        # Partial-oscillation integrals via the cumulative chi-anomaly
-        # quadratures; the (panel, mid) encoding of the C port is kept:
-        # "low" integrates [qmin, qmin+mid^2], "high" [qmax-mid^2, qmax]
-        def uquad(key, panel, bound, mid):
-            idx = {"E": 0, "I3": 1, "Lz": 2}[key]
-            if panel == "low":
-                return self._chiQuadsU(order=order, uupp=umin + mid**2.0)[1][idx]
-            return (
-                self._chiQuadsU(order=order)[1][idx]
-                - self._chiQuadsU(order=order, uupp=umax - mid**2.0)[1][idx]
-            )
-
-        def vquad(key, panel, mid):
-            idx = {"E": 0, "I3": 1, "Lz": 2}[key]
-            if panel == "low":
-                return self._chiQuadsV(order=order, vupp=vmin + mid**2.0)[1][idx]
-            return (
-                self._chiQuadsV(order=order)[1][idx]
-                - self._chiQuadsV(order=order, vupp=numpy.pi / 2.0 - mid**2.0)[1][idx]
-            )
-
-        # u-branch (Or1, I3r1, Anglephi-u-term); follows calcAnglesStaeckel @1308
-        midpoint_u = umin + 0.5 * (umax - umin)
-        if pux > 0.0:
-            if ux > midpoint_u:
-                mid = numpy.sqrt(umax - ux)
-                Or1 = uquad("E", "high", umax, mid)
-                I3r1 = -uquad("I3", "high", umax, mid)
-                anglephi = (
-                    numpy.pi * djrdLz
-                    + Lz * uquad("Lz", "high", umax, mid) / delta / sqrt2
-                )
-                Or1 *= delta / sqrt2
-                I3r1 *= delta / sqrt2
-                Or1 = numpy.pi * djrdE - Or1
-                I3r1 = numpy.pi * djrdI3 - I3r1
-            else:
-                mid = numpy.sqrt(ux - umin)
-                Or1 = uquad("E", "low", umin, mid)
-                I3r1 = -uquad("I3", "low", umin, mid)
-                anglephi = -Lz * uquad("Lz", "low", umin, mid) / delta / sqrt2
-                Or1 *= delta / sqrt2
-                I3r1 *= delta / sqrt2
-        else:
-            if ux > midpoint_u:
-                mid = numpy.sqrt(umax - ux)
-                Or1 = uquad("E", "high", umax, mid)
-                Or1 *= delta / sqrt2
-                Or1 = numpy.pi * djrdE + Or1
-                I3r1 = -uquad("I3", "high", umax, mid)
-                I3r1 *= delta / sqrt2
-                I3r1 = numpy.pi * djrdI3 + I3r1
-                anglephi = (
-                    numpy.pi * djrdLz
-                    - Lz * uquad("Lz", "high", umax, mid) / delta / sqrt2
-                )
-            else:
-                mid = numpy.sqrt(ux - umin)
-                Or1 = uquad("E", "low", umin, mid)
-                Or1 *= delta / sqrt2
-                Or1 = 2.0 * numpy.pi * djrdE - Or1
-                I3r1 = -uquad("I3", "low", umin, mid)
-                I3r1 *= delta / sqrt2
-                I3r1 = 2.0 * numpy.pi * djrdI3 - I3r1
-                anglephi = (
-                    2.0 * numpy.pi * djrdLz
-                    + Lz * uquad("Lz", "low", umin, mid) / delta / sqrt2
-                )
-
-        # v-branch (Or2, I3r2, phitmp); follows calcAnglesStaeckel @1374
-        midpoint_v = vmin + 0.5 * (0.5 * numpy.pi - vmin)
-        if pvx > 0.0:
-            if vx < midpoint_v or vx > (numpy.pi - midpoint_v):
-                mid = (
-                    numpy.sqrt(numpy.pi - vx - vmin)
-                    if vx > 0.5 * numpy.pi
-                    else numpy.sqrt(vx - vmin)
-                )
-                Or2 = vquad("E", "low", mid) * delta / sqrt2
-                I3r2 = vquad("I3", "low", mid) * delta / sqrt2
-                phitmp = vquad("Lz", "low", mid) * -Lz / delta / sqrt2
-                if vx > 0.5 * numpy.pi:
-                    Or2 = numpy.pi * djzdE - Or2
-                    I3r2 = numpy.pi * djzdI3 - I3r2
-                    phitmp = numpy.pi * djzdLz - phitmp
-            else:
-                mid = numpy.sqrt(numpy.fabs(0.5 * numpy.pi - vx))
-                Or2 = vquad("E", "high", mid) * delta / sqrt2
-                I3r2 = vquad("I3", "high", mid) * delta / sqrt2
-                phitmp = vquad("Lz", "high", mid) * -Lz / delta / sqrt2
-                if vx > 0.5 * numpy.pi:
-                    Or2 = 0.5 * numpy.pi * djzdE + Or2
-                    I3r2 = 0.5 * numpy.pi * djzdI3 + I3r2
-                    phitmp = 0.5 * numpy.pi * djzdLz + phitmp
-                else:
-                    Or2 = 0.5 * numpy.pi * djzdE - Or2
-                    I3r2 = 0.5 * numpy.pi * djzdI3 - I3r2
-                    phitmp = 0.5 * numpy.pi * djzdLz - phitmp
-        else:
-            if vx < midpoint_v or vx > (numpy.pi - midpoint_v):
-                mid = (
-                    numpy.sqrt(numpy.pi - vx - vmin)
-                    if vx > 0.5 * numpy.pi
-                    else numpy.sqrt(vx - vmin)
-                )
-                Or2 = vquad("E", "low", mid) * delta / sqrt2
-                I3r2 = vquad("I3", "low", mid) * delta / sqrt2
-                phitmp = vquad("Lz", "low", mid) * -Lz / delta / sqrt2
-                if vx < 0.5 * numpy.pi:
-                    Or2 = 2.0 * numpy.pi * djzdE - Or2
-                    I3r2 = 2.0 * numpy.pi * djzdI3 - I3r2
-                    phitmp = 2.0 * numpy.pi * djzdLz - phitmp
-                else:
-                    Or2 = numpy.pi * djzdE + Or2
-                    I3r2 = numpy.pi * djzdI3 + I3r2
-                    phitmp = numpy.pi * djzdLz + phitmp
-            else:
-                mid = numpy.sqrt(numpy.fabs(0.5 * numpy.pi - vx))
-                Or2 = vquad("E", "high", mid) * delta / sqrt2
-                I3r2 = vquad("I3", "high", mid) * delta / sqrt2
-                phitmp = vquad("Lz", "high", mid) * -Lz / delta / sqrt2
-                if vx < 0.5 * numpy.pi:
-                    Or2 = 1.5 * numpy.pi * djzdE + Or2
-                    I3r2 = 1.5 * numpy.pi * djzdI3 + I3r2
-                    phitmp = 1.5 * numpy.pi * djzdLz + phitmp
-                else:
-                    Or2 = 1.5 * numpy.pi * djzdE - Or2
-                    I3r2 = 1.5 * numpy.pi * djzdI3 - I3r2
-                    phitmp = 1.5 * numpy.pi * djzdLz - phitmp
-
-        angler = Omegar * (Or1 + Or2) + dI3dJR * (I3r1 + I3r2)
-        anglez = Omegaz * (Or1 + Or2) + dI3dJz * (I3r1 + I3r2) + 0.5 * numpy.pi
-        anglephi += phitmp
-        anglephi += Omegaphi * (Or1 + Or2) + dI3dLz * (I3r1 + I3r2)
-        angler = numpy.fmod(angler, 2.0 * numpy.pi)
-        anglez = numpy.fmod(anglez, 2.0 * numpy.pi)
-        # Defensive [0, 2pi) normalisation: the >2pi loops are dead (fmod is
-        # already < 2pi); the <0 loops only fire for a raw angle that lands just
-        # below 0 (orbit/floating-point-dependent) -- exclude from coverage.
-        while angler < 0.0:  # pragma: no cover
-            angler += 2.0 * numpy.pi
-        while anglez < 0.0:  # pragma: no cover
-            anglez += 2.0 * numpy.pi
-        while angler > 2.0 * numpy.pi:  # pragma: no cover (fmod is already < 2 pi)
-            angler -= 2.0 * numpy.pi
-        while anglez > 2.0 * numpy.pi:  # pragma: no cover (fmod is already < 2 pi)
-            anglez -= 2.0 * numpy.pi
-        return (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
+        return (Omegar, Omegaphi, Omegaz, angler[0], anglephi[0], anglez[0])
 
 
 def calcELStaeckel(R, vR, vT, z, vz, pot, vc=1.0, ro=1.0):
@@ -1894,14 +1694,6 @@ def FZStaeckel(u, v, pot, delta):  # pragma: no cover because unused
     return _evaluatezforces(pot, R, z)
 
 
-def _JRStaeckelIntegrand(u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot):
-    return numpy.sqrt(
-        _JRStaeckelIntegrandSquared(
-            u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
-        )
-    )
-
-
 def _JRStaeckelIntegrandSquared(
     u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
 ):
@@ -1912,14 +1704,6 @@ def _JRStaeckelIntegrandSquared(
         sinh2u0 + sin2v0
     ) * potu0v0
     return E * sinh2u - I3U - dU - Lz**2.0 / 2.0 / delta**2.0 / sinh2u
-
-
-def _JzStaeckelIntegrand(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
-    return numpy.sqrt(
-        _JzStaeckelIntegrandSquared(
-            v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
-        )
-    )
 
 
 def _JzStaeckelIntegrandSquared(
@@ -1991,293 +1775,6 @@ def _staeckel_nchi(order, vside):
     disk orbits: jz 1e-8 -> 2e-10, the turning-point floor)."""
     n = max(2, -(-int(order) // 5))
     return 2 * n if vside else n
-
-
-def _staeckel_chi_mesh(nchi, chimax, graded=False):
-    """Nodes and weights of the composite 10-node GL rule on the anomaly
-    [0, chimax]: `nchi` uniform panels or, for `graded`, C's glfixed_graded on
-    the low half -- _STAECKEL_NEARAXIS_NPANELS panels halving toward the cusp at
-    the axis -- plus nchi//2 uniform panels on the high half."""
-    if graded:
-        nlo = _STAECKEL_NEARAXIS_NPANELS
-        lo = [0.0] + [0.5 * 2.0 ** (k + 1 - nlo) for k in range(nlo)]
-        hi = list(numpy.linspace(0.5, 1.0, nchi // 2 + 1)[1:])
-        chi = chimax * numpy.array(lo + hi)
-    else:
-        chi = numpy.linspace(0.0, chimax, nchi + 1)
-    mid = 0.5 * (chi[:-1] + chi[1:])
-    half = 0.5 * (chi[1:] - chi[:-1])
-    nodes = (mid[:, None] + half[:, None] * _CHIQUAD_GLX[None, :]).ravel()
-    wts = (half[:, None] * _CHIQUAD_GLW[None, :]).ravel()
-    return nodes, wts
-
-
-# Weight functions of the 1/p_u and 1/p_v profile integrals, in the order
-# (dE, dI3, dLz)
-_CHIQUAD_UWEIGHTS = (
-    lambda q: numpy.sinh(q) ** 2.0,
-    lambda q: numpy.ones_like(q),
-    lambda q: 1.0 / numpy.sinh(q) ** 2.0,
-)
-_CHIQUAD_VWEIGHTS = (
-    lambda q: numpy.sin(q) ** 2.0,
-    lambda q: numpy.ones_like(q),
-    lambda q: 1.0 / numpy.sin(q) ** 2.0,
-)
-
-
-def _staeckelChiQuadratures(
-    Ssq, dSsq, args, qmin, D, weights, nchi=2, chimax=numpy.pi, graded=False
-):
-    """
-    Composite Gauss-Legendre quadratures in the chi anomaly.
-
-    Evaluates int sqrt(S) dq and int f/sqrt(S) dq for all weight functions
-    f at once, from a single vectorized evaluation of S, in the anomaly
-    parametrization q = qmin + D sin^2(chi/2) that renders every integrand
-    regular: with y = sin^2(chi/2) and Q = S/[y(1-y)],
-    int sqrt(S) dq = (D/4) int sqrt(Q) sin^2(chi) dchi and
-    int f/sqrt(S) dq = D int f/sqrt(Q) dchi, where Q has the finite
-    turning-point limits |dS/dq| D that are switched in near the endpoints,
-    where the direct evaluation of S is dominated by cancellation.
-
-    Parameters
-    ----------
-    Ssq : callable
-        The under-radical function S(q, *args) = p^2/(2 delta^2); must
-        accept an array q.
-    dSsq : callable
-        dS/dq(q, *args), evaluated only at the turning points.
-    args : tuple
-        Extra arguments of Ssq and dSsq.
-    qmin : float
-        Lower turning point.
-    D : float
-        Full oscillation range: the upper turning point is qmin + D (for
-        the v oscillation this is pi - 2 vmin, even when integrating only
-        to the midplane).
-    weights : tuple of callables
-        Weight functions f(q) of the 1/sqrt(S) integrals; must accept an
-        array q.
-    nchi : int, optional
-        Number of panels of the composite rule (see _staeckel_nchi).
-    chimax : float, optional
-        Upper integration limit in the anomaly (pi for the complete
-        oscillation, pi/2 for the v integral to the midplane, or
-        2 arcsin(sqrt([q - qmin]/D)) for an incomplete integral).
-    graded : bool, optional
-        If True, use C's near-axis mesh for the J_R action of an orbit
-        reaching the axis (umin < _STAECKEL_NEARAXIS): there S picks up the
-        potential's inner cusp, S ~ A - B u^0.2, i.e. chi^0.4 in the anomaly,
-        against which a uniform rule converges only algebraically (4.5e-5 at
-        two panels) and the S' edge model below is wrong (the model's
-        linearization is what the cusp breaks), so the low half gets
-        geometrically graded panels and Q is evaluated directly throughout.
-
-    Returns
-    -------
-    tuple
-        (int sqrt(S) dq, [int f/sqrt(S) dq for f in weights])
-
-    Notes
-    -----
-    - 2026-08-21 - Written - Bovy (UofT)
-    """
-    nodes, wts = _staeckel_chi_mesh(nchi, chimax, graded=graded)
-    y = numpy.sin(nodes / 2.0) ** 2.0
-    y1my = y * (1.0 - y)
-    q = qmin + D * y
-    S = Ssq(q, *args)
-    with numpy.errstate(invalid="ignore"):
-        Q = S / y1my
-    # Near the turning points the direct evaluation of S is dominated by
-    # cancellation error; there, reconstruct S from the analytic derivative
-    # by the trapezoid between the turning point and the node,
-    # S ~ (q - q0) [S'(q0) + S'(q)]/2, whose O(y^2) model error is far below
-    # the switch threshold (a constant turning-point limit S' D would leave
-    # O(y) model error at the switch, which dominates coarse meshes)
-    edge = y1my <= _STAECKEL_CHI_EDGE
-    if not graded and numpy.any(edge):
-        qe, ye = q[edge], y[edge]
-        dSe = dSsq(qe, *args)
-        Q[edge] = numpy.where(
-            ye < 0.5,
-            D * (dSsq(qmin, *args) + dSe) / 2.0 / (1.0 - ye),
-            D * (-dSsq(qmin + D, *args) - dSe) / 2.0 / ye,
-        )
-    Q[Q < numpy.finfo(float).tiny] = numpy.finfo(float).tiny
-    sqQ = numpy.sqrt(Q)
-    action = (D / 4.0) * numpy.sum(wts * sqQ * numpy.sin(nodes) ** 2.0)
-    return action, [D * numpy.sum(wts * f(q) / sqQ) for f in weights]
-
-
-def _uminUmaxFindStart(
-    u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot, umax=False
-):
-    """
-    Find adequate start or end points to solve for umin and umax
-
-    Parameters
-    ----------
-    u : float
-        Current value of the coordinate to solve for (either umin or umax)
-    E : float
-        Energy
-    Lz : float
-        Angular momentum along z
-    I3U : float
-        Third isolating integral of motion
-    delta : float
-        Focus parameter of the confocal coordinate system
-    u0 : float
-        u coordinate of the center of the coordinate system
-    sinh2u0 : float
-        Hyperbolic sine of twice the u coordinate of the center of the coordinate system
-    v0 : float
-        v coordinate of the center of the coordinate system
-    sin2v0 : float
-        Sine of twice the v coordinate of the center of the coordinate system
-    potu0v0 : float
-        Potential at the center of the coordinate system
-    pot : Potential object
-        Instance of a galpy Potential object
-    umax : bool, optional
-        If True, solve for umax instead of umin (default is False)
-
-    Returns
-    -------
-    float
-        Adequate start or end point to solve for umin or umax
-
-    Notes
-    -----
-    - 2012-11-30 - Written - Bovy (IAS)
-    """
-    if umax:
-        utry = u * 1.1
-    else:
-        utry = u * 0.9
-    prevu = u
-    while (
-        _JRStaeckelIntegrandSquared(
-            utry, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
-        )
-        >= 0.0
-        and utry > 0.000000001
-    ):
-        prevu = utry
-        if umax:
-            if utry > 100.0:
-                raise UnboundError("Orbit seems to be unbound")
-            utry *= 1.1
-        else:
-            utry *= 0.9
-    if utry < 0.000000001:
-        return (0.0, prevu)
-    return (utry, prevu)
-
-
-def _vminFindStart(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
-    """
-    Find adequate start point to solve for vmin
-
-    Parameters
-    ----------
-    v : float
-        Velocity
-    E : float
-        Energy
-    Lz : float
-        Angular momentum along z-axis
-    I3V : float
-        Third isolating integral
-    delta : float
-        Staeckel delta parameter
-    u0 : float
-        Staeckel energy
-    cosh2u0 : float
-        Hyperbolic cosine squared of u0
-    sinh2u0 : float
-        Hyperbolic sine squared of u0
-    potu0pi2 : float
-        Potential at u0 times pi/2
-    pot : Potential object
-        galpy Potential object
-
-    Returns
-    -------
-    float
-        Adequate start point to solve for vmin
-
-    Notes
-    -----
-    - 2012-11-28 - Written - Bovy (IAS)
-    """
-    vtry = 0.9 * v
-    while (
-        _JzStaeckelIntegrandSquared(
-            vtry, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
-        )
-        >= 0.0
-        and vtry > 0.000000001
-    ):
-        vtry *= 0.9
-    if (
-        vtry < 0.000000001
-    ):  # pragma: no cover (degenerate v=0 start; bound orbits don't)
-        return 0.0
-    return vtry if vtry >= 0.000000001 else 0.0
-
-
-def _u0Equation(u, E, Lz22delta, delta, pot):
-    """Port of the C u0Equation: the quantity minimized to obtain u0."""
-    sinh2u = numpy.sinh(u) ** 2.0
-    cosh2u = numpy.cosh(u) ** 2.0
-    dU = cosh2u * potentialStaeckel(u, numpy.pi / 2.0, pot, delta)
-    return -(E * sinh2u - dU - Lz22delta / sinh2u)
-
-
-def calcu0(E, Lz, pot, delta):
-    """
-    Calculate u0 in the Staeckel approximation (pure-Python port of the C calcu0).
-
-    Parameters
-    ----------
-    E : numpy.ndarray
-        Energy.
-    Lz : numpy.ndarray
-        Angular momentum along z.
-    pot : Potential object
-        galpy Potential object or a combined potential.
-    delta : float or numpy.ndarray
-        Focus.
-
-    Returns
-    -------
-    numpy.ndarray
-        u0 for each point.
-
-    Notes
-    -----
-    - Port of the C calcu0; minimizes _u0Equation over u in [0.001,100].
-    """
-    E = numpy.atleast_1d(E)
-    Lz = numpy.atleast_1d(Lz)
-    delta = numpy.atleast_1d(delta)
-    delta_stride = 0 if len(delta) == 1 else 1
-    out = numpy.empty(len(E))
-    for ii in range(len(E)):
-        tdelta = delta[ii * delta_stride]
-        Lz22delta = 0.5 * Lz[ii] ** 2.0 / tdelta**2.0
-        res = optimize.minimize_scalar(
-            _u0Equation,
-            bounds=(0.001, 100.0),
-            args=(E[ii], Lz22delta, tdelta, pot),
-            method="bounded",
-            options={"xatol": 1e-12},
-        )
-        out[ii] = res.x
-    return out
 
 
 @potential_physical_input

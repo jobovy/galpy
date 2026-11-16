@@ -3750,44 +3750,106 @@ def test_actionAngleStaeckel_angles_order_c():
     return None
 
 
-# Test that the pure-Python (c=False) actionAngleStaeckel frequencies and angles
-# agree with the C implementation over a grid of ICs hitting every branch.
-def test_actionAngleStaeckel_single_action_cache():
-    # actionAngleStaeckelSingle caches JR/Jz per (fixed_quad, order): a repeat
-    # call with the same settings returns the cached value, while changing the
-    # order recomputes (the cache used to ignore order, which silently
-    # returned the first result for any subsequent order)
+def test_actionAngleStaeckel_single_deprecated_wrapper():
+    # actionAngleStaeckelSingle is deprecated; it evaluates actionAngleStaeckel's
+    # pure-Python implementation for one phase-space point, so every method
+    # returns exactly what actionAngleStaeckel(c=False) gives
+    from galpy.actionAngle import actionAngleStaeckel
     from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle
-    from galpy.potential import MWPotential2014
+    from galpy.potential import MWPotential2014, vcirc
 
-    aA = actionAngleStaeckelSingle(
-        1.1, 0.05, 0.9, 0.15, 0.12, pot=MWPotential2014, delta=0.45
+    xv = (1.1, 0.05, 0.9, 0.15, 0.12)
+    with pytest.warns(DeprecationWarning, match="actionAngleStaeckelSingle"):
+        aA = actionAngleStaeckelSingle(*xv, pot=MWPotential2014, delta=0.45)
+    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    jr, lz, jz, Or, Op, Oz, ar, ap, az = aAS.actionsFreqsAngles(*xv, 0.0)
+    assert aA.JR() == jr[0], "actionAngleStaeckelSingle.JR differs"
+    assert aA.Jz() == jz[0], "actionAngleStaeckelSingle.Jz differs"
+    assert aA.calcEL()[1] == lz[0], "actionAngleStaeckelSingle.calcEL differs"
+    umin, umax, vmin = aAS._uminumaxvmin(*xv)
+    assert aA.calcUminUmax() == (umin[0], umax[0]), (
+        "actionAngleStaeckelSingle.calcUminUmax differs"
     )
-    jr1 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]
-    jr2 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]  # cache hit
-    assert jr1 == jr2, (
-        "Repeated actionAngleStaeckelSingle.JR call with identical settings "
-        "does not return the cached value"
+    assert aA.calcVmin() == vmin[0], "actionAngleStaeckelSingle.calcVmin differs"
+    freqs = aA.calcFreqs()
+    assert freqs[:3] == (Or[0], Op[0], Oz[0]), (
+        "actionAngleStaeckelSingle.calcFreqs differs"
     )
-    jz1 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]
-    jz2 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]  # cache hit
-    assert jz1 == jz2, (
-        "Repeated actionAngleStaeckelSingle.Jz call with identical settings "
-        "does not return the cached value"
+    # dI3/dJ: the inverse of the Jacobian d(JR,Jz)/d(E,I3) (Lz fixed)
+    djrdE, djrdLz, djrdI3 = aA.calcdJR()
+    djzdE, djzdLz, djzdI3 = aA.calcdJz()
+    numpy.testing.assert_allclose(
+        numpy.array([[djrdE, djrdI3], [djzdE, djzdI3]])
+        @ numpy.array([[Or[0], Oz[0]], [freqs[3], freqs[4]]]),
+        numpy.eye(2),
+        atol=1e-12,
     )
-    # Changing the order must recompute, not return the cached value; both
-    # are converged, so they agree to machine precision without being
-    # bit-identical in general
-    jr3 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=40))[0]
-    jz3 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=40))[0]
-    assert numpy.fabs(jr3 - jr1) < 1e-12, (
-        "actionAngleStaeckelSingle.JR at a different order does not agree "
-        "with the default order"
+    angles = aA.calcAngles()
+    assert angles[:3] == freqs[:3], "actionAngleStaeckelSingle.calcAngles differs"
+    assert (angles[3], angles[5]) == (ar[0], az[0]), (
+        "actionAngleStaeckelSingle.calcAngles differs"
     )
-    assert numpy.fabs(jz3 - jz1) < 1e-12, (
-        "actionAngleStaeckelSingle.Jz at a different order does not agree "
-        "with the default order"
+    assert numpy.remainder(angles[4], 2.0 * numpy.pi) == ap[0], (
+        "actionAngleStaeckelSingle.calcAngles differs"
     )
+    # the order sets the converged quadrature's mesh
+    assert numpy.fabs(aA.JR(order=40) - jr[0]) < 1e-12, (
+        "actionAngleStaeckelSingle.JR at a different order does not agree"
+    )
+    # a circular orbit has no frequencies of its own (det A = 0) and no angles
+    vc = vcirc(MWPotential2014, 1.0, use_physical=False)
+    with pytest.warns(DeprecationWarning, match="actionAngleStaeckelSingle"):
+        aA = actionAngleStaeckelSingle(
+            1.0, 0.0, vc, 0.0, 0.0, pot=MWPotential2014, delta=0.45
+        )
+    freqs = aA.calcFreqs()
+    assert freqs[6] == 0.0 and numpy.all(numpy.isnan(freqs[:6])), (
+        "actionAngleStaeckelSingle.calcFreqs of a circular orbit is not NaN"
+    )
+    assert aA.calcAngles()[3:] == (0.0, 0.0, 0.0), (
+        "actionAngleStaeckelSingle.calcAngles of a circular orbit is not zero"
+    )
+    return None
+
+
+def test_actionAngleStaeckel_python_scalar_only_potential():
+    # A potential whose forces take scalar coordinates only is evaluated point
+    # by point on the vectorized pure-Python path: its actions, frequencies, and
+    # angles agree with C's
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import DoubleExponentialDiskPotential, HernquistPotential
+
+    pot = DoubleExponentialDiskPotential(
+        normalize=0.6, hr=1.0 / 3.0, hz=1.0 / 27.0
+    ) + HernquistPotential(normalize=0.4, a=2.0)
+    xv = (
+        numpy.array([1.0, 0.9]),
+        numpy.array([0.05, -0.1]),
+        numpy.array([0.95, 1.05]),
+        numpy.array([0.05, -0.02]),
+        numpy.array([0.03, 0.06]),
+        numpy.array([0.3, 2.0]),
+    )
+    aAp = actionAngleStaeckel(pot=pot, delta=0.3, c=False)
+    aAc = actionAngleStaeckel(pot=pot, delta=0.3, c=True)
+    for p, c in zip(aAp.actionsFreqsAngles(*xv), aAc.actionsFreqsAngles(*xv)):
+        numpy.testing.assert_allclose(p, c, rtol=1e-8, atol=1e-10)
+    return None
+
+
+def test_actionAngleStaeckel_iterate_bracket():
+    # The turning points' bracket expansion runs at most n steps, stopping
+    # early at a fixed point (only an orbit over the pole uses all of them)
+    from galpy.actionAngle.actionAngleStaeckel import _iterate_bracket
+
+    halve_to_one = lambda x: numpy.maximum(0.5 * x, 1.0)
+    assert _iterate_bracket(halve_to_one, numpy.array([8.0, 2.0]), 10).tolist() == [
+        1.0,
+        1.0,
+    ], "_iterate_bracket does not stop at the fixed point"
+    assert _iterate_bracket(lambda x: 0.5 * x, numpy.array([8.0]), 2).tolist() == [
+        2.0
+    ], "_iterate_bracket does not stop after n steps"
     return None
 
 

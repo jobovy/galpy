@@ -34,7 +34,18 @@ at release.]
 
 - [slot 04]
 
-- [slot 05]
+- ``actionAngleStaeckel``'s pure-Python implementation (``c=False``) is
+  vectorized over all phase-space points, as on galpy's v2 branch: the turning
+  points by a fixed-schedule bracket-and-bisect and the actions, frequencies,
+  and angles by the chi-anomaly quadrature on C's mesh (the actions no longer
+  use adaptive quadrature; ``fixed_quad=`` and the ``scipy.integrate.quad``
+  keywords are no longer used). It is 3 to 30 times faster, its outputs move by
+  less than 2e-9 and equal v2's bit for bit, and a planar, radially eccentric
+  orbit's frequencies are now C's (NaN and infinite rather than the epicycle
+  ones). A potential whose methods take scalar coordinates only (e.g.,
+  ``AnyAxisymmetricRazorThinDiskPotential``) is evaluated point by point.
+  ``actionAngleStaeckelSingle`` is deprecated and will be removed in versions
+  after 1.13.x; it now evaluates the same implementation.
 
 - [slot 06]
 
