@@ -1338,6 +1338,14 @@ def test_traced_potential_parameter_routes_to_inbackend():
     numpy.testing.assert_allclose(g, fd, rtol=1e-7, atol=1e-9)
 
 
+def _has_traced(pot):
+    # the routing predicate of Orbit.integrate: a traced or grad-tracking
+    # parameter that the potential -- or anything it wraps -- stores
+    from galpy.backend import param_grad_array
+
+    return param_grad_array(pot) is not None
+
+
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_concrete_backend_potential_keeps_the_cstm():
     # The guard above must key on TRACED, not merely backend: a potential that
@@ -1346,13 +1354,12 @@ def test_concrete_backend_potential_keeps_the_cstm():
     # to the in-backend ODE and broke streamspraydf's progenitor-potential tests.
     from galpy.backend import use
     from galpy.orbit import Orbit
-    from galpy.orbit.Orbits import _pot_has_traced_param
     from galpy.potential import MiyamotoNagaiPotential
 
     # a CONCRETE backend amp -- backend array, but not a tracer
     pot_concrete = MiyamotoNagaiPotential(amp=jnp.asarray(1.0), a=0.5, b=0.05)
     with use("jax", force=True):
-        assert not _pot_has_traced_param(pot_concrete), (
+        assert not _has_traced(pot_concrete), (
             "a concrete backend parameter must NOT divert away from the C-STM"
         )
         # and it still integrates, on the backend, matching the numpy value
@@ -1376,16 +1383,13 @@ def test_concrete_backend_potential_keeps_the_cstm():
 def test_traced_potential_is_detected():
     # the other side of the same predicate: a TRACED parameter must be spotted
     from galpy.backend import use
-    from galpy.orbit.Orbits import _pot_has_traced_param
     from galpy.potential import MiyamotoNagaiPotential
 
     seen = {}
 
     def probe(amp):
         with use("jax", force=True):
-            seen["traced"] = _pot_has_traced_param(
-                MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05)
-            )
+            seen["traced"] = _has_traced(MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05))
         return amp * 1.0
 
     jax.grad(probe)(1.0)
@@ -1398,12 +1402,11 @@ def test_traced_param_probe_has_no_side_effect():
     # force, which populates the evaluation cache of potentials that keep one --
     # that silently changed streamgapdf's sampled values (test_streamgapdf_sample)
     # even though nothing was traced and the routing decision was unaffected.
-    from galpy.orbit.Orbits import _pot_has_traced_param
     from galpy.potential import MiyamotoNagaiPotential
 
     pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.05)
     before = dict(vars(pot))
-    assert not _pot_has_traced_param(pot)
+    assert not _has_traced(pot)
     after = vars(pot)
     assert set(before) == set(after), "the probe added state to the potential"
     for k, v in before.items():
@@ -1418,7 +1421,6 @@ def test_traced_param_found_through_every_nesting():
     # them separately: a potential LIST, a wrapper's single potential, and a
     # list-valued attribute (whose elements may be raw arrays, not potentials).
     from galpy.backend import use
-    from galpy.orbit.Orbits import _pot_has_traced_param
     from galpy.potential import (
         DehnenSmoothWrapperPotential,
         HernquistPotential,
@@ -1432,19 +1434,19 @@ def test_traced_param_found_through_every_nesting():
             traced = MiyamotoNagaiPotential(amp=amp, a=0.5, b=0.05)
             plain = HernquistPotential(amp=1.0, a=2.0)
             # a list of potentials, traced one not first
-            seen["list"] = _pot_has_traced_param([plain, traced])
-            seen["list_clean"] = _pot_has_traced_param([plain, plain])
+            seen["list"] = _has_traced([plain, traced])
+            seen["list_clean"] = _has_traced([plain, plain])
             # a wrapper around the traced potential
-            seen["wrapped"] = _pot_has_traced_param(
+            seen["wrapped"] = _has_traced(
                 DehnenSmoothWrapperPotential(pot=traced, tform=-1.0, tsteady=1.0)
             )
-            seen["wrapped_clean"] = _pot_has_traced_param(
+            seen["wrapped_clean"] = _has_traced(
                 DehnenSmoothWrapperPotential(pot=plain, tform=-1.0, tsteady=1.0)
             )
             # a list-valued attribute holding raw traced arrays
             holder = HernquistPotential(amp=1.0, a=2.0)
             holder._amps = [1.0, amp * 2.0]
-            seen["list_attr"] = _pot_has_traced_param(holder)
+            seen["list_attr"] = _has_traced(holder)
         return amp * 1.0
 
     jax.grad(probe)(1.0)
@@ -1683,16 +1685,13 @@ def test_torch_cstm_first_order_unchanged_under_create_graph():
 def test_grad_tracking_torch_param_is_detected():
     # eager torch autograd has no trace: under_trace misses a requires_grad
     # parameter, so the detector must check for the graph itself
-    from galpy.orbit.Orbits import _pot_has_traced_param
     from galpy.potential import DehnenSmoothWrapperPotential
 
     a = torch.tensor(0.5, requires_grad=True)
-    assert _pot_has_traced_param(MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3))
-    assert _pot_has_traced_param(
+    assert _has_traced(MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3))
+    assert _has_traced(
         DehnenSmoothWrapperPotential(
             pot=MiyamotoNagaiPotential(amp=2.1, a=a, b=0.3), tform=-1.0, tsteady=1.0
         )
     )
-    assert not _pot_has_traced_param(
-        MiyamotoNagaiPotential(amp=2.1, a=torch.tensor(0.5), b=0.3)
-    )
+    assert not _has_traced(MiyamotoNagaiPotential(amp=2.1, a=torch.tensor(0.5), b=0.3))

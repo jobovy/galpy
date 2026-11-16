@@ -357,7 +357,9 @@ def param_grad_array(obj, any_backend=False, _depth=0, _seen=None):
     must match the parameters' FRAMEWORK rather than detect a gradient -- but
     not inside caches (dicts, galpy.backend objects), where only a gradient
     counts. Each object and function is scanned once (a function that closes
-    over the object holding it is common).
+    over the object holding it is common). Structural, never a force probe:
+    evaluating a force perturbs potentials that cache their last evaluation
+    (it changed streamgapdf's sampled values).
     """
     if _seen is None:
         _seen = set()

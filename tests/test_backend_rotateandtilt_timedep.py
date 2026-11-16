@@ -642,6 +642,41 @@ def test_functions_of_time_parity(backend):
     return None
 
 
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_function_of_time_returning_backend_arrays(backend):
+    # a center= function of time that returns backend arrays without holding
+    # a backend value itself, so that no scan of the potential can see it: at
+    # Python-float coordinates the wrapper brings them onto that backend
+    from galpy.backend import is_backend_array
+    from galpy.backend._namespaces import param_grad_array
+
+    xp = jnp if backend == "jax" else torch
+
+    def center(t):
+        tt = _arr(backend, t)
+        return xp.stack(
+            [0.3 * xp.cos(0.7 * tt), 0.2 * xp.sin(0.7 * tt), 0.05 + 0.0 * tt]
+        )
+
+    def center_np(t):
+        return numpy.array([0.3 * numpy.cos(0.7 * t), 0.2 * numpy.sin(0.7 * t), 0.05])
+
+    scf = potential.SCFPotential(amp=0.1, Acos=_A, Asin=0.5 * _A, a=0.2)
+    pot = potential.RotateAndTiltWrapperPotential(pot=scf, center=center)
+    pot_np = potential.RotateAndTiltWrapperPotential(pot=scf, center=center_np)
+    assert param_grad_array(pot, any_backend=True) is None
+    for R, z, phi, t in _POINTS:
+        got = evaluateRforces(pot, R, z, phi=phi, t=t)
+        assert is_backend_array(got), (
+            f"A center returning {backend} arrays does not evaluate on {backend}"
+        )
+        want = evaluateRforces(pot_np, R, z, phi=phi, t=t)
+        assert numpy.fabs(float(as_numpy(got)) - want) < 1e-12 * max(
+            1.0, numpy.fabs(want)
+        ), f"A center returning {backend} arrays does not give numpy's value"
+    return None
+
+
 def _pattern_speed_loss(omega):
     # the radial force of an inclined SCF turning with pattern speed omega,
     # at two points and times

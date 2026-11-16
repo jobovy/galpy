@@ -426,32 +426,6 @@ def _backend_scalar_ic(vxvv):
     )
 
 
-def _pot_traced_param(pot):
-    """A traced or grad-tracking parameter that ``pot`` -- or anything it wraps,
-    or a function it was given captures -- STORES, else None
-    (``param_grad_array``).
-
-    Structural inspection, deliberately NOT a force probe. Evaluating a force to
-    detect this perturbs potentials that cache their last evaluation: it changed
-    streamgapdf's sampled values (test_streamgapdf_sample) even though nothing
-    was traced and the routing was unaffected. A detector must not have side
-    effects on the thing it inspects.
-
-    Differentiated, not merely backend: the C-STM carries d/d(IC) only, so a
-    differentiated parameter must reach the in-backend ODE (a jax tracer dies in
-    the C parser; an eager grad-tracking torch tensor is silently DETACHED). A
-    potential that merely HOLDS backend data with concrete values -- e.g. a
-    MovingObjectPotential built on a backend progenitor orbit -- converts fine
-    and must keep the fast C-STM.
-    """
-    return param_grad_array(pot)
-
-
-def _pot_has_traced_param(pot):
-    """True if ``pot`` stores a traced or grad-tracking parameter (``_pot_traced_param``)."""
-    return _pot_traced_param(pot) is not None
-
-
 def _maybe_differs(a, b):
     """``numpy.any(a != b)``; True when a traced comparison cannot decide it
     (rebuilding a cached object is always safe)."""
@@ -2010,7 +1984,8 @@ class Orbit:
         # list IC under a forced backend): lift the IC onto the parameter's backend
         # so the differentiable routes below take it, rather than the numpy/C path
         # dropping the parameter's gradient.
-        _dparam = _pot_traced_param(pot)
+        # a traced or grad-tracking parameter (the C-STM carries d/d(IC) only)
+        _dparam = param_grad_array(pot)
         # ... and so does any backend parameter (a backend input makes a backend
         # orbit); only a differentiated one must avoid the C-STM below
         _bparam = (
