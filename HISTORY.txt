@@ -48,7 +48,12 @@ at release.]
   surface density in astropy units. A user-supplied lambda still cannot be
   pickled.
 
-- [slot 04]
+- ``actionAngleStaeckel``'s pure-Python implementation (``c=False``, numpy)
+  evaluates a potential whose methods take scalar coordinates only
+  (``DoubleExponentialDiskPotential``, ``AnyAxisymmetricRazorThinDiskPotential``)
+  point by point; the vectorized implementation raised for them, also by
+  default for ``AnyAxisymmetricRazorThinDiskPotential``, which has no C
+  implementation (twin of main's #1913).
 
 - [slot 05]
 

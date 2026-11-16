@@ -3908,6 +3908,33 @@ def test_actionAngleStaeckel_angles_order_c():
     return None
 
 
+def test_actionAngleStaeckel_python_scalar_only_potential():
+    # A potential whose forces take scalar coordinates only is evaluated point
+    # by point on the vectorized pure-Python (numpy) path: its actions,
+    # frequencies, and angles agree with C's; it has no backend evaluation
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.backend import use
+    from galpy.potential import DoubleExponentialDiskPotential, HernquistPotential
+
+    pot = DoubleExponentialDiskPotential(
+        normalize=0.6, hr=1.0 / 3.0, hz=1.0 / 27.0
+    ) + HernquistPotential(normalize=0.4, a=2.0)
+    xv = (
+        numpy.array([1.0, 0.9]),
+        numpy.array([0.05, -0.1]),
+        numpy.array([0.95, 1.05]),
+        numpy.array([0.05, -0.02]),
+        numpy.array([0.03, 0.06]),
+        numpy.array([0.3, 2.0]),
+    )
+    with use("numpy", force=True):
+        aAp = actionAngleStaeckel(pot=pot, delta=0.3, c=False)
+        aAc = actionAngleStaeckel(pot=pot, delta=0.3, c=True)
+        for p, c in zip(aAp.actionsFreqsAngles(*xv), aAc.actionsFreqsAngles(*xv)):
+            numpy.testing.assert_allclose(p, c, rtol=1e-8, atol=1e-10)
+    return None
+
+
 def test_actionAngleStaeckel_chi_quadrature_convergence():
     # The chi-anomaly composite quadratures behind the pure-Python path are
     # machine-converged at the default order: frequencies and angles must

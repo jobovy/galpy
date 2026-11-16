@@ -45,7 +45,9 @@ from ..potential import (
     verticalfreq,
 )
 from ..potential.Potential import (
+    Potential,
     PotentialError,
+    _accepts_node_array,
     _check_c,
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -100,6 +102,45 @@ def _nanmedian(xp, a):
     if name_of_namespace(xp) == "torch":
         return xp.quantile(a[~xp.isnan(a)], 0.5)
     return xp.nanmedian(a)
+
+
+class _PointwisePotential(Potential):
+    """A potential with a component whose methods take scalar coordinates only
+    (e.g., DoubleExponentialDiskPotential), evaluated point by point for the
+    vectorized core (numpy only)"""
+
+    def __init__(self, pot):
+        Potential.__init__(self, amp=1.0)
+        self._pot = pot
+
+    def _pointwise(self, func, R, z):
+        R, z = numpy.broadcast_arrays(R, z)
+        return numpy.reshape(
+            numpy.array(
+                [func(self._pot, r, zz) for r, zz in zip(R.ravel(), z.ravel())]
+            ),
+            R.shape,
+        )
+
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
+        return self._pointwise(_evaluatePotentials, R, z)
+
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
+        return self._pointwise(_evaluateRforces, R, z)
+
+    def _zforce(self, R, z, phi=0.0, t=0.0):
+        return self._pointwise(_evaluatezforces, R, z)
+
+
+def _staeckel_pot(xp, pot):
+    """pot, or, on numpy, its point-by-point evaluation if a component's
+    potential or forces take scalar coordinates only"""
+    comps = list(pot) if isinstance(pot, CompositePotential) else [pot]
+    if xp is not numpy or all(
+        _accepts_node_array(p, "_evaluate", "_Rforce", "_zforce") for p in comps
+    ):
+        return pot
+    return _PointwisePotential(pot)
 
 
 # ----------------------------------------------------------------------------
@@ -808,6 +849,25 @@ def _staeckel_actions_freqs_angles(
     return (outs[0], Lz) + outs[1:]
 
 
+def _staeckel_circular_freqs(xp, pot, R, jr, jz, Omegar, Omegaphi, Omegaz):
+    """The frequencies with those of close-to-circular orbits, NaN (det(A)=0),
+    replaced by epifreq/omegac/verticalfreq (as the C wrapper does). On numpy
+    only those orbits are evaluated, one by one, so that a potential whose
+    methods take scalars only works"""
+    indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (xp.isnan(Omegaz) & (jz < 1e-3))
+    if xp is numpy:
+        if numpy.any(indx):
+            Omegar[indx] = [epifreq(pot, r, use_physical=False) for r in R[indx]]
+            Omegaphi[indx] = [omegac(pot, r, use_physical=False) for r in R[indx]]
+            Omegaz[indx] = [verticalfreq(pot, r, use_physical=False) for r in R[indx]]
+        return Omegar, Omegaphi, Omegaz
+    return (
+        xp.where(indx, epifreq(pot, R, use_physical=False), Omegar),
+        xp.where(indx, omegac(pot, R, use_physical=False), Omegaphi),
+        xp.where(indx, verticalfreq(pot, R, use_physical=False), Omegaz),
+    )
+
+
 def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=False):
     """Differentiable (jr, jz) via the C-native Staeckel action Jacobian.
 
@@ -1256,7 +1316,7 @@ class actionAngleStaeckel(actionAngle):
                 vT,
                 z,
                 vz,
-                self._pot,
+                _staeckel_pot(xp, self._pot),
                 _coerce_delta_arraylike(delta),
                 order,
                 flag_unbound=routed,
@@ -1432,20 +1492,15 @@ class actionAngleStaeckel(actionAngle):
                 vT,
                 z,
                 vz,
-                self._pot,
+                _staeckel_pot(xp, self._pot),
                 _coerce_delta_arraylike(delta),
                 order,
                 flag_unbound=routed,
             )
             # Close-to-circular orbits: the freqs are NaN (det(A)=0); substitute
             # epifreq/omegac/verticalfreq (vectorised mirror of the C wrapper).
-            indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (xp.isnan(Omegaz) & (jz < 1e-3))
-            Omegar = xp.where(indx, epifreq(self._pot, R, use_physical=False), Omegar)
-            Omegaphi = xp.where(
-                indx, omegac(self._pot, R, use_physical=False), Omegaphi
-            )
-            Omegaz = xp.where(
-                indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
+            Omegar, Omegaphi, Omegaz = _staeckel_circular_freqs(
+                xp, self._pot, R, jr, jz, Omegar, Omegaphi, Omegaz
             )
             return (jr, Lz, jz, Omegar, Omegaphi, Omegaz)
 
@@ -1649,7 +1704,7 @@ class actionAngleStaeckel(actionAngle):
                 z,
                 vz,
                 phi,
-                self._pot,
+                _staeckel_pot(xp, self._pot),
                 _coerce_delta_arraylike(delta),
                 order,
                 flag_unbound=routed,
@@ -1657,13 +1712,8 @@ class actionAngleStaeckel(actionAngle):
             # Close-to-circular orbits: substitute epifreq/omegac/verticalfreq for
             # the NaN frequencies (vectorised mirror of the C wrapper; the angles
             # are already 0 there, as in the C calcAnglesStaeckel).
-            indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (xp.isnan(Omegaz) & (jz < 1e-3))
-            Omegar = xp.where(indx, epifreq(self._pot, R, use_physical=False), Omegar)
-            Omegaphi = xp.where(
-                indx, omegac(self._pot, R, use_physical=False), Omegaphi
-            )
-            Omegaz = xp.where(
-                indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
+            Omegar, Omegaphi, Omegaz = _staeckel_circular_freqs(
+                xp, self._pot, R, jr, jz, Omegar, Omegaphi, Omegaz
             )
             return (jr, Lz, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
 
@@ -1843,7 +1893,15 @@ class actionAngleStaeckel(actionAngle):
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             # _staeckel_prep already snaps vmin to pi/2 for planar orbits.
             s, umin, umax, vmin, _ = _staeckel_prep(
-                xp, R, vR, vT, z, vz, self._pot, delta, flag_unbound=routed
+                xp,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                _staeckel_pot(xp, self._pot),
+                delta,
+                flag_unbound=routed,
             )
             if routed:  # C's unbound turning points: e=nan, rperi=-inf, rap=inf
                 umin = xp.where(s["unbound"], -numpy.inf, umin)
