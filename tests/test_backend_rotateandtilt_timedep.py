@@ -398,6 +398,55 @@ def test_diffrax_moving_turning():
     return None
 
 
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize("what", ["center", "orientation", "wrapped"])
+def test_traced_parameters_under_forced_numpy(backend, what):
+    # A traced (jax.jit) or differentiated (torch) center or orientation
+    # table, or parameter of the wrapped potential, evaluates on its backend
+    # also under a forced numpy backend, as a traced amp does, so that a
+    # backend-parameter probe that evaluates under forced numpy (that of
+    # streamspraydf) sees a backend value: equal to numpy's, and
+    # differentiable
+    from galpy.backend import use
+
+    def pot_of(s, xp):
+        A = xp.asarray(_A) * (1.0 + (s if what == "wrapped" else 0.0))
+        return _wrapper(
+            A=A,
+            xyz=xp.asarray(_XYZ) + (s if what == "center" else 0.0),
+            q=xp.asarray(_Q) * (1.0 + (s if what == "orientation" else 0.0)),
+        )
+
+    def probe(s, xp):
+        pot = pot_of(s, xp)  # built outside, evaluated under forced numpy
+        with use("numpy", force=True):
+            return evaluateRforces(pot, 0.9, 0.1, phi=0.3, t=0.37)
+
+    want = evaluateRforces(pot_of(0.01, numpy), 0.9, 0.1, phi=0.3, t=0.37)
+    if backend == "jax":
+        got = float(jax.jit(lambda s: probe(s, jnp))(0.01))
+        g = float(jax.grad(lambda s: probe(s, jnp))(0.01))
+    else:
+        s = torch.tensor(0.01, dtype=torch.float64, requires_grad=True)
+        out = probe(s, torch)
+        assert isinstance(out, torch.Tensor), (
+            "A differentiated table under forced numpy does not evaluate on its backend"
+        )
+        out.backward()
+        got, g = float(out), float(s.grad)
+    assert numpy.fabs(got - want) < 1e-12 * max(1.0, numpy.fabs(want)), (
+        f"A traced {what} under forced numpy does not give numpy's value on {backend}"
+    )
+    fd = (
+        evaluateRforces(pot_of(0.01 + 1e-6, numpy), 0.9, 0.1, phi=0.3, t=0.37)
+        - evaluateRforces(pot_of(0.01 - 1e-6, numpy), 0.9, 0.1, phi=0.3, t=0.37)
+    ) / 2e-6
+    assert numpy.fabs(g - fd) < 1e-6 * max(1.0, numpy.fabs(fd)), (
+        f"The derivative with respect to a traced {what} under forced numpy does not agree with finite differences on {backend}"
+    )
+    return None
+
+
 def _fd_grad(fun, x, h=1e-6, valid=None):
     # central finite-difference gradient of a scalar numpy function (zero
     # outside of the valid entries)
