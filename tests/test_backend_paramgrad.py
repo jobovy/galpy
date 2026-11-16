@@ -463,46 +463,18 @@ def test_param_grad_at_float_coordinates(backend_name, spec, method, mode):
 
 
 @pytest.mark.skipif(torch is None, reason="needs torch")
-def test_forced_numpy_runs_a_differentiated_parameter_on_its_backend():
-    # under use("numpy", force=True) (galpy's own host-side steps, e.g., the
-    # backend-parameter probe of streamspraydf) numpy cannot take a
-    # differentiated parameter: the evaluation runs on its backend and hands
-    # back that backend's value, gradient intact, as for a differentiated amp
-    # (a concrete parameter hands back numpy values)
-    b = torch.tensor(0.7, requires_grad=True)
-    pot = PlummerPotential(amp=1.0, b=b)
-    want = pot(_R0, _Z0)
+def test_forced_numpy_beats_a_parameter_backend():
+    # precedence: a forced backend beats the data, parameters included -- under
+    # use("numpy", force=True) the coordinates stay numpy, so numpy meets the
+    # grad tensor and refuses it
+    pot = PlummerPotential(amp=1.0, b=torch.tensor(0.7, requires_grad=True))
+    assert backend.is_backend_array(pot(_R0, _Z0))
+    # on a GPU numpy refuses the CUDA tensor before it sees the grad
+    on_gpu = pot._b.device.type == "cuda"
+    exc, match = (TypeError, "cuda") if on_gpu else (RuntimeError, "requires grad")
     with backend.use("numpy", force=True):
-        out = pot(_R0, _Z0)
-    assert backend.is_backend_array(out) and out.requires_grad
-    assert float(out.detach()) == float(want.detach())
-    (gwant,) = torch.autograd.grad(want, b, retain_graph=True)  # shares b**2
-    (gout,) = torch.autograd.grad(out, b)
-    assert float(gout) == float(gwant)
-    with backend.use("numpy", force=True):
-        concrete = PlummerPotential(amp=1.0, b=torch.tensor(0.7))(_R0, _Z0)
-    assert isinstance(concrete, (float, numpy.ndarray, numpy.generic))
-
-
-@pytest.mark.skipif(jax is None, reason="needs jax")
-def test_forced_numpy_runs_a_traced_parameter_on_its_backend():
-    # as for torch: a traced (jax.jit, jax.grad) non-amp parameter that the
-    # evaluation reads directly (MiyamotoNagai's b) runs on jax under a forced
-    # numpy pin, with numpy's value and derivative
-    from galpy.potential import MiyamotoNagaiPotential
-
-    def f(b):
-        pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=b)
-        with backend.use("numpy", force=True):
-            return pot(_R0, _Z0)
-
-    want = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1)(_R0, _Z0)
-    assert float(jax.jit(f)(0.1)) == float(want)
-    fd = (
-        MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1 + 1e-6)(_R0, _Z0)
-        - MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1 - 1e-6)(_R0, _Z0)
-    ) / 2e-6
-    numpy.testing.assert_allclose(float(jax.grad(f)(0.1)), fd, rtol=1e-8)
+        with pytest.raises(exc, match=match):
+            pot(_R0, _Z0)
 
 
 @pytest.mark.skipif(torch is None, reason="needs torch")
@@ -582,6 +554,59 @@ def test_forced_backend_caches_are_not_parameters(backend_name):
     b = torch.tensor(0.7, requires_grad=True) if backend_name == "torch" else None
     if b is not None:
         assert param_grad_array([PlummerPotential(amp=1.0, b=b)]) is b
+
+
+@pytest.mark.skipif(torch is None, reason="needs torch")
+def test_param_grad_array_sees_what_functions_capture():
+    # a parameter that a potential holds only through a function it was given
+    # (closed over, a default, a keyword-only default, a partial's argument, a
+    # bound method's object) is found; a function closing over numpy values
+    # or over the object holding it is not a parameter, and the scan ends
+    import functools
+
+    from galpy.backend import param_grad_array
+    from galpy.potential import (
+        AnySphericalPotential,
+        HernquistPotential,
+        RotateAndTiltWrapperPotential,
+    )
+
+    s = torch.tensor(0.1, requires_grad=True)
+
+    def kwonly(t, *, a=s):
+        return a * t
+
+    class Holder:
+        def __init__(self, a):
+            self.a = a
+
+        def center(self, t):
+            return self.a * t
+
+    for fn in (
+        lambda t: s * t,
+        lambda t, a=s: a * t,
+        kwonly,
+        functools.partial(lambda t, a: a * t, a=s),
+    ):
+        assert param_grad_array([fn]) is s
+    holder = HernquistPotential(amp=1.0, a=0.5)
+    holder.fn = Holder(s).center
+    assert param_grad_array(holder) is None, (
+        "a bound method's non-galpy object is not scanned"
+    )
+    holder.fn = RotateAndTiltWrapperPotential(
+        pot=HernquistPotential(amp=1.0, a=s), center=[0.1, 0.0, 0.0]
+    )._evaluate
+    assert param_grad_array(holder) is s, "a bound galpy method's object is scanned"
+    pot = AnySphericalPotential(dens=lambda r: 0.64 / r / (1 + r) ** 3)
+    pot.fn = lambda t: pot._amp * t  # closes over its own holder
+    assert param_grad_array(pot) is None
+    assert param_grad_array(pot, any_backend=True) is None
+    assert param_grad_array([lambda t: torch.tensor(0.1) * t], any_backend=True) is None
+    c = torch.tensor(0.1)
+    assert param_grad_array([lambda t: c * t]) is None
+    assert param_grad_array([lambda t: c * t], any_backend=True) is c
 
 
 @pytest.mark.parametrize("method", METHOD_IDS)

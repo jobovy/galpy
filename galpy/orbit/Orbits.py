@@ -426,9 +426,10 @@ def _backend_scalar_ic(vxvv):
     )
 
 
-def _pot_traced_param(pot, _depth=0):
-    """A traced or grad-tracking parameter that ``pot`` -- or anything it wraps --
-    STORES, else None.
+def _pot_traced_param(pot):
+    """A traced or grad-tracking parameter that ``pot`` -- or anything it wraps,
+    or a function it was given captures -- STORES, else None
+    (``param_grad_array``).
 
     Structural inspection, deliberately NOT a force probe. Evaluating a force to
     detect this perturbs potentials that cache their last evaluation: it changed
@@ -443,24 +444,7 @@ def _pot_traced_param(pot, _depth=0):
     MovingObjectPotential built on a backend progenitor orbit -- converts fine
     and must keep the fast C-STM.
     """
-    if _depth > 5:  # pragma: no cover - guards against a cyclic wrapper chain
-        return None
-    if isinstance(pot, (list, tuple)):
-        for p in pot:
-            found = _pot_traced_param(p, _depth + 1)
-            if found is not None:
-                return found
-        return None
-    if under_trace(pot) or requires_backend_grad(pot):
-        return pot
-    for v in getattr(pot, "__dict__", {}).values():
-        if under_trace(v) or requires_backend_grad(v):
-            return v
-        if isinstance(v, (list, tuple)) or hasattr(v, "_amp"):  # wrapped/composite
-            found = _pot_traced_param(v, _depth + 1)
-            if found is not None:
-                return found
-    return None
+    return param_grad_array(pot)
 
 
 def _pot_has_traced_param(pot):

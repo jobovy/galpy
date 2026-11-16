@@ -674,6 +674,58 @@ def test_sample_moving_traced_tables_grad_fd(backend_name):
     )
 
 
+def _captured_center_mean(s, xp, key):
+    # the perturber's center= is a function of time closing over s: the
+    # potential holds s only through the function
+    def center(t):
+        return xp.stack(
+            [1.6 + 0.1 * t + s, 0.3 * t + 0.0 * s, 0.05 + 0.0 * t + 0.0 * s]
+        )
+
+    pert = RotateAndTiltWrapperPotential(
+        pot=HernquistPotential(amp=0.02, a=0.1), center=center
+    )
+    x = fardal15spraydf(
+        _JIT_MASS,
+        progenitor=Orbit(_JIT_IC),
+        pot=LogarithmicHaloPotential(amp=1.0, q=0.9) + pert,
+        tdisrupt=_JIT_TD,
+    ).sample(_JIT_N, return_orbit=False, tail="leading", key=key)[0]
+    return get_namespace(x).mean(x)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sample_parameter_that_a_function_captures(backend_name):
+    # The spray finds a parameter that only a function given to the potential
+    # captures (a perturber's center= function of time) by scanning the
+    # potential, not by evaluating it, and samples on the parameter's
+    # backend: equal to the spray with a numpy parameter, with the gradient of
+    # finite differences (torch; jax.grad of a jitted spray is tested above)
+    key = grandom.key(_SEED, backend=backend_name)
+    want = float(numpy.mean(as_numpy(_captured_center_mean(0.0, numpy, key))))
+    if backend_name == "jax":
+        jnp = jax.numpy
+        got = float(jax.jit(lambda s: _captured_center_mean(s, jnp, key))(0.0))
+        best = 0.0
+    else:
+        s = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+        out = _captured_center_mean(s, torch, key)
+        out.backward()
+        got, g = float(out.detach()), float(s.grad)
+        h = 1e-5
+        fd = (
+            float(_captured_center_mean(torch.tensor(h), torch, key))
+            - float(_captured_center_mean(torch.tensor(-h), torch, key))
+        ) / (2 * h)
+        best = abs(g - fd) / abs(g)
+    assert numpy.fabs(got - want) < 1e-9, (
+        f"A spray in a parameter that a function captures differs from that with a numpy parameter on {backend_name}"
+    )
+    assert best < 1e-5, (
+        f"The spray's gradient with respect to a parameter that a function captures does not agree with finite differences: REL={best:.2e}"
+    )
+
+
 @pytest.mark.skipif(jax is None, reason="jax required for jit tests")
 def test_streamtrack_jit_grad_fd():
     # jax.jit(streamTrack()) samples INTERNALLY + reconstructs with the pspline method

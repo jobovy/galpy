@@ -18,6 +18,7 @@ from ..backend import (
 from ..backend._namespaces import (
     inbackend_ode_method,
     namespace_from_arrays,
+    param_grad_array,
     requires_backend_grad,
     under_trace,
 )
@@ -757,22 +758,6 @@ class basestreamspraydf(df):
             float(p.phi(0.0, _stored=True)),
         )
 
-    def _theta_probe_point(self):
-        """Concrete ``((R, z), phi, v)`` at which to probe the potential for a backend
-        parameter.
-
-        The progenitor's own present-day phase-space point, which is guaranteed to be
-        somewhere the potential can be evaluated. A TRACED progenitor IC has no
-        concrete coordinates, so fall back to a fixed unit-circular point; that case
-        routes in-backend anyway (``ic_concrete`` below), so the probe's answer there
-        only has to be well-defined, not particular.
-        """
-        try:
-            R, vR, vT, z, vz, phi = self._progenitor_now()
-        except Exception:  # noqa: BLE001 -- traced IC has no concrete coordinates
-            return (1.0, 0.0), 0.0, numpy.array([0.0, 1.0, 0.0])
-        return (R, z), phi, numpy.array([vR, vT, vz])
-
     def _integrate_progenitor(self):
         """Integrate the progenitor over ``[0, -tdisrupt]``, choosing the integrator
         by whether the sampling must run on a backend (jax/torch) for differentiable
@@ -781,32 +766,22 @@ class basestreamspraydf(df):
         (and everything sampled from it) carries d(stream)/d(theta) and/or
         d(stream)/d(prog IC). Otherwise the numpy/C integrator (byte-identical).
 
-        Detection is jit-safe: a backend IC is spotted by ``is_backend_array`` (works
-        on tracers); for a numpy IC, a force probe at the (concrete) IC point under
-        FORCED NUMPY isolates a genuine backend parameter (a traced ``amp`` survives
-        forced numpy) from a merely forced context. Sets ``self._bsamp`` =
+        Detection is structural and jit-safe: a backend IC is spotted by
+        ``is_backend_array`` (works on tracers), a backend potential parameter --
+        one the potential stores, or one that a function it was given captures (a
+        ``center=`` function of time) -- by scanning the potential
+        (``param_grad_array``), never by evaluating it. Sets ``self._bsamp`` =
         ``(xp, self._progenitor, method)`` for backend sampling, else ``None``.
         """
         prog_ic = getattr(self._orig_progenitor, "_ic_backend", None)
         ic_backend = is_backend_array(prog_ic)
         xp = get_namespace(prog_ic) if ic_backend else None
-        # Probe for a backend potential PARAMETER (theta) ALWAYS -- not only when the
-        # IC is numpy. The C-STM carries d/d(IC) but NOT d/d(theta), so a
-        # differentiable potential parameter must reach the in-backend ODE. When the
-        # IC was a backend array this probe used to be skipped entirely, leaving
-        # theta_backend False; the dispatch below then chose dop853_c and jax.grad
-        # w.r.t. a potential parameter died in the C parser (as_numpy on the traced
-        # parameter -> TracerArrayConversionError). The probe needs CONCRETE
-        # coordinates; a traced IC has none, but that case already routes in-backend
-        # via ic_concrete below, so a fixed fallback probe point is safe there.
-        _pargs, _pphi, _pv = self._theta_probe_point()
-        with use("numpy", force=True):
-            _tf = evaluateRforces(self._pot, *_pargs, phi=_pphi, v=_pv)
-        # a backend parameter (the pinned force comes back as numpy values), or
-        # one the parameter scan cannot see (the force comes back on the backend)
-        _txp = _pot_backend_namespace(self._pot) or (
-            get_namespace(_tf) if is_backend_array(_tf) else None
-        )
+        # A backend potential PARAMETER (theta) is looked for ALWAYS -- not only when
+        # the IC is numpy. The C-STM carries d/d(IC) but NOT d/d(theta), so a
+        # differentiable potential parameter must reach the in-backend ODE (with a
+        # backend IC, the dispatch below would otherwise choose dop853_c, and
+        # jax.grad w.r.t. the parameter would die in the C parser).
+        _txp = _pot_backend_namespace(self._pot)
         theta_backend = _txp is not None
         if theta_backend and xp is None:
             xp = _txp
@@ -834,11 +809,14 @@ class basestreamspraydf(df):
         _forced = get_namespace(numpy.zeros(1)) is not numpy
         _backend_trig = theta_backend or mass_backend or stripping_backend
         _trig_vals = (
-            _tf,
             _mass_probe,
             self._stripping_cdf[0] if stripping_backend else None,
         )
-        _differentiated = under_trace(*_trig_vals) or requires_backend_grad(*_trig_vals)
+        _differentiated = (
+            param_grad_array(self._pot) is not None
+            or under_trace(*_trig_vals)
+            or requires_backend_grad(*_trig_vals)
+        )
         if not (ic_backend or (_backend_trig and (not _forced or _differentiated))):
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
@@ -912,33 +890,15 @@ class basestreamspraydf(df):
         # The center's own backend triggers (cases the progenitor-side detection misses).
         cic_backend = getattr(self._orig_center, "_ic_backend", None)
         ic_backend = is_backend_array(cic_backend)
-
-        def _cc(name, i):
-            # Concrete coordinate for the TYPE probe below. A backend center's
-            # accessors return the IC, which under jit is a tracer with no float();
-            # self.vxvv is the concrete bookkeeping they handed back before.
-            try:
-                return float(as_numpy(getattr(_c, name)(0.0)))
-            except Exception:  # noqa: BLE001 -- traced IC has no concrete value
-                return float(numpy.asarray(_c.vxvv).reshape(-1)[i])
-
-        with use("numpy", force=True):
-            _cf = evaluateRforces(
-                self._centerpot,
-                _cc("R", 0),
-                _cc("z", 3),
-                phi=_cc("phi", 5),
-                v=numpy.array(
-                    [_cc("vR", 1), _cc("vT", 2), _cc("vz", 4)]
-                ),  # a dynamical-friction centerpot is velocity-dependent
-            )
-        # as for the progenitor's potential (_integrate_progenitor)
-        _cxp = _pot_backend_namespace(self._centerpot) or (
-            get_namespace(_cf) if is_backend_array(_cf) else None
-        )
+        # a backend parameter of the center's potential, read off its structure as
+        # for the progenitor's potential (_integrate_progenitor)
+        _cxp = _pot_backend_namespace(self._centerpot)
         centerpot_theta = _cxp is not None
         _forced = get_namespace(numpy.zeros(1)) is not numpy
-        center_trig = ic_backend or (centerpot_theta and not _forced)
+        center_trig = ic_backend or (
+            centerpot_theta
+            and (not _forced or param_grad_array(self._centerpot) is not None)
+        )
         bsamp = getattr(self, "_bsamp", None)
         if bsamp is None and not center_trig:
             # pure numpy/C path -- byte-identical to the pre-backend center integration.
@@ -1850,26 +1810,9 @@ def pericenter_stripping_pdf(
         elif is_backend_array(getattr(progenitor, "_ic_backend", None)):
             _peri_xp = get_namespace(progenitor._ic_backend)
         else:
-            # a backend pot parameter (the pinned force comes back as numpy
-            # values), or one the parameter scan cannot see (it comes back on
-            # the backend)
-            with use("numpy", force=True):
-                _tf = evaluateRforces(
-                    pot,
-                    float(prog_copy.R(0.0, _stored=True)),
-                    float(prog_copy.z(0.0, _stored=True)),
-                    phi=float(prog_copy.phi(0.0, _stored=True)),
-                    v=numpy.array(
-                        [
-                            float(prog_copy.vR(0.0, _stored=True)),
-                            float(prog_copy.vT(0.0, _stored=True)),
-                            float(prog_copy.vz(0.0, _stored=True)),
-                        ]
-                    ),
-                )
-            _peri_xp = _pot_backend_namespace(pot) or (
-                get_namespace(_tf) if is_backend_array(_tf) else None
-            )
+            # a backend pot parameter, read off its structure as in
+            # _integrate_progenitor
+            _peri_xp = _pot_backend_namespace(pot)
     if _peri_xp is not None:
         _sqrt_2pi = float(numpy.sqrt(2.0 * numpy.pi))
         peri_b = _peri_xp.asarray(peri_times)

@@ -251,26 +251,14 @@ def backend_input(*coords):
                 and getattr(args[0], PARAM_CACHE_ATTR, None) is not False
             ):
                 # a forced numpy pin (galpy's own host-side steps) on an object
-                # with backend parameters, which numpy cannot read: it evaluates
-                # on their backend and hands numpy values back -- or, with a
-                # traced or differentiated parameter, that backend's values, as
-                # for a traced amp (the backend-parameter probe of streamspraydf)
+                # with CONCRETE backend parameters, which numpy cannot read: it
+                # evaluates on their backend and hands numpy values back
                 p = _grad_param(args[0])
-                if p is not None:
-                    g = (
-                        p
-                        if under_trace(p) or requires_backend_grad(p)
-                        else param_grad_array(args[0])
-                    )
+                if p is not None and not (under_trace(p) or requires_backend_grad(p)):
                     with use(
-                        name_of_namespace(
-                            namespace_from_arrays((p if g is None else g,))
-                        ),
-                        force=True,
+                        name_of_namespace(namespace_from_arrays((p,))), force=True
                     ):
                         out = wrapper(*args, **kwargs)
-                    if g is not None:
-                        return out
                     return (
                         type(out)(as_numpy(o) for o in out)
                         if isinstance(out, tuple)

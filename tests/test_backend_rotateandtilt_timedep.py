@@ -398,55 +398,6 @@ def test_diffrax_moving_turning():
     return None
 
 
-@pytest.mark.parametrize("backend", AD_BACKENDS)
-@pytest.mark.parametrize("what", ["center", "orientation", "wrapped"])
-def test_traced_parameters_under_forced_numpy(backend, what):
-    # A traced (jax.jit) or differentiated (torch) center or orientation
-    # table, or parameter of the wrapped potential, evaluates on its backend
-    # also under a forced numpy backend, as a traced amp does, so that a
-    # backend-parameter probe that evaluates under forced numpy (that of
-    # streamspraydf) sees a backend value: equal to numpy's, and
-    # differentiable
-    from galpy.backend import use
-
-    def pot_of(s, xp):
-        A = xp.asarray(_A) * (1.0 + (s if what == "wrapped" else 0.0))
-        return _wrapper(
-            A=A,
-            xyz=xp.asarray(_XYZ) + (s if what == "center" else 0.0),
-            q=xp.asarray(_Q) * (1.0 + (s if what == "orientation" else 0.0)),
-        )
-
-    def probe(s, xp):
-        pot = pot_of(s, xp)  # built outside, evaluated under forced numpy
-        with use("numpy", force=True):
-            return evaluateRforces(pot, 0.9, 0.1, phi=0.3, t=0.37)
-
-    want = evaluateRforces(pot_of(0.01, numpy), 0.9, 0.1, phi=0.3, t=0.37)
-    if backend == "jax":
-        got = float(jax.jit(lambda s: probe(s, jnp))(0.01))
-        g = float(jax.grad(lambda s: probe(s, jnp))(0.01))
-    else:
-        s = torch.tensor(0.01, dtype=torch.float64, requires_grad=True)
-        out = probe(s, torch)
-        assert isinstance(out, torch.Tensor), (
-            "A differentiated table under forced numpy does not evaluate on its backend"
-        )
-        out.backward()
-        got, g = float(out), float(s.grad)
-    assert numpy.fabs(got - want) < 1e-12 * max(1.0, numpy.fabs(want)), (
-        f"A traced {what} under forced numpy does not give numpy's value on {backend}"
-    )
-    fd = (
-        evaluateRforces(pot_of(0.01 + 1e-6, numpy), 0.9, 0.1, phi=0.3, t=0.37)
-        - evaluateRforces(pot_of(0.01 - 1e-6, numpy), 0.9, 0.1, phi=0.3, t=0.37)
-    ) / 2e-6
-    assert numpy.fabs(g - fd) < 1e-6 * max(1.0, numpy.fabs(fd)), (
-        f"The derivative with respect to a traced {what} under forced numpy does not agree with finite differences on {backend}"
-    )
-    return None
-
-
 def _fd_grad(fun, x, h=1e-6, valid=None):
     # central finite-difference gradient of a scalar numpy function (zero
     # outside of the valid entries)
@@ -763,3 +714,58 @@ def test_vertical_quad_split_time_dependent(backend, case):
             zp = float(pot._rect_transformed(numpy, R, want, phi, t=t)[2])
             assert numpy.fabs(zp) < 1e-12, f"z' = {zp:e} at the split {want:e}"
     return None
+
+
+def _closure_center_pot(s, xp):
+    # a perturber whose center= is a function of time closing over s: the
+    # potential holds s only through the function
+    def center(t):
+        return xp.stack(
+            [
+                0.3 * xp.cos(t + 0.0 * s) + s,
+                0.3 * xp.sin(t + 0.0 * s),
+                0.1 * t + 0.0 * s,
+            ]
+        )
+
+    return potential.MWPotential2014[0] + potential.RotateAndTiltWrapperPotential(
+        pot=potential.HernquistPotential(amp=0.3, a=0.2), center=center
+    )
+
+
+def _closure_center_orbit_x(s, xp, ts):
+    o = Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])
+    o.integrate(ts, _closure_center_pot(s, xp))
+    return o.x(ts[-1])
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_orbit_in_a_parameter_that_a_function_captures(backend):
+    # Orbit.integrate finds a parameter that only a function given to the
+    # potential captures (a center= function of time closing over a fit's
+    # parameter) and integrates in the backend: the same orbit as numpy's
+    # (C), with the derivative of finite differences. It used to take the C
+    # route: a jax tracer failed there, a torch gradient was dropped
+    ts = numpy.linspace(0.0, 2.0, 101)
+    want = _closure_center_orbit_x(0.02, numpy, ts)
+    fd = (
+        _closure_center_orbit_x(0.02 + 1e-5, numpy, ts)
+        - _closure_center_orbit_x(0.02 - 1e-5, numpy, ts)
+    ) / 2e-5
+    if backend == "jax":
+        got = float(jax.jit(lambda s: _closure_center_orbit_x(s, jnp, ts))(0.02))
+        g = float(jax.grad(lambda s: _closure_center_orbit_x(s, jnp, ts))(0.02))
+    else:
+        s = torch.tensor(0.02, dtype=torch.float64, requires_grad=True)
+        out = _closure_center_orbit_x(s, torch, ts)
+        assert isinstance(out, torch.Tensor) and out.requires_grad, (
+            "An orbit in a parameter that a function captures does not carry its gradient"
+        )
+        out.backward()
+        got, g = float(out.detach()), float(s.grad)
+    assert numpy.fabs(got - want) < 1e-7, (
+        f"An orbit in a parameter that a function captures differs from numpy's on {backend}"
+    )
+    assert numpy.fabs(g - fd) < 1e-5 * numpy.fabs(fd), (
+        f"The derivative of an orbit with respect to a parameter that a function captures does not agree with finite differences on {backend}"
+    )
