@@ -12,17 +12,20 @@ at release.]
 
 - [slot 01]
 
-- A potential with a traced (``jax.jit``, ``jax.grad``) or differentiated
-  (torch) parameter other than its amplitude -- e.g., the center or
-  orientation table of ``RotateAndTiltWrapperPotential``, the coefficients
-  of a wrapped ``SCFPotential``, or ``MiyamotoNagaiPotential``'s ``b`` --
-  evaluated inside ``use("numpy", force=True)`` runs on that parameter's
-  backend and returns its value, as one with a traced amplitude did, instead
-  of failing. So ``streamspraydf``, which probes the potential under forced
-  numpy, samples streams in potentials with such parameters (e.g., a
-  perturber moving along a fitted orbit) under ``jax.jit`` and torch, with
-  their gradients. ``SCFPotential`` also builds from a backend ``Acos`` and a
-  numpy ``Asin`` (or the reverse), static or time-dependent.
+- galpy finds the backend (jax/torch) parameters of a potential by
+  inspecting it, now also inside the functions that it holds (what they
+  close over, their defaults, a partial's arguments, a bound method's galpy
+  object), and ``streamspraydf`` does so rather than by evaluating the
+  potential under ``use("numpy", force=True)``. So streams sample under ``jax.jit`` and torch, with
+  gradients, in potentials with a traced or differentiated parameter that
+  their methods read, such as the center or orientation table of
+  ``RotateAndTiltWrapperPotential`` (before, only one in the amplitude
+  worked), and ``Orbit.integrate`` and ``streamspraydf`` integrate in the
+  backend in a potential whose parameter only a function captures, such as
+  a ``center=`` function of time closing over a fit's parameters (before, a
+  jax tracer failed in C and a torch gradient was dropped). ``SCFPotential``
+  also builds from a backend ``Acos`` and a numpy ``Asin`` (or the reverse),
+  static or time-dependent.
 
 - [slot 03]
 
