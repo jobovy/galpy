@@ -125,13 +125,19 @@ def _finite_part_quad(integrand_d, R, az, C):
     return -4 * (inner + integrate.quad(integrand_d, R, numpy.inf)[0])
 
 
+def _default_surfdens(R):
+    # A module-level function rather than a lambda, so that the default
+    # potential pickles (pickle looks a function up by its qualified name)
+    return 1.5 * numpy.exp(-3.0 * R)
+
+
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\\Sigma(R)`"""
 
     def __init__(
         self,
         amp=1.0,
-        surfdens=lambda R: 1.5 * numpy.exp(-3.0 * R),
+        surfdens=_default_surfdens,
         normalize=False,
         ro=None,
         vo=None,
