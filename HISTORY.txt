@@ -34,7 +34,19 @@ at release.]
 
 - [slot 02]
 
-- [slot 03]
+- More objects can be pickled (e.g., to send them to other processes with
+  ``multiprocessing``): interpolated families of
+  ``actionAngleSphericalInverse`` and ``actionAngleStaeckelInverse``, also
+  those built on the JAX and PyTorch backends, and backend ``Spline1D`` and
+  ``Spline2D`` interpolants, whose array namespace (a module) and device are
+  now pickled by reference; and, as on main, potentials and forces whose
+  lambda functions or closures built by galpy itself kept them from
+  pickling: the time-dependent ``MultipoleExpansionPotential`` (from density
+  functions without sine terms, ``from_density``, or ``from_scf``),
+  ``NonInertialFrameForce`` (with ``a0``, ``x0``/``v0``, or an ``Omega``
+  without ``Omegadot``), and ``AnyAxisymmetricRazorThinDiskPotential`` with a
+  surface density in astropy units. A user-supplied lambda still cannot be
+  pickled.
 
 - [slot 04]
 
