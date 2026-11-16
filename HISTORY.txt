@@ -12,12 +12,17 @@ at release.]
 
 - [slot 01]
 
-- ``AnySphericalPotential``, ``AnyAxisymmetricRazorThinDiskPotential``,
-  ``DiskSCFPotential``, and ``DiskMultipoleExpansionPotential`` can be
-  pickled (e.g., to send them to other processes with ``multiprocessing``),
-  so that every potential that galpy ships pickles with its default
-  parameters, as in galpy 2.0; densities given with astropy units are
-  supported, a user-supplied lambda still is not.
+- Potentials and forces no longer hold lambda functions or closures that
+  galpy builds itself, so that they can be pickled (e.g., to send them to
+  other processes with ``multiprocessing``) whenever the functions given to
+  them can: ``AnySphericalPotential``,
+  ``AnyAxisymmetricRazorThinDiskPotential`` (also with densities in astropy
+  units), ``DiskSCFPotential``, ``DiskMultipoleExpansionPotential``, the
+  time-dependent ``MultipoleExpansionPotential`` (from density functions
+  without sine terms, ``from_density``, or ``from_scf``), and
+  ``NonInertialFrameForce`` (with a constant or time-dependent ``a0``,
+  ``x0``/``v0``, or an ``Omega`` without ``Omegadot``). A user-supplied
+  lambda still cannot be pickled.
 
 - [slot 03]
 

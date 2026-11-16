@@ -25,11 +25,43 @@ def _is_freq_func(x):
         return False
 
 
-def _time_derivative(func, dt=1e-6):
+# The callables below are classes rather than lambdas so that the force pickles
+
+
+class _TimeDerivative:
     """Central finite-difference time derivative of a scalar time function,
     used to derive Omegadot from Omega when Omegadot is not provided (only for
     the direct-function-evaluation path; cinterp uses the spline derivative)."""
-    return lambda t: (func(t + dt) - func(t - dt)) / (2.0 * dt)
+
+    def __init__(self, func, dt=1e-6):
+        self._func = func
+        self._dt = dt
+
+    def __call__(self, t):
+        return (self._func(t + self._dt) - self._func(t - self._dt)) / (2.0 * self._dt)
+
+
+class _Constant:
+    """A constant as a (trivial) function of time"""
+
+    def __init__(self, value):
+        self._value = value
+
+    def __call__(self, t):
+        return self._value
+
+
+class _Stack3:
+    """The three functions of time [f0(t), f1(t), f2(t)], as an array or as a
+    list"""
+
+    def __init__(self, funcs, as_array=True):
+        self._funcs = funcs
+        self._as_array = as_array
+
+    def __call__(self, t):
+        out = [self._funcs[0](t), self._funcs[1](t), self._funcs[2](t)]
+        return numpy.array(out) if self._as_array else out
 
 
 class NonInertialFrameForce(DissipativeForce):
@@ -166,7 +198,7 @@ class NonInertialFrameForce(DissipativeForce):
                 # Omega varies in time but its derivative was not provided:
                 # derive it (so the Euler force term is included). cinterp uses
                 # the analytic spline derivative of Omega; the direct-evaluation
-                # path uses finite differences (see _time_derivative).
+                # path uses finite differences (see _TimeDerivative).
                 warnings.warn(
                     "NonInertialFrameForce: Omega is a function of time but "
                     "Omegadot was not provided; Omegadot will be derived as the "
@@ -176,19 +208,15 @@ class NonInertialFrameForce(DissipativeForce):
                 )
                 self._const_freq = False
                 if self._omegaz_only:
-                    self._Omegadot = _time_derivative(Omega)
+                    self._Omegadot = _TimeDerivative(Omega)
                 else:
-                    self._Omegadot = [_time_derivative(o) for o in Omega]
+                    self._Omegadot = [_TimeDerivative(o) for o in Omega]
             else:
                 self._Omegadot = Omegadot
             # Convenient access in Python
             if not self._omegaz_only:
-                self._Omega_py = lambda t: numpy.array(
-                    [self._Omega[0](t), self._Omega[1](t), self._Omega[2](t)]
-                )
-                self._Omegadot_py = lambda t: numpy.array(
-                    [self._Omegadot[0](t), self._Omegadot[1](t), self._Omegadot[2](t)]
-                )
+                self._Omega_py = _Stack3(self._Omega)
+                self._Omegadot_py = _Stack3(self._Omegadot)
             else:
                 self._Omega_py = self._Omega
                 self._Omegadot_py = self._Omegadot
@@ -206,16 +234,12 @@ class NonInertialFrameForce(DissipativeForce):
                 # (and so constant-a0 SOS integration is not rejected; see
                 # _parse_noninertial_frame_force).
                 self._a0_as_func = False
-                self._a0 = [
-                    lambda t, copy=a0[0]: copy,
-                    lambda t, copy=a0[1]: copy,
-                    lambda t, copy=a0[2]: copy,
-                ]
+                self._a0 = [_Constant(a0[0]), _Constant(a0[1]), _Constant(a0[2])]
             else:
                 self._a0_as_func = True
                 self._a0 = a0
             # Convenient access in Python
-            self._a0_py = lambda t: [self._a0[0](t), self._a0[1](t), self._a0[2](t)]
+            self._a0_py = _Stack3(self._a0, as_array=False)
         if self._lin_acc and self._rot_acc:
             if x0 is None or v0 is None:
                 raise ValueError(
@@ -226,12 +250,8 @@ class NonInertialFrameForce(DissipativeForce):
             self._x0 = x0
             self._v0 = v0
             # Convenient access in Python
-            self._x0_py = lambda t: numpy.array(
-                [self._x0[0](t), self._x0[1](t), self._x0[2](t)]
-            )
-            self._v0_py = lambda t: numpy.array(
-                [self._v0[0](t), self._v0[1](t), self._v0[2](t)]
-            )
+            self._x0_py = _Stack3(self._x0)
+            self._v0_py = _Stack3(self._v0)
         # Useful derived quantities
         self._Omega2 = (
             numpy.linalg.norm(self._Omega) ** 2.0
