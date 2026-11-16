@@ -414,18 +414,26 @@ class HermiteFamily3D:
 
     _Mq, _Mc = HermiteFamily2D._Mq, HermiteFamily2D._Mc
 
-    def __init__(self, x, y, z, f, fx, fy, fz):
+    def __init__(self, x, y, z, f, fx, fy, fz, nkeep=None):
         # f, fx, fy, fz: (nx, ny, nz, k) for a stack of k tables on the same
-        # grid, interpolated together
+        # grid, interpolated together; nkeep: None, or (nx, ny, nz) integers,
+        # the number of leading tables of the stack that each node keeps, as
+        # for HermiteFamily2D: every quantity of a node's tables beyond that
+        # number is set to zero at the node, so that the tables beyond the
+        # largest number of a cell's eight nodes vanish exactly in the cell
         self._xp, self._c_on = numpy, {}
         xp = _ns(x, y, z, f, fx, fy, fz)
         if xp is not numpy:
-            return self._init_xp(xp, x, y, z, f, fx, fy, fz)
+            return self._init_xp(xp, x, y, z, f, fx, fy, fz, nkeep=nkeep)
         self._x, self._y, self._z = (numpy.asarray(t, dtype="float") for t in (x, y, z))
         f, fx, fy, fz = (numpy.asarray(t, dtype="float") for t in (f, fx, fy, fz))
+        keep = nkeep is None or (
+            numpy.arange(f.shape[-1]) < numpy.asarray(nkeep)[..., None]
+        )
+        f, fx, fy, fz = (numpy.where(keep, t, 0.0) for t in (f, fx, fy, fz))
 
         def d(tab, axis, nodes):
-            return CubicSpline(nodes, tab, axis=axis)(nodes, 1)
+            return numpy.where(keep, CubicSpline(nodes, tab, axis=axis)(nodes, 1), 0.0)
 
         fxy, fxz, fyz = d(fx, 1, self._y), d(fx, 2, self._z), d(fy, 2, self._z)
         fxyz = d(fxy, 2, self._z)
@@ -438,7 +446,7 @@ class HermiteFamily3D:
             [f, fx, fxx, fy, fxy, fxxy, fz, fxz, fxxz, fyz, fxyz, fxxyz], axis=3
         )
 
-    def _init_xp(self, xp, x, y, z, f, fx, fy, fz):
+    def _init_xp(self, xp, x, y, z, f, fx, fy, fz, nkeep=None):
         """The construction in jax/torch, differentiable in the tables and
         in the grid; the estimated partials from not-a-knot cubic splines,
         scipy CubicSpline's default"""
@@ -448,6 +456,25 @@ class HermiteFamily3D:
             for t in (x, y, z, f, fx, fy, fz)
         )
         self._xp, self._x, self._y, self._z = xp, x, y, z
+        if nkeep is None:
+
+            def _kept(t):
+                return t
+
+        else:  # as in __init__, a node's tables beyond nkeep are zero
+            nkeep = (
+                nkeep
+                if is_backend_array(nkeep)
+                else asarray_on_device(xp, numpy.asarray(nkeep), dev)
+            )
+            keep = (
+                asarray_on_device(xp, numpy.arange(f.shape[-1]), dev) < nkeep[..., None]
+            )
+
+            def _kept(t):
+                return xp.where(keep, t, 0.0 * t)
+
+        f, fx, fy, fz = (_kept(t) for t in (f, fx, fy, fz))
 
         def d(tabs, axis, nodes):
             # the tables' splines along one axis in one solve (stacked on
@@ -455,7 +482,7 @@ class HermiteFamily3D:
             k = tabs[0].shape[-1]
             cat = getattr(xp, "concat", None) or xp.concatenate
             out = _spline_knot_slopes(xp, nodes, cat(tabs, axis=-1), axis)
-            return [out[..., i * k : (i + 1) * k] for i in range(len(tabs))]
+            return [_kept(out[..., i * k : (i + 1) * k]) for i in range(len(tabs))]
 
         (fxy,) = d([fx], 1, y)
         fxz, fyz, fxyz = d([fx, fy, fxy], 2, z)
@@ -554,31 +581,37 @@ class HermiteFamily3D:
 
     @staticmethod
     def _cell(nodes, val):
-        i = min(
-            max(numpy.searchsorted(nodes, val, side="right") - 1, 0), len(nodes) - 2
+        i = numpy.clip(
+            numpy.searchsorted(nodes, val, side="right") - 1, 0, len(nodes) - 2
         )
         h = nodes[i + 1] - nodes[i]
         return i, h, (val - nodes[i]) / h
 
-    def batch_all(self, x, y, z):
+    def cells(self, x, y, z):
+        """The indices, along the three variables, of the cell of each of
+        the points (x_i, y_i, z_i)"""
+        return tuple(
+            self._cell(nodes, numpy.ravel(vals))[0]
+            for nodes, vals in zip((self._x, self._y, self._z), (x, y, z))
+        )
+
+    def batch_all(self, x, y, z, ntab=None):
         """The interpolant and its three first partials at many points at
-        once, as four (npoints, k) arrays: the twelve quantities of each of
+        once, as four (npoints, k) arrays (of the first ntab tables of the
+        stack only when ntab is given): the twelve quantities of each of
         a point's eight nodes are gathered as blocks and contracted with
         the Hermite weights one variable after the other, each contraction
         serving every output that shares it, in chunks that keep the
         gathered blocks to a few megabytes"""
         x, y, z = (numpy.asarray(q, dtype="float").ravel() for q in (x, y, z))
+        blocks = self._nodes[..., :ntab]
 
         def cells(nodes, vals, M):
             # the cell of every point and the Hermite weights of its nodes'
             # quantities as (npoints, 2, node, order): for the interpolant
             # and for its derivative, with the powers of the cell's width
             # that the node's derivatives carry
-            i = numpy.clip(
-                numpy.searchsorted(nodes, vals, side="right") - 1, 0, len(nodes) - 2
-            )
-            h = nodes[i + 1] - nodes[i]
-            s, n = (vals - nodes[i]) / h, len(M)
+            (i, h, s), n = self._cell(nodes, vals), len(M)
             P = HermiteFamily2D._powers
             w = numpy.stack([P(s, h, False, n) @ M, P(s, h, True, n) @ M], axis=1)
             if n == 4:  # cubic: the values at both nodes, then the slopes
@@ -592,7 +625,7 @@ class HermiteFamily3D:
         i, A = cells(self._x, x, self._Mq)
         j, B = cells(self._y, y, self._Mc)
         l, C = cells(self._z, z, self._Mc)
-        k, o = self._nodes.shape[-1], numpy.arange(2)
+        k, o = blocks.shape[-1], numpy.arange(2)
         out = numpy.empty((4, len(x), k))
         step = max(1, 500_000 // (96 * k))
         for lo in range(0, len(x), step):
@@ -600,7 +633,7 @@ class HermiteFamily3D:
             n = len(i[sl])
             # the blocks of the eight nodes, with z's nodes outermost, and
             # the quantities split as (d/dz order, d/dy order, d/dx order)
-            G = self._nodes[
+            G = blocks[
                 i[sl, None, None, None] + o,
                 j[sl, None, None, None] + o[:, None],
                 l[sl, None, None, None] + o[:, None, None],
