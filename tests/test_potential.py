@@ -1292,6 +1292,25 @@ def _pickletest_spherical_dens(r):
 if _APY_LOADED:
     from astropy import units as _pickletest_units
 
+    def _pickletest_sdens_unit_output(R):
+        return (
+            1.5
+            * numpy.exp(-3.0 * R)
+            * _pickletest_units.Msun
+            / _pickletest_units.pc**2.0
+        )
+
+    def _pickletest_sdens_unit_input(R):
+        return 1.5 * numpy.exp(-3.0 * R / _pickletest_units.kpc)
+
+    def _pickletest_sdens_unit_both(R):
+        return (
+            1.5
+            * numpy.exp(-3.0 * R / _pickletest_units.kpc)
+            * _pickletest_units.Msun
+            / _pickletest_units.pc**2.0
+        )
+
     def _pickletest_dens_unit_output(r):
         return (
             (0.64 / r / (1.0 + r) ** 3.0)
@@ -1458,6 +1477,158 @@ def test_pickling_potential_lambda_raises():
     ]:
         with pytest.raises((AttributeError, pickle.PicklingError)):
             pickle.dumps(tp)
+    return None
+
+
+def _pickletest_dens_t(R, z, phi=0.0, t=0.0):
+    return _pickletest_spherical_dens(numpy.sqrt(R**2.0 + z**2.0)) * (1.0 + 0.1 * t)
+
+
+def _pickletest_rho_cos_t(r, t):
+    return _pickletest_spherical_dens(r) * (1.0 + 0.1 * t)
+
+
+def _pickletest_acos_t(t):
+    A = numpy.zeros((3, 1, 1))
+    A[0, 0, 0] = 1.0 + 0.1 * t
+    return A
+
+
+def _pickletest_zero_t(t):
+    return 0.0 * t
+
+
+def _pickletest_omega_t(t):
+    return 0.1 + 0.01 * t
+
+
+def _pickletest_xp(x):
+    # the namespace of x itself (traced under --jit), numpy for a float
+    return get_namespace(x) if is_backend_array(x) else numpy
+
+
+def _pickletest_a0_t(t):
+    return 0.01 * _pickletest_xp(t).sin(t)
+
+
+def _pickletest_sdens(R):
+    return 1.5 * _pickletest_xp(R).exp(-3.0 * R)
+
+
+# Configurations in which galpy itself built lambdas or closures, so that the
+# potential did not pickle even when everything the user gave was picklable
+def test_pickling_potential_galpy_closures():
+    import pickle
+
+    tgrid = numpy.linspace(0.0, 1.0, 5)
+    rgrid = numpy.geomspace(1e-3, 30, 201)
+    pots = {
+        "Multipole f(r, t) without sine terms": potential.MultipoleExpansionPotential(
+            rho_cos_splines=[[_pickletest_rho_cos_t]], rgrid=rgrid, tgrid=tgrid
+        ),
+        "Multipole.from_density time-dependent": (
+            potential.MultipoleExpansionPotential.from_density(
+                _pickletest_dens_t, L=1, rgrid=rgrid, tgrid=tgrid, symmetry="spherical"
+            )
+        ),
+        "Multipole.from_scf time-dependent": (
+            potential.MultipoleExpansionPotential.from_scf(
+                potential.SCFPotential(Acos=_pickletest_acos_t, tgrid=tgrid),
+                rgrid=rgrid,
+            )
+        ),
+    }
+    for label, tp in pots.items():
+        up = pickle.loads(pickle.dumps(tp))
+        for R, z, t in [(0.8, 0.05, 0.1), (1.0, 0.0, 0.5), (1.3, -0.2, 0.9)]:
+            for func in [
+                potential.evaluatePotentials,
+                potential.evaluateRforces,
+                potential.evaluatezforces,
+            ]:
+                assert func(up, R, z, t=t) == func(tp, R, z, t=t), (
+                    f"Unpickled {label} differs from the original"
+                )
+    # the time-dependent SCF's radial-basis cache is left out of the state
+    multipoles = (
+        pots["Multipole.from_scf time-dependent"]._rho_cos_funcs[0][0]._multipoles
+    )
+    assert len(multipoles._cache) > 0
+    assert multipoles.__getstate__()["_cache"] == {}
+    frames = {
+        "Omega(t), finite-difference Omegadot": potential.NonInertialFrameForce(
+            Omega=_pickletest_omega_t
+        ),
+        "three Omega(t)": potential.NonInertialFrameForce(
+            Omega=[_pickletest_zero_t, _pickletest_zero_t, _pickletest_omega_t]
+        ),
+        "constant a0": potential.NonInertialFrameForce(a0=[0.0, 0.01, 0.02]),
+        "Omega(t), a0(t), x0(t), v0(t)": potential.NonInertialFrameForce(
+            Omega=_pickletest_omega_t,
+            Omegadot=_pickletest_zero_t,
+            a0=[_pickletest_a0_t, _pickletest_zero_t, _pickletest_a0_t],
+            x0=[_pickletest_zero_t, _pickletest_a0_t, _pickletest_zero_t],
+            v0=[_pickletest_a0_t, _pickletest_zero_t, _pickletest_zero_t],
+        ),
+    }
+    for label, tf in frames.items():
+        uf = pickle.loads(pickle.dumps(tf))
+        for R, z, phi, t in [(0.8, 0.05, 0.3, 0.1), (1.3, -0.2, 2.0, 0.9)]:
+            v = [0.1, 1.0, -0.05]
+            for func in [
+                potential.evaluateRforces,
+                potential.evaluatezforces,
+                potential.evaluatephitorques,
+            ]:
+                assert func(uf, R, z, phi=phi, t=t, v=v) == func(
+                    tf, R, z, phi=phi, t=t, v=v
+                ), (
+                    f"Unpickled NonInertialFrameForce ({label}) differs from the original"
+                )
+    return None
+
+
+# A surface density given in / expecting astropy units is wrapped in a
+# unit-adapting closure, as for AnySphericalPotential's density
+@pytest.mark.skipif(not _APY_LOADED, reason="astropy not installed")
+def test_pickling_anyaxisymmetricrazorthindisk_unitful_sdens():
+    import pickle
+
+    for label, sdens in [
+        ("output", _pickletest_sdens_unit_output),
+        ("input", _pickletest_sdens_unit_input),
+        ("both", _pickletest_sdens_unit_both),
+    ]:
+        tp = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=sdens, ro=8.0, vo=220.0
+        )
+        up = pickle.loads(pickle.dumps(tp))
+        # the rebuilt units wrapper itself (a density in astropy units cannot
+        # be evaluated on traced coordinates, so not through the potential)
+        for R in [0.5, 1.0, 2.0]:
+            assert up._sdens(R) == tp._sdens(R), (
+                f"Unpickled AnyAxisymmetricRazorThinDiskPotential's surface density (units: {label}) differs"
+            )
+        assert up._pot_zero == tp._pot_zero
+    return None
+
+
+# As test_pickling_potential_drops_units_wrapper, for the surface density of
+# AnyAxisymmetricRazorThinDiskPotential
+def test_pickling_anyaxisymmetricrazorthindisk_drops_units_wrapper():
+    import pickle
+
+    tp = potential.AnyAxisymmetricRazorThinDiskPotential(surfdens=_pickletest_sdens)
+    tp._sdens_unit_output = True  # pretend the surface density came with units
+    tp._set_sdens()
+    state = tp.__getstate__()
+    assert "_sdens" not in state, "the units wrapper must not be pickled"
+    assert state["_sdens_input"] is _pickletest_sdens
+    up = pickle.loads(pickle.dumps(tp))
+    for R, z in [(0.5, 0.1), (1.0, 0.0)]:
+        assert up.Rforce(R, z, use_physical=False) == tp.Rforce(
+            R, z, use_physical=False
+        )
     return None
 
 

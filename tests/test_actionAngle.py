@@ -14685,4 +14685,70 @@ def test_actionAngleStaeckelInverse_harmonics_beyond_need():
         "The family depends on the number of harmonics beyond those its tori keep: %g"
         % (numpy.amax(numpy.fabs(out - more) / (1.0 + numpy.fabs(out))))
     )
+
+
+def test_actionAngleInverse_families_pickle():
+    # Interpolated families of the inverse transformations pickle (on v2 their
+    # interpolants hold their array namespace, a module, which pickle stores
+    # by name) and evaluate identically after a round trip
+    import pickle
+
+    from galpy.actionAngle import (
+        actionAngleSphericalInverse,
+        actionAngleStaeckelInverse,
+        actionAngleVerticalInverse,
+    )
+    from galpy.potential import (
+        HernquistPotential,
+        KuzminKutuzovStaeckelPotential,
+        MWPotential2014,
+        evaluatelinearPotentials,
+        toVerticalPotential,
+    )
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    vp = toVerticalPotential(MWPotential2014, 1.0)
+    E0 = float(evaluatelinearPotentials(vp, 0.0))
+    cases = (
+        (
+            actionAngleSphericalInverse(
+                pot=hp, setup_interp=True, nE=6, nL=6, progressbar=False
+            ),
+            ([0.05, 0.1], [0.5, -0.4], [0.2, 0.3], [0.3, 2.0], [1.0, 4.0], [2.0, 5.5]),
+        ),
+        (
+            actionAngleStaeckelInverse(
+                pot=KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4),
+                setup_interp=True,
+                Rmin=0.5,
+                Rmax=1.5,
+                Rinf=3.5,
+                nE=4,
+                nLz=4,
+                nI3=4,
+                progressbar=False,
+            ),
+            (
+                [0.03, 0.05],
+                [1.0, 1.1],
+                [0.03, 0.04],
+                [0.3, 2.0],
+                [1.0, 4.0],
+                [2.0, 5.5],
+            ),
+        ),
+        (
+            actionAngleVerticalInverse(
+                pot=vp, Es=numpy.linspace(E0 + 0.01, E0 + 0.3, 9), setup_interp=True
+            ),
+            ([0.01, 0.02], [0.3, 2.0]),
+        ),
+    )
+    for aA, pts in cases:
+        pts = [numpy.array(p) for p in pts]
+        aB = pickle.loads(pickle.dumps(aA))
+        assert numpy.all(
+            numpy.array([as_numpy(o) for o in aA.xvFreqs(*pts)])
+            == numpy.array([as_numpy(o) for o in aB.xvFreqs(*pts)])
+        ), f"A pickled {type(aA).__name__} family does not evaluate identically"
     return None

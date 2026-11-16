@@ -44,8 +44,10 @@ from ._namespaces import (
     device_of,
     is_backend_array,
     name_of_namespace,
+    picklable_state,
     prefer_backend_namespace,
     requires_backend_grad,
+    restore_state,
     to_host,
     under_trace,
 )
@@ -1453,10 +1455,12 @@ class Spline1D:
 
     def __getstate__(self):
         # the cached device copies are backend arrays -- rebuildable, and not
-        # picklable across processes/backends; drop them.
-        state = self.__dict__.copy()
-        state.pop("_ppoly_dev_cache", None)
-        return state
+        # picklable across processes/backends; drop them (and a backend
+        # spline's namespace by name)
+        return picklable_state(self, drop=("_ppoly_dev_cache",))
+
+    def __setstate__(self, state):
+        restore_state(self, state)
 
     def _like(self, **over):
         """A sibling :class:`Spline1D` sharing this one's evaluation settings."""
@@ -1689,9 +1693,10 @@ class Spline2D:
     def __getstate__(self):
         # backend arrays: rebuildable, and not picklable across processes or
         # backends (see Spline1D.__getstate__).
-        state = self.__dict__.copy()
-        state.pop("_rect_dev_cache", None)
-        return state
+        return picklable_state(self, drop=("_rect_dev_cache",))
+
+    def __setstate__(self, state):
+        restore_state(self, state)
 
 
 ###############################################################################

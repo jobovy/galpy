@@ -1296,3 +1296,44 @@ def test_matching_stops_at_roundoff_floor(backend, monkeypatch):
     )
     assert nsteps[0] < 10, f"the matching took {nsteps[0]} steps"
     numpy.testing.assert_allclose(as_numpy(eta), as_numpy(r), rtol=0.0, atol=1e-15)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_backend_family_pickles(backend):
+    # A family built on a backend pickles (its namespace and device by
+    # reference) and evaluates identically after a round trip, as does a
+    # backend Spline1D
+    import pickle
+
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.backend.interpolate import Spline1D
+    from galpy.potential import HernquistPotential
+
+    aA = actionAngleSphericalInverse(
+        pot=HernquistPotential(amp=2.0, a=_arr(backend, 1.0)),
+        setup_interp=True,
+        nE=6,
+        nL=6,
+        progressbar=False,
+    )
+    pts = tuple(
+        numpy.array(p)
+        for p in (
+            [0.05, 0.1],
+            [0.5, -0.4],
+            [0.2, 0.3],
+            [0.3, 2.0],
+            [1.0, 4.0],
+            [2.0, 5.5],
+        )
+    )
+    aB = pickle.loads(pickle.dumps(aA))
+    assert numpy.all(
+        numpy.array([as_numpy(o) for o in aA.xvFreqs(*pts)])
+        == numpy.array([as_numpy(o) for o in aB.xvFreqs(*pts)])
+    ), "A pickled backend family does not evaluate identically"
+    x = numpy.linspace(0.0, 1.0, 11)
+    s = Spline1D(x, _arr(backend, x**2))
+    s2 = pickle.loads(pickle.dumps(s))
+    assert as_numpy(s(_arr(backend, 0.37))) == as_numpy(s2(_arr(backend, 0.37)))
+    return None
