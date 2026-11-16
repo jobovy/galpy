@@ -414,10 +414,7 @@ class MultipoleExpansionPotential(
             L = self._L
             M = self._M
             if rho_sin_splines is None:
-                self._rho_sin_funcs = [
-                    [lambda r, t: numpy.zeros_like(r) for _ in range(M)]
-                    for _ in range(L)
-                ]
+                self._rho_sin_funcs = [[_zero_rho for _ in range(M)] for _ in range(L)]
             else:
                 self._rho_sin_funcs = rho_sin_splines
             # Precompute 2D radial integrals and time interpolators
@@ -738,12 +735,8 @@ class MultipoleExpansionPotential(
                         # Callable f(rgrid_eval, t) that returns density on rgrid
                         # For _precompute_radial_integrals_2d, this is called with
                         # the full rgrid and a single t
-                        rho_cos_funcs[l][m] = lambda r, t, _interp=cos_t_interp: (
-                            _interp(t)
-                        )
-                        rho_sin_funcs[l][m] = lambda r, t, _interp=sin_t_interp: (
-                            _interp(t)
-                        )
+                        rho_cos_funcs[l][m] = _TimeInterpRho(cos_t_interp)
+                        rho_sin_funcs[l][m] = _TimeInterpRho(sin_t_interp)
                 # Handle astropy unit detection (following SCFPotential pattern)
                 if cls._density_has_units(dens):
                     ro = internal_ro
@@ -2570,7 +2563,7 @@ class MultipoleExpansionPotential(
         if tgrid is None:  # placeholder numpy splines, never evaluated
             out = cls(amp=amp, rgrid=rgrid, ro=ro, vo=vo)
         else:
-            zero = [[lambda r, t: numpy.zeros_like(r)] * M for _ in range(L)]
+            zero = [[_zero_rho] * M for _ in range(L)]
             out = cls(
                 amp=amp,
                 rho_cos_splines=zero,
@@ -3394,13 +3387,41 @@ def _scf_rho_splines(scf, rgrid):
     return rho_cos, rho_sin
 
 
-def _scf_rho_funcs(scf):
-    """Build the multipole density-coefficient callables f(r,t) [L][M] from a
-    time-dependent SCF. The (time-independent) radial basis is cached over r."""
-    N, L, M = scf._Acos_all.shape[1:]
-    cache = {}
+# The density-coefficient callables f(r, t) below are module-level functions
+# and classes rather than lambdas or closures, so that the potential pickles
 
-    def _multipoles_at(r, t):
+
+def _zero_rho(r, t):
+    # the sine coefficients of a time-dependent expansion given cosine ones only
+    return numpy.zeros_like(r)
+
+
+class _TimeInterpRho:
+    """f(r, t) = interp(t): a coefficient sampled on the radial grid and
+    interpolated in time (called with the full rgrid)"""
+
+    def __init__(self, interp):
+        self._interp = interp
+
+    def __call__(self, r, t):
+        return self._interp(t)
+
+
+class _SCFMultipoles:
+    """The multipole density coefficients of a time-dependent SCF at (r, t),
+    with its (time-independent) radial basis cached over r"""
+
+    def __init__(self, scf):
+        self._scf = scf
+        self._N, self._L = scf._Acos_all.shape[1:3]
+        self._cache = {}
+
+    def __getstate__(self):
+        state = _copy.copy(self.__dict__)
+        state["_cache"] = {}  # a cache, rebuilt on demand
+        return state
+
+    def __call__(self, r, t):
         # Construction/evaluation-time numerical setup: pin to numpy so the
         # namespace-dispatched SCF density basis and time-interpolation run on
         # numpy regardless of any forced backend default (byte-identical no-op on
@@ -3408,27 +3429,40 @@ def _scf_rho_funcs(scf):
         with _use_backend("numpy", force=True):
             rr = numpy.atleast_1d(numpy.asarray(r, dtype=float))
             key = rr.tobytes()
-            if key not in cache:
-                cache[key] = numpy.array(
-                    [scf._rhoTilde(x, N, L) for x in rr]
+            if key not in self._cache:
+                self._cache[key] = numpy.array(
+                    [self._scf._rhoTilde(x, self._N, self._L) for x in rr]
                 )  # (Nr,N,L)
-            rhoT = cache[key]
-            scf._ensure_coeffs_for_time(t)
-            Dcos = numpy.einsum("nlm,rnl->rlm", scf._Acos, rhoT)
-            Dsin = numpy.einsum("nlm,rnl->rlm", scf._Asin, rhoT)
+            rhoT = self._cache[key]
+            self._scf._ensure_coeffs_for_time(t)
+            Dcos = numpy.einsum("nlm,rnl->rlm", self._scf._Acos, rhoT)
+            Dsin = numpy.einsum("nlm,rnl->rlm", self._scf._Asin, rhoT)
         return Dcos, Dsin
 
-    def _make(l, m, sin):
-        def f(r, t):
-            Dcos, Dsin = _multipoles_at(r, t)
-            out = (Dsin if sin else Dcos)[:, l, m]
-            return out if numpy.ndim(r) else out[0]
 
-        return f
+class _SCFRhoFunc:
+    """f(r, t): the (l, m) cosine or sine coefficient of _SCFMultipoles"""
 
-    rho_cos = [[_make(l, m, False) for m in range(M)] for l in range(L)]
+    def __init__(self, multipoles, l, m, sin):
+        self._multipoles = multipoles
+        self._l, self._m, self._sin = l, m, sin
+
+    def __call__(self, r, t):
+        Dcos, Dsin = self._multipoles(r, t)
+        out = (Dsin if self._sin else Dcos)[:, self._l, self._m]
+        return out if numpy.ndim(r) else out[0]
+
+
+def _scf_rho_funcs(scf):
+    """Build the multipole density-coefficient callables f(r,t) [L][M] from a
+    time-dependent SCF. The (time-independent) radial basis is cached over r."""
+    _, L, M = scf._Acos_all.shape[1:]
+    multipoles = _SCFMultipoles(scf)
+    rho_cos = [
+        [_SCFRhoFunc(multipoles, l, m, False) for m in range(M)] for l in range(L)
+    ]
     rho_sin = (
-        [[_make(l, m, True) for m in range(M)] for l in range(L)]
+        [[_SCFRhoFunc(multipoles, l, m, True) for m in range(M)] for l in range(L)]
         if scf.isNonAxi
         else None
     )
