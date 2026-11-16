@@ -10774,6 +10774,42 @@ def test_potential_paramunits():
         )
         < 10.0**-8.0
     ), "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"
+    # RotateAndTiltWrapperPotential, tabulated center and orientation, and a
+    # constant center
+    from galpy.util import conversion
+
+    tt = numpy.linspace(-1.0, 2.0, 31)
+    xyz = numpy.array([0.3 * numpy.cos(tt), 0.3 * numpy.sin(tt), 0.1 * tt]).T
+    angle = 0.9 * tt
+    q = numpy.array(
+        [
+            numpy.cos(angle / 2.0),
+            0.0 * tt,
+            0.6 * numpy.sin(angle / 2.0),
+            0.8 * numpy.sin(angle / 2.0),
+        ]
+    ).T
+    tGyr = tt * conversion.time_in_Gyr(vo, ro) * units.Gyr
+    for center, center_nounits in (
+        ((tGyr, xyz * ro * units.kpc), (tt, xyz)),
+        ([0.3 * ro, -0.1 * ro, 0.2 * ro] * units.kpc, [0.3, -0.1, 0.2]),
+    ):
+        pot = potential.RotateAndTiltWrapperPotential(
+            pot=wrappot, center=center, orientation=(tGyr, q), ro=ro, vo=vo
+        )
+        pot_nounits = potential.RotateAndTiltWrapperPotential(
+            pot=wrappot, center=center_nounits, orientation=(tt, q), ro=ro, vo=vo
+        )
+        # Check potential
+        assert (
+            numpy.fabs(
+                pot(4.0, 0.0, phi=1.0, t=0.7, use_physical=False)
+                - pot_nounits(4.0, 0.0, phi=1.0, t=0.7, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "RotateAndTiltWrapperPotential w/ center and orientation w/ units does not behave as expected"
+        )
     # EinastoPotential with h
     pot = potential.EinastoPotential(amp=1.0, h=5.0 * units.kpc, ro=ro, vo=vo)
     pot_nounits = potential.EinastoPotential(amp=1.0, h=5.0 / ro, ro=ro, vo=vo)

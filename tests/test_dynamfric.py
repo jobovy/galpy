@@ -590,6 +590,52 @@ def test_dynamfric_c_python_agree_sinking():
     return None
 
 
+def test_dynamfric_c_planar():
+    # Planar orbits with dynamical friction are integrated in C through the
+    # 3D C implementation in the plane (velocity-dependent): the same orbit as
+    # the 3D one in the plane (whose C friction is checked against Python
+    # above); also for FDM dynamical friction, which inherits it
+    import warnings
+
+    from galpy.orbit import Orbit
+
+    # (to t = 2, while the orbit sinks from R = 1.2 to 0.64: closer to the
+    # center, the two integrations drift apart faster than the planar force)
+    ts = numpy.linspace(0.0, 2.0, 41)
+    for df in (
+        potential.ChandrasekharDynamicalFrictionForce(
+            GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=potential.MWPotential2014
+        ),
+        potential.FDMDynamicalFrictionForce(
+            GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=potential.MWPotential2014
+        ),
+    ):
+        op = Orbit([1.2, 0.1, 1.0, 0.3])
+        o3 = Orbit([1.2, 0.1, 1.0, 0.0, 0.0, 0.3])
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            op.integrate(ts, potential.MWPotential2014 + df, method="dop853_c")
+        assert not any("Cannot use C" in str(x.message) for x in w), (
+            "Planar orbits with dynamical friction are not integrated in C"
+        )
+        o3.integrate(ts, potential.MWPotential2014 + df, method="dop853_c")
+        assert as_numpy(op.R(ts[-1])) < 0.6 * as_numpy(op.R(0.0)), (
+            "Test orbit does not sink"
+        )
+        for c in ("x", "y", "vx", "vy"):
+            assert (
+                numpy.amax(
+                    numpy.fabs(
+                        as_numpy(getattr(op, c)(ts)) - as_numpy(getattr(o3, c)(ts))
+                    )
+                )
+                < 1e-8
+            ), (
+                "A planar orbit with dynamical friction in C is not the 3D orbit in the plane"
+            )
+    return None
+
+
 def test_dynamfric_force_factor_computed_once_per_step():
     from galpy.orbit import Orbit
 

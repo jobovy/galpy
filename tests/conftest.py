@@ -835,6 +835,20 @@ def _liouville3d_tdep_amp(t):
     return 1.0 + 0.3 * numpy.sin(t)
 
 
+def _moving_object_orbit_3d():
+    # an object's orbit over the 3D variational tests' times
+    import numpy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    o = Orbit([1.2, 0.1, 0.9, 0.1, 0.05, 0.4])
+    o.integrate(
+        numpy.linspace(-1.0, 6.0, 141), LogarithmicHaloPotential(normalize=True)
+    )
+    return o
+
+
 def pytest_generate_tests(metafunc):
     # galpy imports must be hear to not interfere with different config settings
     # in different files
@@ -1258,6 +1272,58 @@ def pytest_generate_tests(metafunc):
                     offset=[0.1, -0.15, 0.07],
                 ),
                 "RotateAndTiltWrapperPotential_norot_offset",
+                "nonaxisymmetric",
+            ),
+            # moving along a tabulated path and turning with a tabulated
+            # orientation: exercises the center and orientation splines of the
+            # C Hessian (centerMode 2, orientSet)
+            (
+                potential.RotateAndTiltWrapperPotential(
+                    pot=potential.LogarithmicHaloPotential(
+                        amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                    ),
+                    center=(
+                        numpy.linspace(-1.0, 6.0, 71),
+                        0.05
+                        * numpy.array(
+                            [
+                                numpy.cos(numpy.linspace(-1.0, 6.0, 71)),
+                                numpy.sin(numpy.linspace(-1.0, 6.0, 71)),
+                                0.2 * numpy.linspace(-1.0, 6.0, 71),
+                            ]
+                        ).T,
+                    ),
+                    orientation=(
+                        numpy.linspace(-1.0, 6.0, 71),
+                        numpy.array(
+                            [
+                                numpy.cos(0.25 * numpy.linspace(-1.0, 6.0, 71)),
+                                0.6 * numpy.sin(0.25 * numpy.linspace(-1.0, 6.0, 71)),
+                                0.0 * numpy.linspace(-1.0, 6.0, 71),
+                                0.8 * numpy.sin(0.25 * numpy.linspace(-1.0, 6.0, 71)),
+                            ]
+                        ).T,
+                    ),
+                    offset=[0.03, -0.04, 0.02],
+                ),
+                "RotateAndTiltWrapperPotential_moving_turning",
+                "nonaxisymmetric",
+            ),
+            # a non-axisymmetric MovingObjectPotential (its general path: a
+            # RotateAndTiltWrapperPotential centered on the orbit) in a host;
+            # a bar rather than an SCF kernel, whose odeint finite-difference-
+            # of-flow error sat at 9.4e-5 of test_liouville_3d's 1e-4 bound
+            # (and whose eager-jax evaluations put the Python reference over
+            # the per-test timeout)
+            (
+                potential.LogarithmicHaloPotential(normalize=True)
+                + potential.MovingObjectPotential(
+                    _moving_object_orbit_3d(),
+                    pot=potential.SoftenedNeedleBarPotential(
+                        amp=0.02, a=0.3, b=0.0, c=0.1, pa=0.3, omegab=0.0
+                    ),
+                ),
+                "MovingObjectPotential_nonaxisymmetric",
                 "nonaxisymmetric",
             ),
             # CorotatingRotation has an R-DEPENDENT phi-shift

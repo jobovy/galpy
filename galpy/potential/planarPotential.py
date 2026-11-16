@@ -28,6 +28,7 @@ from .Potential import (
     _INF,
     Potential,
     PotentialError,
+    _check_c,
     _check_potential_list_and_deprecate,
     _evaluatephitorques,
     _evaluatePotentials,
@@ -762,11 +763,16 @@ class planarPotentialFromFullPotential(planarPotential):
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
         self._Pot = Pot
-        # Only advertise C support when the wrapped potential's C
-        # implementation extends to its planar version (hasC_planar)
-        _hasC_planar = getattr(Pot, "hasC_planar", True)
-        self.hasC = Pot.hasC and _hasC_planar
-        self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
+        # A potential without a planar C implementation of its own
+        # (hasC_planar=False) integrates planar orbits in C with its 3D one at
+        # z = 0, so its planar second derivatives in C are those of its 3D
+        # Hessian
+        self.hasC = Pot.hasC
+        self.hasC_dxdv = (
+            Pot.hasC_dxdv
+            if getattr(Pot, "hasC_planar", True)
+            else _check_c(Pot, dxdv3d=True)
+        )
         self.hasC_dens = Pot.hasC_dens
         # Capability flags are derived from the wrapped potential, exactly as
         # hasC is above: an adapter is only as backend-aware as what it adapts.
