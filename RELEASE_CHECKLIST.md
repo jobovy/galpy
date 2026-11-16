@@ -2,7 +2,7 @@
 
 - [ ] Run the ``update-doc-notebooks.yml`` GitHub Action to update the documentation notebooks to be consistent with the current version. Merge the resulting PR.
 
-- [ ] Edit HISTORY.txt to make sure it’s up-to-date and add release date
+- [ ] Edit HISTORY.txt to make sure it’s up-to-date and add release date; remove the new-entries notice and the unused ``- [slot NN]`` placeholders at the top of the release's section
 
 - [ ] If major version update, edit the ‘What’s new?” section of the documentation to summarize important changes for users
 
@@ -28,4 +28,4 @@
 
 - [ ] Bump version to development version with ``bumpversion patch`` (for X.Y.1 --> X.Y.2 Nov 1 and Apr 1 versions) or ``bumpversion minor`` (for X.1.0 --> X.2.0 July 1 changes).
 
-- [ ] Start on next version changes in HISTORY file
+- [ ] Start on next version changes in HISTORY file: add the new version's section with the new-entries notice and the placeholders ``- [slot 01]`` to ``- [slot 20]`` (each followed by a blank line) at its top
