@@ -36,6 +36,22 @@ def radial_limits(r, fn, at0=None, atinf=None):
     return out[()]
 
 
+def where(cond, a, b):
+    """``numpy.where(cond, a, b)``, or ``a`` / ``b`` itself for a scalar
+    ``cond`` (numpy.where makes a 0-d array)."""
+    if isinstance(cond, (bool, numpy.bool_)):
+        return a if cond else b
+    return numpy.where(cond, a, b)
+
+
+def fill_where(cond, x, fill):
+    """``fill`` where ``cond``, else ``x``: e.g., a stand-in of 1 that keeps a
+    branch that is not selected finite (``r`` at ``r == 0``)."""
+    if isinstance(cond, (bool, numpy.bool_)):
+        return fill if cond else x
+    return numpy.where(cond, fill * numpy.ones_like(x * 1.0), x)
+
+
 def small_r_select(r, rmax, small_fn, generic_fn, rsafe):
     """``small_fn(r)`` where ``r < rmax``, else ``generic_fn(r)``.
 

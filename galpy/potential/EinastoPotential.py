@@ -6,7 +6,7 @@ from scipy import special
 from scipy.optimize import fsolve
 
 from ..util import conversion
-from ._smallr import radial_limits
+from ._smallr import power_series, radial_limits, small_r_select
 from .SphericalPotential import SphericalPotential
 
 
@@ -117,10 +117,26 @@ class EinastoPotential(SphericalPotential):
             return out
 
     def _rforce(self, r, t=0.0):
+        return small_r_select(
+            r, self.h, self._rforce_small, self._rforce_generic, 0.5 * self.h
+        )
+
+    def _rforce_generic(self, r):
         s = r / self.h
         gamma_3n = special.gamma(3 * self.n)
         gamma_lower_3n = special.gammainc(3 * self.n, (s ** (1 / self.n)))
-        return (4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * (-gamma_lower_3n)
+        return -(4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * gamma_lower_3n
+
+    def _rforce_small(self, r):
+        # r < h: with P(a, y) = y^a e^-y 1F1(1; a+1; y) / Gamma(a+1) the force is
+        # -4 pi/3 r e^-y 1F1(1; 3n+1; y), y = (r/h)^(1/n), without the generic
+        # form's division of the incomplete gamma by s^2 (1F1(1; b; y) = sum_k
+        # y^k / (b)_k: y < 1 and b = 3n+1 > 1, so 30 terms are well past double
+        # precision)
+        y = (r / self.h) ** (1 / self.n)
+        coeffs = numpy.cumprod(1.0 / (3 * self.n + 1.0 + numpy.arange(30)))
+        m11 = 1.0 + power_series(y, coeffs, 1)
+        return -4.0 * numpy.pi / 3.0 * r * numpy.exp(-y) * m11
 
     def _r2deriv(self, r, t=0.0):
         s = r / self.h
