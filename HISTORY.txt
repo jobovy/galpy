@@ -42,7 +42,10 @@ at release.]
   target surface density anyway; they now sample the DF's actual surface
   density (tabulated along the line of sight).
 
-- [slot 04]
+- ``streamdf.sample`` now draws the frequency offset along the stream (a
+  tilted Gaussian) by linear inversion of its closed-form CDF instead of by
+  adaptive rejection sampling, as on galpy's v2 branch; seeded samples (and
+  those of ``streamgapdf``) change, and are the same as v2's.
 
 - [slot 05]
 
