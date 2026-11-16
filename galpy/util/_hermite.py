@@ -10,7 +10,13 @@ import numpy
 from scipy.interpolate import CubicSpline
 
 from ..backend import asarray_on_device, device_of, is_backend_array, map_row_chunks
-from ..backend._namespaces import namespace_from_arrays, stop_gradient, under_jax_trace
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    picklable_state,
+    restore_state,
+    stop_gradient,
+    under_jax_trace,
+)
 from ..backend.interpolate import cubic_spline_coeffs
 
 
@@ -107,6 +113,14 @@ class HermiteFamily2D:
             [2.0, -2.0, 1.0, 1.0],
         ]
     )
+
+    def __getstate__(self):
+        # the namespace by name (pickle cannot store a module), without the
+        # device copies of the node data (rebuilt on demand)
+        return picklable_state(self, drop=("_c_on",))
+
+    def __setstate__(self, state):
+        restore_state(self, state, empty=("_c_on",))
 
     def __init__(self, x, y, f, fx, fy, nkeep=None):
         # f, fx, fy: (nx, ny) for one table or (nx, ny, k) for a stack of k
@@ -413,6 +427,14 @@ class HermiteFamily3D:
     values."""
 
     _Mq, _Mc = HermiteFamily2D._Mq, HermiteFamily2D._Mc
+
+    def __getstate__(self):
+        # the namespace by name (pickle cannot store a module), without the
+        # device copies of the node data (rebuilt on demand)
+        return picklable_state(self, drop=("_c_on",))
+
+    def __setstate__(self, state):
+        restore_state(self, state, empty=("_c_on",))
 
     def __init__(self, x, y, z, f, fx, fy, fz, nkeep=None):
         # f, fx, fy, fz: (nx, ny, nz, k) for a stack of k tables on the same

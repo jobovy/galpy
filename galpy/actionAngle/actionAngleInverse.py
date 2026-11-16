@@ -2,6 +2,7 @@
 # actionAngleInverse.py: top-level class with common routines for inverse
 #                        actionAngle methods
 ###############################################################################
+from ..backend._namespaces import picklable_state, restore_state
 from ..util.conversion import (
     actionAngleInverse_physical_input,
     physical_conversion_actionAngleInverse,
@@ -11,6 +12,13 @@ from .actionAngle import _lift_args, actionAngle
 
 class actionAngleInverse(actionAngle):
     """actionAngleInverse; top-level class with common routines for inverse actionAngle methods"""
+
+    def __getstate__(self):
+        # a backend family's namespace and device (in _bk) by reference
+        return picklable_state(self)
+
+    def __setstate__(self, state):
+        restore_state(self, state)
 
     def __init__(self, *args, **kwargs):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))

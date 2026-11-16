@@ -692,6 +692,72 @@ def device_type(x):
     return None if device is None else device.platform
 
 
+class _ModuleRef(str):
+    """A pickled array namespace (module), by its import name"""
+
+
+class _JaxDeviceRef(tuple):
+    """A pickled jax device, by its (platform, id)"""
+
+
+def _to_picklable(v):
+    import types
+
+    if isinstance(v, types.ModuleType):
+        return _ModuleRef(v.__name__)
+    if "jax" in sys.modules:
+        import jax
+
+        if isinstance(v, jax.Device):
+            return _JaxDeviceRef((v.platform, v.id))
+    return v
+
+
+def _from_picklable(v):
+    if isinstance(v, _ModuleRef):
+        import importlib
+
+        return importlib.import_module(str(v))
+    if isinstance(v, _JaxDeviceRef):
+        import jax
+
+        return next(d for d in jax.devices(v[0]) if d.id == v[1])
+    return v
+
+
+def picklable_state(obj, drop=()):
+    """obj.__dict__ for pickling (an object's __getstate__): without the
+    attributes named in drop (rebuildable caches), and with array namespaces
+    (modules), which pickle cannot store, and jax devices by reference, also
+    one level into dict values (restore_state restores them)"""
+    return {
+        k: (
+            {kk: _to_picklable(vv) for kk, vv in v.items()}
+            if isinstance(v, dict)
+            else _to_picklable(v)
+        )
+        for k, v in obj.__dict__.items()
+        if k not in drop
+    }
+
+
+def restore_state(obj, state, empty=()):
+    """obj.__dict__ from picklable_state's state (an object's __setstate__),
+    with the attributes named in empty set to empty dicts"""
+    obj.__dict__.update(
+        {
+            k: (
+                {kk: _from_picklable(vv) for kk, vv in v.items()}
+                if isinstance(v, dict)
+                else _from_picklable(v)
+            )
+            for k, v in state.items()
+        }
+    )
+    obj.__dict__.update({k: {} for k in empty})
+    return None
+
+
 _DEFAULT_DEVICE = {}
 
 
