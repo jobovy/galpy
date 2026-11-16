@@ -12,7 +12,17 @@ at release.]
 
 - [slot 01]
 
-- [slot 02]
+- A potential with a traced (``jax.jit``, ``jax.grad``) or differentiated
+  (torch) parameter other than its amplitude -- e.g., the center or
+  orientation table of ``RotateAndTiltWrapperPotential``, the coefficients
+  of a wrapped ``SCFPotential``, or ``MiyamotoNagaiPotential``'s ``b`` --
+  evaluated inside ``use("numpy", force=True)`` runs on that parameter's
+  backend and returns its value, as one with a traced amplitude did, instead
+  of failing. So ``streamspraydf``, which probes the potential under forced
+  numpy, samples streams in potentials with such parameters (e.g., a
+  perturber moving along a fitted orbit) under ``jax.jit`` and torch, with
+  their gradients. ``SCFPotential`` also builds from a backend ``Acos`` and a
+  numpy ``Asin`` (or the reverse), static or time-dependent.
 
 - [slot 03]
 
