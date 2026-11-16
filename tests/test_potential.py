@@ -1300,6 +1300,17 @@ if _APY_LOADED:
             / _pickletest_units.pc**2.0
         )
 
+    def _pickletest_sdens_unit_input(R):
+        return 1.5 * numpy.exp(-3.0 * R / _pickletest_units.kpc)
+
+    def _pickletest_sdens_unit_both(R):
+        return (
+            1.5
+            * numpy.exp(-3.0 * R / _pickletest_units.kpc)
+            * _pickletest_units.Msun
+            / _pickletest_units.pc**2.0
+        )
+
     def _pickletest_dens_unit_output(r):
         return (
             (0.64 / r / (1.0 + r) ** 3.0)
@@ -1583,17 +1594,22 @@ def test_pickling_potential_galpy_closures():
 def test_pickling_anyaxisymmetricrazorthindisk_unitful_sdens():
     import pickle
 
-    tp = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=_pickletest_sdens_unit_output, ro=8.0, vo=220.0
-    )
-    up = pickle.loads(pickle.dumps(tp))
-    # the rebuilt units wrapper itself (a density in astropy units cannot be
-    # evaluated on traced coordinates, so not through the potential)
-    for R in [0.5, 1.0, 2.0]:
-        assert up._sdens(R) == tp._sdens(R), (
-            "Unpickled AnyAxisymmetricRazorThinDiskPotential's surface density differs"
+    for label, sdens in [
+        ("output", _pickletest_sdens_unit_output),
+        ("input", _pickletest_sdens_unit_input),
+        ("both", _pickletest_sdens_unit_both),
+    ]:
+        tp = potential.AnyAxisymmetricRazorThinDiskPotential(
+            surfdens=sdens, ro=8.0, vo=220.0
         )
-    assert up._pot_zero == tp._pot_zero
+        up = pickle.loads(pickle.dumps(tp))
+        # the rebuilt units wrapper itself (a density in astropy units cannot
+        # be evaluated on traced coordinates, so not through the potential)
+        for R in [0.5, 1.0, 2.0]:
+            assert up._sdens(R) == tp._sdens(R), (
+                f"Unpickled AnyAxisymmetricRazorThinDiskPotential's surface density (units: {label}) differs"
+            )
+        assert up._pot_zero == tp._pot_zero
     return None
 
 
