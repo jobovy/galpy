@@ -7,6 +7,9 @@ from .df import df
 from .sphericaldf import isotropicsphericaldf
 
 _FOURPI = 4.0 * numpy.pi
+# Poisson-ODE tolerances (scipy's default rtol=1e-3 left ~1e-4 errors in the
+# tables; these give ~1e-10 for ~10 ms more)
+_ODE_TOL = {"rtol": 1e-10, "atol": 1e-12}
 _TWOOVERSQRTPI = 2.0 / numpy.sqrt(numpy.pi)
 
 
@@ -140,6 +143,7 @@ class _scalefreekingdf:
             [self.W0, 0.0],
             method="DOP853",
             t_eval=r[: npt // 2],
+            **_ODE_TOL,
         )
         W[: npt // 2] = sol.y[0]
         dWdr[: npt // 2] = sol.y[1]
@@ -157,6 +161,7 @@ class _scalefreekingdf:
             [rbreak, sol.y[1, -1]],
             method="DOP853",
             t_eval=W[npt // 2 - 1 :],
+            **_ODE_TOL,
         )
         r[npt // 2 - 1 :] = sol.y[0]
         dWdr[npt // 2 - 1 :] = sol.y[1]

@@ -97,13 +97,23 @@ class PowerSphericalPotentialwCutoff(Potential):
             out[r == 0] = 0.0
             return out
 
+    def _rforce(self, r):
+        return (
+            -2.0
+            * numpy.pi
+            * self.rc ** (3.0 - self.alpha)
+            * special.gamma(1.5 - 0.5 * self.alpha)
+            * special.gammainc(1.5 - 0.5 * self.alpha, (r / self.rc) ** 2.0)
+            / r**2.0
+        )
+
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R * R + z * z)
-        return -self._mass(r) * R / r**3.0
+        return self._rforce(r) * R / r
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R * R + z * z)
-        return -self._mass(r) * z / r**3.0
+        return self._rforce(r) * z / r
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R * R + z * z)
@@ -206,26 +216,16 @@ class PowerSphericalPotentialwCutoff(Potential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        R = numpy.array(R)
-        out = numpy.ones_like(R)
-        out[~numpy.isinf(R)] = (
-            2.0
-            * numpy.pi
-            * R[~numpy.isinf(R)] ** (3.0 - self.alpha)
-            / (1.5 - self.alpha / 2.0)
-            * special.hyp1f1(
-                1.5 - self.alpha / 2.0,
-                2.5 - self.alpha / 2.0,
-                -((R[~numpy.isinf(R)] / self.rc) ** 2.0),
-            )
-        )
-        out[numpy.isinf(R)] = (
+        # M(<R) via the regularized lower incomplete gamma P(a,x)=gammainc(a,x),
+        # which needs no separate R=inf branch: gammainc(a, inf)=1 gives the
+        # total mass (the previous hyp1f1 form agrees to ~1e-15)
+        return (
             2.0
             * numpy.pi
             * self.rc ** (3.0 - self.alpha)
-            * special.gamma(1.5 - self.alpha / 2.0)
+            * special.gamma(1.5 - 0.5 * self.alpha)
+            * special.gammainc(1.5 - 0.5 * self.alpha, (R / self.rc) ** 2.0)
         )
-        return out
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
