@@ -302,6 +302,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             if Asin is not None
             else None
         )
+        # a sine table that is concretely zero (None, or numpy zeros next to a
+        # backend Acos) needs no backend spline (checked before the promotion)
+        asin_zero = Asin_all is None or (
+            not is_backend_array(Asin_all) and not numpy.any(Asin_all)
+        )
         if Asin_all is not None and (
             is_backend_array(Acos_all) != is_backend_array(Asin_all)
         ):  # as in _init_static
@@ -369,7 +374,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         NN = sph_harm_normalization(L, M)
         self._coeff_shape = (N, L, M)
         if is_backend_array(Acos_all):
-            self._init_timedep_backend(Acos_all, Asin_all, NN, traced)
+            self._init_timedep_backend(Acos_all, Asin_all, NN, traced, asin_zero)
         else:
             self._Acos_all = Acos_all * NN[numpy.newaxis, numpy.newaxis, :, :]
             if Asin_all is not None:
@@ -387,24 +392,42 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         self._Acos = self._Acos_all[0]
         self._Asin = self._Asin_all[0]
 
-    def _init_timedep_backend(self, Acos_all, Asin_all, NN, traced):
+    def _init_timedep_backend(self, Acos_all, Asin_all, NN, traced, asin_zero=False):
         """Backend coefficient time series: the time splines are fit in the
         backend (scipy CubicSpline's not-a-knot spline), so the potential stays
         differentiable w.r.t. the coefficients; the scipy interpolators (numpy
-        and C evaluation) are built from their values when those are concrete."""
+        and C evaluation) are built from their values when those are concrete.
+        Only the m <= l coefficients are fit and stored (the others are ignored),
+        and a zero sine table not at all: in reverse mode every evaluation's
+        cotangent has the size of the stored tables."""
         xp = get_namespace(Acos_all)
         Nt = len(self._tgrid)
+        N, L, M = self._coeff_shape
         _NN = like(Acos_all, NN[numpy.newaxis, numpy.newaxis, :, :])
         self._Acos_all = Acos_all * _NN
         self._Asin_all = (
             xp.zeros_like(self._Acos_all) if Asin_all is None else Asin_all * _NN
         )
-        self._Acos_c = cubic_spline_coeffs(
-            xp, self._tgrid, xp.reshape(self._Acos_all, (Nt, -1)), bc="not-a-knot"
+        keep = numpy.flatnonzero(
+            (numpy.arange(M)[None, :] <= numpy.arange(L)[:, None])[None]
+            .repeat(N, axis=0)
+            .ravel()
         )
-        self._Asin_c = cubic_spline_coeffs(
-            xp, self._tgrid, xp.reshape(self._Asin_all, (Nt, -1)), bc="not-a-knot"
-        )
+        unpack = numpy.full(N * L * M, len(keep))  # len(keep): a zero column
+        unpack[keep] = numpy.arange(len(keep))
+        self._packed = (keep, unpack)
+        kb = asarray_on_device(xp, keep, device_of(self._Acos_all))
+
+        def fit(A):
+            return cubic_spline_coeffs(
+                xp,
+                self._tgrid,
+                xp.take(xp.reshape(A, (Nt, -1)), kb, axis=1),
+                bc="not-a-knot",
+            )
+
+        self._Acos_c = fit(self._Acos_all)
+        self._Asin_c = None if asin_zero else fit(self._Asin_all)
         if traced:
             self._Acos_interp = self._Asin_interp = None
         else:
@@ -474,8 +497,19 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         # (cb.ndim == 3), which is all the removed local clone added; it also
         # does the one-gather+unstack the clone did not.
         if getattr(self, "_Acos_c", None) is not None:  # backend-fit splines
-            acos_flat = eval_ppoly(xp, self._tgrid, self._Acos_c, tb)
-            asin_flat = eval_ppoly(xp, self._tgrid, self._Asin_c, tb)
+            unpack = asarray_on_device(xp, self._packed[1], dev)
+
+            def full(p):  # the m <= l columns back in place, zeros elsewhere
+                return xp.take(
+                    xp.concat([p, xp.zeros_like(p[..., :1])], axis=-1), unpack, axis=-1
+                )
+
+            acos_flat = full(eval_ppoly(xp, self._tgrid, self._Acos_c, tb))
+            asin_flat = (
+                xp.zeros_like(acos_flat)
+                if self._Asin_c is None
+                else full(eval_ppoly(xp, self._tgrid, self._Asin_c, tb))
+            )
         else:
             acos_flat = eval_ppoly(xp, self._Acos_interp.x, self._Acos_interp.c, tb)
             asin_flat = eval_ppoly(xp, self._Asin_interp.x, self._Asin_interp.c, tb)
@@ -1004,7 +1038,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             * (numpy.pi) ** -0.5
         )
 
-    def _phiTilde(self, r, N, L):
+    def _phiTilde(self, r, N, L, CC=None):
         """
         Evaluate phi_tilde as defined in equation 3.10 and 2.25 for 0 <= n < N and 0 <= l < L
 
@@ -1038,9 +1072,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         # the r-dependent prefactor broadcasts to (L, P) and, against CC (N, L, P),
         # gives (N, L, P) -- one batched call instead of a per-point Python loop.
         # Coerce r: a direct call may pass a python/numpy scalar that xp.where rejects.
+        # CC: the Gegenbauer table _C(xi, N, L) when the caller has it already
+        # (the force path shares it with _dphiTilde)
         (r,) = coerce_coords(xp, r)
-        xi = _RToxi(r, self._a)
-        CC = _C(xi, N, L)
+        if CC is None:
+            CC = _C(_RToxi(r, self._a), N, L)
         a = self._a
         _arr_r = getattr(r, "ndim", 0) != 0
         l_np = numpy.arange(0, L, dtype=float)
@@ -1207,7 +1243,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         R = xp.reshape(xp.broadcast_to(R, shape), (-1,))
         z = xp.reshape(xp.broadcast_to(z, shape), (-1,))
         phi = xp.reshape(xp.broadcast_to(phi, shape), (-1,))
-        t = xp.reshape(xp.broadcast_to(t, shape), (-1,))
+        if t.ndim > 0:  # a scalar t interpolates the coefficients once, not per point
+            t = xp.reshape(xp.broadcast_to(t, shape), (-1,))
         return xp.reshape(self._compute_at_point(radial_func, R, z, phi, t=t), shape)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
@@ -1248,7 +1285,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             self._evaluate_expansion(self._phiTilde, R, z, phi, t=t), R, z, phi, t
         )
 
-    def _dphiTilde(self, r, N, L):
+    def _dphiTilde(self, r, N, L, CC=None, dC=None):
         xp = get_namespace(r)
         # Coerce r first (a direct call may pass a python scalar; 0.0 ** -1 would
         # raise, and _RToxi must see a backend array to route to its backend
@@ -1256,7 +1293,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         (r,) = coerce_coords(xp, r)
         a = self._a
         xi = _RToxi(r, self._a)
-        dC = _dC(xi, N, L)
+        if dC is None:
+            dC = _dC(xi, N, L)
         if xp is numpy:
             l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
             n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
@@ -1279,11 +1317,14 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         l_np = numpy.arange(0, L, dtype=float)
         l_np = l_np[:, numpy.newaxis] if _arr_r else l_np[numpy.newaxis, :]
         l = asarray_on_device(xp, l_np, device_of(r))
+        # CC: the Gegenbauer table _C(xi, N, L) when the caller has it already
+        if CC is None:
+            CC = _C(xi, N, L)
         return -((4 * numpy.pi) ** 0.5) * (
             (a * r) ** l
             * (l * (a + r) * r ** (-1.0) - (2 * l + 1))
             / ((a + r) ** (2 * l + 2))
-            * _C(xi, N, L)
+            * CC
             + a**-1 * (1 - xi) ** 2 * (a * r) ** l / (a + r) ** (2 * l + 1) * dC / 2.0
         )
 
@@ -1468,30 +1509,30 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             dPhi_dtheta = -xp.sum(cos_sin_sum * phi_tilde * dPP * (-xp.sin(theta)))
             dPhi_dphi = -xp.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
             return dPhi_dr, dPhi_dtheta, dPhi_dphi
-        # batched array (P,): carry a leading point axis through the same sums.
-        # Acos_b/Asin_b add a leading broadcast axis for a scalar-t (shared) table
-        # or pass a per-point (P, N, L, M) table (array t) through unchanged.
-        Acos_b = Acos if getattr(Acos, "ndim", 3) == 4 else Acos[None]
-        Asin_b = Asin if getattr(Asin, "ndim", 3) == 4 else Asin[None]
+        # batched array (P,): carry a leading point axis through the same sums,
+        # with a shared (N, L, M) table (scalar t) or per-point (P, N, L, M)
+        # tables (array t).
         PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)  # (P, L, M)
-        PP = PP[:, None, :, :]  # (P, 1, L, M)
-        dPP = dPP[:, None, :, :]
-        phi_tilde = xp.moveaxis(self._phiTilde(r, N, L), -1, 0)[
-            :, :, :, None
-        ]  # (P,N,L,1)
-        dphi_tilde = xp.moveaxis(self._dphiTilde(r, N, L), -1, 0)[:, :, :, None]
+        # the Gegenbauer tables of both radial functions, C^a and the C^(a+1)
+        # of its derivative, from one recurrence over the stacked alphas (fewer
+        # scans forward, and in reverse through gegenbauer's derivative rule)
+        CC, dC = _C_and_dC(_RToxi(r, self._a), N, L)
+        phi_tilde = xp.moveaxis(self._phiTilde(r, N, L, CC=CC), -1, 0)  # (P, N, L)
+        dphi_tilde = xp.moveaxis(self._dphiTilde(r, N, L, CC=CC, dC=dC), -1, 0)
+        # contract the radial functions with the coefficients over n first:
+        # (P, L, M) tables, instead of (P, N, L, M) products in every sum
+        sub = "pnl,nlm->plm" if Acos.ndim == 3 else "pnl,pnlm->plm"
+        Ar, Br = xp.einsum(sub, dphi_tilde, Acos), xp.einsum(sub, dphi_tilde, Asin)
+        Ap, Bp = xp.einsum(sub, phi_tilde, Acos), xp.einsum(sub, phi_tilde, Asin)
         mvec = asarray_on_device(xp, numpy.arange(0, M, dtype=float), dev)
         ang = phi[:, None] * mvec[None, :]  # (P, M)
-        mcos = xp.cos(ang)[:, None, None, :]  # (P, 1, 1, M)
-        msin = xp.sin(ang)[:, None, None, :]
-        cos_sin_sum = Acos_b * mcos + Asin_b * msin  # (P, N, L, M)
-        sin_t = xp.sin(theta)[:, None, None, None]  # (P, 1, 1, 1)
-        m4 = mvec[None, None, None, :]  # (1, 1, 1, M)
-        dPhi_dr = -xp.sum(cos_sin_sum * PP * dphi_tilde, axis=(1, 2, 3))
-        dPhi_dtheta = -xp.sum(cos_sin_sum * phi_tilde * dPP * (-sin_t), axis=(1, 2, 3))
+        mcos = xp.cos(ang)[:, None, :]  # (P, 1, M)
+        msin = xp.sin(ang)[:, None, :]
+        sin_t = xp.sin(theta)[:, None, None]  # (P, 1, 1)
+        dPhi_dr = -xp.sum((Ar * mcos + Br * msin) * PP, axis=(1, 2))
+        dPhi_dtheta = -xp.sum((Ap * mcos + Bp * msin) * dPP * (-sin_t), axis=(1, 2))
         dPhi_dphi = -xp.sum(
-            m4 * (Asin_b * mcos - Acos_b * msin) * phi_tilde * PP,
-            axis=(1, 2, 3),
+            mvec[None, None, :] * (Bp * mcos - Ap * msin) * PP, axis=(1, 2)
         )
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
 
@@ -1921,6 +1962,22 @@ def _dC(xi, N, L):
     if getattr(xi, "ndim", 0) != 0:
         fac = fac[:, :, numpy.newaxis]
     return CC * asarray_on_device(xp, fac, device_of(xi))
+
+
+def _C_and_dC(xi, N, L):
+    """Backend ``(_C(xi, N, L), _dC(xi, N, L))`` for an array xi, from ONE
+    Gegenbauer recurrence over the alphas 2l+3/2 and 2l+5/2 stacked"""
+    xp = get_namespace(xi)
+    l = numpy.arange(0, L, dtype=float)
+    al = asarray_on_device(
+        xp, numpy.concatenate([2 * l + 1.5, 2 * l + 2.5]), device_of(xi)
+    )
+    G = xp.moveaxis(gegenbauer(N, al, xi[..., None]), (-1, -2), (0, 1))  # (N, 2L, P)
+    CC, C1 = G[:, :L], G[:, L:]
+    dC = xp.concat([xp.zeros_like(C1[:1]), C1[: N - 1]], axis=0)
+    return CC, dC * asarray_on_device(
+        xp, (2 * (2 * l + 1.5))[:, numpy.newaxis], device_of(xi)
+    )
 
 
 def _d2C(xi, N, L):

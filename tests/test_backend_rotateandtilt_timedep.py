@@ -804,3 +804,40 @@ def test_orbit_in_a_parameter_that_a_function_captures(backend):
     assert numpy.fabs(g - fd) < 1e-5 * numpy.fabs(fd), (
         f"The derivative of an orbit with respect to a parameter that a function captures does not agree with finite differences on {backend}"
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("tdep_scf", [False, True])
+def test_cyl_forces_match_separate(backend, tdep_scf):
+    # All three cylindrical forces at once (Potential._evaluate_cyl_forces, which
+    # the in-backend orbit integration calls): the wrapper's one rectangular force
+    # gives exactly the separate Rforce, phitorque and zforce, for a static and a
+    # time-dependent SCF, at a scalar and at per-point times (numpy: scalar only).
+    import importlib
+
+    potmod = importlib.import_module("galpy.potential.Potential")
+    if tdep_scf:
+        A = numpy.array([_A * (1.0 + 0.1 * t) for t in _TT])
+        pot = potential.RotateAndTiltWrapperPotential(
+            pot=potential.SCFPotential(Acos=A, Asin=0.5 * A, a=1.0, tgrid=_TT),
+            center=(_TT, _XYZ),
+            orientation=(_TT, _Q),
+        )
+    else:
+        pot = _wrapper()
+    separate = (
+        potmod._evaluateRforces,
+        potmod._evaluatephitorques,
+        potmod._evaluatezforces,
+    )
+    R, z, phi, t = (numpy.array(c) for c in zip(*_POINTS))
+    calls = [(R[i], z[i], phi[i], t[i]) for i in range(len(R))]
+    if backend != "numpy":
+        calls += [(R, z, phi, t[1]), (R, z, phi, t)]
+    for R, z, phi, t in calls:
+        R, z, phi, t = (_arr(backend, v) for v in (R, z, phi, t))
+        got = potmod._evaluate_cyl_forces(pot, R, z, phi=phi, t=t)
+        for g, f in zip(got, separate):
+            numpy.testing.assert_array_equal(
+                as_numpy(g), as_numpy(f(pot, R, z, phi=phi, t=t))
+            )

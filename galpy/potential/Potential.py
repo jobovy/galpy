@@ -2675,6 +2675,16 @@ def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
         return Pot._zforce_nodecorator(R, z, phi=phi, t=t)
 
 
+def _evaluate_cyl_forces(Pot, R, z, phi=None, t=0.0, v=None):
+    """Raw, undecorated (Rforce, phitorque, zforce) for internal use (orbit
+    integration): the values of _evaluateRforces, _evaluatephitorques and
+    _evaluatezforces, from one shared evaluation where a potential has one"""
+    if Pot.isDissipative:
+        return Pot._cyl_forces_nodecorator(R, z, phi=phi, t=t, v=v)
+    else:
+        return Pot._cyl_forces_nodecorator(R, z, phi=phi, t=t)
+
+
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("force", pop=True)

@@ -802,3 +802,26 @@ def test_dynfric_numpy_sigmar_grad(backend):
         assert numpy.isnan(float(jax.jit(jax.grad(F))(R)))
     else:
         assert numpy.isnan(float(grads(R)[0]))
+
+
+@pytest.mark.parametrize("label,obj", _CASES[:1], ids=_CASE_IDS[:1])
+@pytest.mark.parametrize("backend", ["numpy"] + BACKENDS)
+def test_cyl_forces_match_separate_dissipative(backend, label, obj):
+    # All three cylindrical forces at once (Potential._evaluate_cyl_forces, which
+    # the in-backend orbit integration calls) for a composite that includes a
+    # dissipative force (velocity passed on): exactly the separate Rforce,
+    # phitorque and zforce.
+    import importlib
+
+    potmod = importlib.import_module("galpy.potential.Potential")
+    pot = _NFW + obj
+    arr = numpy.asarray if backend == "numpy" else lambda x: _arr(backend, x)
+    R, z, phi, t, v = (arr(x) for x in (_R0, _Z0, _PHI0, _T0, _V0))
+    got = potmod._evaluate_cyl_forces(pot, R, z, phi=phi, t=t, v=v)
+    for g, f in zip(
+        got,
+        (potmod._evaluateRforces, potmod._evaluatephitorques, potmod._evaluatezforces),
+    ):
+        numpy.testing.assert_array_equal(
+            as_numpy(g), as_numpy(f(pot, R, z, phi=phi, t=t, v=v))
+        )

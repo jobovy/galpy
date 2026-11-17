@@ -85,16 +85,12 @@ def _eom_rhs(y, pot, t, xp, dim=6):
         phitorque = _evaluateplanarphitorques(pot, R, phi=phi, t=t, v=v)
         az = z * 0.0
     else:
-        from ...potential.Potential import (
-            _evaluatephitorques,
-            _evaluateRforces,
-            _evaluatezforces,
-        )
+        from ...potential.Potential import _evaluate_cyl_forces
 
         v = [vR, vT, vz]  # only used by velocity-dependent/dissipative forces
-        Rforce = _evaluateRforces(pot, R, z, phi=phi, t=t, v=v)
-        phitorque = _evaluatephitorques(pot, R, z, phi=phi, t=t, v=v)
-        az = _evaluatezforces(pot, R, z, phi=phi, t=t, v=v)
+        # all three at once: an expansion (SCF, multipole) or a RotateAndTilt
+        # wrapper computes them from one evaluation instead of three
+        Rforce, phitorque, az = _evaluate_cyl_forces(pot, R, z, phi=phi, t=t, v=v)
         if isinstance(az, (int, float)):  # a potential returning a bare scalar
             az = z * 0.0 + az
     ax = cosphi * Rforce - sinphi / R * phitorque

@@ -314,6 +314,22 @@ class Force:
                 )
             return data_zero(R, z)  # axisymmetric: no torque
 
+    def _cyl_forces_nodecorator(self, R, z, **kwargs):
+        # (Rforce, phitorque, zforce) at once, for orbit integration: from one
+        # shared evaluation when the class implements _cyl_forces, else the
+        # three methods. Looked up on the class: a wrapper's __getattr__ must
+        # not hand back its wrapped potential's method.
+        if getattr(type(self), "_cyl_forces", None) is None:
+            return (
+                self._Rforce_nodecorator(R, z, **kwargs),
+                self._phitorque_nodecorator(R, z, **kwargs),
+                self._zforce_nodecorator(R, z, **kwargs),
+            )
+        return tuple(
+            scalar_like(out, self._amp) * out
+            for out in self._cyl_forces(R, z, **kwargs)
+        )
+
     @potential_physical_input
     @physical_conversion("force", pop=True)
     @backend_input("R", "z", "phi", "t")

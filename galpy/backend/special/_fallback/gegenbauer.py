@@ -66,6 +66,37 @@ def _gegenbauer_scan_jax(N, alpha, x):
     import jax
     import jax.numpy as jnp
 
+    if N < 2 or isinstance(alpha, jax.core.Tracer):
+        return _gegenbauer_rec_jax(N, alpha, x)
+
+    # The x-derivative from the identity dC_n^a/dx = 2a C_{n-1}^{a+1} (C_0' = 0):
+    # one more forward recurrence instead of reverse-mode through the scan
+    # (several times faster in an orbit integration's reverse pass). Recursive,
+    # so higher derivatives use it too. Values are the scan's.
+    @jax.custom_jvp
+    def _geg(x):
+        return _gegenbauer_rec_jax(N, alpha, x)
+
+    @_geg.defjvp
+    def _geg_jvp(primals, tangents):
+        (x,), (xdot,) = primals, tangents
+        out = _geg(x)
+        dC = (
+            2.0
+            * jnp.asarray(alpha)[..., None]
+            * _gegenbauer_scan_jax(N - 1, alpha + 1.0, x)
+        )
+        dC = jnp.concatenate([jnp.zeros_like(out[..., :1]), dC], axis=-1)
+        return out, dC * jnp.expand_dims(xdot, -1)
+
+    return _geg(x)
+
+
+def _gegenbauer_rec_jax(N, alpha, x):
+    """The scanned recurrence of :func:`_gegenbauer_scan_jax`"""
+    import jax
+    import jax.numpy as jnp
+
     # C_0 at the BROADCAST shape of alpha against x -- the eager branch above
     # does the same. alpha may be an ARRAY (one entry per l); ones_like(x) alone
     # keeps x's shape, and lax.scan then rejects the carry because C_0 and the
