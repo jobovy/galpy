@@ -1495,6 +1495,32 @@ def test_call_diffinoutputs():
     return None
 
 
+def test_vmomentdensity_outerdisk_convergence():
+    # In the cold outer disk the vT distribution is narrow: the Gauss-Legendre
+    # nodes must resolve it, so the moments must converge with ngl there
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+    )
+    R, z = 2.0, 0.0
+    ref = (qdf.density(R, z, ngl=24), qdf.sigmaR2(R, z, ngl=24))
+    for ngl, tol in [(10, 0.01), (16, 0.002)]:
+        assert numpy.fabs(qdf.density(R, z, ngl=ngl) / ref[0] - 1.0) < tol, (
+            f"density in the outer disk does not converge with ngl = {ngl}"
+        )
+        assert numpy.fabs(qdf.sigmaR2(R, z, ngl=ngl) / ref[1] - 1.0) < tol, (
+            f"sigmaR2 in the outer disk does not converge with ngl = {ngl}"
+        )
+    # an explicit vTmax keeps the single panel [0, vTmax]
+    assert (
+        numpy.fabs(
+            qdf.density(1.0, 0.0, ngl=20, vTmax=2.0) / qdf.density(1.0, 0.0, ngl=20)
+            - 1.0
+        )
+        < 0.01
+    ), "density with an explicit vTmax differs from the default one"
+    return None
+
+
 def test_vmomentdensity_diffinoutputs():
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
