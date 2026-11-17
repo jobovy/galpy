@@ -12735,14 +12735,14 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
         "The symplectic defect of a family with an adaptive reference curve is "
         "above the floor: %g vs %g" % (defect, floor)
     )
-    # guards: an adaptive curve needs the family, and the only string is 'fit'
+    # guards: an adaptive curve needs the family, and the strings are the rules
     with pytest.raises(TypeError, match="requires setup_interp"):
         actionAngleStaeckelInverse(pot=pot, u0="fit", Es=[E], Lzs=[Lz], I3s=[I3])
     with pytest.raises(TypeError, match="requires setup_interp"):
         actionAngleStaeckelInverse(
             pot=pot, u0=lambda E, Lz: 1.0, Es=[E], Lzs=[Lz], I3s=[I3]
         )
-    with pytest.raises(ValueError, match="only string value"):
+    with pytest.raises(ValueError, match="string values u0= accepts"):
         actionAngleStaeckelInverse(pot=pot, u0="midplane", **grid)
     return None
 
@@ -12926,6 +12926,197 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
     assert numpy.all(
         numpy.array(fams[0].xvFreqs(*pts)) == numpy.array(again.xvFreqs(*pts))
     ), "A pickled family with u0='fit' does not evaluate identically"
+    return None
+
+
+def test_actionAngleStaeckelInverse_u0_rules():
+    # A rule for the reference curve that follows each torus along the third
+    # integral: u0='torus' places it at the harmonic mean of the radii at
+    # which the torus's own inner and outer turning spheroids cross the
+    # midplane ('fit' and 'shell' are that rule on the planar and on the
+    # shell orbit of the torus's (E, L_z)), and a callable may take I_3 as a
+    # third argument. The u libration does not depend on the reference curve,
+    # so the rule is explicit in a torus's labels
+    import pickle
+
+    from scipy import optimize
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, evaluatePotentials
+
+    angler = numpy.linspace(0.05, 6.2, 11)
+    # an exact Staeckel potential is its own approximation whatever the
+    # curve: no rule changes its family
+    pot = _staeckel_inverse_potential()
+    grid = dict(
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.6,
+        Rinf=3.5,
+        nE=5,
+        nLz=5,
+        nI3=5,
+        mm_npt=48,
+        progressbar=False,
+    )
+    base = actionAngleStaeckelInverse(pot=pot, **grid)
+    xb = numpy.array(base(0.06, 0.93, 0.10, angler, 1.0, 2.0))
+    Omb = numpy.array(base.Freqs(0.06, 0.93, 0.10))
+    for u0 in (
+        "torus",
+        "shell",
+        lambda E, Lz, I3: 1.0 + 0.1 * numpy.tanh(E) + 0.2 * numpy.tanh(Lz + I3),
+        lambda *args: 1.0 + 0.1 * numpy.tanh(args[0]) + 0.2 * numpy.tanh(args[2]),
+    ):
+        aAI = actionAngleStaeckelInverse(pot=pot, u0=u0, **grid)
+        assert (
+            numpy.amax(
+                numpy.fabs(numpy.array(aAI(0.06, 0.93, 0.10, angler, 1.0, 2.0)) - xb)
+            )
+            < 1e-9
+        ), "A rule for the reference curve changes the family of a Staeckel potential"
+        assert (
+            numpy.amax(numpy.fabs(numpy.array(aAI.Freqs(0.06, 0.93, 0.10)) / Omb - 1.0))
+            < 1e-9
+        ), "A rule for the reference curve changes a Staeckel potential's frequencies"
+    # a general potential, in which the models genuinely differ
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    delta, Rinf = 0.8, 4.0
+
+    def turning(E, Lz, I3):
+        # the u libration of (E, L_z, I_3), from the potential's midplane: the
+        # shell u (where p_u^2 is largest) and the two turning points
+        W = lambda u: (
+            2.0
+            * delta**2
+            * (
+                E * numpy.sinh(u) ** 2
+                - numpy.cosh(u) ** 2
+                * evaluatePotentials(lp, delta * numpy.sinh(u), 0.0)
+                - I3
+            )
+            - Lz**2 / numpy.sinh(u) ** 2
+        )
+        ush = optimize.minimize_scalar(
+            lambda u: -W(u),
+            bounds=(0.1, 4.0),
+            method="bounded",
+            options=dict(xatol=1e-12),
+        ).x
+        if W(ush) <= 1e-9:
+            return ush, ush, ush
+        return (
+            ush,
+            optimize.brentq(W, 0.05, ush, xtol=1e-14),
+            optimize.brentq(W, ush, 6.0, xtol=1e-14),
+        )
+
+    def u0torus(E, Lz, I3):
+        _, um, up = turning(E, Lz, I3)
+        Rm, Rp = delta * numpy.sinh(um), delta * numpy.sinh(up)
+        return numpy.arcsinh(2.0 / (1.0 / Rm + 1.0 / Rp) / delta)
+
+    def actions(E, Lz, I3):
+        # (J_R, J_z) of (E, L_z, I_3) in the model that the rule assigns to it
+        aAI = actionAngleStaeckelInverse(
+            pot=lp,
+            delta=delta,
+            u0=u0torus(E, Lz, I3),
+            Es=[E],
+            Lzs=[Lz],
+            I3s=[I3],
+            mm_npt=32,
+        )
+        return aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+
+    tests = [
+        _staeckel_inverse_general_labels(lp, delta, Rinf, *q)
+        for q in ((1.05, 0.45, 0.55), (0.9, 0.3, 0.97), (1.2, 0.6, 0.3))
+    ]
+    refs = [
+        (*actions(*t), _staeckel_inverse_rule_frequencies(actions, *t)) for t in tests
+    ]
+    wide = dict(
+        setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=Rinf, mm_npt=32, progressbar=False
+    )
+    fams, errs = [], []
+    for n in (5, 9):
+        fams.append(
+            actionAngleStaeckelInverse(
+                pot=lp, delta=delta, u0="torus", nE=n, nLz=n, nI3=n, **wide
+            )
+        )
+        errs.append(
+            [
+                (
+                    numpy.fabs(fams[-1].Jz(E, Lz, I3) - jz) / (jr + jz + Lz),
+                    numpy.amax(
+                        numpy.fabs(numpy.array(fams[-1].Freqs(jr, Lz, jz)) / Om - 1.0)
+                    ),
+                )
+                for (E, Lz, I3), (jr, jz, Om) in zip(tests, refs)
+            ]
+        )
+    errs = numpy.array(errs)
+    assert numpy.all(errs[1, :, 0] < errs[0, :, 0] / 5.0) and numpy.all(
+        errs[1, :, 0] < 2e-6
+    ), "The actions of a family with u0='torus' do not converge between nodes"
+    assert numpy.all(errs[1, :, 1] < errs[0, :, 1] / 3.0) and numpy.all(
+        errs[1, :, 1] < 1e-4
+    ), (
+        "The frequencies of a family with u0='torus' do not converge between "
+        "nodes to dE/dJ along the family of models"
+    )
+    # callables that are the built-in rules give the same families, with
+    # their derivatives taken by differences, up to the shell face (a third
+    # parameter with a default does not make a callable one of I_3)
+    for rule, same in (
+        ("torus", u0torus),
+        ("shell", lambda E, Lz, d=delta: turning(E, Lz, Lz**2 / 2.0 / d**2 - E)[0]),
+    ):
+        fam = (
+            fams[0]
+            if rule == "torus"
+            else actionAngleStaeckelInverse(
+                pot=lp, delta=delta, u0=rule, nE=5, nLz=5, nI3=5, **wide
+            )
+        )
+        famc = actionAngleStaeckelInverse(
+            pot=lp, delta=delta, u0=same, nE=5, nLz=5, nI3=5, **wide
+        )
+        for (E, Lz, I3), (jr, jz, Om) in zip(tests, refs):
+            x = numpy.array(fam(jr, Lz, jz, angler, 1.0, angler[::-1]))
+            xc = numpy.array(famc(jr, Lz, jz, angler, 1.0, angler[::-1]))
+            dOm = numpy.array(famc.Freqs(jr, Lz, jz)) / fam.Freqs(jr, Lz, jz) - 1.0
+            assert (
+                numpy.amax(numpy.fabs(x[:5] - xc[:5])) < 1e-6
+                and numpy.amax(numpy.fabs(dOm)) < 2e-5
+            ), f"A callable u0 that is the rule u0='{rule}' changes the family"
+    # a family localized on a target places each target point's chart with
+    # the point's own third integral, and holds the target's torus
+    (E, Lz, I3), (jr, jz, Om) = tests[0], refs[0]
+    box = actionAngleStaeckelInverse(
+        pot=lp,
+        delta=delta,
+        u0="torus",
+        target=Orbit(numpy.array(fams[1](jr, Lz, jz, angler, 1.0, angler[::-1])).T),
+        nE=4,
+        nLz=4,
+        nI3=4,
+        **wide,
+    )
+    assert (
+        numpy.amax(numpy.fabs(numpy.array(box.Freqs(jr, Lz, jz)) / Om - 1.0)) < 1e-4
+    ), "A target family with u0='torus' does not hold its target's torus"
+    # the family pickles and evaluates identically afterwards
+    pts = [numpy.array([r[k] for r in (refs[0], refs[2])]) for k in (0, 1)]
+    pts = [pts[0], numpy.array([tests[0][1], tests[2][1]]), pts[1]]
+    pts += [numpy.array(a) for a in ([0.3, 2.0], [1.0, 4.0], [2.0, 5.5])]
+    again = pickle.loads(pickle.dumps(fams[0]))
+    assert numpy.all(
+        numpy.array(fams[0].xvFreqs(*pts)) == numpy.array(again.xvFreqs(*pts))
+    ), "A pickled family with u0='torus' does not evaluate identically"
     return None
 
 

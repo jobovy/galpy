@@ -13,6 +13,7 @@
 #   every derivative is the stored interpolant's own. (The Staeckel section
 #   of canonical.tex in the fast-orbits repository.)
 ###############################################################################
+import inspect
 import warnings
 from contextlib import contextmanager
 
@@ -284,28 +285,37 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             approximation. A potential that supplies its own focal length
             accepts a delta= that agrees with it (to 1e-14) and rejects one
             that does not.
-        u0 : float, callable, or 'fit', optional
+        u0 : float, callable, 'torus', 'fit' or 'shell', optional
             Reference u of the wrapping (see OblateStaeckelWrapperPotential),
             whose curve R_0 = delta sinh(u0) is where the Staeckel
             approximation of a general potential is most accurate. A number
             requires delta= and cannot be given with a potential that
-            supplies its own focal length. A callable u0(E, Lz) (internal
-            units, with L_z > 0) or 'fit' gives every (E, L_z) of an interpolated family
-            its own reference curve, so that each torus is a torus of its
-            own best-placed Staeckel model: 'fit' places the curve at the
-            harmonic mean of the pericentre and apocentre of the planar
-            orbits at (E, L_z), which weights the pericentre, where a
-            disc's vertical structure is sharpest.
+            supplies its own focal length. A rule gives every torus of an
+            interpolated family its own reference curve, so that each torus
+            is a torus of its own Staeckel model. 'torus', the rule to
+            prefer, places the curve at the harmonic mean of the radii at
+            which the torus's own inner and outer turning spheroids cross
+            the midplane: it weights the inner turning point, where a
+            disc's vertical structure is sharpest, and follows the torus as
+            it tilts out of the plane. 'fit' is that rule on the planar
+            orbit of the torus's (E, L_z) (the harmonic mean of its
+            pericentre and apocentre): the same as 'torus' near the plane,
+            and far inside an inclined torus. 'shell' is that rule on the
+            shell orbit of (E, L_z). A callable u0(E, Lz) or u0(E, Lz, I3)
+            (internal units, with L_z > 0; it is given I_3 when it has a
+            third positional parameter without a default) is the user's own
+            rule, which has to be smooth and, with three arguments, the
+            same for every I_3 at the circular orbit's energy.
             The variation of the Staeckel model from node to node is part
             of the family's derivative tables, so that the family converges
             between its nodes, at the interpolation's order, to the tori
-            of the models that the curve assigns; its frequencies are the
+            of the models that the rule assigns; its frequencies are the
             derivatives of the energy with respect to the actions along
             that family of models, which differ from those of each torus's
             own Staeckel model by a term of the order of the potential's
             departure from Staeckel form (none for a Staeckel potential).
             The reference curve is construction-only (the map's
-            (R, z) <-> (u, v) uses the focal length alone), so this costs
+            (R, z) <-> (u, v) uses the focal length alone), so a rule costs
             nothing at evaluation; requires setup_interp=True.
         target : Orbit or array_like, optional
             Localize the interpolation grid on the tori of a set of
@@ -344,8 +354,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._setup_staeckel(_check_potential_list_and_deprecate(pot), delta, u0)
         if self._adaptive and not setup_interp:
             raise TypeError(
-                "an adaptive reference curve (a callable u0(E, Lz) or u0='fit') "
-                "builds an interpolated family and requires setup_interp=True"
+                "a rule for the reference curve (a callable u0 or u0='torus', "
+                "'fit' or 'shell') builds an interpolated family and requires "
+                "setup_interp=True"
             )
         self._target = None if target is None else _parse_target(target)
         self._target_pad, self._target_minwidth = target_pad, target_minwidth
@@ -423,11 +434,33 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         given focal length; with an adaptive reference curve, that model
         is the reference one, and every (E, L_z) of the family gets its
         own (_chart)"""
-        if isinstance(u0, str) and u0 != "fit":
-            raise ValueError("the only string value u0= accepts is 'fit'")
-        self._adaptive = callable(u0) or u0 == "fit"
-        self._u0_func = u0 if callable(u0) else self._u0_fit
+        if isinstance(u0, str) and u0 not in ("torus", "fit", "shell"):
+            raise ValueError(
+                "the string values u0= accepts are 'torus', 'fit' and 'shell'"
+            )
+        self._adaptive = callable(u0) or isinstance(u0, str)
+        # the rule: one of the built-in ones, on the turning points of a
+        # torus, or a callable of (E, L_z) or of (E, L_z, I_3)
+        self._u0_rule = u0 if self._adaptive else None
+        self._u0_nargs = 2
+        if callable(u0):
+            # a callable takes I_3 when it has a third positional parameter
+            # without a default (or *args)
+            pars = list(inspect.signature(u0).parameters.values())
+            if (
+                any(q.kind == q.VAR_POSITIONAL for q in pars)
+                or sum(
+                    q.kind in (q.POSITIONAL_ONLY, q.POSITIONAL_OR_KEYWORD)
+                    and q.default is q.empty
+                    for q in pars
+                )
+                >= 3
+            ):
+                self._u0_nargs = 3
+        # whether the reference curve varies along the third integral
+        self._u0_third = u0 == "torus" or self._u0_nargs == 3
         self._chart_cache = {}
+        self._circRE_cache = {}
         if self._adaptive:
             # the reference wrapper keeps the default reference curve
             u0 = None
@@ -477,100 +510,166 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._chart_pot = self._staeckelwrap._pot
         return None
 
-    def _chart(self, E, Lz):
-        """The Staeckel model of the (E, L_z) tori: the family's single
-        wrapper or, with an adaptive reference curve, the wrapper at this
-        (E, |L_z|)'s own u0, cached"""
+    def _chart(self, E, Lz, I3=None):
+        """The Staeckel model of the (E, L_z, I_3) torus: the family's single
+        wrapper or, with a rule for the reference curve, the wrapper at this
+        torus's own u0, cached. Without a third integral, that of the planar
+        orbit of (E, L_z) stands in (for what does not depend on the
+        reference curve: U(u) and everything of the u libration)"""
         if not self._adaptive:
             return self._staeckelwrap
-        key = (float(E), float(numpy.fabs(Lz)))
+        E, ell = float(E), float(numpy.fabs(Lz))
+        if not self._u0_third:
+            I3 = None
+        elif I3 is None:
+            I3 = self._I3_planar(E, ell)
+        key = (E, ell, I3 if I3 is None else float(I3))
         if key not in self._chart_cache:
             self._chart_cache[key] = OblateStaeckelWrapperPotential(
                 pot=self._chart_pot,
                 delta=self._delta,
-                u0=float(self._u0_func(key[0], key[1])),
+                u0=float(self._u0_of(E, ell, I3)),
             )
         return self._chart_cache[key]
 
     @contextmanager
-    def _in_chart(self, E, Lz):
-        """Run the chart-dependent construction of the (E, L_z) tori (their
-        sampling, turning points and edge relations) in their own Staeckel
-        model"""
+    def _in_chart(self, E, Lz, I3=None):
+        """Run the chart-dependent construction of the (E, L_z, I_3) torus
+        (its sampling, turning points and edge relations) in its own
+        Staeckel model"""
         save = self._staeckelwrap
-        self._staeckelwrap = self._chart(E, Lz)
+        self._staeckelwrap = self._chart(E, Lz, I3)
         try:
             yield
         finally:
             self._staeckelwrap = save
 
-    def _u0_fit(self, E, Lz, deriv=False):
-        """The reference curve of u0='fit': at the harmonic mean of the
-        pericentre and apocentre of the planar orbits at (E, L_z), delta
-        sinh(u0) = 2 / (1/R_p + 1/R_a), from the potential's midplane, which
-        every wrapper reproduces; the circular radius at the circular
-        energy. The harmonic mean weights the pericentre, where a disc's
-        vertical structure is sharpest: measured on MWPotential2014 against
-        the arithmetic midpoint (which moves the curve far out on the
-        energetic rows, whose v maps then do not resolve, and is worse than
-        the default curve near R = 1), the geometric mean and the
-        guiding-centre radius, it resolves every map and gives the smallest
-        energy spread on seven of eight test tori. With deriv, also the
-        derivatives of u0 with respect to (E, L_z), by the level-set rule on
-        the two turning points of the planar orbit (not at the circular
-        energy)"""
-        ell = numpy.fabs(Lz)
-        pot = self._chart_pot
+    def _u0_of(self, E, ell, I3):
+        """The reference u0 of the (E, |L_z|, I_3) torus under the rule (I_3
+        is None for a rule that does not use it)"""
+        rule = self._u0_rule
+        if callable(rule):
+            return rule(E, ell, I3) if self._u0_nargs == 3 else rule(E, ell)
+        if rule == "shell":
+            if self._on_circular(E, ell):
+                return self._circular_RE(ell)[2]
+            return self._ushell(E, ell)
+        return self._u0_torus(E, ell, self._I3_planar(E, ell) if rule == "fit" else I3)[
+            0
+        ]
 
-        def phieff(R):
-            return evaluatePotentials(pot, R, 0.0, use_physical=False) + ell**2 / (
-                2.0 * R**2
-            )
-
-        Rc = rl(pot, ell, use_physical=False)
-        Ec = phieff(Rc)
-        Emax = phieff(self._Rinf)
-        if E <= Ec + 1e-12 * (1.0 + numpy.fabs(Ec)):
-            return numpy.arcsinh(Rc / self._delta)
-        # the centrifugal term brackets the pericentre from below; the
-        # grid's top energy is that of the planar orbit with apocentre Rinf
-        Rp = brentq(lambda R: phieff(R) - E, 1e-4 * Rc, Rc, xtol=1e-12)
-        Ra = (
-            self._Rinf
-            if E >= Emax - 1e-12 * (1.0 + numpy.fabs(Emax))
-            else brentq(lambda R: phieff(R) - E, Rc, self._Rinf, xtol=1e-12)
-        )
-        u0 = numpy.arcsinh(2.0 / (1.0 / Rp + 1.0 / Ra) / self._delta)
+    def _u0_torus(self, E, ell, I3, deriv=False):
+        """The reference curve that follows a torus's own turning points: the
+        harmonic mean of the radii R_- and R_+ at which the torus's inner and
+        outer turning spheroids u_- and u_+ cross the midplane, delta
+        sinh(u0) = 2 / (1/R_- + 1/R_+) with R = delta sinh(u). It weights the
+        inner turning point, where a disc's vertical structure is sharpest;
+        it is the harmonic mean of the pericentre and apocentre for the
+        planar orbit (u0='fit' is this rule at the planar orbit's I_3), the
+        shell orbit's own spheroid for the shell orbit (u0='shell'), and the
+        circular radius for the circular orbit; and it is even in the u
+        libration's half-width, hence smooth in the variables in which the
+        family's actions are smooth. The turning points do not depend on the
+        reference curve (U(u) does not), so the rule is explicit. Returns u0
+        and, with deriv, its partials in (E, I_3, L_z): the level-set rule
+        on the two turning points or, for the shell orbit, where that
+        degenerates, the limit through the momentum function's expansion
+        about the shell u to third order."""
+        umin, umax, ush, udeg = self._u_turning(E, ell, I3)
+        d = self._delta
+        Rm, Rp = d * numpy.sinh(umin), d * numpy.sinh(umax)
+        H = 2.0 * Rm * Rp / (Rm + Rp)
+        u0 = numpy.arcsinh(H / d)
         if not deriv:
-            return u0
-
-        def dR(R):
-            # a turning point's derivatives in (E, L_z): Phi_eff(R; L_z) = E
-            return numpy.array([1.0, -ell / R**2]) / (
-                -evaluateRforces(pot, R, 0.0, use_physical=False) - ell**2 / R**3
+            return u0, None
+        if not udeg:
+            dH = (
+                2.0
+                * (
+                    Rp**2 * d * numpy.cosh(umin) * self._tp_derivs_u(umin, E, ell)
+                    + Rm**2 * d * numpy.cosh(umax) * self._tp_derivs_u(umax, E, ell)
+                )
+                / (Rm + Rp) ** 2
             )
-
-        dH = 2.0 * (Ra**2 * dR(Rp) + Rp**2 * dR(Ra)) / (Rp + Ra) ** 2
-        return u0, dH / (self._delta * numpy.cosh(u0))
-
-    def _u0_grad(self, E, Lz):
-        """The derivatives of the reference u0 of the (E, L_z) tori (not the
-        circular orbit) with respect to (E, I_3, L_z), which carry the
-        variation of the Staeckel model from node to node into the family's
-        derivative tables: the closed form for u0='fit', central differences
-        of a callable"""
-        ell = numpy.fabs(Lz)
-        if self._u0_func == self._u0_fit:
-            g = self._u0_fit(E, ell, deriv=True)[1]
         else:
-            circ = self._circular(ell)
-            hE = 1e-4 * (E - circ["Ec"])
-            hL = min(1e-5 * ell, 1e-3 * (E - circ["Ec"]) / circ["Omc"])
-            g = (
-                (self._u0_func(E + hE, ell) - self._u0_func(E - hE, ell)) / (2.0 * hE),
-                (self._u0_func(E, ell + hL) - self._u0_func(E, ell - hL)) / (2.0 * hL),
+            # about the shell u, p_u^2 = W_0 + W_2 s^2/2 + W_3 s^3/6 with W_0
+            # = 2 delta^2 (I_sh - I_3): the half-width squared is a^2 = -2
+            # W_0/W_2, the midpoint sits at s = -W_3 a^2/(6 W_2), and the
+            # harmonic mean of f = delta sinh(u) at the two turning points
+            # is f + f' s + (f''/2 - f'^2/f) a^2
+            hstep = 1e-4
+            W2 = float(self._d2Wu(ush, E, ell))
+            W3 = float(
+                self._d2Wu(ush + hstep, E, ell) - self._d2Wu(ush - hstep, E, ell)
+            ) / (2.0 * hstep)
+            f, fp = d * numpy.sinh(ush), d * numpy.cosh(ush)
+            K = -fp * W3 / (6.0 * W2) + 0.5 * f - fp**2 / f
+            dush = self._dushell(ush, E, ell)
+            sh2 = numpy.sinh(ush) ** 2
+            dHdI = 4.0 * d**2 * K / W2
+            dH = numpy.array(
+                [
+                    fp * dush[0] - dHdI * sh2,
+                    dHdI,
+                    fp * dush[1] + dHdI * ell / (d**2 * sh2),
+                ]
             )
-        return numpy.array([g[0], 0.0, g[1]])
+        return u0, dH / (d * numpy.cosh(u0))
+
+    def _u0_grad(self, E, ell, I3):
+        """The partials of the reference u0 of the (E, |L_z|, I_3) torus (not
+        the circular orbit) in (E, I_3, L_z), which carry the variation of
+        the Staeckel model from torus to torus into the family's derivative
+        tables: closed forms for the built-in rules, and central differences
+        of a callable in (E, y, L_z), with y the position of I_3 between the
+        planar and the shell orbit's, in which the tori of neighbouring (E,
+        L_z) exist up to both faces"""
+        rule = self._u0_rule
+        if rule == "torus":
+            return self._u0_torus(E, ell, I3, deriv=True)[1]
+        if rule == "fit":
+            g = self._u0_torus(E, ell, self._I3_planar(E, ell), deriv=True)[1]
+            return numpy.array([g[0] - g[1], 0.0, g[2] + g[1] * ell / self._delta**2])
+        if rule == "shell":
+            dush = self._dushell(self._ushell(E, ell), E, ell)
+            return numpy.array([dush[0], 0.0, dush[1]])
+
+        def edges(EE, LL):
+            Ipl = self._I3_planar(EE, LL)
+            return Ipl, self._I3_shell(EE, LL, self._ushell(EE, LL))
+
+        def g(EE, LL, yy):
+            Ipl, Ish = edges(EE, LL)
+            return self._u0_of(EE, LL, Ipl + yy * (Ish - Ipl))
+
+        Ec, Omc = self._circular_RE(ell)[1], ell / self._circular_RE(ell)[0] ** 2
+        Ipl, Ish = edges(E, ell)
+        y = min(max((I3 - Ipl) / (Ish - Ipl), 0.0), 1.0)
+        hE = 1e-4 * (E - Ec)
+        hL = min(1e-5 * ell, 1e-3 * (E - Ec) / Omc)
+        gE = (g(E + hE, ell, y) - g(E - hE, ell, y)) / (2.0 * hE)
+        gL = (g(E, ell + hL, y) - g(E, ell - hL, y)) / (2.0 * hL)
+        gI = 0.0
+        if self._u0_nargs == 3:
+            hy = 1e-4
+            if y <= 1.0 - hy:
+                ylo = max(y - hy, 0.0)
+                gy = (g(E, ell, y + hy) - g(E, ell, ylo)) / (y + hy - ylo)
+            else:
+                # one-sided, to second order, at the shell face (the planar
+                # face's nodes have no v libration, and need no derivative)
+                gy = (
+                    3.0 * g(E, ell, y)
+                    - 4.0 * g(E, ell, y - hy)
+                    + g(E, ell, y - 2.0 * hy)
+                ) / (2.0 * hy)
+            gI = gy / (Ish - Ipl)
+        # from fixed y to fixed I_3: I_3 = I_pl + y (I_sh - I_pl), whose
+        # partials at fixed y are those of the grid (_setup_tori_interp)
+        sh2 = numpy.sinh(self._ushell(E, ell)) ** 2
+        dI_dE = y * (1.0 + sh2) - 1.0
+        dI_dL = ell / self._delta**2 * (1.0 - y * (1.0 + 1.0 / sh2))
+        return numpy.array([gE - gI * dI_dE, gI, gL - gI * dI_dL])
 
     # ---------- the separated Hamilton-Jacobi equation
     def _U(self, u):
@@ -662,20 +761,35 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         frequencies, cached"""
         ell = numpy.fabs(Lz)
         if ell not in self._circ_cache:
-            Rc = rl(self._staeckelwrap, ell, use_physical=False)
-            Ec = evaluatePotentials(
-                self._staeckelwrap, Rc, 0.0, use_physical=False
-            ) + ell**2 / (2.0 * Rc**2)
+            Rc, Ec, uc = self._circular_RE(ell)
             wrap = self._chart(Ec, ell)
             self._circ_cache[ell] = {
                 "Rc": Rc,
                 "Ec": Ec,
-                "uc": numpy.arcsinh(Rc / self._delta),
+                "uc": uc,
                 "kappa": epifreq(wrap, Rc, use_physical=False),
                 "nu": verticalfreq(wrap, Rc, use_physical=False),
                 "Omc": ell / Rc**2,
             }
         return self._circ_cache[ell]
+
+    def _circular_RE(self, ell):
+        """The radius, energy and u of the circular orbit of angular
+        momentum ell > 0, from the potential's midplane, which every chart
+        reproduces; cached"""
+        if ell not in self._circRE_cache:
+            Rc = rl(self._staeckelwrap, ell, use_physical=False)
+            Ec = evaluatePotentials(
+                self._staeckelwrap, Rc, 0.0, use_physical=False
+            ) + ell**2 / (2.0 * Rc**2)
+            self._circRE_cache[ell] = (Rc, Ec, numpy.arcsinh(Rc / self._delta))
+        return self._circRE_cache[ell]
+
+    def _on_circular(self, E, ell):
+        """Whether E is the circular orbit's energy at angular momentum ell,
+        to the tolerance of the torus construction"""
+        Ec = self._circular_RE(ell)[1]
+        return E < Ec + 1e-12 * (1.0 + numpy.fabs(Ec))
 
     def _ushell(self, E, Lz):
         """The u of the shell orbit of (E, L_z), where p_u^2 attains its
@@ -719,13 +833,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sh2 = numpy.sinh(ush) ** 2
         return E * sh2 - float(self._U(ush)) - Lz**2 / (2.0 * self._delta**2 * sh2)
 
-    def _turning_points(self, E, Lz, I3):
-        """The turning points of the (E, L_z, I_3) torus as the midpoint and
-        half-width of the u libration and the half-width of the v libration
-        (about the midplane), with the shell u and whether either libration
-        is degenerate; raises for labels that do not define a torus"""
-        circ = self._circular(Lz)
-        Ec = circ["Ec"]
+    def _u_turning(self, E, Lz, I3):
+        """The inner and outer turning points of the u libration of the
+        (E, L_z, I_3) torus, the shell u, and whether the libration is
+        degenerate; none of them depends on the reference curve, because
+        U(u) does not. Raises for labels that do not define a torus"""
+        ell = numpy.fabs(Lz)
+        _, Ec, uc = self._circular_RE(ell)
         tolE = 1e-12 * (1.0 + numpy.fabs(Ec))
         if E < Ec - tolE:
             raise ValueError(
@@ -733,8 +847,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "the circular orbit's"
             )
         if E < Ec + tolE:
-            # the circular orbit: both librations degenerate
-            return circ["uc"], 0.0, 0.0, circ["uc"], True, True
+            # the circular orbit
+            return uc, uc, uc, True
         ush = self._ushell(E, Lz)
         Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
         tolI = 1e-12 * (1.0 + numpy.fabs(Ipl) + numpy.fabs(Ish))
@@ -748,19 +862,35 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 f"No orbit exists at (E, L_z, I_3) = ({E}, {Lz}, {I3}): I_3 "
                 f"lies below the planar orbit's, {Ipl}"
             )
-        udeg, vdeg = I3 >= Ish - tolI, I3 <= Ipl + tolI
-        if udeg:
-            umin = umax = ush
-        else:
-            Wu = lambda u: float(self._Wu(u, E, Lz, I3))
-            ulo = ush
-            while Wu(ulo) > 0.0:
-                ulo *= 0.7
-            uhi = ush
-            while Wu(uhi) > 0.0:
-                uhi *= 1.3
-            umin = brentq(Wu, ulo, ush, xtol=1e-14)
-            umax = brentq(Wu, ush, uhi, xtol=1e-14)
+        if I3 >= Ish - tolI:
+            return ush, ush, ush, True
+        Wu = lambda u: float(self._Wu(u, E, Lz, I3))
+        ulo = ush
+        while Wu(ulo) > 0.0:
+            ulo *= 0.7
+        uhi = ush
+        while Wu(uhi) > 0.0:
+            uhi *= 1.3
+        return (
+            brentq(Wu, ulo, ush, xtol=1e-14),
+            brentq(Wu, ush, uhi, xtol=1e-14),
+            ush,
+            False,
+        )
+
+    def _turning_points(self, E, Lz, I3):
+        """The turning points of the (E, L_z, I_3) torus as the midpoint and
+        half-width of the u libration and the half-width of the v libration
+        (about the midplane), with the shell u and whether either libration
+        is degenerate; raises for labels that do not define a torus"""
+        umin, umax, ush, udeg = self._u_turning(E, Lz, I3)
+        if self._on_circular(E, numpy.fabs(Lz)):
+            # the circular orbit: both librations degenerate
+            return umin, 0.0, 0.0, umin, True, True
+        Ipl = self._I3_planar(E, Lz)
+        Ish = self._I3_shell(E, Lz, ush)
+        tolI = 1e-12 * (1.0 + numpy.fabs(Ipl) + numpy.fabs(Ish))
+        vdeg = I3 <= Ipl + tolI
         if vdeg:
             vmin = 0.5 * numpy.pi
         else:
@@ -820,7 +950,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _sample_all(self):
         self._samples = []
         for E, Lz, I3 in zip(self._Es, self._Lzs, self._I3s):
-            with self._in_chart(E, Lz):
+            with self._in_chart(E, Lz, I3):
                 self._samples.append(self._sample_torus(E, Lz, I3))
         return None
 
@@ -1745,7 +1875,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # reference curve varies smoothly, so the model error in the
             # energy is immaterial for the box
             Eraw = kin + evaluatePotentials(self._chart_pot, Rp, zp, use_physical=False)
-            with self._in_chart(Eraw, Lz):
+            with self._in_chart(Eraw, Lz, self._target_I3(Eraw, Lz, Rp, vRp, zp, vzp)):
                 E = kin + evaluatePotentials(
                     self._staeckelwrap, Rp, zp, use_physical=False
                 )
@@ -1805,6 +1935,25 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "increase Rinf or reduce target_pad"
             )
         return (Lzbox, padded(wEs, 0.0, 1.0, True), padded(wIs, 0.0, 1.0, True))
+
+    def _target_I3(self, E, Lz, R, vR, z, vz):
+        """The third integral of a target point at energy E for placing its
+        chart, from the u equation of the separated Hamilton-Jacobi
+        relation, which does not involve the reference curve; clipped to
+        the tori of (E, L_z). None for a rule that does not use it"""
+        if not self._u0_third or self._on_circular(E, Lz):
+            return None
+        u, v = coords.Rz_to_uv(R, z, delta=self._delta)
+        sh = numpy.sinh(u)
+        pu = self._delta * (vR * numpy.cosh(u) * numpy.sin(v) + vz * sh * numpy.cos(v))
+        I3 = (
+            E * sh**2
+            - float(self._U(u))
+            - (pu**2 + Lz**2 / sh**2) / (2.0 * self._delta**2)
+        )
+        Ipl = self._I3_planar(E, Lz)
+        Ish = self._I3_shell(E, Lz, self._ushell(E, Lz))
+        return min(max(I3, Ipl), Ish)
 
     def _check_circular(self):
         """Raise for the circular orbit of a family whose grid does not reach
@@ -1935,7 +2084,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             iE, rest = divmod(ii, nI * nL)
             iI, iL = divmod(rest, nL)
             wE, wI, Lz = self._wEs[iE], self._wIs[iI], self._Lzgrid[iL]
-            with self._in_chart(self._E_tab[iE, iL], Lz):
+            with self._in_chart(self._E_tab[iE, iL], Lz, self._I3s[ii]):
                 y = self._ys[iI]
                 su, sv = numpy.cos(0.5 * numpy.pi * wI), numpy.sin(0.5 * numpy.pi * wI)
                 if True:
@@ -2012,9 +2161,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         # its reference curve: the node values' derivatives
                         # along the grid are those within the node's model
                         # plus the derivative along u0 at fixed integrals
-                        # times the curve's own (only the v libration's
+                        # times the rule's own (only the v libration's
                         # tables, since U(u) does not depend on u0)
-                        du0 = self._u0_grad(E, Lz)
+                        du0 = self._u0_grad(E, Lz, self._I3s[ii])
                         Mv = Mv + node["du0"][0] * du0
                         dwv = dwv + node["du0"][1] * du0
                         dDmv = dDmv + node["du0"][2][:, None] * du0[None, :]
