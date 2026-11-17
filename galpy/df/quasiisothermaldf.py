@@ -2241,7 +2241,9 @@ class quasiisothermaldf(df):
         vo = parse_velocity_kms(vo)
         # Initialize output array
         coord_v = numpy.empty((numpy.size(R), 3))
-        # Since the sign of z doesn't matter, work with absolute value of z
+        # The DF is symmetric under (z, vz) -> (-z, -vz): sample at |z| and
+        # flip vz below the plane at the end
+        zsign = numpy.where(numpy.asarray(z) < 0.0, -1.0, 1.0)
         z = numpy.abs(z)
         # Grid edges
         if R_min is None:
@@ -2317,6 +2319,7 @@ class quasiisothermaldf(df):
         # Combine normal and outlier result, preserving original order
         coord_v[mask] = outlier_coord_v
         coord_v[~mask] = normal_coord_v
+        coord_v[:, 2] *= zsign
         if use_physical and not vo is None:
             if _APY_UNITS:
                 return units.Quantity(coord_v * vo, unit=units.km / units.s)
