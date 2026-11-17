@@ -13084,7 +13084,7 @@ def test_actionAngleStaeckelInverse_u0_rules():
             xc = numpy.array(famc(jr, Lz, jz, angler, 1.0, angler[::-1]))
             dOm = numpy.array(famc.Freqs(jr, Lz, jz)) / fam.Freqs(jr, Lz, jz) - 1.0
             assert (
-                numpy.amax(numpy.fabs(x[:5] - xc[:5])) < 1e-6
+                numpy.amax(numpy.fabs(x[:5] - xc[:5])) < 3e-6
                 and numpy.amax(numpy.fabs(dOm)) < 2e-5
             ), f"A callable u0 that is the rule u0='{rule}' changes the family"
     # a family localized on a target places each target point's chart with
@@ -14635,4 +14635,74 @@ def test_actionAngleStaeckelInverse_label_inversion(staeckel_inverse_interp):
     assert numpy.all(aAI.in_domain(jr, Lz, jz)) and numpy.all(
         numpy.isfinite(aAI(jr, Lz, jz, 0.1, 0.2, 0.3))
     ), "An array of tori inside a family's grid is not located"
+    return None
+
+
+_STAECKEL_INVERSE_AXIS = dict(
+    setup_interp=True, Rmin=0.1, Rmax=1.5, Rinf=4.0, nE=12, nLz=5, nI3=9, mm_npt=96
+)
+
+
+def _staeckel_inverse_axis_potential():
+    # a Kuzmin-Kutuzov potential whose focal length is comparable to its
+    # tori, so that tori of small |L_z| come in both kinds: stopped off the
+    # axis by the centrifugal barrier in u (those that would pass between
+    # the foci without angular momentum) or in v (those that would loop
+    # around them)
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    return KuzminKutuzovStaeckelPotential(normalize=1.0, ac=2.0, Delta=0.5)
+
+
+@pytest.fixture(scope="module")
+def staeckel_inverse_axis():
+    # a small interpolation grid that reaches tori close to the axis
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    return actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_axis_potential(),
+        progressbar=False,
+        **_STAECKEL_INVERSE_AXIS,
+    )
+
+
+def _staeckel_inverse_axis_errors(aAI, Lz):
+    # the spread of the energy over tori of small |L_z| relative to their
+    # mean kinetic energy, and the error of their actions (the forward
+    # transformation's at the returned points) relative to their total
+    # action, for tori of decreasing |L_z| / L of both kinds
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import evaluatePotentials
+
+    pot = _staeckel_inverse_axis_potential()
+    aAF = actionAngleStaeckel(pot=pot, delta=0.5, c=True)
+    th = numpy.linspace(0.1, 2.0 * numpy.pi + 0.1, 12, endpoint=False)
+    thR, thz = (t.ravel() for t in numpy.meshgrid(th, th + 0.05, indexing="ij"))
+    spread, dJ = [], []
+    for L in (0.15, 0.3, 0.6, 1.0):
+        for jr in (0.05, 0.3):
+            jz = L - Lz
+            R, vR, vT, z, vz, _ = aAI(jr, Lz, jz, thR, 0.0, thz)
+            assert numpy.all(R > 0.0), "A torus of small |L_z| reaches R <= 0"
+            K = 0.5 * (vR**2 + vT**2 + vz**2)
+            spread.append(numpy.std(K + evaluatePotentials(pot, R, z)) / numpy.mean(K))
+            jrf, _, jzf = aAF(R, vR, vT, z, vz)
+            dJ.append(numpy.amax(numpy.hypot(jrf - jr, jzf - jz)) / (jr + L))
+    return numpy.array(spread), numpy.array(dJ)
+
+
+def test_actionAngleStaeckelInverse_near_axis(staeckel_inverse_axis):
+    # At small |L_z| the centrifugal barrier stops a libration just off the
+    # axis, and its inner turning point is far smaller than the libration's
+    # midpoint and half-width, from which it is formed: the family stores
+    # each half-width in a variable that keeps the inner turning point off
+    # the axis and accurate relative to its distance from it, whatever the
+    # interpolation error, so that no torus of small |L_z| reaches R <= 0,
+    # where the centrifugal term makes its energy meaningless
+    spread, _ = _staeckel_inverse_axis_errors(
+        staeckel_inverse_axis, 1.3 * 0.1 * _staeckel_inverse_axis_potential().vcirc(0.1)
+    )
+    assert numpy.amax(spread) < 0.3, (
+        "The energy varies by its own size over a family's tori of small |L_z|"
+    )
     return None

@@ -2140,7 +2140,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         vanish linearly at the edges); the u half-width and the u map in
         (w_E, s_u = cos(pi w_I/2), L_z), the v half-width and the v map in
         (w_E, s_v = sin(pi w_I/2), L_z), in which they vanish linearly at
-        their edges. The partials come from the node's period matrix, the
+        their edges, each half-width as the variable of _halfwidth, which
+        keeps the libration's inner turning point off the axis and
+        accurate relative to its distance from it. The partials come from the node's period matrix, the
         level-set rule, and the map slopes, chained through the grid's
         analytic (E, I_3)(w_E, w_I, L_z) relation; on the degenerate faces
         they are the harmonic limits."""
@@ -2254,9 +2256,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             A_dy[iE, iI, iL, 0],
                             A_dL[iE, iI, iL, 0],
                         ) = chain(M[0])
-                        qx, qy, qL = chain(
-                            numpy.vstack((dsup[1][None, :], node["dDmu"]))
+                        r = node["wu"] / node["uc"]
+                        U_tab[iE, iI, iL, 0] = node["uc"] * numpy.arctanh(r)
+                        dlam = numpy.arctanh(r) * dsup[0] + (dsup[1] - r * dsup[0]) / (
+                            1.0 - r**2
                         )
+                        qx, qy, qL = chain(numpy.vstack((dlam[None, :], node["dDmu"])))
                         U_dwE[iE, iI, iL] = 2.0 * wE * qx
                         U_dsu[iE, iI, iL] = -2.0 * su * qy
                         U_dL[iE, iI, iL] = qL
@@ -2274,7 +2279,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             A_dy[iE, iI, iL, 1],
                             A_dL[iE, iI, iL, 1],
                         ) = chain(Mv)
-                        qx, qy, qL = chain(numpy.vstack((dwv[None, :], dDmv)))
+                        V_tab[iE, iI, iL, 0] = numpy.arcsinh(numpy.tan(node["wv"]))
+                        qx, qy, qL = chain(
+                            numpy.vstack((dwv[None, :] / numpy.cos(node["wv"]), dDmv))
+                        )
                         V_dwE[iE, iI, iL] = 2.0 * wE * qx
                         V_dsv[iE, iI, iL] = 2.0 * sv * qy
                         V_dL[iE, iI, iL] = qL
@@ -2530,9 +2538,34 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 + Ts[:, None] * N[1][None, :] * fs / (2.0 * s)
                 + TL[:, None] * N[2][None, :]
             )
-            tab["w" + key], tab["dw" + key] = T[0], dT[0]
+            tab["w" + key], tab["dw" + key] = self._halfwidth(
+                key, T[0], dT[0], tab["uc"], tab["duc"]
+            )
             tab["Dm" + key], tab["dDm" + key] = T[1:], dT[1:]
         return tab
+
+    @staticmethod
+    def _halfwidth(key, lam, dlam, uc, duc):
+        """The half-width of a libration and its chain from the variable in
+        which the family stores it, and that variable's chain. The u
+        libration: lambda_u = u_c artanh(w_u / u_c) = (u_c / 2) ln(u_+ /
+        u_-), so that w_u = u_c tanh(lambda_u / u_c) and the inner turning
+        point u_c - w_u is positive whatever the interpolation error, and
+        accurate relative to itself where the centrifugal barrier holds it
+        just off the axis. The v libration: lambda_v = arcsinh(tan w_v),
+        the inverse Gudermannian, so that w_v = arcsin(tanh lambda_v) stays
+        below pi / 2 and sin v_min is accurate relative to itself for a
+        nearly polar torus. Both variables equal the half-width to first
+        order where it vanishes. For one torus, or for many with a leading
+        torus axis."""
+        if key == "v":
+            return (
+                numpy.arcsin(numpy.tanh(lam)),
+                dlam / numpy.cosh(numpy.asarray(lam)[..., None]),
+            )
+        q = numpy.asarray(lam / uc)[..., None]
+        th = numpy.tanh(q)
+        return uc * th[..., 0], th * duc + (1.0 - th**2) * (dlam - q * duc)
 
     def _interp_coords_array(self, jr, jz, ell):
         """The grid coordinates (x, y) of many tori at once (none of them on
@@ -2724,7 +2757,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 + Ts[:, :, None] * N[:, None, 1, :] * fs / (2.0 * sv)[:, None, None]
                 + TL[:, :, None] * N[:, None, 2, :]
             )
-            tab["w" + key], tab["dw" + key] = T[:, 0], dT[:, 0]
+            tab["w" + key], tab["dw" + key] = self._halfwidth(
+                key, T[:, 0], dT[:, 0], uc, duc
+            )
             tab["Dm" + key], tab["dDm" + key] = (
                 T[:, 1:].T,
                 numpy.moveaxis(dT[:, 1:], 0, 1),
