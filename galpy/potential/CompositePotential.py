@@ -259,6 +259,20 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
             for pot in self._potlist
         )
 
+    def _cyl_forces(self, R, z, phi=0.0, t=0.0, v=None):
+        """(Rforce, phitorque, zforce), each summed over the components in the
+        order of _Rforce, _phitorque, _zforce; a component computes its three
+        from one evaluation when it can"""
+        Rforce = phitorque = zforce = 0
+        for pot in self._potlist:
+            fR, fphi, fz = (
+                pot._cyl_forces_nodecorator(R, z, phi=phi, t=t, v=v)
+                if pot.isDissipative
+                else pot._cyl_forces_nodecorator(R, z, phi=phi, t=t)
+            )
+            Rforce, phitorque, zforce = Rforce + fR, phitorque + fphi, zforce + fz
+        return Rforce, phitorque, zforce
+
     def _dens(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the density.

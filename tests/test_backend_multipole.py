@@ -869,3 +869,31 @@ def test_forced_spher_at_point_helpers_on_backend(backend_name, pot):
             numpy.testing.assert_allclose(
                 [float(as_numpy(g)) for g in got], ref, rtol=rtol, atol=1e-13
             )
+
+
+@pytest.mark.parametrize("pot", CASES + _TD_CASES, ids=CASE_IDS + _TD_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_cyl_forces_match_separate(backend_name, pot):
+    # All three cylindrical forces at once (Potential._evaluate_cyl_forces, which
+    # the in-backend orbit integration calls): exactly the separate Rforce,
+    # phitorque and zforce, for array and scalar points, at a scalar and at
+    # per-point times.
+    import importlib
+
+    potmod = importlib.import_module("galpy.potential.Potential")
+    separate = (
+        potmod._evaluateRforces,
+        potmod._evaluatephitorques,
+        potmod._evaluatezforces,
+    )
+    for R, z, phi, t in (
+        (_RS, _ZS, _PHIS, 0.37),
+        (_RS, _ZS, _PHIS, [0.0, 0.37, 1.21, 2.0, 2.4]),
+        (_RS[2], _ZS[2], _PHIS[2], 1.21),
+    ):
+        R, z, phi, t = (_asarray(backend_name, v) for v in (R, z, phi, t))
+        got = potmod._evaluate_cyl_forces(pot, R, z, phi=phi, t=t)
+        for g, f in zip(got, separate):
+            numpy.testing.assert_array_equal(
+                as_numpy(g), as_numpy(f(pot, R, z, phi=phi, t=t))
+            )

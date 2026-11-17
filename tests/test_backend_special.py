@@ -1121,11 +1121,23 @@ def test_gegenbauer_traced_scan():
     x = jnp.asarray(numpy.linspace(-0.9, 0.9, 7), dtype=jnp.float64)
 
     # (a) rolled: scan primitive present and the jaxpr is small + N-independent
-    #     (the eager loop would grow ~O(N)).
-    e10 = jax.make_jaxpr(lambda xx: gsp.gegenbauer(10, alpha, xx))(x).jaxpr.eqns
-    e24 = jax.make_jaxpr(lambda xx: gsp.gegenbauer(24, alpha, xx))(x).jaxpr.eqns
+    #     (the eager loop would grow ~O(N)). The scan sits inside the
+    #     custom_jvp_call of the derivative rule, so look into sub-jaxprs.
+    def _eqns(jaxpr):
+        out = []
+        for e in jaxpr.eqns:
+            out.append(e)
+            for v in e.params.values():
+                sub = getattr(v, "jaxpr", v)
+                if hasattr(sub, "eqns"):
+                    out.extend(_eqns(sub))
+        return out
+
+    e10 = _eqns(jax.make_jaxpr(lambda xx: gsp.gegenbauer(10, alpha, xx))(x).jaxpr)
+    e24 = _eqns(jax.make_jaxpr(lambda xx: gsp.gegenbauer(24, alpha, xx))(x).jaxpr)
     assert any(e.primitive.name == "scan" for e in e10), "lax.scan roll did not fire"
-    assert len(e10) < 30, f"jaxpr not rolled ({len(e10)} eqns)"
+    # (counted with the scan body and the custom_jvp wrapper)
+    assert len(e10) < 60, f"jaxpr not rolled ({len(e10)} eqns)"
     assert len(e10) == len(e24), "rolled jaxpr must be N-independent"
 
     # (b) traced (jit) vs eager (Python loop) to the XLA fma floor, several N.
@@ -1139,6 +1151,43 @@ def test_gegenbauer_traced_scan():
     g_eager = float(jax.grad(lambda xx: gsp.gegenbauer(12, alpha, xx).sum())(x0))
     g_jit = float(jax.jit(jax.grad(lambda xx: gsp.gegenbauer(12, alpha, xx).sum()))(x0))
     numpy.testing.assert_allclose(g_jit, g_eager, rtol=1e-6, atol=1e-9)
+
+
+def test_gegenbauer_derivative_rule():
+    # Traced, the x-derivative of C_n^alpha(x) comes from the identity
+    # dC_n^a/dx = 2a C_{n-1}^{a+1} (a custom_jvp, recursive for higher orders)
+    # instead of reverse-mode through the scan. Its first and second derivatives
+    # and its vmap match differentiating the scan itself, and a traced alpha
+    # falls back to differentiating the scan.
+    import importlib
+
+    gfb = importlib.import_module("galpy.backend.special._fallback.gegenbauer")
+    alpha = jnp.asarray([1.5, 3.5, 5.5])
+    x = jnp.linspace(-0.9, 0.9, 7)[:, None]
+    w = jnp.asarray(numpy.random.default_rng(0).normal(size=(7, 3, 16)))
+    rule = lambda xx: gfb._gegenbauer_scan_jax(16, alpha, xx)  # noqa: E731
+    scan = lambda xx: gfb._gegenbauer_rec_jax(16, alpha, xx)  # noqa: E731
+    assert numpy.array_equal(as_numpy(jax.jit(rule)(x)), as_numpy(jax.jit(scan)(x))), (
+        "the derivative rule changed the values"
+    )
+    first = lambda f: jax.grad(lambda xx: jnp.sum(w * f(xx)))  # noqa: E731
+    second = lambda f: jax.grad(  # noqa: E731
+        lambda xx: jnp.sum(first(f)(xx) ** 2)
+    )
+    for d in (first, second):
+        numpy.testing.assert_allclose(
+            as_numpy(jax.jit(d(rule))(x)), as_numpy(jax.jit(d(scan))(x)), rtol=1e-12
+        )
+    vg = lambda f: jax.vmap(jax.grad(lambda xx: jnp.sum(f(xx))))(x[:, 0])  # noqa: E731
+    numpy.testing.assert_allclose(as_numpy(vg(rule)), as_numpy(vg(scan)), rtol=1e-12)
+    # traced alpha: the scan's own derivative, against finite differences
+    a0, x0, eps = 2.5, 0.3, 1e-6
+    g = float(jax.grad(lambda a: gsp.gegenbauer(6, a, jnp.asarray(x0))[5])(a0))
+    fd = (
+        scipy_special.eval_gegenbauer(5, a0 + eps, x0)
+        - scipy_special.eval_gegenbauer(5, a0 - eps, x0)
+    ) / (2 * eps)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-7)
 
 
 # --- edge-case hardening: poles, domain endpoints, AD plateaus, numpy params ---

@@ -29,6 +29,7 @@ from ..backend._namespaces import (
 from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 from ..util import _rotate_to_arbitrary_vector, _zvec_pa_rotation, conversion, coords
 from .Potential import (
+    _evaluate_cyl_forces,
     _evaluatephitorques,
     _evaluatePotentials,
     _evaluateRforces,
@@ -726,6 +727,24 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
     def _zforce(self, R, z, phi=0.0, t=0.0):
         return self._force_xyz(R, z, phi=phi, t=t)[2]
 
+    def _cyl_forces(self, R, z, phi=0.0, t=0.0):
+        """(Rforce, phitorque, zforce) at once: on a backend, from one
+        _force_xyz (its eager memo does not apply under a trace)"""
+        xp, Rx, zx, phix, tx = self._eval_namespace(R, z, phi, t)
+        if xp is numpy:  # the three methods, exactly as before
+            return (
+                self._Rforce(R, z, phi=phi, t=t),
+                self._phitorque(R, z, phi=phi, t=t),
+                self._zforce(R, z, phi=phi, t=t),
+            )
+        R, z, phi, t = Rx, zx, phix, tx
+        Fxyz = self._force_xyz(R, z, phi=phi, t=t)
+        return (
+            xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1],
+            R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1]),
+            Fxyz[2],
+        )
+
     def _force_xyz(self, R, z, phi=0.0, t=0.0):
         """Get the rectangular forces in the transformed frame"""
         xp, R, z, phi, t = self._eval_namespace(R, z, phi, t)
@@ -743,9 +762,11 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
     def _force_xyz_eval(self, xp, R, z, phi, t):
         xyzp, rot = self._rect_transformed(xp, R, z, phi, t=t, return_rot=True)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
-        Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
-        phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
-        zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
+        # all three at once: an expansion (SCF, multipole) computes them from
+        # one evaluation
+        Rforcep, phitorquep, zforcep = _evaluate_cyl_forces(
+            self._pot, Rp, zp, phi=phip, t=t
+        )
         xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
         yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
         Fxyzp = [xforcep, yforcep, zforcep]

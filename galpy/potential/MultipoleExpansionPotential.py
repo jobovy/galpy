@@ -2506,6 +2506,21 @@ class MultipoleExpansionPotential(
             )
         return SphericalHarmonicPotentialMixin._phitorque(self, R, z, phi=phi, t=t)
 
+    def _cyl_forces(self, R, z, phi=0.0, t=0.0):
+        """(Rforce, phitorque, zforce) at once (orbit integration): on a backend,
+        from one spherical-force evaluation"""
+        xp = get_namespace(R, z)
+        if xp is not numpy:
+            return tuple(
+                match_input_dtype(f, R, z, phi, t)
+                for f in self._backend_cyl_forces(xp, R, z, phi, t)
+            )
+        return (
+            self._Rforce(R, z, phi=phi, t=t),
+            self._phitorque(R, z, phi=phi, t=t),
+            self._zforce(R, z, phi=phi, t=t),
+        )
+
     def _evaluate_cyl_2nd_deriv(self, deriv_type, R, z, phi, t=0.0):
         xp = get_namespace(R, z)
         if xp is not numpy:
@@ -3103,6 +3118,13 @@ class MultipoleExpansionPotential(
 
     def _backend_cyl_force(self, xp, which, R, z, phi, t):
         """Backend-array version of the mixin's _Rforce/_zforce/_phitorque."""
+        return dict(zip(("R", "phi", "z"), self._backend_cyl_forces(xp, R, z, phi, t)))[
+            which
+        ]
+
+    def _backend_cyl_forces(self, xp, R, z, phi, t):
+        """(Rforce, phitorque, zforce) on backend arrays, from one spherical-force
+        evaluation"""
         if not self.isNonAxi and phi is None:
             phi = 0.0
         Rf, zf, phif, tf, shape = self._backend_prepare(xp, R, z, phi, t)
@@ -3112,14 +3134,14 @@ class MultipoleExpansionPotential(
             xp, r, xp.cos(theta), xp.sin(theta), phif, tf
         )
         rsafe = xp.where(r == 0.0, 1.0, r)
-        if which == "R":
-            out = Rf / rsafe * Fr + zf / rsafe**2 * Ftheta
-        elif which == "z":
-            out = zf / rsafe * Fr - Rf / rsafe**2 * Ftheta
-        else:  # phi torque
-            out = Fphi
-        out = xp.where(r == 0.0, 0.0, out)
-        return xp.reshape(out, shape)
+        return tuple(
+            xp.reshape(xp.where(r == 0.0, 0.0, out), shape)
+            for out in (
+                Rf / rsafe * Fr + zf / rsafe**2 * Ftheta,
+                Fphi,
+                zf / rsafe * Fr - Rf / rsafe**2 * Ftheta,
+            )
+        )
 
     def _backend_spher_2nd_derivs(self, xp, r, ctheta, stheta, phi, t):
         """Backend version of _compute_spher_2nd_derivs_at_point (vectorized)."""

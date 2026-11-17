@@ -81,19 +81,26 @@ class SphericalHarmonicPotentialMixin:
                     + dPhi_dphi * dphi_dx[idx]
                 )
             return force
-        # backend path: identical per-point evaluation, assembled functionally
-        # (stack instead of in-place writes) so it traces and differentiates.
+        return self._evaluate_cyl_forces_backend(
+            xp, ((dr_dx, dtheta_dx, dphi_dx),), R, z, phi, t
+        )[0]
+
+    def _evaluate_cyl_forces_backend(self, xp, factors, R, z, phi, t):
+        """Backend path of _evaluate_cyl_force: the force component of each
+        chain-rule triple (dr_dx, dtheta_dx, dphi_dx) in ``factors``, all from
+        ONE spherical-force evaluation (_cyl_forces asks for three at once).
+        Assembled functionally so it traces and differentiates."""
         # Anchor every coordinate AND chain-rule factor on one device, so a CUDA
         # array coord meeting Python-scalar siblings (which xp.asarray would put
-        # on CPU) does not mix devices. dev is None for numpy -> byte-identical.
-        dev = device_of(R, z, phi, t, dr_dx, dtheta_dx, dphi_dx)
+        # on CPU) does not mix devices.
+        dev = device_of(R, z, phi, t, *[f for fac in factors for f in fac])
         R = asarray_on_device(xp, R, dev) * 1.0
         z = asarray_on_device(xp, z, dev) * 1.0
         phi = asarray_on_device(xp, phi, dev) * 1.0
         t = asarray_on_device(xp, t, dev) * 1.0
-        dr_dx = asarray_on_device(xp, dr_dx, dev) * 1.0
-        dtheta_dx = asarray_on_device(xp, dtheta_dx, dev) * 1.0
-        dphi_dx = asarray_on_device(xp, dphi_dx, dev) * 1.0
+        factors = [
+            tuple(asarray_on_device(xp, f, dev) * 1.0 for f in fac) for fac in factors
+        ]
         shape = numpy.broadcast_shapes(
             tuple(R.shape), tuple(z.shape), tuple(phi.shape), tuple(t.shape)
         )
@@ -101,22 +108,57 @@ class SphericalHarmonicPotentialMixin:
             dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
                 R, z, phi, t=t
             )
-            return dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
+            return [
+                dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
+                for dr_dx, dtheta_dx, dphi_dx in factors
+            ]
+
         # Vectorized: flatten the broadcast coords to 1-D, evaluate ALL points in
         # one batched _compute_spher_forces_at_point call (no per-point Python loop
-        # -> no O(P) XLA graph), apply the chain-rule factors, reshape back.
-        R = xp.reshape(xp.broadcast_to(R, shape), (-1,))
-        z = xp.reshape(xp.broadcast_to(z, shape), (-1,))
-        phi = xp.reshape(xp.broadcast_to(phi, shape), (-1,))
-        t = xp.reshape(xp.broadcast_to(t, shape), (-1,))
-        dr_dx = xp.reshape(xp.broadcast_to(dr_dx, shape), (-1,))
-        dtheta_dx = xp.reshape(xp.broadcast_to(dtheta_dx, shape), (-1,))
-        dphi_dx = xp.reshape(xp.broadcast_to(dphi_dx, shape), (-1,))
+        # -> no O(P) XLA graph), apply the chain-rule factors, reshape back. A
+        # scalar t stays scalar: time-dependent coefficients are interpolated
+        # once, not once per point.
+        def flat(a):
+            return xp.reshape(xp.broadcast_to(a, shape), (-1,))
+
+        R, z, phi = flat(R), flat(z), flat(phi)
+        if t.ndim > 0:
+            t = flat(t)
         dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
             R, z, phi, t=t
         )
-        force = dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
-        return xp.reshape(force, shape)
+        return [
+            xp.reshape(
+                flat(dr_dx) * dPhi_dr
+                + flat(dtheta_dx) * dPhi_dtheta
+                + dPhi_dphi * flat(dphi_dx),
+                shape,
+            )
+            for dr_dx, dtheta_dx, dphi_dx in factors
+        ]
+
+    def _cyl_forces(self, R, z, phi=0.0, t=0.0):
+        """(Rforce, phitorque, zforce) at once: on a backend, from one
+        spherical-force evaluation (numpy keeps its per-point cache)"""
+        if not self.isNonAxi and phi is None:
+            phi = 0.0
+        xp = get_namespace(R, z, phi)
+        if xp is numpy:
+            return (
+                self._Rforce(R, z, phi=phi, t=t),
+                self._phitorque(R, z, phi=phi, t=t),
+                self._zforce(R, z, phi=phi, t=t),
+            )
+        r, theta, phi = coords.cyl_to_spher(R, z, phi)
+        factors = (
+            (xp.divide(R, r), xp.divide(z, r**2), 0),  # R
+            (0, 0, 1),  # phi
+            (xp.divide(z, r), xp.divide(-R, r**2), 0),  # z
+        )
+        return tuple(
+            match_input_dtype(f, R, z, phi, t)
+            for f in self._evaluate_cyl_forces_backend(xp, factors, R, z, phi, t)
+        )
 
     def _Rforce(self, R, z, phi=0, t=0):
         if not self.isNonAxi and phi is None:

@@ -63,7 +63,19 @@ at release.]
 
 - [slot 04]
 
-- [slot 05]
+- In-backend orbit integration (diffrax, torchode) asks each potential for its
+  three cylindrical forces at once. SCFPotential and
+  MultipoleExpansionPotential compute them from one spherical-force
+  evaluation instead of three, and RotateAndTiltWrapperPotential from one
+  rectangular force instead of one per component (a wrapped SCF made nine
+  spherical-force evaluations per step). A time-dependent SCFPotential interpolates its
+  coefficients once per evaluation time instead of once per point, its
+  backend force path shares one Gegenbauer recurrence and contracts over the
+  radial order first, and the traced Gegenbauer polynomials take their
+  x-derivative from dC_n^a/dx = 2a C_{n-1}^{a+1} instead of reverse mode
+  through the recurrence. Integrating 100 orbits through a moving,
+  time-dependent SCF with jax: about 11x faster, and 30x faster with
+  gradients. numpy outputs are unchanged.
 
 - [slot 06]
 

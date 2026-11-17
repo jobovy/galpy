@@ -1540,3 +1540,53 @@ def test_one_differentiated_coefficient_array_with_a_numpy_other(
     assert numpy.fabs(g - fd) < 1e-7 * numpy.fabs(fd), (
         f"The derivative of an SCF with respect to a backend {which} does not agree with finite differences on {backend_name}"
     )
+
+
+###############################################################################
+# All three cylindrical forces at once (Potential._evaluate_cyl_forces, which
+# the in-backend orbit integration calls): one spherical-force evaluation gives
+# exactly the separate Rforce, phitorque and zforce, for array and scalar
+# points, static and time-dependent, at a scalar time (the coefficients
+# interpolated once for all points) and at per-point times. Array points at a
+# scalar time also match numpy point by point.
+###############################################################################
+@pytest.mark.parametrize("name,pot", CASES + TDEP_CASES, ids=CASE_IDS + TDEP_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_cyl_forces_match_separate(backend_name, name, pot):
+    import importlib
+
+    potmod = importlib.import_module("galpy.potential.Potential")
+    separate = (
+        potmod._evaluateRforces,
+        potmod._evaluatephitorques,
+        potmod._evaluatezforces,
+    )
+    tarr = numpy.array([0.37, 1.83, 3.14])
+    for R, z, phi, t in (
+        (_RS, _ZS, _PHIS, 1.83),
+        (_RS, _ZS, _PHIS, tarr),
+        (_R0, _Z0, _PHI0, 1.83),
+    ):
+        R, z, phi, t = (_asarray(backend_name, v) for v in (R, z, phi, t))
+        got = potmod._evaluate_cyl_forces(pot, R, z, phi=phi, t=t)
+        for g, f in zip(got, separate):
+            numpy.testing.assert_array_equal(
+                as_numpy(g), as_numpy(f(pot, R, z, phi=phi, t=t))
+            )
+        if not pot.isNonAxi:  # phi may be left out
+            got = potmod._evaluate_cyl_forces(pot, R, z, t=t)
+            for g, f in zip(got, separate):
+                numpy.testing.assert_array_equal(
+                    as_numpy(g), as_numpy(f(pot, R, z, t=t))
+                )
+    # array points at one scalar time against numpy, point by point
+    got = potmod._evaluate_cyl_forces(
+        pot,
+        _asarray(backend_name, _RS),
+        _asarray(backend_name, _ZS),
+        phi=_asarray(backend_name, _PHIS),
+        t=_asarray(backend_name, 1.83),
+    )
+    for g, f in zip(got, separate):
+        ref = [f(pot, R, z, phi=phi, t=1.83) for R, z, phi in zip(_RS, _ZS, _PHIS)]
+        numpy.testing.assert_allclose(as_numpy(g), ref, rtol=1e-11, atol=1e-13)
