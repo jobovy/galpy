@@ -472,13 +472,12 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _evalVspline(self, v, k):
         # same semantics as evalVspline in C: tables cover v in [0, pi/2];
-        # V is even and V' odd about pi/2 (z-symmetry)
-        sgn = 1.0
-        if v > numpy.pi / 2.0:
-            v = numpy.pi - v
-            if k == 1:
-                sgn = -1.0
-        return sgn * self._splines[3 + k](numpy.clip(v, 0.0, numpy.pi / 2.0))
+        # V is even and V' odd about pi/2 (z-symmetry); for one v or an array
+        over = v > numpy.pi / 2.0
+        sgn = numpy.where(over, -1.0, 1.0) if k == 1 else 1.0
+        return sgn * self._splines[3 + k](
+            numpy.clip(numpy.where(over, numpy.pi - v, v), 0.0, numpy.pi / 2.0)
+        )
 
     def _U(self, u):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""

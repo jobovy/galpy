@@ -8647,6 +8647,37 @@ def test_OblateStaeckelWrapperPotential_ntab_axis_nodes():
     return None
 
 
+def test_OblateStaeckelWrapperPotential_ntab_arrays():
+    # The tabulated wrapper evaluates arrays of positions, on both sides of
+    # the midplane, as it does single ones
+    from galpy.potential import (
+        MWPotential2014,
+        OblateStaeckelWrapperPotential,
+        evaluatePotentials,
+        evaluateR2derivs,
+        evaluateRforces,
+        evaluatez2derivs,
+        evaluatezforces,
+    )
+
+    tab = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45, ntab=100)
+    R = numpy.array([0.3, 0.8, 1.2, 2.0])
+    z = numpy.array([0.2, -0.5, 0.0, -1.1])
+    for func in (
+        evaluatePotentials,
+        evaluateRforces,
+        evaluatezforces,
+        evaluateR2derivs,
+        evaluatez2derivs,
+    ):
+        many = func(tab, R, z, use_physical=False)
+        one = numpy.array([func(tab, r, zz, use_physical=False) for r, zz in zip(R, z)])
+        assert numpy.amax(numpy.fabs(many - one)) < 1e-14 * numpy.amax(
+            numpy.fabs(one)
+        ), f"The tabulated Staeckel wrapper's {func.__name__} differs for arrays"
+    return None
+
+
 def test_OblateStaeckelWrapperPotential_againstKuzmin():
     # Test that wrapping a KuzminDiskPotential as an oblateStaeckelWrapper
     # behaves as expected: U(u) = -GM/Delta cosh(u) and V(v) =-GM/Delta|cos(v)|
