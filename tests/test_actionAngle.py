@@ -12747,6 +12747,188 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
     return None
 
 
+def _staeckel_inverse_general_labels(pot, delta, Rinf, Lz, fE, y):
+    # (E, L_z, I_3) of a torus of a general potential's Staeckel models with
+    # focal length delta, at a fraction fE of the way from the circular
+    # orbit's energy to that of the planar orbit with apocentre Rinf and y of
+    # the way from the planar to the shell orbit's third integral, neither of
+    # which depends on the reference curve; from the potential alone
+    from scipy import optimize
+
+    from galpy.potential import evaluatePotentials, rl
+
+    Rc = rl(pot, Lz)
+    Ec = evaluatePotentials(pot, Rc, 0.0) + Lz**2 / 2.0 / Rc**2
+    E = Ec + fE * (evaluatePotentials(pot, Rinf, 0.0) + Lz**2 / 2.0 / Rinf**2 - Ec)
+    Ipl = Lz**2 / 2.0 / delta**2 - E
+    Ish = -optimize.minimize_scalar(
+        lambda u: (
+            -(
+                E * numpy.sinh(u) ** 2
+                - numpy.cosh(u) ** 2
+                * evaluatePotentials(pot, delta * numpy.sinh(u), 0.0)
+                - Lz**2 / 2.0 / delta**2 / numpy.sinh(u) ** 2
+            )
+        ),
+        bounds=(0.1, 4.0),
+        method="bounded",
+        options=dict(xatol=1e-12),
+    ).fun
+    return E, Lz, Ipl + y * (Ish - Ipl)
+
+
+def _staeckel_inverse_rule_frequencies(actions, E, Lz, I3):
+    # dE/dJ along a family of tori that each live in their own Staeckel model:
+    # central differences of actions(E, Lz, I3) -> (J_R, J_z) over neighbouring
+    # tori, inverted; returns (Omega_R, Omega_phi, Omega_z)
+    M = numpy.zeros((3, 3))
+    M[2, 2] = 1.0
+    x0 = numpy.array([E, I3, Lz])
+    for k in range(3):
+        xm, xp = x0.copy(), x0.copy()
+        xm[k] -= 1e-4 * numpy.fabs(x0[k])
+        xp[k] += 1e-4 * numpy.fabs(x0[k])
+        M[:2, k] = (
+            numpy.array(actions(xp[0], xp[2], xp[1]))
+            - numpy.array(actions(xm[0], xm[2], xm[1]))
+        ) / (xp[k] - xm[k])
+    N = numpy.linalg.inv(M)
+    return numpy.array([N[0, 0], N[0, 2], N[0, 1]])
+
+
+def test_actionAngleStaeckelInverse_u0_adaptive_tables():
+    # With an adaptive reference curve every (E, L_z) of a family has its own
+    # Staeckel model, and the variation of the model from node to node is
+    # part of the family's derivative tables: the family then converges
+    # between its nodes to the tori of the models that the curve assigns
+    # (without it the actions converge slowly and the frequencies not at
+    # all), and its frequencies are the derivatives of the energy with
+    # respect to the actions along that family of models, which are not those
+    # of each torus's own model
+    import pickle
+
+    from scipy import optimize
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import LogarithmicHaloPotential, evaluatePotentials, rl
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    delta, Rinf = 0.8, 4.0
+
+    def u0fit(E, Lz):
+        # the curve of u0='fit', independently: the harmonic mean of the
+        # pericentre and apocentre of the planar orbit of (E, L_z)
+        phieff = lambda R: evaluatePotentials(lp, R, 0.0) + Lz**2 / 2.0 / R**2
+        Rc = rl(lp, Lz)
+        if E <= phieff(Rc) + 1e-12:
+            return numpy.arcsinh(Rc / delta)
+        Rp = optimize.brentq(lambda R: phieff(R) - E, 1e-3 * Rc, Rc, xtol=1e-14)
+        Ra = optimize.brentq(lambda R: phieff(R) - E, Rc, 100.0 * Rc, xtol=1e-14)
+        return numpy.arcsinh(2.0 / (1.0 / Rp + 1.0 / Ra) / delta)
+
+    def explicit(E, Lz, I3):
+        # the torus of (E, L_z, I_3) in the model that the curve assigns to it
+        aAI = actionAngleStaeckelInverse(
+            pot=lp,
+            delta=delta,
+            u0=u0fit(E, Lz),
+            Es=[E],
+            Lzs=[Lz],
+            I3s=[I3],
+            mm_npt=32,
+        )
+        return aAI, aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+
+    tests = [
+        _staeckel_inverse_general_labels(lp, delta, Rinf, *q)
+        for q in ((1.05, 0.45, 0.55), (0.9, 0.3, 0.8), (1.2, 0.6, 0.3))
+    ]
+    refs = []
+    for E, Lz, I3 in tests:
+        aAI, jr, jz = explicit(E, Lz, I3)
+        Om = _staeckel_inverse_rule_frequencies(
+            lambda *args: explicit(*args)[1:], E, Lz, I3
+        )
+        assert (
+            numpy.amax(numpy.fabs(Om / numpy.array(aAI.Freqs(jr, Lz, jz)) - 1.0)) > 5e-3
+        ), (
+            "The frequencies along the family of models do not differ from "
+            "those of a torus's own model in a general potential"
+        )
+        refs.append((jr, jz, Om))
+    wide = dict(
+        setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=Rinf, mm_npt=32, progressbar=False
+    )
+    fams, errs = [], []
+    for n in (5, 9):
+        fams.append(
+            actionAngleStaeckelInverse(
+                pot=lp, delta=delta, u0="fit", nE=n, nLz=n, nI3=n, **wide
+            )
+        )
+        errs.append(
+            [
+                (
+                    numpy.fabs(fams[-1].Jz(E, Lz, I3) - jz) / (jr + jz + Lz),
+                    numpy.amax(
+                        numpy.fabs(numpy.array(fams[-1].Freqs(jr, Lz, jz)) / Om - 1.0)
+                    ),
+                )
+                for (E, Lz, I3), (jr, jz, Om) in zip(tests, refs)
+            ]
+        )
+    errs = numpy.array(errs)
+    assert numpy.all(errs[1, :, 0] < errs[0, :, 0] / 5.0) and numpy.all(
+        errs[1, :, 0] < 2e-6
+    ), "The actions of a family with u0='fit' do not converge between nodes"
+    assert numpy.all(errs[1, :, 1] < errs[0, :, 1] / 5.0) and numpy.all(
+        errs[1, :, 1] < 1e-4
+    ), (
+        "The frequencies of a family with u0='fit' do not converge between "
+        "nodes to dE/dJ along the family of models"
+    )
+    # a callable that is the same curve gives the same family, its own
+    # derivatives taken by differences
+    famc = actionAngleStaeckelInverse(
+        pot=lp, delta=delta, u0=u0fit, nE=5, nLz=5, nI3=5, **wide
+    )
+    angler = numpy.linspace(0.05, 6.2, 11)
+    for (E, Lz, I3), (jr, jz, Om) in zip(tests, refs):
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(famc.Freqs(jr, Lz, jz))
+                    / numpy.array(fams[0].Freqs(jr, Lz, jz))
+                    - 1.0
+                )
+            )
+            < 1e-9
+        ), "A callable u0 that is the curve of u0='fit' changes the frequencies"
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(famc(jr, Lz, jz, angler, 1.0, angler[::-1]))
+                    - numpy.array(fams[0](jr, Lz, jz, angler, 1.0, angler[::-1]))
+                )
+            )
+            < 1e-9
+        ), "A callable u0 that is the curve of u0='fit' changes the family"
+    # the family pickles and evaluates identically afterwards
+    pts = [
+        numpy.array([refs[0][0], refs[2][0]]),
+        numpy.array([tests[0][1], tests[2][1]]),
+        numpy.array([refs[0][1], refs[2][1]]),
+        numpy.array([0.3, 2.0]),
+        numpy.array([1.0, 4.0]),
+        numpy.array([2.0, 5.5]),
+    ]
+    again = pickle.loads(pickle.dumps(fams[0]))
+    assert numpy.all(
+        numpy.array(fams[0].xvFreqs(*pts)) == numpy.array(again.xvFreqs(*pts))
+    ), "A pickled family with u0='fit' does not evaluate identically"
+    return None
+
+
 def test_actionAngleStaeckelInverse_target():
     # target= localizes the family's grid on the tori of a set of phase-space
     # points, through the same label relations the node lattice uses: the
