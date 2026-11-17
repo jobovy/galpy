@@ -675,7 +675,7 @@ class actionAngleStaeckel(actionAngle):
         c : bool, optional
             If True, always use C for calculations. Default is False.
         order : int, optional
-            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals (C path). On the pure-Python path this sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, matching C's two order-point halves, and twice that in v), which is machine-converged at the default, so increasing it there has no practical effect. Default is 10.
+            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals. Default is 10.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -742,9 +742,7 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant integrals (C); on the pure-Python path, it sets the mesh of the composite chi-anomaly Gauss-Legendre quadrature (see the class's order).
-        fixed_quad: bool, optional
-            no longer used: the pure-Python path always uses the composite chi-anomaly Gauss-Legendre quadrature, which is machine-converged.
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
 
         Returns
         -------
@@ -847,9 +845,7 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant integrals (C); on the pure-Python path, it sets the mesh of the composite chi-anomaly Gauss-Legendre quadrature (see the class's order).
-        fixed_quad: bool, optional
-            no longer used: the pure-Python path always uses the composite chi-anomaly Gauss-Legendre quadrature, which is machine-converged.
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action and frequency integrals.
 
         Returns
         -------
@@ -1007,9 +1003,7 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant integrals (C); on the pure-Python path, it sets the mesh of the composite chi-anomaly Gauss-Legendre quadrature (see the class's order).
-        fixed_quad: bool, optional
-            no longer used: the pure-Python path always uses the composite chi-anomaly Gauss-Legendre quadrature, which is machine-converged.
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals.
 
         Returns
         -------
@@ -1299,275 +1293,6 @@ class actionAngleStaeckel(actionAngle):
                 R, vR, vT, z, vz, _staeckel_pot(self._pot), delta
             )
             return (umin, umax, vmin)
-
-
-class actionAngleStaeckelSingle(actionAngle):
-    """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation for a single phase-space point (deprecated: use actionAngleStaeckel with c=False)"""
-
-    def __init__(self, *args, **kwargs):
-        """
-        Initialize an actionAngleStaeckelSingle object
-
-        Parameters
-        ----------
-        *args : tuple
-            Either:
-            a) R,vR,vT,z,vz[,phi]: floats, phase-space value for a single object (phi is optional) (each can be a Quantity)
-            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        pot: Potential or a combined potential formed using addition (pot1+pot2+…)
-            Potential to use
-        delta: float
-            focal length of confocal coordinate system
-
-        Notes
-        -----
-        - 2012-11-27 - Written - Bovy (IAS)
-        - 2026-11-16 - Deprecated; now evaluates actionAngleStaeckel's vectorized pure-Python implementation - Bovy (UofT)
-        """
-        warnings.warn(
-            "actionAngleStaeckelSingle is deprecated and will be removed in "
-            "versions after 1.13.x; use actionAngleStaeckel with c=False, "
-            "which evaluates the same pure-Python implementation for any "
-            "number of phase-space points",
-            DeprecationWarning,
-        )
-        self._parse_eval_args(*args, _noOrbUnitsCheck=True, **kwargs)
-        self._R = self._eval_R
-        self._vR = self._eval_vR
-        self._vT = self._eval_vT
-        self._z = self._eval_z
-        self._vz = self._eval_vz
-        if not "pot" in kwargs:  # pragma: no cover
-            raise OSError("Must specify pot= for actionAngleStaeckelSingle")
-        self._pot = _staeckel_pot(kwargs["pot"])
-        if not "delta" in kwargs:  # pragma: no cover
-            raise OSError("Must specify delta= for actionAngleStaeckel")
-        self._delta = kwargs["delta"]
-        self._s, self._umin, self._umax, self._vmin = _staeckel_prep(
-            *(
-                numpy.atleast_1d(numpy.asarray(x, dtype=float))
-                for x in (self._R, self._vR, self._vT, self._z, self._vz)
-            ),
-            self._pot,
-            self._delta,
-        )
-        return None
-
-    def angleR(self, **kwargs):
-        raise NotImplementedError(
-            "'angleR' not yet implemented for Staeckel approximation"
-        )
-
-    def TR(self, **kwargs):
-        raise NotImplementedError("'TR' not implemented yet for Staeckel approximation")
-
-    def Tphi(self, **kwargs):
-        raise NotImplementedError(
-            "'Tphi' not implemented yet for Staeckel approxximation"
-        )
-
-    def I(self, **kwargs):
-        raise NotImplementedError("'I' not implemented yet for Staeckel approxximation")
-
-    def Jphi(self):  # pragma: no cover
-        return self._R * self._vT
-
-    def _jr_jz(self, order):
-        return _staeckel_jr_jz(
-            self._s,
-            self._umin,
-            self._umax,
-            self._vmin,
-            self._pot,
-            self._delta,
-            order,
-        )
-
-    def _jacobian(self, order):
-        return _staeckel_jacobian(
-            self._s,
-            self._umin,
-            self._umax,
-            self._vmin,
-            self._pot,
-            self._delta,
-            order,
-        )
-
-    def JR(self, **kwargs):
-        """
-        Calculate the radial action
-
-        Parameters
-        ----------
-        order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
-
-        Returns
-        -------
-        float
-            J_R(R,vT,vT)/ro/vc
-
-        Notes
-        -----
-        - 2012-11-27 - Written - Bovy (IAS)
-        """
-        return self._jr_jz(kwargs.get("order", 10))[0][0]
-
-    def Jz(self, **kwargs):
-        """
-        Calculate the vertical action
-
-        Parameters
-        ----------
-        order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, twice that in v); machine-converged at the default. Default is 10.
-
-        Returns
-        -------
-        float
-            J_z(R,vT,vT)/ro/vc
-
-        Notes
-        -----
-        - 2012-11-27 - Written - Bovy (IAS)
-        """
-        return self._jr_jz(kwargs.get("order", 10))[1][0]
-
-    def calcEL(self, **kwargs):
-        """
-        Calculate the energy and angular momentum.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the energy and angular momentum.
-
-        Notes
-        -----
-        - 2012-11-27 - Written - Bovy (IAS)
-        """
-        return (self._s["E"][0], self._s["Lz"][0])
-
-    def calcUminUmax(self, **kwargs):
-        """
-        Calculate the u turning points
-
-        Returns
-        -------
-        tuple
-            (umin, umax)
-
-        Notes
-        -----
-        - 2012-11-27 - Written - Bovy (IAS)
-        """
-        return (self._umin[0], self._umax[0])
-
-    def calcVmin(self, **kwargs):
-        """
-        Calculate the v turning point
-
-        Returns
-        -------
-        float
-            vmin
-
-        Notes
-        -----
-        - 2012-11-28 - Written - Bovy (IAS)
-        """
-        return self._vmin[0]
-
-    def calcdJR(self, order=10):
-        """
-        Calculate the derivatives of the radial action with respect to E, Lz, and I3.
-
-        Parameters
-        ----------
-        order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
-
-        Returns
-        -------
-        tuple
-            (djrdE, djrdLz, djrdI3)
-        """
-        return tuple(d[0] for d in self._jacobian(order)[:3])
-
-    def calcdJz(self, order=10):
-        """
-        Calculate the derivatives of the vertical action with respect to E, Lz, and I3.
-
-        Parameters
-        ----------
-        order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
-
-        Returns
-        -------
-        tuple
-            (djzdE, djzdLz, djzdI3)
-        """
-        return tuple(d[0] for d in self._jacobian(order)[3:])
-
-    def calcFreqs(self, order=10):
-        """
-        Calculate the frequencies Omegar, Omegaphi, Omegaz and the dI3/dJ
-        derivatives in the Staeckel approximation.
-
-        Parameters
-        ----------
-        order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
-
-        Returns
-        -------
-        tuple
-            (Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, detA), all NaN except detA for a circular or planar orbit (for which detA = 0)
-        """
-        djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = (
-            d[0] for d in self._jacobian(order)
-        )
-        detA = djrdE * djzdI3 - djzdE * djrdI3
-        if detA == 0.0:
-            nan = numpy.nan
-            return (nan, nan, nan, nan, nan, nan, detA)
-        Omegar = djzdI3 / detA
-        Omegaz = -djrdI3 / detA
-        Omegaphi = (djrdI3 * djzdLz - djzdI3 * djrdLz) / detA
-        dI3dJR = -djzdE / detA
-        dI3dJz = djrdE / detA
-        dI3dLz = -(djrdE * djzdLz - djzdE * djrdLz) / detA
-        return (Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, detA)
-
-    def calcAngles(self, order=10):
-        """
-        Calculate the angles angler, anglephi, anglez in the Staeckel
-        approximation.
-
-        Parameters
-        ----------
-        order : int, optional
-            Sets the number of 10-node panels of the composite chi-anomaly quadrature; machine-converged at the default. Default is 10.
-
-        Returns
-        -------
-        tuple
-            (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez), anglephi without the azimuth phi; the angles are zero for a circular or planar orbit
-        """
-        Omegar, Omegaphi, Omegaz = self.calcFreqs(order=order)[:3]
-        angler, anglephi, anglez = _staeckel_angles(
-            self._s,
-            self._umin,
-            self._umax,
-            self._vmin,
-            self._pot,
-            self._delta,
-            order,
-            self._jacobian(order),
-        )
-        return (Omegar, Omegaphi, Omegaz, angler[0], anglephi[0], anglez[0])
 
 
 def calcELStaeckel(R, vR, vT, z, vz, pot, vc=1.0, ro=1.0):
