@@ -12735,13 +12735,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
         "The symplectic defect of a family with an adaptive reference curve is "
         "above the floor: %g vs %g" % (defect, floor)
     )
-    # guards: an adaptive curve needs the family, and the strings are the rules
-    with pytest.raises(TypeError, match="requires setup_interp"):
-        actionAngleStaeckelInverse(pot=pot, u0="fit", Es=[E], Lzs=[Lz], I3s=[I3])
-    with pytest.raises(TypeError, match="requires setup_interp"):
-        actionAngleStaeckelInverse(
-            pot=pot, u0=lambda E, Lz: 1.0, Es=[E], Lzs=[Lz], I3s=[I3]
-        )
+    # guard: the strings are the rules
     with pytest.raises(ValueError, match="string values u0= accepts"):
         actionAngleStaeckelInverse(pot=pot, u0="midplane", **grid)
     return None
@@ -13117,6 +13111,127 @@ def test_actionAngleStaeckelInverse_u0_rules():
     assert numpy.all(
         numpy.array(fams[0].xvFreqs(*pts)) == numpy.array(again.xvFreqs(*pts))
     ), "A pickled family with u0='torus' does not evaluate identically"
+    return None
+
+
+def test_actionAngleStaeckelInverse_u0_rules_explicit():
+    # Explicit tori accept a rule for the reference curve: such a torus is
+    # the torus that the rule's family has at its integrals, with that
+    # family's frequencies (dE/dJ along the rule) and angles, so that a
+    # family converges between its nodes to the explicit tori of its rule
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    angler = numpy.linspace(0.05, 6.2, 11)
+    # an exact Staeckel potential: no rule changes an explicit torus
+    pot = _staeckel_inverse_potential()
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    one = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=48)
+    jr, jz = one.JR(E, Lz, I3), one.Jz(E, Lz, I3)
+    for u0 in ("torus", "fit", "shell", lambda E, Lz, I3: 1.0 + 0.1 * numpy.tanh(I3)):
+        aAI = actionAngleStaeckelInverse(
+            pot=pot, u0=u0, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=48
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(aAI(jr, Lz, jz, angler, 1.0, 2.0))
+                    - numpy.array(one(jr, Lz, jz, angler, 1.0, 2.0))
+                )
+            )
+            < 1e-9
+            and numpy.amax(
+                numpy.fabs(
+                    numpy.array(aAI.Freqs(jr, Lz, jz)) / one.Freqs(jr, Lz, jz) - 1.0
+                )
+            )
+            < 1e-9
+        ), "A rule for the reference curve changes a torus of a Staeckel potential"
+    # a general potential
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    delta, Rinf = 0.8, 4.0
+
+    def explicit(E, Lz, I3, u0="torus"):
+        aAI = actionAngleStaeckelInverse(
+            pot=lp, delta=delta, u0=u0, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=32
+        )
+        return aAI, aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+
+    # on the planar orbit 'torus' is 'fit'; for an inclined torus the three
+    # built-in rules give three different models (the radial action is the
+    # same in all: U(u) does not depend on the reference curve)
+    E, Lz, I3 = _staeckel_inverse_general_labels(lp, delta, Rinf, 1.05, 0.45, 0.0)
+    aT, jr, _ = explicit(E, Lz, I3)
+    aF = explicit(E, Lz, I3, u0="fit")[0]
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(aT(jr, Lz, 0.0, angler, 1.0, 2.0))
+                - numpy.array(aF(jr, Lz, 0.0, angler, 1.0, 2.0))
+            )
+        )
+        < 1e-12
+    ), "u0='torus' is not u0='fit' for a planar orbit"
+    tests = [
+        _staeckel_inverse_general_labels(lp, delta, Rinf, *q)
+        for q in ((1.05, 0.45, 0.55), (0.9, 0.3, 0.8), (1.2, 0.6, 0.3))
+    ]
+    (_, jrT, jzT), (_, jrF, jzF), (_, jrS, jzS) = (
+        explicit(*tests[1], u0=u0) for u0 in ("torus", "fit", "shell")
+    )
+    assert numpy.fabs(jrT - jrF) < 1e-13 and numpy.fabs(jrT - jrS) < 1e-13, (
+        "The radial action depends on the reference curve"
+    )
+    assert jzF < jzT - 1e-4 and jzT < jzS - 1e-4, (
+        "The built-in rules do not give an inclined torus different models"
+    )
+    fam = actionAngleStaeckelInverse(
+        pot=lp,
+        delta=delta,
+        u0="torus",
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.5,
+        Rinf=Rinf,
+        nE=9,
+        nLz=9,
+        nI3=9,
+        mm_npt=32,
+        progressbar=False,
+    )
+    for E, Lz, I3 in tests:
+        aAI, jr, jz = explicit(E, Lz, I3)
+        Om = numpy.array(aAI.Freqs(jr, Lz, jz))
+        # the frequencies are dE/dJ along the rule
+        Omfd = _staeckel_inverse_rule_frequencies(
+            lambda *args: explicit(*args)[1:], E, Lz, I3
+        )
+        assert numpy.amax(numpy.fabs(Om / Omfd - 1.0)) < 1e-7, (
+            "The frequencies of a torus set up with a rule are not dE/dJ along the rule"
+        )
+        # the mirror torus
+        aAm = explicit(E, -Lz, I3)[0]
+        assert (
+            numpy.amax(
+                numpy.fabs(numpy.array(aAm.Freqs(jr, -Lz, jz)) / Om - [1.0, -1.0, 1.0])
+            )
+            < 1e-12
+        ), "The frequencies of a torus set up with a rule do not mirror with L_z"
+        # the family of the same rule holds this torus between its nodes
+        assert (
+            numpy.amax(numpy.fabs(numpy.array(fam.Freqs(jr, Lz, jz)) / Om - 1.0)) < 1e-4
+            and numpy.amax(
+                numpy.fabs(
+                    numpy.array(fam(jr, Lz, jz, angler, 1.0, angler[::-1]))
+                    - numpy.array(aAI(jr, Lz, jz, angler, 1.0, angler[::-1]))
+                )[:5]
+            )
+            < 3e-4
+        ), "A family with u0='torus' does not converge to the rule's explicit tori"
+    # the second-order tables of a torus set up with a rule are not available
+    # (they would need the model's second derivatives along the rule)
+    with pytest.raises(NotImplementedError, match="second-order tables"):
+        aAI._quadratic_node(0)
     return None
 
 

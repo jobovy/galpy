@@ -290,9 +290,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             whose curve R_0 = delta sinh(u0) is where the Staeckel
             approximation of a general potential is most accurate. A number
             requires delta= and cannot be given with a potential that
-            supplies its own focal length. A rule gives every torus of an
-            interpolated family its own reference curve, so that each torus
-            is a torus of its own Staeckel model. 'torus', the rule to
+            supplies its own focal length. A rule gives every torus, of an
+            interpolated family or set up explicitly, its own reference
+            curve, so that each torus is a torus of its own Staeckel model
+            (without u0=, the explicit tori of a general potential share
+            the wrapper's default curve, which crosses the midplane at R =
+            1 wherever the torus lies: pass u0='torus'). 'torus', the rule to
             prefer, places the curve at the harmonic mean of the radii at
             which the torus's own inner and outer turning spheroids cross
             the midplane: it weights the inner turning point, where a
@@ -306,17 +309,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             third positional parameter without a default) is the user's own
             rule, which has to be smooth and, with three arguments, the
             same for every I_3 at the circular orbit's energy.
-            The variation of the Staeckel model from node to node is part
-            of the family's derivative tables, so that the family converges
+            The variation of the Staeckel model from torus to torus is
+            part of the derivative tables, so that a family converges
             between its nodes, at the interpolation's order, to the tori
-            of the models that the rule assigns; its frequencies are the
-            derivatives of the energy with respect to the actions along
-            that family of models, which differ from those of each torus's
-            own Staeckel model by a term of the order of the potential's
-            departure from Staeckel form (none for a Staeckel potential).
+            of the models that the rule assigns, which are the tori that
+            the same rule sets up explicitly; the frequencies and the
+            angles are those of that family of models (the frequencies are
+            the derivatives of the energy with respect to the actions along
+            it), which differ from those of each torus's own Staeckel model
+            by a term of the order of the potential's departure from
+            Staeckel form (none for a Staeckel potential; pass the rule's
+            u0 as a number to set up a torus in its own model alone).
             The reference curve is construction-only (the map's
             (R, z) <-> (u, v) uses the focal length alone), so a rule costs
-            nothing at evaluation; requires setup_interp=True.
+            nothing at evaluation.
         target : Orbit or array_like, optional
             Localize the interpolation grid on the tori of a set of
             phase-space points: an Orbit (possibly an array of orbits, or
@@ -352,12 +358,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if pot is None:
             raise OSError("Must specify pot= for actionAngleStaeckelInverse")
         self._setup_staeckel(_check_potential_list_and_deprecate(pot), delta, u0)
-        if self._adaptive and not setup_interp:
-            raise TypeError(
-                "a rule for the reference curve (a callable u0 or u0='torus', "
-                "'fit' or 'shell') builds an interpolated family and requires "
-                "setup_interp=True"
-            )
         self._target = None if target is None else _parse_target(target)
         self._target_pad, self._target_minwidth = target_pad, target_minwidth
         if self._target is not None and not setup_interp:
@@ -1663,6 +1663,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         X_{J_i J_j} = [N^T X_{..} N]_{ij} + sum_a X_a alpha_{a,ij}; a
         degenerate libration's half-width and map have no derivatives, as
         in _explicit_tables"""
+        if self._adaptive:
+            raise NotImplementedError(
+                "the second-order tables of a torus set up with a rule for its "
+                "reference curve (u0='torus', 'fit', 'shell' or a callable) are "
+                "not available: they need the second derivatives of the Staeckel "
+                "model along the rule; set the torus up with the rule's u0 as a "
+                "number for those of its own Staeckel model"
+            )
         N = self._Ns[ii]
         idx = numpy.array([[0, 1, 2], [1, 3, 4], [2, 4, 5]])
 
@@ -1747,15 +1755,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._d2Dmvs = numpy.zeros((ntori, self._nptv, 6))
         perr_u, perr_v = numpy.empty(ntori), numpy.empty(ntori)
         for ii in _progress(range(ntori), "node tables", self._progressbar):
-            with self._in_chart(self._Es[ii], self._Lzs[ii]):
+            with self._in_chart(self._Es[ii], self._Lzs[ii], self._I3s[ii]):
                 node = self._node_tables(ii)
                 # the second-order tables make the one-node family
                 # quadratic: an explicit torus then carries the true
-                # derivatives of the map in the actions at its node
-                so = self._second_order_tables(ii, node)
+                # derivatives of the map in the actions at its node (not
+                # for a torus set up with a rule, whose second-order tables
+                # would need the model's second derivatives along the rule:
+                # _quadratic_node)
+                so = None if self._adaptive else self._second_order_tables(ii, node)
             if so is not None:
                 self._d2sups[ii], self._d2Ms[ii] = so["d2sup"], so["d2M"]
                 self._d2Dmus[ii], self._d2Dmvs[ii] = so["d2Dmu"], so["d2Dmv"]
+            if "du0" in node:
+                # a torus set up with a rule for its reference curve is a
+                # torus of the family that the rule defines: its tables
+                # carry the variation of the model along the rule, as a
+                # family's nodes do
+                du0 = self._u0_grad(
+                    self._Es[ii], numpy.fabs(self._Lzs[ii]), self._I3s[ii]
+                ) * numpy.array([1.0, 1.0, numpy.sign(self._Lzs[ii])])
+                M = node["M"].copy()
+                M[1] += node["du0"][0] * du0
+                node["N"] = numpy.linalg.inv(numpy.vstack((M, [0.0, 0.0, 1.0])))
+                node["dsup"][2] += node["du0"][1] * du0
+                node["dDmv"] = node["dDmv"] + node["du0"][2][:, None] * du0[None, :]
             self._jrs[ii], self._jzs[ii] = node["jr"], node["jz"]
             self._Ns[ii] = node["N"]
             self._ucs[ii], self._wus[ii], self._wvs[ii] = (
