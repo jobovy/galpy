@@ -88,7 +88,13 @@ at release.]
   harmonics); the nodes of every family move slightly, and the set-up is
   faster for families with a reference-curve rule.
 
-- [slot 13]
+- ``actionAngleStaeckelInverse``: explicit tori can be set up from their
+  actions (``jrs=``, ``Lzs=``, ``jzs=``), for a fixed reference curve or
+  any rule, including the planar, shell, and circular orbits; the
+  second-order tables of explicit tori are computed only when asked for,
+  which about halves their set-up time; and the u turning points of a
+  torus whose radial libration is split in the Staeckel approximation of
+  a cusped potential are those of the libration around the shell orbit.
 
 - [slot 14]
 
