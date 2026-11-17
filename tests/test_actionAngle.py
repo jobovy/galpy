@@ -2963,6 +2963,10 @@ def test_actionAngleAdiabaticGrid_outsidegrid_c():
     assert numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz, phi)) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
+    # Jz also takes (R,vR,vT,z,vz), without phi
+    assert numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz)) < 10.0**-8.0, (
+        "actionAngleAdiabaticGrid Jz without phi outside of the grid fails"
+    )
     # Also for array
     s = numpy.ones(2)
     js = aA(R, vR, vT, z, vz, phi)
