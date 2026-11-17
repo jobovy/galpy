@@ -15421,3 +15421,44 @@ def test_actionAngleStaeckelInverse_setup_not_kept():
             "few kB per torus"
         )
     return None
+
+
+def test_actionAngleStaeckelInverse_from_actions_many():
+    # The solve for the integrals of tori from their actions is vectorized
+    # over the tori: many tori at once have the requested actions, on the
+    # anomaly grid of the solve and on a finer one of their own, and the
+    # tori without a solution are counted in one error
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    pot = _staeckel_inverse_potential()
+    aAF = _staeckel_inverse_forward()
+    rng = numpy.random.default_rng(4)
+    n = 12
+    jr, jz = rng.uniform(0.01, 0.5, n), rng.uniform(0.01, 0.3, n)
+    Lz = rng.uniform(0.3, 1.2, n) * rng.choice([-1.0, 1.0], n)
+    for kw in ({}, {"mm_npt": 384}):
+        aAI = actionAngleStaeckelInverse(pot=pot, jrs=jr, Lzs=Lz, jzs=jz, **kw)
+        R, vR, vT, z, vz, _ = aAI(jr, Lz, jz, 1.0, 2.0, 3.0)
+        jrf, Lzf, jzf = aAF(R, vR, vT, z, vz)
+        assert (
+            numpy.amax(numpy.fabs(jrf - jr)) < 1e-8
+            and numpy.amax(numpy.fabs(jzf - jz)) < 1e-8
+            and numpy.amax(numpy.fabs(Lzf - Lz)) < 1e-10
+        ), f"Tori set up together from their actions do not have them ({kw})"
+        # what the solve tabulates is not kept: a pickle holds the tori's
+        # tables, a few kB per torus
+        assert kw or len(pickle.dumps(aAI)) < 2**16 + n * 2**13
+    with pytest.raises(ValueError, match="of 2 of the 3 tori"):
+        actionAngleStaeckelInverse(
+            pot=pot, jrs=[1e9, 0.1, 2e9], Lzs=[0.9, 0.9, 0.9], jzs=[0.1, 0.1, 0.1]
+        )
+    with pytest.raises(ValueError, match="of 1 of the 1 tori"):
+        actionAngleStaeckelInverse(pot=pot, jrs=[1e9], Lzs=[0.9], jzs=[0.1], mm_npt=48)
+    # the circular orbit, with a rule for the reference curve
+    circ = actionAngleStaeckelInverse(
+        pot=pot, u0="torus", jrs=[0.0], Lzs=[0.8], jzs=[0.0]
+    )
+    assert circ.in_domain(0.0, 0.8, 0.0)
+    return None
