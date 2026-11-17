@@ -2301,6 +2301,7 @@ def test_bovy14_sampleA(bovy14_setup):
         "Sample's vertical frequency at given radial frequency is not as expected"
     )
     # Sanity check w/ time
+    numpy.random.seed(1)
     AA = sdf_bovy14.sample(n=10000, returnaAdt=True)
     daperp = numpy.sqrt(
         numpy.sum(
@@ -2309,13 +2310,39 @@ def test_bovy14_sampleA(bovy14_setup):
         )
     )
     indx = (daperp > 0.24) * (daperp < 0.26)
+    # within three standard errors of the mean in the window (the statistic
+    # scatters by ~1.5% from draw to draw, so a fixed 1% failed for 3 to 5 of
+    # 8 seeds, with the old and the new frequency sampler alike)
+    se = numpy.std(AA[2][indx]) / numpy.sqrt(numpy.sum(indx))
     assert (
-        numpy.fabs(
-            (numpy.mean(AA[2][indx]) - sdf_bovy14.meantdAngle(0.25))
-            / numpy.mean(AA[2][indx])
-        )
-        < 10.0**-2.0
+        numpy.fabs(numpy.mean(AA[2][indx]) - sdf_bovy14.meantdAngle(0.25)) < 3.0 * se
     ), "mean stripping time along sample not as expected"
+    return None
+
+
+def test_bovy14_sample_frequency_offset(bovy14_setup):
+    # the frequency offset along the largest eigenvalue, drawn by linear
+    # inverse-CDF sampling of its tilted Gaussian p(O) ~ O exp(-(O - mO)^2 /
+    # (2 sig)) on O > 0, has that distribution's mean and dispersion
+    from scipy.integrate import trapezoid
+
+    sdf = bovy14_setup
+    numpy.random.seed(2)
+    nsamp = 20000
+    Om, _, _ = sdf._sample_aAt(nsamp)
+    rot = sdf._sigomatrixEig[1][:, sdf._sigomatrixEigsortIndx]
+    dO1 = (rot.T @ (Om - sdf._progenitor_Omega[:, None]))[2] * sdf._sigMeanSign
+    mO, sig = sdf._meandO, sdf._sortedSigOEig[2]
+    O = numpy.linspace(1e-8, mO + 12.0 * numpy.sqrt(sig), 20001)
+    p = O * numpy.exp(-0.5 * (O - mO) ** 2.0 / sig)
+    mean = trapezoid(O * p, O) / trapezoid(p, O)
+    std = numpy.sqrt(trapezoid((O - mean) ** 2.0 * p, O) / trapezoid(p, O))
+    assert numpy.fabs(numpy.mean(dO1) - mean) < 3.0 * std / numpy.sqrt(nsamp), (
+        "The mean of the sampled frequency offsets is not that of their distribution"
+    )
+    assert numpy.fabs(numpy.std(dO1) - std) < 0.02 * std, (
+        "The dispersion of the sampled frequency offsets is not that of their distribution"
+    )
     return None
 
 
