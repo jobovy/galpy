@@ -5290,12 +5290,10 @@ def _is_diffrax_aA(aA):
 
 def _untraced_diffrax_aA(aA, *inputs):
     """A diffrax aA whose solves at ``inputs`` nothing can reverse-differentiate."""
-    from ..orbit.Orbits import _pot_has_traced_param
-
     return (
         _is_diffrax_aA(aA)
         and not under_trace(*inputs)
-        and not _pot_has_traced_param(getattr(aA, "_pot", None))
+        and param_grad_array(getattr(aA, "_pot", None)) is None
     )
 
 

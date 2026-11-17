@@ -556,6 +556,59 @@ def test_forced_backend_caches_are_not_parameters(backend_name):
         assert param_grad_array([PlummerPotential(amp=1.0, b=b)]) is b
 
 
+@pytest.mark.skipif(torch is None, reason="needs torch")
+def test_param_grad_array_sees_what_functions_capture():
+    # a parameter that a potential holds only through a function it was given
+    # (closed over, a default, a keyword-only default, a partial's argument, a
+    # bound method's object) is found; a function closing over numpy values
+    # or over the object holding it is not a parameter, and the scan ends
+    import functools
+
+    from galpy.backend import param_grad_array
+    from galpy.potential import (
+        AnySphericalPotential,
+        HernquistPotential,
+        RotateAndTiltWrapperPotential,
+    )
+
+    s = torch.tensor(0.1, requires_grad=True)
+
+    def kwonly(t, *, a=s):
+        return a * t
+
+    class Holder:
+        def __init__(self, a):
+            self.a = a
+
+        def center(self, t):
+            return self.a * t
+
+    for fn in (
+        lambda t: s * t,
+        lambda t, a=s: a * t,
+        kwonly,
+        functools.partial(lambda t, a: a * t, a=s),
+    ):
+        assert param_grad_array([fn]) is s
+    holder = HernquistPotential(amp=1.0, a=0.5)
+    holder.fn = Holder(s).center
+    assert param_grad_array(holder) is None, (
+        "a bound method's non-galpy object is not scanned"
+    )
+    holder.fn = RotateAndTiltWrapperPotential(
+        pot=HernquistPotential(amp=1.0, a=s), center=[0.1, 0.0, 0.0]
+    )._evaluate
+    assert param_grad_array(holder) is s, "a bound galpy method's object is scanned"
+    pot = AnySphericalPotential(dens=lambda r: 0.64 / r / (1 + r) ** 3)
+    pot.fn = lambda t: pot._amp * t  # closes over its own holder
+    assert param_grad_array(pot) is None
+    assert param_grad_array(pot, any_backend=True) is None
+    assert param_grad_array([lambda t: torch.tensor(0.1) * t], any_backend=True) is None
+    c = torch.tensor(0.1)
+    assert param_grad_array([lambda t: c * t]) is None
+    assert param_grad_array([lambda t: c * t], any_backend=True) is c
+
+
 @pytest.mark.parametrize("method", METHOD_IDS)
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_param_grad_combined_potential_at_float_coordinates(backend_name, method):

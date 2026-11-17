@@ -1494,3 +1494,49 @@ def test_scf_coeffs_grad_wrt_scale_and_density_param(backend_name, kind, param, 
     for ad in ads:
         # measured <= 6e-12 relative
         assert numpy.fabs(ad - fd) < 1e-9 * numpy.fabs(fd), (ad, fd)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("timedep", [False, True])
+@pytest.mark.parametrize("which", ["Acos", "Asin"])
+def test_one_differentiated_coefficient_array_with_a_numpy_other(
+    backend_name, timedep, which
+):
+    # A traced (jax.jit) or differentiated (torch) Acos or Asin next to a numpy
+    # other one: the numpy one joins its backend, so the potential builds and
+    # matches numpy, with a derivative that agrees with finite differences
+    from galpy.potential import evaluateRforces
+
+    A = numpy.zeros((2, 3, 3))
+    A[0, 0, 0] = 0.02
+    A[0, 2, 2] = 0.004
+    A[0, 2, 1] = 0.001
+    tgrid = numpy.linspace(0.0, 1.0, 5)
+    if timedep:
+        A = numpy.repeat(A[None], len(tgrid), axis=0) * (
+            1.0 + 0.1 * tgrid[:, None, None, None]
+        )
+
+    def force(s, xp):
+        coeffs = {"Acos": A, "Asin": 0.5 * A}
+        coeffs[which] = xp.asarray(coeffs[which]) * (1.0 + s)
+        kw = {"tgrid": tgrid} if timedep else {}
+        pot = SCFPotential(a=0.3, **coeffs, **kw)
+        return evaluateRforces(pot, 1.5, 0.1, phi=0.3, t=0.4)
+
+    want = float(force(0.01, numpy))
+    fd = (float(force(0.01 + 1e-6, numpy)) - float(force(0.01 - 1e-6, numpy))) / 2e-6
+    if backend_name == "jax":
+        got = float(jax.jit(lambda s: force(s, jnp))(0.01))
+        g = float(jax.grad(lambda s: force(s, jnp))(0.01))
+    else:
+        s = torch.tensor(0.01, dtype=torch.float64, requires_grad=True)
+        out = force(s, torch)
+        out.backward()
+        got, g = float(out.detach()), float(s.grad)
+    assert numpy.fabs(got - want) < 1e-14, (
+        f"An SCF with a backend {which} and a numpy other does not match numpy on {backend_name}"
+    )
+    assert numpy.fabs(g - fd) < 1e-7 * numpy.fabs(fd), (
+        f"The derivative of an SCF with respect to a backend {which} does not agree with finite differences on {backend_name}"
+    )

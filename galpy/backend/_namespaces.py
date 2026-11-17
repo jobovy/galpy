@@ -2,7 +2,9 @@
 #   galpy.backend._namespaces: helpers mapping backend names to array
 #   namespaces and small namespace-agnostic utilities.
 ###############################################################################
+import functools
 import sys
+import types
 import warnings
 from functools import singledispatchmethod, wraps
 
@@ -319,19 +321,48 @@ _NOT_A_PARAMETER = frozenset(
 )
 
 
-def param_grad_array(obj, any_backend=False, _depth=0):
+def _captured(fn):
+    """What a function closes over or defaults to (a bound method: its object;
+    a partial: its function and arguments), else None: a parameter of a
+    potential can be hidden in a function it was given (a center= function of
+    time closing over a fit's parameters)"""
+    if isinstance(fn, types.FunctionType):
+        out = []
+        for c in fn.__closure__ or ():
+            try:
+                out.append(c.cell_contents)
+            except ValueError:  # pragma: no cover - a not yet assigned cell
+                pass
+        out.extend(fn.__defaults__ or ())
+        out.extend((fn.__kwdefaults__ or {}).values())
+        return out
+    if isinstance(fn, types.MethodType):
+        return [fn.__func__, fn.__self__]
+    if isinstance(fn, functools.partial):
+        return [fn.func, *fn.args, *fn.keywords.values()]
+    return None
+
+
+def param_grad_array(obj, any_backend=False, _depth=0, _seen=None):
     """A gradient-carrying parameter array of ``obj``, else None.
 
     Scans the attributes of ``obj`` (a galpy object, or a list/tuple/dict of
     them), recursing into the galpy objects it holds -- a wrapper's potential, a
-    df's potential, an actionAngle's -- as ``_jit._object_key`` does. A
-    parameter "carries a gradient" when it is traced (jax tracer, torch under
-    compile) or a grad-tracking torch tensor: a merely-forced backend array does
-    not count, so plain numpy objects keep their path. ``any_backend=True``
-    counts any backend array, for callers that must match the parameters'
-    FRAMEWORK rather than detect a gradient -- but not inside caches (dicts,
-    galpy.backend objects), where only a gradient counts.
+    df's potential, an actionAngle's -- as ``_jit._object_key`` does, and into
+    what the functions it holds capture (a ``center=`` function of time closing
+    over a fit's parameters). A parameter "carries a gradient" when it is
+    traced (jax tracer, torch under compile) or a grad-tracking torch tensor: a
+    merely-forced backend array does not count, so plain numpy objects keep
+    their path. ``any_backend=True`` counts any backend array, for callers that
+    must match the parameters' FRAMEWORK rather than detect a gradient -- but
+    not inside caches (dicts, galpy.backend objects), where only a gradient
+    counts. Each object and function is scanned once (a function that closes
+    over the object holding it is common). Structural, never a force probe:
+    evaluating a force perturbs potentials that cache their last evaluation
+    (it changed streamgapdf's sampled values).
     """
+    if _seen is None:
+        _seen = set()
     if isinstance(obj, (list, tuple)):
         vals = obj
     elif isinstance(obj, dict):
@@ -351,17 +382,26 @@ def param_grad_array(obj, any_backend=False, _depth=0):
         if isinstance(v, (list, tuple, dict)) or (
             tv.__module__.startswith("galpy.") and hasattr(v, "__dict__")
         ):
-            if _depth < 5:  # a df -> its composite -> list -> potential -> wrapped
-                # dicts and galpy.backend objects (splines, ...) hold caches:
-                # a forced backend's copy of a table is not a parameter there
-                sub_any = any_backend and not (
-                    isinstance(v, dict) or tv.__module__.startswith("galpy.backend")
-                )
-                sub = param_grad_array(v, sub_any, _depth + 1)
+            # dicts and galpy.backend objects (splines, ...) hold caches: a
+            # forced backend's copy of a table is not a parameter there
+            sub_any = any_backend and not (
+                isinstance(v, dict) or tv.__module__.startswith("galpy.backend")
+            )
+            # a df -> its composite -> list -> potential -> wrapped
+            if _depth < 5 and (id(v), sub_any) not in _seen:
+                _seen.add((id(v), sub_any))
+                sub = param_grad_array(v, sub_any, _depth + 1, _seen)
                 if sub is not None:
                     return sub
             continue
         if not hasattr(v, "dtype"):  # not an array (splines, callables, ...)
+            # ... but what a function captures can be a parameter
+            captured = _captured(v)
+            if captured and _depth < 5 and (id(v), any_backend) not in _seen:
+                _seen.add((id(v), any_backend))
+                sub = param_grad_array(captured, any_backend, _depth + 1, _seen)
+                if sub is not None:
+                    return sub
             continue
         if (
             (any_backend and is_backend_array(v))

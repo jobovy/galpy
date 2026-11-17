@@ -642,6 +642,41 @@ def test_functions_of_time_parity(backend):
     return None
 
 
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_function_of_time_returning_backend_arrays(backend):
+    # a center= function of time that returns backend arrays without holding
+    # a backend value itself, so that no scan of the potential can see it: at
+    # Python-float coordinates the wrapper brings them onto that backend
+    from galpy.backend import is_backend_array
+    from galpy.backend._namespaces import param_grad_array
+
+    xp = jnp if backend == "jax" else torch
+
+    def center(t):
+        tt = _arr(backend, t)
+        return xp.stack(
+            [0.3 * xp.cos(0.7 * tt), 0.2 * xp.sin(0.7 * tt), 0.05 + 0.0 * tt]
+        )
+
+    def center_np(t):
+        return numpy.array([0.3 * numpy.cos(0.7 * t), 0.2 * numpy.sin(0.7 * t), 0.05])
+
+    scf = potential.SCFPotential(amp=0.1, Acos=_A, Asin=0.5 * _A, a=0.2)
+    pot = potential.RotateAndTiltWrapperPotential(pot=scf, center=center)
+    pot_np = potential.RotateAndTiltWrapperPotential(pot=scf, center=center_np)
+    assert param_grad_array(pot, any_backend=True) is None
+    for R, z, phi, t in _POINTS:
+        got = evaluateRforces(pot, R, z, phi=phi, t=t)
+        assert is_backend_array(got), (
+            f"A center returning {backend} arrays does not evaluate on {backend}"
+        )
+        want = evaluateRforces(pot_np, R, z, phi=phi, t=t)
+        assert numpy.fabs(float(as_numpy(got)) - want) < 1e-12 * max(
+            1.0, numpy.fabs(want)
+        ), f"A center returning {backend} arrays does not give numpy's value"
+    return None
+
+
 def _pattern_speed_loss(omega):
     # the radial force of an inclined SCF turning with pattern speed omega,
     # at two points and times
@@ -714,3 +749,58 @@ def test_vertical_quad_split_time_dependent(backend, case):
             zp = float(pot._rect_transformed(numpy, R, want, phi, t=t)[2])
             assert numpy.fabs(zp) < 1e-12, f"z' = {zp:e} at the split {want:e}"
     return None
+
+
+def _closure_center_pot(s, xp):
+    # a perturber whose center= is a function of time closing over s: the
+    # potential holds s only through the function
+    def center(t):
+        return xp.stack(
+            [
+                0.3 * xp.cos(t + 0.0 * s) + s,
+                0.3 * xp.sin(t + 0.0 * s),
+                0.1 * t + 0.0 * s,
+            ]
+        )
+
+    return potential.MWPotential2014[0] + potential.RotateAndTiltWrapperPotential(
+        pot=potential.HernquistPotential(amp=0.3, a=0.2), center=center
+    )
+
+
+def _closure_center_orbit_x(s, xp, ts):
+    o = Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])
+    o.integrate(ts, _closure_center_pot(s, xp))
+    return o.x(ts[-1])
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_orbit_in_a_parameter_that_a_function_captures(backend):
+    # Orbit.integrate finds a parameter that only a function given to the
+    # potential captures (a center= function of time closing over a fit's
+    # parameter) and integrates in the backend: the same orbit as numpy's
+    # (C), with the derivative of finite differences. It used to take the C
+    # route: a jax tracer failed there, a torch gradient was dropped
+    ts = numpy.linspace(0.0, 2.0, 101)
+    want = _closure_center_orbit_x(0.02, numpy, ts)
+    fd = (
+        _closure_center_orbit_x(0.02 + 1e-5, numpy, ts)
+        - _closure_center_orbit_x(0.02 - 1e-5, numpy, ts)
+    ) / 2e-5
+    if backend == "jax":
+        got = float(jax.jit(lambda s: _closure_center_orbit_x(s, jnp, ts))(0.02))
+        g = float(jax.grad(lambda s: _closure_center_orbit_x(s, jnp, ts))(0.02))
+    else:
+        s = torch.tensor(0.02, dtype=torch.float64, requires_grad=True)
+        out = _closure_center_orbit_x(s, torch, ts)
+        assert isinstance(out, torch.Tensor) and out.requires_grad, (
+            "An orbit in a parameter that a function captures does not carry its gradient"
+        )
+        out.backward()
+        got, g = float(out.detach()), float(s.grad)
+    assert numpy.fabs(got - want) < 1e-7, (
+        f"An orbit in a parameter that a function captures differs from numpy's on {backend}"
+    )
+    assert numpy.fabs(g - fd) < 1e-5 * numpy.fabs(fd), (
+        f"The derivative of an orbit with respect to a parameter that a function captures does not agree with finite differences on {backend}"
+    )

@@ -26,6 +26,7 @@ from ..backend import (
     is_backend_array,
     like,
     match_input_dtype,
+    promote_scalars,
     to_host,
 )
 from ..backend import use as _use_backend
@@ -167,6 +168,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         - 2016-05-13 - Written - Aladdin Seaifan (UofT)
         - 2026-07-02 - Split out of __init__ for time-dependent support - Bovy (UofT)
         """
+        if Asin is not None and is_backend_array(Acos) != is_backend_array(Asin):
+            # a backend Acos or Asin brings the numpy other onto its namespace
+            ref = Acos if is_backend_array(Acos) else Asin
+            Acos, Asin = promote_scalars(namespace_from_arrays((ref,)), Acos, Asin)
         ##Errors
         shape = Acos.shape
         # Validation and symmetry detection are DISCRETE structural decisions
@@ -297,6 +302,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             if Asin is not None
             else None
         )
+        if Asin_all is not None and (
+            is_backend_array(Acos_all) != is_backend_array(Asin_all)
+        ):  # as in _init_static
+            ref = Acos_all if is_backend_array(Acos_all) else Asin_all
+            Acos_all, Asin_all = promote_scalars(
+                namespace_from_arrays((ref,)), Acos_all, Asin_all
+            )
         ##Errors (each time slice must satisfy the static coefficient constraints)
         shape = Acos_all.shape
         # Same discrete validation/symmetry gate as _init_static.
