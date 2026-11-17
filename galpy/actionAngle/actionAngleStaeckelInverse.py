@@ -1726,7 +1726,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "pA": ft * sinth / (numpy.sqrt(c) * numpy.sin(zeta) * dzeta),
         }
 
-    def _map_slopes_u(self, smp, jr, L, a, e, eta, dJr, dL, dsup, nharm):
+    def _map_slopes_u(self, smp, jr, L, a, e, eta, dJr, dL, dsup, nharm, dLu0=None):
         """The derivatives of the u map's coefficients with respect to
         (E, I_3, L_z), on one torus from that torus alone: the variation of
         the matching condition A^A(eta(tau); a, e) = A(tau; E, L_z, I_3) at
@@ -1744,7 +1744,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         its torus parameters' closed-form chains, with dJ^A_r/dalpha and
         dL^A/dalpha from the torus's period matrix and the closed-form
         partials of _cumulative. The problem is solved in the map's first
-        nharm harmonics, and the slopes of the others are zero."""
+        nharm harmonics, and the slopes of the others are zero. With dLu0,
+        the derivative of L = J_z + |L_z| with respect to the reference u0
+        of a rule at fixed integrals, the result has a fourth entry, the
+        map's derivative with respect to u0: the u libration does not
+        depend on u0, but the auxiliary torus onto which it is lifted does,
+        through L."""
         tau, u, pu, wu = smp["tau"], smp["u"], smp["pu"], smp["wu"]
         E, Lz = smp["E"], smp["Lz"]
         d2 = self._delta**2
@@ -1762,7 +1767,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             mt, qt, _, qt0 = _cumulative(dft)
             _, _, da, de = self._aAIinv._orbital_param_chains(jr, L, dJr[k], dL[k])
             rhs[:, k] = mt * tau + qt - qt0 - FAa * da - FAe * de
-        out = numpy.zeros((self._npt, 3))
+        if dLu0 is not None:
+            _, _, da, de = self._aAIinv._orbital_param_chains(jr, L, 0.0, dLu0)
+            rhs = numpy.hstack((rhs, (-FAa * da - FAe * de)[:, None]))
+        out = numpy.zeros((self._npt, rhs.shape[1]))
         out[:nharm] = _sine_galerkin(fAeta, rhs, self._nforDm[:nharm])
         return out
 
@@ -1863,6 +1871,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
         dJr, dL = M[0], M[1] + numpy.array([0.0, 0.0, numpy.sign(Lz)])
         lift_u, lift_v = self._lifts[ii]
+        dVu = Ju = None
+        if self._adaptive and not vdeg:
+            # along the reference u0 of a rule at fixed integrals V(v)
+            # changes, and with it J_z (from the same quadrature as its
+            # period matrix)
+            dVu = self._staeckelwrap._dVdu0(smp["v"])
+            Ju = d2 * numpy.mean(dVu * wv * st / smp["pv"])
 
         def kept(Dm):
             # a family's torus keeps the coefficients of each of its maps
@@ -1900,9 +1915,22 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.amax(numpy.fabs(self._aAIinv._torus_Jr(EA, L) - jr)) / jr
             )
             nh, node["Dmu"] = kept(lift_u["Dm"])
-            node["dDmu"] = self._map_slopes_u(
-                smp, jr, L, lift_u["a"], lift_u["e"], lift_u["eta"], dJr, dL, dsup, nh
+            slopes = self._map_slopes_u(
+                smp,
+                jr,
+                L,
+                lift_u["a"],
+                lift_u["e"],
+                lift_u["eta"],
+                dJr,
+                dL,
+                dsup,
+                nh,
+                dLu0=Ju,
             )
+            node["dDmu"] = slopes[:, :3]
+            if Ju is not None:
+                node["du0u"] = slopes[:, 3]
         if not vdeg:
             # likewise the auxiliary's polar action along the lifted v
             # libration, through its total angular momentum
@@ -1913,14 +1941,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             nh, node["Dmv"] = kept(lift_v["Dm"])
             if self._adaptive:
                 # the tables of the v libration along the reference u0 at
-                # fixed integrals (those of the u libration do not depend on
-                # it, because U(u) does not): the action's from the same
-                # quadrature as its period matrix, the half-width's by the
-                # level-set rule, the map's as a fourth direction of its
-                # slopes
+                # fixed integrals (of the u libration's, only the map
+                # depends on it, through the auxiliary torus: above): the
+                # action's above, the half-width's by the level-set rule,
+                # the map's as a fourth direction of its slopes
                 vt = 0.5 * numpy.pi - wv
-                dVu = self._staeckelwrap._dVdu0(smp["v"])
-                Ju = d2 * numpy.mean(dVu * wv * st / smp["pv"])
                 wu0 = (
                     2.0
                     * d2
@@ -2334,6 +2359,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 node["N"] = numpy.linalg.inv(numpy.vstack((M, [0.0, 0.0, 1.0])))
                 node["dsup"][2] += node["du0"][1] * du0
                 node["dDmv"] = node["dDmv"] + node["du0"][2][:, None] * du0[None, :]
+                if "du0u" in node:
+                    node["dDmu"] = node["dDmu"] + node["du0u"][:, None] * du0[None, :]
             self._jrs[ii], self._jzs[ii] = node["jr"], node["jz"]
             self._Ns[ii] = node["N"]
             self._ucs[ii], self._wus[ii], self._wvs[ii] = (
@@ -2746,12 +2773,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         # its reference curve: the node values' derivatives
                         # along the grid are those within the node's model
                         # plus the derivative along u0 at fixed integrals
-                        # times the rule's own (only the v libration's
-                        # tables, since U(u) does not depend on u0)
+                        # times the rule's own (the v libration's tables,
+                        # since U(u) does not depend on u0, and the u map,
+                        # which depends on it through the auxiliary torus)
                         du0 = self._u0_grad(E, Lz, self._I3s[ii])
                         Mv = Mv + node["du0"][0] * du0
                         dwv = dwv + node["du0"][1] * du0
                         dDmv = dDmv + node["du0"][2][:, None] * du0[None, :]
+                        if "du0u" in node:
+                            node["dDmu"] = (
+                                node["dDmu"] + node["du0u"][:, None] * du0[None, :]
+                            )
                     if udeg:
                         # the shell face: the u libration harmonic at the
                         # shell u, its action and half-width vanishing
