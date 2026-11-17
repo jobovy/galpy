@@ -1331,42 +1331,24 @@ def _rhoTilde_basis(r, N, L, a):
 
 
 def _phiTilde_basis(r, N, L, a):
-    """Evaluate the SCF potential basis functions phi_tilde_nl(r), shape (N, L).
+    """Evaluate the SCF potential basis functions phi_tilde_nl(r), shape (N, L),
+    or (P, N, L) for an array of radii.
 
     Module-level implementation of ``SCFPotential._phiTilde`` (see
     ``_rhoTilde_basis``).
     """
     xi = _RToxi(r, a)
     CC = _C(xi, N, L)
-    n = numpy.arange(0, N)[:, numpy.newaxis]
     l = numpy.arange(0, L)[numpy.newaxis, :]
-    if (
-        numpy.ndim(r) > 0
-    ):  # (P, N, L) for an array of radii, element by element as below
+    if numpy.ndim(r) > 0:
         r = numpy.asarray(r, dtype=float)[:, numpy.newaxis, numpy.newaxis]
         CC = numpy.moveaxis(CC, -1, 0)
-        rs = numpy.where(r == 0, 1.0, r)
-        return numpy.where(
-            r == 0,
-            -1.0 / a * CC * (4 * numpy.pi) ** 0.5,
-            -(a**l)
-            * rs ** (-l - 1.0)
-            / ((1.0 + a / rs) ** (2 * l + 1.0))
-            * CC
-            * (4 * numpy.pi) ** 0.5,
-        )
-    phi = numpy.zeros((N, L), float)
-    if r == 0:
-        phi[:, :] = -1.0 / a * CC[:, :] * (4 * numpy.pi) ** 0.5
-    else:
-        phi[:, :] = (
-            -(a**l)
-            * r ** (-l - 1.0)
-            / ((1.0 + a / r) ** (2 * l + 1.0))
-            * CC[:, :]
-            * (4 * numpy.pi) ** 0.5
-        )
-    return phi
+    # -(a r)^l / (a + r)^(2l+1), as in C: x = a r / (a + r)^2 written to stay
+    # finite from r = 0 (where only l = 0 remains) to r = inf (where it is 0);
+    # the form a^l r^(-l-1) / (1 + a/r)^(2l+1) overflowed at small r for large l
+    with numpy.errstate(divide="ignore"):
+        x = numpy.divide(a, a + r) / (1.0 + numpy.divide(a, r))
+    return -(x**l) / (a + r) * CC * (4 * numpy.pi) ** 0.5
 
 
 def _legendre_at_points(x, L, M, deriv=False):

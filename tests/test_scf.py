@@ -2047,3 +2047,40 @@ def test_scf_arrays_equal_points():
                         f"{f.__name__} at arrays of points differs from point by point"
                     )
     return None
+
+
+def test_scf_potential_at_the_centre():
+    # phi_tilde_nl ~ r^l: at the centre only l = 0 contributes, so the potential
+    # there is its r -> 0 limit (it used the l = 0 limit for every l), and the
+    # basis stays finite at tiny radii for large L (r^(-l-1) overflowed there)
+    rng = numpy.random.default_rng(3)
+    A = numpy.tril(rng.normal(size=(8, 30, 30)) * 1e-3)
+    A[0, 0, 0] = 1.0
+    S = numpy.tril(rng.normal(size=(8, 30, 30)) * 1e-3)
+    pot = SCFPotential(Acos=A, Asin=S, a=2.5)
+    centre = potential.evaluatePotentials(pot, 0.0, 0.0, phi=0.3)
+    near = potential.evaluatePotentials(pot, 1e-9, 0.0, phi=0.3)
+    assert numpy.fabs(centre - near) < 1e-8 * numpy.fabs(centre), (
+        "the SCF potential at the centre is not its limit"
+    )
+    tiny = potential.evaluatePotentials(pot, 0.0, 1e-17, phi=0.3)
+    assert numpy.isfinite(tiny) and numpy.fabs(tiny - centre) < 1e-8 * numpy.fabs(
+        centre
+    ), "the SCF potential is not finite near the centre"
+    return None
+
+
+def test_diskscf_tabulated_staeckel_wrapper():
+    # the tabulated OblateStaeckelWrapperPotential's u table starts at the
+    # centre, which a DiskSCFPotential's expansion now evaluates (it was NaN)
+    from galpy.potential import DiskSCFPotential, OblateStaeckelWrapperPotential
+
+    dp = DiskSCFPotential(N=10, L=10)
+    tab = OblateStaeckelWrapperPotential(pot=dp, delta=0.45, u0=1.0, ntab=100)
+    exact = OblateStaeckelWrapperPotential(pot=dp, delta=0.45, u0=1.0)
+    for R, z in ((0.5, 0.1), (1.2, -0.4)):
+        for f in (potential.evaluatePotentials, potential.evaluateRforces):
+            assert numpy.fabs(f(tab, R, z) - f(exact, R, z)) < 1e-5 * numpy.fabs(
+                f(exact, R, z)
+            ), "the tabulated Staeckel wrapper of a DiskSCFPotential is off"
+    return None
