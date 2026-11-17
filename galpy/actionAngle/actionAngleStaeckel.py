@@ -14,7 +14,6 @@ import warnings
 from functools import lru_cache
 
 import numpy
-from scipy import integrate, optimize
 
 from ..backend import (
     asarray_on_device,
@@ -1119,7 +1118,7 @@ class actionAngleStaeckel(actionAngle):
         c : bool, optional
             If True, always use C for calculations. Default is False. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order : int, optional
-            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals (C path). On the pure-Python path this sets the number of 10-node panels of the composite chi-anomaly quadrature (nchi = max(2, order/5) in u, matching C's two order-point halves, and twice that in v), which is machine-converged at the default, so increasing it there has no practical effect. Default is 10.
+            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals. Default is 10.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -1202,10 +1201,6 @@ class actionAngleStaeckel(actionAngle):
             True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order: int, optional
             number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
-        fixed_quad: bool, optional
-            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
-        **kwargs: dict, optional
-            scipy.integrate.fixed_quad or .quad keywords when not using C
 
         Returns
         -------
@@ -1344,11 +1339,7 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
-        fixed_quad: bool, optional
-            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
-        **kwargs: dict, optional
-            scipy.integrate.fixed_quad or .quad keywords when not using C
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action and frequency integrals.
 
         Returns
         -------
@@ -1523,11 +1514,7 @@ class actionAngleStaeckel(actionAngle):
         c: bool, optional
             True/False to override the object-wide setting for whether or not to use the C implementation. With jax/torch inputs, derivatives w.r.t. the phase-space coordinates are C-native; a derivative C cannot carry -- w.r.t. a differentiated potential parameter or delta -- falls back to the backend c=False implementation (as a C orbit integration falls back to the in-backend ODE), which agrees with C to ~1e-8.
         order: int, optional
-            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
-        fixed_quad: bool, optional
-            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
-        **kwargs: dict, optional
-            scipy.integrate.fixed_quad or .quad keywords when not using C
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals.
 
         Returns
         -------

@@ -53,7 +53,8 @@ at release.]
   (``DoubleExponentialDiskPotential``, ``AnyAxisymmetricRazorThinDiskPotential``)
   point by point; the vectorized implementation raised for them, also by
   default for ``AnyAxisymmetricRazorThinDiskPotential``, which has no C
-  implementation (twin of main's #1913).
+  implementation. Its ``fixed_quad=`` and ``scipy.integrate.quad`` keywords,
+  unused since the chi-anomaly quadrature, are removed (twin of main's #1913).
 
 - [slot 05]
 
