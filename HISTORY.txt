@@ -116,7 +116,7 @@ at release.]
   that minimizes the spread of the potential's energy over it (fitted
   smoothly over the family; ``u0`` then defaults to ``'torus'``), and
   ``delta`` can be a callable ``delta(E, Lz, y)``. Such a family is
-  exactly canonical and is typically several times closer to the best
+  exactly canonical and is typically two to three times closer to the best
   Staeckel torus of each of its tori than a family with a single focal
   length; a single focal length gives the same results as before.
 
