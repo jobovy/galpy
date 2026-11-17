@@ -2974,14 +2974,22 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _delta_fitted(self, x, y, L):
         """The fitted focal length of the tori (x, y, L_z) and its partials
-        with respect to them: exp[c + w tanh(P / w)] with P the fitted
-        tensor polynomial (_delta_features), bounded to the range of the
-        fitted optima and a quarter of its half-width beyond"""
-        coef, c, hw = self._delta_fit
+        with respect to them: exp[s(P)], with P the fitted tensor
+        polynomial (_delta_features) and s a soft limit to [b0, b1],
+        s = P - m ln[1 + e^((P - b1) / m)] + m ln[1 + e^((b0 - P) / m)]:
+        P itself (to e^(-10) of m) wherever P stays within the range of the
+        fitted optima, and bent smoothly onto b0 or b1, which lie a quarter
+        of that range beyond it, where P leaves it by more"""
+        coef, b0, b1, m = self._delta_fit
         F = self._delta_features(x, y, L)
-        t = numpy.tanh(F[0] @ coef / hw)
-        D = numpy.exp(c + hw * t)
-        return D, [D * (1.0 - t**2) * (G @ coef) for G in F[1:]]
+        P = F[0] @ coef
+        D = numpy.exp(
+            P
+            - m * numpy.logaddexp(0.0, (P - b1) / m)
+            + m * numpy.logaddexp(0.0, (b0 - P) / m)
+        )
+        ds = 0.5 * (numpy.tanh(0.5 * (b1 - P) / m) - numpy.tanh(0.5 * (b0 - P) / m))
+        return D, [D * ds * (G @ coef) for G in F[1:]]
 
     def _setup_delta_fit(self):
         """The focal lengths of the nodes for delta='fit', with their
@@ -2998,10 +3006,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         tensor polynomial of the degrees delta_deg for its logarithm in the
         grid coordinates (_delta_features), with each torus at the grid's
         third-integral variable of its own model (_focal_y), without the
-        tori whose optimum lies far from the fit of the others. The fit is
-        then held
-        fixed: the family's nodes and derivative tables are those of the
-        polynomial"""
+        tori whose optimum lies far from the fit of the others, limited
+        softly to about the range of their optima (_delta_fitted). The fit
+        is then held fixed: the family's nodes and derivative tables are
+        those of the limited polynomial"""
         deg, box = self._delta_deg, self._box
         w, f, L = (
             t.ravel()
@@ -3058,20 +3066,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         for _ in range(3):
             # (twice without the tori whose optimum lies far from the fit:
             # the spread of an extreme torus can have two minima of the
-            # same depth, far apart). The polynomial is fitted to c + w
-            # artanh[(ln delta - c) / w], with c the middle of the kept
-            # optima and w five eighths of their range, so that the fitted
-            # ln delta = c + w tanh(polynomial / w) cannot leave that range
-            # by more than a quarter of its half-width wherever the
-            # polynomial goes between and beyond the fitted tori
+            # same depth, far apart). The polynomial is fitted to ln delta
+            # itself and limited softly (_delta_fitted) to the range of the
+            # kept optima widened on each side by a quarter of it (and by
+            # at least 0.05), over a tenth of that widening: the limit
+            # leaves the polynomial as it is wherever it stays within the
+            # optima's range, so that it adds nothing for the tables to
+            # resolve, and holds it where it would run away between or
+            # beyond the fitted tori
             lo, hi = numpy.amin(lnD[keep]), numpy.amax(lnD[keep])
-            c, hw = 0.5 * (lo + hi), 0.625 * (hi - lo) + 1e-12
-            t = numpy.clip((lnD - c) / hw, -0.999, 0.999)
-            coef = numpy.linalg.lstsq(F[keep], hw * numpy.arctanh(t[keep]), rcond=None)[
-                0
-            ]
-            self._delta_fit = (coef, c, hw)
-            res = numpy.fabs(c + hw * numpy.tanh(F @ coef / hw) - lnD)
+            a = 0.25 * (hi - lo) + 0.05
+            coef = numpy.linalg.lstsq(F[keep], lnD[keep], rcond=None)[0]
+            self._delta_fit = (coef, lo - a, hi + a, 0.1 * a)
+            res = numpy.fabs(numpy.log(self._delta_fitted(w**2, y, L)[0]) - lnD)
             keep = res < max(0.25, 5.0 * numpy.median(res))
         x, y, L = numpy.meshgrid(self._wEs**2, self._ys, self._Lzgrid, indexing="ij")
         self._delta_tab, dD = self._delta_fitted(x.ravel(), y.ravel(), L.ravel())
@@ -4514,9 +4521,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         -----
         - The single focal length of a family or of explicit tori; for a
           family whose focal length follows its tori, the fitted polynomial
-          (delta='fit', also beyond the grid, where it extends smoothly)
-          or the family's own table of it (a callable delta=, within the
-          grid).
+          (delta='fit', also beyond the grid, where it extends smoothly,
+          limited softly to a little beyond the range of the fitted
+          optima) or the family's own table of it (a callable delta=,
+          within the grid).
         - The method is itself a rule: delta=family.delta gives another
           family of the same potential (with the same axis_weight) the
           same focal lengths without fitting them again.

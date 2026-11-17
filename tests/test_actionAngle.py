@@ -13603,6 +13603,18 @@ def test_actionAngleStaeckelInverse_delta_fit():
     assert numpy.amax(numpy.fabs(numpy.array(again.xvFreqs(*acts.T, *angs)) - out)) < (
         1e-9
     ), "A family given another's delta method does not have its focal lengths"
+    # the fitted focal length is as smooth as the polynomial and gives the
+    # tables nothing more to resolve: between its nodes the family's
+    # points are those of a finer family with the same focal lengths to
+    # 3e-4 (single focal lengths from 0.5 to 1.2 in this box: 5e-4 to 1e-3)
+    finer = actionAngleStaeckelInverse(
+        pot=lp, delta=fit.delta, **{**wide, "nE": 7, "nLz": 7, "nI3": 7}
+    )
+    err = numpy.amax(numpy.fabs(numpy.array(finer.xvFreqs(*acts.T, *angs)) - out)[:5])
+    assert err < 5e-4, (
+        "The points of a family with delta='fit' do not converge between its "
+        "nodes: %g" % err
+    )
     assert numpy.all(
         numpy.array(pickle.loads(pickle.dumps(fit)).xvFreqs(*acts.T, *angs)) == out
     ), "A pickled family with delta='fit' does not evaluate identically"
