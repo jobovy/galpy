@@ -12850,8 +12850,16 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
             "those of a torus's own model in a general potential"
         )
         refs.append((jr, jz, Om))
+    # (the grid's third integrals spaced in the third integral alone, in
+    # which the three test tori sit between the nodes of both grids)
     wide = dict(
-        setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=Rinf, mm_npt=32, progressbar=False
+        setup_interp=True,
+        Rmin=0.7,
+        Rmax=1.5,
+        Rinf=Rinf,
+        mm_npt=32,
+        axis_weight=0.0,
+        progressbar=False,
     )
     fams, errs = [], []
     for n in (5, 9):
@@ -14692,18 +14700,66 @@ def _staeckel_inverse_axis_errors(aAI, Lz):
 
 
 def test_actionAngleStaeckelInverse_near_axis(staeckel_inverse_axis):
-    # At small |L_z| the centrifugal barrier stops a libration just off the
-    # axis, and its inner turning point is far smaller than the libration's
-    # midpoint and half-width, from which it is formed: the family stores
-    # each half-width in a variable that keeps the inner turning point off
-    # the axis and accurate relative to its distance from it, whatever the
-    # interpolation error, so that no torus of small |L_z| reaches R <= 0,
-    # where the centrifugal term makes its energy meaningless
-    spread, _ = _staeckel_inverse_axis_errors(
-        staeckel_inverse_axis, 1.3 * 0.1 * _staeckel_inverse_axis_potential().vcirc(0.1)
+    # At small |L_z| the centrifugal barrier stops either the u or the v
+    # libration just off the axis, on either side of the third integral of
+    # the L_z = 0 orbits through the foci, around which the turning points
+    # and every other table of a torus change over a range of the third
+    # integral proportional to |L_z|. A grid spaced in the third integral
+    # itself does not resolve that; the grid's third-integral variable
+    # blends in the logarithm of the turning points' distances to the axis
+    # (axis_weight), in which the tables are smooth, and the half-widths
+    # are stored in variables that keep the inner turning points off the
+    # axis: the tori of small |L_z| / L of an exact Staeckel potential are
+    # then accurate, as they are not with a weight of zero
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    aAI = staeckel_inverse_axis
+    pot = _staeckel_inverse_axis_potential()
+    Lz = 1.3 * 0.1 * pot.vcirc(0.1)
+    spread, dJ = _staeckel_inverse_axis_errors(aAI, Lz)
+    assert numpy.amax(spread) < 1e-2, (
+        "The energy varies over a family's tori of small |L_z| in a Staeckel potential"
     )
-    assert numpy.amax(spread) < 0.3, (
-        "The energy varies by its own size over a family's tori of small |L_z|"
+    assert numpy.amax(dJ) < 1.5e-2, (
+        "A family's tori of small |L_z| do not have the requested actions"
+    )
+    aA0 = actionAngleStaeckelInverse(
+        pot=pot, progressbar=False, axis_weight=0.0, **_STAECKEL_INVERSE_AXIS
+    )
+    spread0, dJ0 = _staeckel_inverse_axis_errors(aA0, Lz)
+    assert numpy.amax(spread0) > 10.0 * numpy.amax(spread), (
+        "The third-integral variable's weight of the axis does not make the "
+        "tori of small |L_z| more accurate"
+    )
+    assert numpy.amax(dJ0) > 10.0 * numpy.amax(dJ), (
+        "The third-integral variable's weight of the axis does not make the "
+        "actions of the tori of small |L_z| more accurate"
+    )
+    # the family's actions at given integrals, whose third integral is
+    # located in the same variable: those of the torus through a point
+    jr, jz = 0.3, 0.6 - Lz
+    R, vR, vT, z, vz, phi = aAI(jr, Lz, jz, 1.0, 2.0, 3.0)
+    E, _, I3 = _staeckel_inverse_labels(
+        [R[0], vR[0], vT[0], z[0], vz[0], phi[0]], pot=pot, delta=0.5
+    )
+    for fam in (aAI, aA0):
+        assert numpy.fabs(fam.JR(E, Lz, I3) - jr) < 2e-2 * (jr + jz), (
+            "JR at the integrals of a torus of small |L_z| is not its radial action"
+        )
+        assert numpy.fabs(fam.Jz(E, Lz, I3) - jz) < 2e-2 * (jr + jz), (
+            "Jz at the integrals of a torus of small |L_z| is not its vertical action"
+        )
+    # the family pickles, with its grid's third-integral variable, and
+    # evaluates identically afterwards
+    again = pickle.loads(pickle.dumps(aAI))
+    pts = (jr, Lz, jz, 1.0, 2.0, 3.0)
+    assert numpy.all(numpy.array(aAI(*pts)) == numpy.array(again(*pts))), (
+        "A pickled family does not evaluate identically"
+    )
+    assert again.JR(E, Lz, I3) == aAI.JR(E, Lz, I3), (
+        "A pickled family does not locate a third integral identically"
     )
     return None
 
