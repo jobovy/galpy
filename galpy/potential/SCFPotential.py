@@ -302,6 +302,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
             if Asin is not None
             else None
         )
+        # a sine table that is concretely zero (None, or numpy zeros next to a
+        # backend Acos) needs no backend spline (checked before the promotion)
+        asin_zero = Asin_all is None or (
+            not is_backend_array(Asin_all) and not numpy.any(Asin_all)
+        )
         if Asin_all is not None and (
             is_backend_array(Acos_all) != is_backend_array(Asin_all)
         ):  # as in _init_static
@@ -369,7 +374,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         NN = sph_harm_normalization(L, M)
         self._coeff_shape = (N, L, M)
         if is_backend_array(Acos_all):
-            self._init_timedep_backend(Acos_all, Asin_all, NN, traced)
+            self._init_timedep_backend(Acos_all, Asin_all, NN, traced, asin_zero)
         else:
             self._Acos_all = Acos_all * NN[numpy.newaxis, numpy.newaxis, :, :]
             if Asin_all is not None:
@@ -387,24 +392,42 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         self._Acos = self._Acos_all[0]
         self._Asin = self._Asin_all[0]
 
-    def _init_timedep_backend(self, Acos_all, Asin_all, NN, traced):
+    def _init_timedep_backend(self, Acos_all, Asin_all, NN, traced, asin_zero=False):
         """Backend coefficient time series: the time splines are fit in the
         backend (scipy CubicSpline's not-a-knot spline), so the potential stays
         differentiable w.r.t. the coefficients; the scipy interpolators (numpy
-        and C evaluation) are built from their values when those are concrete."""
+        and C evaluation) are built from their values when those are concrete.
+        Only the m <= l coefficients are fit and stored (the others are ignored),
+        and a zero sine table not at all: in reverse mode every evaluation's
+        cotangent has the size of the stored tables."""
         xp = get_namespace(Acos_all)
         Nt = len(self._tgrid)
+        N, L, M = self._coeff_shape
         _NN = like(Acos_all, NN[numpy.newaxis, numpy.newaxis, :, :])
         self._Acos_all = Acos_all * _NN
         self._Asin_all = (
             xp.zeros_like(self._Acos_all) if Asin_all is None else Asin_all * _NN
         )
-        self._Acos_c = cubic_spline_coeffs(
-            xp, self._tgrid, xp.reshape(self._Acos_all, (Nt, -1)), bc="not-a-knot"
+        keep = numpy.flatnonzero(
+            (numpy.arange(M)[None, :] <= numpy.arange(L)[:, None])[None]
+            .repeat(N, axis=0)
+            .ravel()
         )
-        self._Asin_c = cubic_spline_coeffs(
-            xp, self._tgrid, xp.reshape(self._Asin_all, (Nt, -1)), bc="not-a-knot"
-        )
+        unpack = numpy.full(N * L * M, len(keep))  # len(keep): a zero column
+        unpack[keep] = numpy.arange(len(keep))
+        self._packed = (keep, unpack)
+        kb = asarray_on_device(xp, keep, device_of(self._Acos_all))
+
+        def fit(A):
+            return cubic_spline_coeffs(
+                xp,
+                self._tgrid,
+                xp.take(xp.reshape(A, (Nt, -1)), kb, axis=1),
+                bc="not-a-knot",
+            )
+
+        self._Acos_c = fit(self._Acos_all)
+        self._Asin_c = None if asin_zero else fit(self._Asin_all)
         if traced:
             self._Acos_interp = self._Asin_interp = None
         else:
@@ -474,8 +497,19 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
         # (cb.ndim == 3), which is all the removed local clone added; it also
         # does the one-gather+unstack the clone did not.
         if getattr(self, "_Acos_c", None) is not None:  # backend-fit splines
-            acos_flat = eval_ppoly(xp, self._tgrid, self._Acos_c, tb)
-            asin_flat = eval_ppoly(xp, self._tgrid, self._Asin_c, tb)
+            unpack = asarray_on_device(xp, self._packed[1], dev)
+
+            def full(p):  # the m <= l columns back in place, zeros elsewhere
+                return xp.take(
+                    xp.concat([p, xp.zeros_like(p[..., :1])], axis=-1), unpack, axis=-1
+                )
+
+            acos_flat = full(eval_ppoly(xp, self._tgrid, self._Acos_c, tb))
+            asin_flat = (
+                xp.zeros_like(acos_flat)
+                if self._Asin_c is None
+                else full(eval_ppoly(xp, self._tgrid, self._Asin_c, tb))
+            )
         else:
             acos_flat = eval_ppoly(xp, self._Acos_interp.x, self._Acos_interp.c, tb)
             asin_flat = eval_ppoly(xp, self._Asin_interp.x, self._Asin_interp.c, tb)
