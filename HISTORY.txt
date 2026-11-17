@@ -58,7 +58,13 @@ at release.]
   ``'shell'``, or a callable), each torus then being a torus of its own
   Staeckel model with the frequencies of the family that the rule defines.
 
-- [slot 09]
+- ``actionAngleStaeckelInverse``: in the Staeckel approximation of a cusped
+  potential, a torus's v turning point is the first root below the midplane
+  (before, the shell torus of a model with split v librations could be the
+  one near the axis, with NaN positions), and an interpolation grid that
+  reaches tori whose u or v libration is split raises an error that names
+  the torus and the remedy instead of failing inside scipy or interpolating
+  across the discontinuity.
 
 - [slot 10]
 
