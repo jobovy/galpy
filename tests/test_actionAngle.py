@@ -12201,6 +12201,59 @@ def test_actionAngleStaeckelInverse_convergence_warnings():
     return None
 
 
+def test_actionAngleStaeckelInverse_nonfinite_tables():
+    # A family with tori whose tables are not finite cannot be interpolated,
+    # and its set-up says which tori: here the potential's forces are not
+    # finite above |z| = 1.2, which the most inclined tori of the grid reach
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import LogarithmicHaloPotential, Potential
+
+    class Holed(Potential):
+        def __init__(self):
+            Potential.__init__(self, amp=1.0)
+            self._lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+
+        def _hole(self, z):
+            return numpy.where(numpy.fabs(z) > 1.2, numpy.nan, 1.0)
+
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            return self._lp(R, z, use_physical=False)
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            return self._lp.Rforce(R, z, use_physical=False) * self._hole(z)
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            return self._lp.zforce(R, z, use_physical=False) * self._hole(z)
+
+        def _R2deriv(self, R, z, phi=0.0, t=0.0):
+            return self._lp.R2deriv(R, z, use_physical=False) * self._hole(z)
+
+        def _z2deriv(self, R, z, phi=0.0, t=0.0):
+            return self._lp.z2deriv(R, z, use_physical=False) * self._hole(z)
+
+        def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+            return self._lp.Rzderiv(R, z, use_physical=False) * self._hole(z)
+
+    with pytest.raises(
+        ValueError,
+        match="The tables of the \\(E, L_z, I_3\\) tori \\(.* are not finite",
+    ):
+        actionAngleStaeckelInverse(
+            pot=Holed(),
+            delta=0.8,
+            setup_interp=True,
+            Rmin=0.7,
+            Rmax=1.5,
+            Rinf=4.0,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=16,
+            progressbar=False,
+        )
+    return None
+
+
 def test_actionAngleStaeckelInverse_errors(
     staeckel_inverse_interp, staeckel_inverse_explicit
 ):
