@@ -14706,3 +14706,39 @@ def test_actionAngleStaeckelInverse_near_axis(staeckel_inverse_axis):
         "The energy varies by its own size over a family's tori of small |L_z|"
     )
     return None
+
+
+def test_actionAngleStaeckelInverse_pickle_format(
+    staeckel_inverse_interp, staeckel_inverse_explicit
+):
+    # An interpolated family is pickled with the format of its tables and
+    # evaluates identically after a round trip; a pickled family without the
+    # format (as before the formats were numbered) or with an older one,
+    # whose tables would be decoded wrongly, is refused with a message that
+    # says to rebuild it; explicit tori carry no family tables
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    aAI = staeckel_inverse_interp
+    pts = (0.05, 0.9, 0.05, 0.3, 1.0, 2.0)
+    again = pickle.loads(pickle.dumps(aAI))
+    assert numpy.all(numpy.array(aAI(*pts)) == numpy.array(again(*pts))), (
+        "A pickled family does not evaluate identically"
+    )
+    for change in (
+        lambda st: st.pop("_family_format"),
+        lambda st: st.update(_family_format=1),
+    ):
+        state = dict(aAI.__dict__)
+        change(state)
+        with pytest.raises(RuntimeError, match="rebuild the family"):
+            actionAngleStaeckelInverse.__new__(actionAngleStaeckelInverse).__setstate__(
+                state
+            )
+    aAE = pickle.loads(pickle.dumps(staeckel_inverse_explicit))
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    assert aAE.JR(E, Lz, I3) == staeckel_inverse_explicit.JR(E, Lz, I3), (
+        "Pickled explicit tori do not return their actions identically"
+    )
+    return None

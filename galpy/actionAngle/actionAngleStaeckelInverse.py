@@ -153,6 +153,26 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     p_u^2 = 2 delta^2 [E sinh^2 u - U(u) - I_3] - L_z^2 / sinh^2 u with the
     gauge V(pi/2) = 0"""
 
+    # the format of an interpolated family's tables, stored with the family:
+    # 2 since the half-widths are stored as the variables of _halfwidth
+    _FAMILY_FORMAT = 2
+
+    def __setstate__(self, state):
+        """Restore a pickled instance; an interpolated family whose tables
+        were stored in another format (or without a format, as before the
+        formats were numbered) would be decoded wrongly, and is refused"""
+        if (
+            state.get("_interp", False)
+            and state.get("_family_format", 1) != self._FAMILY_FORMAT
+        ):
+            raise RuntimeError(
+                "This interpolated actionAngleStaeckelInverse family was pickled "
+                f"with the table format {state.get('_family_format', 1)}, while "
+                f"this version of galpy reads the format {self._FAMILY_FORMAT}: "
+                "its tables cannot be read; rebuild the family"
+            )
+        self.__dict__.update(state)
+
     def __init__(
         self,
         pot=None,
@@ -2331,6 +2351,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.moveaxis(V_tab[:, [1, 2], :, 1:], 1, 0),
                 numpy.moveaxis(V_dsv[:, [1, 2], :, 1:], 1, 0),
             )
+        self._family_format = self._FAMILY_FORMAT
         self._perr_u_tab, self._perr_v_tab = perr_u, perr_v
         self._A_tab, self._A_dx, self._A_dy, self._A_dL = A_tab, A_dx, A_dy, A_dL
         self._U_tab, self._U_dwE, self._U_dsu, self._U_dL = U_tab, U_dwE, U_dsu, U_dL
