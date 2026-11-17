@@ -14440,3 +14440,92 @@ def test_actionAngleStaeckelInverse_harmonics_beyond_need():
         % (numpy.amax(numpy.fabs(out - more) / (1.0 + numpy.fabs(out))))
     )
     return None
+
+
+def test_actionAngleStaeckelInverse_split_tori():
+    # In the Staeckel approximation of a cusped potential the foci attract
+    # (V(0) > U(0)), and near the axis the momentum function of the v
+    # libration can be positive again beyond the turning point of the
+    # libration about the midplane, on a torus of its own with the same
+    # integrals: the torus of given integrals is the one about the midplane
+    # (its actions continue those of the tori below it in I_3, up to the
+    # shell orbit), and where no torus continues those about the midplane
+    # an interpolation grid fails with a message that says so
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import NFWPotential, TriaxialNFWPotential
+
+    halo = TriaxialNFWPotential(normalize=1.0, a=1.0, b=1.0, c=0.8)
+    E, Lz = -4.952347997451089, 0.0045331251128010955
+    Ipl, Ish = 4.952454913285056, 5.017135158552722
+    jzs = []
+    for y in (0.999, 1.0):
+        I3 = Ipl + y * (Ish - Ipl)
+        aAI = actionAngleStaeckelInverse(
+            pot=halo, delta=0.31, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=32
+        )
+        jzs.append(aAI.Jz(E, Lz, I3))
+        assert numpy.all(
+            numpy.isfinite(aAI(aAI.JR(E, Lz, I3), Lz, jzs[-1], 0.5, 1.0, 2.0))
+        ), "A torus about the midplane of a cusped halo does not evaluate"
+    assert numpy.fabs(jzs[1] / jzs[0] - 1.0) < 1e-2, (
+        "The shell orbit of a cusped halo is not the limit of the tori about "
+        "the midplane"
+    )
+    with pytest.raises(ValueError, match="does not fall monotonically"):
+        actionAngleStaeckelInverse(
+            pot=NFWPotential(normalize=1.0, a=1.0),
+            delta=0.31,
+            setup_interp=True,
+            Rmin=0.05,
+            Rmax=3.0,
+            Rinf=8.0,
+            nE=6,
+            nLz=6,
+            nI3=6,
+            mm_npt=32,
+            progressbar=False,
+        )
+    # likewise the u libration: at small |L_z| in MWPotential2014, whose
+    # bulge is cusped, its momentum function has a second maximum close to
+    # the centre at some energies, and a grid that reaches those tori fails
+    from galpy.potential import MWPotential2014
+
+    with pytest.raises(ValueError, match="more than one maximum"):
+        actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.3,
+            setup_interp=True,
+            Rmin=0.04,
+            Rmax=2.0,
+            Rinf=5.0,
+            nE=16,
+            nLz=4,
+            nI3=4,
+            mm_npt=32,
+            progressbar=False,
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_polar_torus():
+    # A torus that passes within a degree of the axis: its v turning point
+    # lies beyond the scan that brackets the first root below the midplane,
+    # from whose end the bracket is extended toward the axis; its actions
+    # are the forward transformation's
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    ic = [0.05, 0.6, 0.4, 2.5, 0.0, 0.0]
+    E, Lz, I3 = _staeckel_inverse_labels(ic)
+    aAI = actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_potential(), Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=64
+    )
+    jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+    jrf, _, jzf = _staeckel_inverse_forward()(*ic[:5])
+    assert (
+        numpy.fabs(jr / jrf[0] - 1.0) < 1e-8 and numpy.fabs(jz / jzf[0] - 1.0) < 1e-8
+    ), "The actions of a nearly polar torus are not the forward transformation's"
+    R, _, _, z, _, _ = aAI(jr, Lz, jz, 1.0, 1.0, numpy.linspace(0.0, 6.28, 201))
+    assert numpy.all(numpy.isfinite(R)) and numpy.amin(R / numpy.hypot(R, z)) < 0.1, (
+        "A nearly polar torus does not come close to the axis"
+    )
+    return None
