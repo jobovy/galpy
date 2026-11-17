@@ -36,7 +36,14 @@ at release.]
 
 - [slot 05]
 
-- [slot 06]
+- ``actionAngleStaeckelInverse`` families with an adaptive reference curve
+  (``u0='fit'`` or a callable ``u0(E, Lz)``) include the variation of the
+  Staeckel model from torus to torus in their interpolation tables, so that
+  they converge between their nodes at the interpolation's order (before,
+  the actions between nodes converged at first order and the frequencies
+  did not converge). The frequencies of such families are the derivatives
+  of the energy with respect to the actions along the family and change at
+  the level of the potential's departure from Staeckel form.
 
 - [slot 07]
 
