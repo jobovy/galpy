@@ -13513,6 +13513,104 @@ def test_actionAngleStaeckelInverse_delta_callable_points():
     return None
 
 
+def test_actionAngleStaeckelInverse_delta_fit():
+    # delta='fit' gives every torus of a family the focal length that
+    # minimizes the spread of the true Hamiltonian over the torus of its
+    # Staeckel approximation, fitted smoothly over the family; the delta
+    # method returns a family's focal lengths and is itself a rule
+    import pickle
+
+    from galpy.actionAngle import (
+        actionAngleIsochroneInverse,
+        actionAngleStaeckelInverse,
+    )
+    from galpy.potential import (
+        IsochronePotential,
+        LogarithmicHaloPotential,
+        evaluatePotentials,
+    )
+
+    # an exact Staeckel potential: the fit finds its focal length, at which
+    # the spread vanishes, and with it the potential's own family
+    pot = _staeckel_inverse_potential()
+    grid = dict(setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=3.5, progressbar=False)
+    grid.update(nE=4, nLz=4, nI3=4, mm_npt=32)
+    base = actionAngleStaeckelInverse(pot=pot, **grid)
+    fit = actionAngleStaeckelInverse(pot=pot, delta="fit", delta_deg=(1, 1, 1), **grid)
+    E, Lz, y = (
+        numpy.array([-1.6, -1.3]),
+        numpy.array([0.8, 1.2]),
+        numpy.array([0.2, 0.7]),
+    )
+    assert (
+        numpy.amax(numpy.fabs(fit.delta(E, Lz, y) / _STAECKEL_INVERSE_DELTA - 1.0))
+        < 1e-4
+    ), "delta='fit' does not find the focal length of a Staeckel potential"
+    assert base.delta(E[0], Lz[0], y[0]) == _STAECKEL_INVERSE_DELTA, (
+        "The delta method does not return the focal length of a family that has one"
+    )
+    angs = numpy.array([[0.3, 2.0, 4.1], [1.0, 4.0, 0.2], [2.0, 5.5, 3.3]])
+    acts = numpy.array([[0.06, 0.93, 0.10], [0.15, 1.21, 0.03], [0.02, 0.8, 0.2]]).T
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(fit.xvFreqs(*acts, *angs))
+                - numpy.array(base.xvFreqs(*acts, *angs))
+            )
+        )
+        < 1e-4
+    ), "delta='fit' does not find the family of a Staeckel potential"
+    # a family with a callable: the method returns the family's own table
+    rule = lambda E, Lz, y: 1.3 * (1.0 + 0.2 * (y - 0.5) + 0.05 * E * y)  # noqa: E731
+    vary = actionAngleStaeckelInverse(pot=pot, delta=rule, **grid)
+    assert numpy.amax(numpy.fabs(vary.delta(E, Lz, y) / rule(E, Lz, y) - 1.0)) < 1e-3, (
+        "The delta method does not return the focal lengths of a family with "
+        "a callable delta="
+    )
+    # a general potential: the fitted family is canonical, the true energy
+    # varies less over its tori than over those of single focal lengths,
+    # and its delta method gives another family the same focal lengths
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    wide = dict(setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=4.0, progressbar=False)
+    wide.update(nE=4, nLz=4, nI3=4, mm_npt=32)
+    fit = actionAngleStaeckelInverse(pot=lp, delta="fit", delta_deg=(1, 1, 1), **wide)
+    iso = actionAngleIsochroneInverse(ip=IsochronePotential(amp=4.0, b=0.5))
+    floor = _spherical_inverse_symplectic_defect(iso, 0.06, 0.9, 0.1, 0.7, 1.0, 2.0)
+    defect = _spherical_inverse_symplectic_defect(fit, 0.08, 1.05, 0.06, 0.7, 1.0, 2.0)
+    assert defect < 20.0 * floor + 1e-9, (
+        "The symplectic defect of a family with delta='fit' is above the "
+        "floor: %g vs %g" % (defect, floor)
+    )
+    th = 2.0 * numpy.pi * (numpy.arange(12) + 0.5) / 12.0
+    thR, thz = (t.ravel() for t in numpy.meshgrid(th, th))
+
+    def spread(fam, jr, Lz, jz):
+        R, vR, vT, z, vz, _ = fam(jr, Lz, jz, thR, 0.0 * thR, thz)
+        return numpy.std(0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(lp, R, z))
+
+    single = [
+        actionAngleStaeckelInverse(pot=lp, delta=d, u0="torus", **wide)
+        for d in (0.5, 0.8, 1.2)
+    ]
+    acts = numpy.array([[0.08, 1.05, 0.06], [0.03, 0.9, 0.12], [0.15, 1.2, 0.02]])
+    for tor in acts:
+        assert spread(fit, *tor) < 0.8 * min(spread(fam, *tor) for fam in single), (
+            "The true energy does not vary less over a torus of a family with "
+            "delta='fit' than over those of single focal lengths"
+        )
+    again = actionAngleStaeckelInverse(pot=lp, delta=fit.delta, **wide)
+    out = numpy.array(fit.xvFreqs(*acts.T, *angs))
+    assert numpy.amax(numpy.fabs(numpy.array(again.xvFreqs(*acts.T, *angs)) - out)) < (
+        1e-9
+    ), "A family given another's delta method does not have its focal lengths"
+    assert numpy.all(
+        numpy.array(pickle.loads(pickle.dumps(fit)).xvFreqs(*acts.T, *angs)) == out
+    ), "A pickled family with delta='fit' does not evaluate identically"
+    with pytest.raises(ValueError, match="only string value delta= accepts"):
+        actionAngleStaeckelInverse(pot=lp, delta="best", **wide)
+    return None
+
+
 def test_actionAngleStaeckelInverse_target():
     # target= localizes the family's grid on the tori of a set of phase-space
     # points, through the same label relations the node lattice uses: the

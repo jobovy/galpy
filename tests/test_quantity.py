@@ -13437,6 +13437,14 @@ def test_actionAngleStaeckelInverse_units():
     assert numpy.all(numpy.fabs(aASCg._E_tab - aASCg_int._E_tab) < 1e-10), (
         "actionAngleStaeckelInverse does not parse Rinf given as a Quantity"
     )
+    # the delta method parses Quantity integrals and returns a length
+    E, Lz = -1.6 * vo**2 * units.km**2 / units.s**2, 0.9 * ro * vo * units.kpc
+    assert (
+        numpy.fabs(
+            _value(aASCg.delta(E, Lz * units.km / units.s, 0.5), units.kpc) - 1.3 * ro
+        )
+        < 1e-10
+    ), "actionAngleStaeckelInverse method delta does not return a length with units"
     return None
 
 
