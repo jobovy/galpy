@@ -138,7 +138,12 @@ at release.]
   proposal did not bound the distribution function in the inner disk and
   the samples there were a few percent too cold).
 
-- [slot 18]
+- The velocity moments of ``quasiisothermaldf`` (``density``, ``sigmaR2``,
+  ``sigmaz2``, ``sigmaRz``, ``sigmaT2``, ``meanvT``, ``tilt``, ...) are
+  computed on a velocity grid that follows the local velocity
+  distribution: with the default ``ngl=10`` their largest errors drop
+  from about 10 to 20 percent (in the cold outer disk and far from the
+  plane) to about a percent, at 1.5 times the cost per call.
 
 - ``actionAngleStaeckelInverse``: the focal length of the Staeckel
   approximation of a general potential can follow the torus in an
