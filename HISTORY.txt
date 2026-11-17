@@ -99,8 +99,7 @@ at release.]
 - ``actionAngleStaeckelInverse`` no longer keeps the samples and lifts of
   every torus after its set-up, which reduces the memory of an
   interpolated family about fourfold (from 1.1 GB to 0.26 GB for 17^3
-  tori), and a family is pickled as its tables (60 MB instead of 1 GB),
-  with the interpolants rebuilt when it is loaded.
+  tori) and the size of a pickled family about eightfold.
 
 - [slot 15]
 
