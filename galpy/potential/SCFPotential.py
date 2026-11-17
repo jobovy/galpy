@@ -903,16 +903,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
         if shape == ():
             return self._compute_at_point(radial_func, R, z, phi, t=t)
-        R = R * numpy.ones(shape)
-        z = z * numpy.ones(shape)
-        phi = phi * numpy.ones(shape)
-        t = t * numpy.ones(shape)
-        result = numpy.zeros(shape, float)
-        for idx in numpy.ndindex(*shape):
-            result[idx] = self._compute_at_point(
-                radial_func, R[idx], z[idx], phi[idx], t=t[idx]
-            )
-        return result
+        R, z, phi, t = (numpy.broadcast_to(x, shape).ravel() for x in (R, z, phi, t))
+        return self._compute_at_points(radial_func, R, z, phi, t=t).reshape(shape)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
@@ -938,11 +930,16 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
         xi = _RToxi(r, self._a)
         dC = _dC(xi, N, L)
+        CC = _C(xi, N, L)
+        if numpy.ndim(r) > 0:  # (P, N, L) for an array of radii, element by element
+            r = numpy.asarray(r, dtype=float)[:, numpy.newaxis, numpy.newaxis]
+            xi = xi[:, numpy.newaxis, numpy.newaxis]
+            CC, dC = numpy.moveaxis(CC, -1, 0), numpy.moveaxis(dC, -1, 0)
         return -((4 * numpy.pi) ** 0.5) * (
             numpy.power(a * r, l)
             * (l * (a + r) * numpy.power(r, -1) - (2 * l + 1))
             / ((a + r) ** (2 * l + 2))
-            * _C(xi, N, L)
+            * CC
             + a**-1 * (1 - xi) ** 2 * (a * r) ** l / (a + r) ** (2 * l + 1) * dC / 2.0
         )
 
@@ -960,8 +957,19 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         CC = _C(xi, N, L)
         dCC = _dC(xi, N, L)
         d2CC = _d2C(xi, N, L)
+        if numpy.ndim(r) > 0:  # (P, N, L) for an array of radii, element by element
+            r0 = numpy.asarray(r, dtype=float)[:, numpy.newaxis, numpy.newaxis] == 0
+            r = numpy.where(r0, 1.0, numpy.asarray(r, dtype=float)[:, None, None])
+            ar = a + r
+            CC, dCC, d2CC = (numpy.moveaxis(c, -1, 0) for c in (CC, dCC, d2CC))
+            out = self._d2phiTilde_terms(a, r, ar, l, CC, dCC, d2CC)
+            return numpy.where(r0, 0.0, out)
         if r == 0:
             return numpy.zeros((N, L), float)
+        return self._d2phiTilde_terms(a, r, ar, l, CC, dCC, d2CC)
+
+    @staticmethod
+    def _d2phiTilde_terms(a, r, ar, l, CC, dCC, d2CC):
         ar2 = ar * ar
         ar3 = ar2 * ar
         ar4 = ar3 * ar
@@ -1125,6 +1133,147 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         )
         return self._cached_2nd_derivs
 
+    # Batched evaluation over flat arrays of points: the same per-point arithmetic
+    # as _compute_at_point, _compute_spher_forces_at_point and
+    # _compute_spher_2nd_derivs_at_point (each point's sum is over its own
+    # contiguous (N, L, M) block), so the values are those of the per-point loop,
+    # without the Python loop. Points are taken in chunks to bound the memory of
+    # the (P, N, L, M) temporaries.
+    _POINTS_CHUNK_ELEMS = 2_000_000
+
+    def _coeffs_at_points(self, t):
+        """(Acos, Asin): the (N, L, M) tables at one time, else (P, N, L, M)"""
+        t = numpy.asarray(t, dtype=float)
+        if not self._tdep:
+            return self._Acos, self._Asin
+        if t.ndim == 0 or numpy.all(t == t.flat[0]):
+            self._ensure_coeffs_for_time(t.flat[0])
+            return self._Acos, self._Asin
+        N, L, M = self._coeff_shape
+        return (
+            self._Acos_interp(t).reshape(-1, N, L, M),
+            self._Asin_interp(t).reshape(-1, N, L, M),
+        )
+
+    def _in_point_chunks(self, func, R, z, phi, t):
+        """func(R, z, phi, t) over chunks of the flat point arrays (t: one time or
+        one per point), its tuple of outputs concatenated"""
+        N, L, M = self._coeff_shape if self._tdep else self._Acos.shape
+        chunk = max(1, self._POINTS_CHUNK_ELEMS // (N * L * M))
+        t = numpy.asarray(t, dtype=float)
+        if t.ndim > 0 and numpy.all(t == t.flat[0]):
+            t = t.flat[0]
+        outs = [
+            func(
+                R[i : i + chunk],
+                z[i : i + chunk],
+                phi[i : i + chunk],
+                t if numpy.ndim(t) == 0 else t[i : i + chunk],
+            )
+            for i in range(0, len(R), chunk)
+        ]
+        return tuple(
+            numpy.concatenate([o[k] for o in outs]) for k in range(len(outs[0]))
+        )
+
+    def _compute_at_points(self, radial_func, R, z, phi, t=0.0):
+        """_compute_at_point at flat arrays of points"""
+
+        def one(R, z, phi, t):
+            Acos, Asin = self._coeffs_at_points(t)
+            N, L, M = Acos.shape[-3:]
+            r, theta, phi = coords.cyl_to_spher(R, z, phi)
+            radial = radial_func(r, N, L)  # (P, N, L)
+            PP = _legendre_at_points(numpy.cos(theta), L, M)  # (P, L, M)
+            ang = numpy.arange(0, M)[numpy.newaxis, :] * phi[:, numpy.newaxis]
+            mcos = numpy.cos(ang)[:, None, None, :]
+            msin = numpy.sin(ang)[:, None, None, :]
+            terms = radial[:, :, :, None] * (Acos * mcos + Asin * msin) * PP[:, None]
+            return (numpy.sum(terms.reshape(len(r), -1), axis=1),)
+
+        return self._in_point_chunks(one, R, z, phi, t)[0]
+
+    def _compute_spher_forces_at_points(self, R, z, phi, t=0.0):
+        """_compute_spher_forces_at_point at flat arrays of points"""
+
+        def one(R, z, phi, t):
+            Acos, Asin = self._coeffs_at_points(t)
+            N, L, M = Acos.shape[-3:]
+            P = len(R)
+            r, theta, phi = coords.cyl_to_spher(R, z, phi)
+            PP, dPP = _legendre_at_points(numpy.cos(theta), L, M, deriv=True)
+            PP, dPP = PP[:, None], dPP[:, None]  # (P, 1, L, M)
+            phi_tilde = self._phiTilde(r, N, L)[:, :, :, None]  # (P, N, L, 1)
+            dphi_tilde = self._dphiTilde(r, N, L)[:, :, :, None]
+            m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+            ang = m * phi[:, None, None, None]  # (P, 1, 1, M)
+            mcos = numpy.cos(ang)
+            msin = numpy.sin(ang)
+            cos_sin_sum = Acos * mcos + Asin * msin
+            sint = numpy.sin(theta)[:, None, None, None]
+            dPhi_dr = -numpy.sum((cos_sin_sum * PP * dphi_tilde).reshape(P, -1), axis=1)
+            dPhi_dtheta = -numpy.sum(
+                (cos_sin_sum * phi_tilde * dPP * (-sint)).reshape(P, -1), axis=1
+            )
+            dPhi_dphi = -numpy.sum(
+                (m * (Asin * mcos - Acos * msin) * phi_tilde * PP).reshape(P, -1),
+                axis=1,
+            )
+            return dPhi_dr, dPhi_dtheta, dPhi_dphi
+
+        return self._in_point_chunks(one, R, z, phi, t)
+
+    def _compute_spher_2nd_derivs_at_points(self, R, z, phi, t=0.0):
+        """_compute_spher_2nd_derivs_at_point at flat arrays of points"""
+
+        def one(R, z, phi, t):
+            Acos, Asin = self._coeffs_at_points(t)
+            N, L, M = Acos.shape[-3:]
+            P = len(R)
+            r, theta, phi = coords.cyl_to_spher(R, z, phi)
+            # the centre and infinity are zero, as for one point (evaluated at a
+            # stand-in radius, then masked)
+            bad = (r == 0.0) | ~numpy.isfinite(r)
+            r = numpy.where(bad, 1.0, r)
+            costheta = numpy.cos(theta)
+            sintheta = numpy.sin(theta)
+            if M > 1:  # nudge off the pole so the m>0 angular derivatives stay finite
+                pole = numpy.fabs(1.0 - costheta * costheta) < 1e-14
+                costheta = numpy.where(
+                    pole, numpy.sign(costheta) * (1.0 - 1e-7), costheta
+                )
+                sintheta = numpy.where(pole, numpy.sqrt(1.0 - costheta**2), sintheta)
+            PP, dPP, d2PP = _legendre_at_points(costheta, L, M, deriv=2)
+            ct, st = costheta[:, None, None], sintheta[:, None, None]
+            dPth = dPP * (-st)
+            d2Pth = d2PP * st**2 - dPP * ct
+            PP, dPth, d2Pth = PP[:, None], dPth[:, None], d2Pth[:, None]
+            phi_tilde = self._phiTilde(r, N, L)[:, :, :, None]
+            dphi_tilde = self._dphiTilde(r, N, L)[:, :, :, None]
+            d2phi_tilde = self._d2phiTilde(r, N, L)[:, :, :, None]
+            m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+            ang = m * phi[:, None, None, None]
+            mcos = numpy.cos(ang)
+            msin = numpy.sin(ang)
+            cos_sin = Acos * mcos + Asin * msin
+            dphi_coef = m * (Asin * mcos - Acos * msin)
+
+            def tot(x):
+                return numpy.where(bad, 0.0, numpy.sum(x.reshape(P, -1), axis=1))
+
+            return (
+                tot(cos_sin * PP * d2phi_tilde),
+                tot(cos_sin * d2Pth * phi_tilde),
+                tot(-m * m * cos_sin * PP * phi_tilde),
+                tot(cos_sin * dPth * dphi_tilde),
+                tot(dphi_coef * PP * dphi_tilde),
+                tot(dphi_coef * dPth * phi_tilde),
+                tot(cos_sin * PP * dphi_tilde),
+                tot(cos_sin * dPth * phi_tilde),
+            )
+
+        return self._in_point_chunks(one, R, z, phi, t)
+
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         return self._evaluate_cyl_2nd_deriv("R2", R, z, phi, t=t)
 
@@ -1156,10 +1305,21 @@ def _rhoTilde_basis(r, N, L, a):
     """
     xi = _RToxi(r, a)
     CC = _C(xi, N, L)
-    rho = numpy.zeros((N, L), float)
     n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
     l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
     K = 0.5 * n * (n + 4 * l + 3) + (l + 1.0) * (2 * l + 1)
+    if (
+        numpy.ndim(r) > 0
+    ):  # (P, N, L) for an array of radii, element by element as below
+        r = numpy.asarray(r, dtype=float)[:, numpy.newaxis, numpy.newaxis]
+        return (
+            K
+            * ((a * r) ** l)
+            / ((r / a) * (a + r) ** (2 * l + 3.0))
+            * numpy.moveaxis(CC, -1, 0)
+            * (numpy.pi) ** -0.5
+        )
+    rho = numpy.zeros((N, L), float)
     rho[:, :] = (
         K
         * ((a * r) ** l)
@@ -1178,9 +1338,24 @@ def _phiTilde_basis(r, N, L, a):
     """
     xi = _RToxi(r, a)
     CC = _C(xi, N, L)
-    phi = numpy.zeros((N, L), float)
     n = numpy.arange(0, N)[:, numpy.newaxis]
     l = numpy.arange(0, L)[numpy.newaxis, :]
+    if (
+        numpy.ndim(r) > 0
+    ):  # (P, N, L) for an array of radii, element by element as below
+        r = numpy.asarray(r, dtype=float)[:, numpy.newaxis, numpy.newaxis]
+        CC = numpy.moveaxis(CC, -1, 0)
+        rs = numpy.where(r == 0, 1.0, r)
+        return numpy.where(
+            r == 0,
+            -1.0 / a * CC * (4 * numpy.pi) ** 0.5,
+            -(a**l)
+            * rs ** (-l - 1.0)
+            / ((1.0 + a / rs) ** (2 * l + 1.0))
+            * CC
+            * (4 * numpy.pi) ** 0.5,
+        )
+    phi = numpy.zeros((N, L), float)
     if r == 0:
         phi[:, :] = -1.0 / a * CC[:, :] * (4 * numpy.pi) ** 0.5
     else:
@@ -1192,6 +1367,18 @@ def _phiTilde_basis(r, N, L, a):
             * (4 * numpy.pi) ** 0.5
         )
     return phi
+
+
+def _legendre_at_points(x, L, M, deriv=False):
+    """compute_legendre at an array of x, each output with a leading point axis
+    (P, L, M); point by point where scipy's associated Legendre functions take
+    scalars only (scipy < 1.15)"""
+    if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+        outs = [compute_legendre(xx, L, M, deriv=deriv) for xx in x]
+        if not deriv:
+            return numpy.array(outs)
+        return tuple(numpy.array([o[k] for o in outs]) for k in range(len(outs[0])))
+    return compute_legendre(x, L, M, deriv=deriv)
 
 
 def _xiToR(xi, a=1):
@@ -1244,19 +1431,15 @@ def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
         Ls = [L]
     else:
         Ls = range(L)
+    # vectorized over l (alpha as a column): the same per-element arithmetic as
+    # a loop over l, so the values are unchanged
+    a = numpy.array([alpha(ll) for ll in Ls], dtype=float)[:, numpy.newaxis]
     CC = numpy.zeros((N, len(Ls), len(xi)))
-    for l, ll in enumerate(Ls):
-        for n in range(N):
-            a = alpha(ll)
-            if n == 0:
-                CC[n, l] = 1.0
-                continue
-            elif n == 1:
-                CC[n, l] = 2.0 * a * xi
-            if n + 1 != N:
-                CC[n + 1, l] = (
-                    2 * (n + a) * xi * CC[n, l] - (n + 2 * a - 1) * CC[n - 1, l]
-                ) / (n + 1.0)
+    CC[0] = 1.0
+    if N > 1:
+        CC[1] = 2.0 * a * xi
+    for n in range(1, N - 1):
+        CC[n + 1] = (2 * (n + a) * xi * CC[n] - (n + 2 * a - 1) * CC[n - 1]) / (n + 1.0)
     if floatIn:
         return CC[:, :, 0]
     else:
@@ -1268,7 +1451,8 @@ def _dC(xi, N, L):
     CC = _C(xi, N + 1, L, alpha=lambda x: 2 * x + 5.0 / 2)
     CC = numpy.roll(CC, 1, axis=0)[:-1, :]
     CC[0, :] = 0
-    CC *= 2 * (2 * l + 3.0 / 2)
+    fac = 2 * (2 * l + 3.0 / 2)
+    CC *= fac[..., numpy.newaxis] if CC.ndim == 3 else fac  # an array of xi: (N, L, P)
     return CC
 
 
@@ -1285,7 +1469,8 @@ def _d2C(xi, N, L):
     CC[0, :] = 0
     if N > 1:
         CC[1, :] = 0
-    CC *= 4 * a * (a + 1)
+    fac = 4 * a * (a + 1)
+    CC *= fac[..., numpy.newaxis] if CC.ndim == 3 else fac  # an array of xi: (N, L, P)
     return CC
 
 

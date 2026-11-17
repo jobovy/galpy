@@ -87,7 +87,11 @@ at release.]
 
 - [slot 19]
 
-- [slot 20]
+- SCFPotential (and DiskSCFPotential, whose expansion is one) evaluates arrays
+  of points in one vectorized pass instead of a Python loop over the points
+  (potential, density, forces and second derivatives; the Gegenbauer
+  recurrence is vectorized over l too), with bit-identical values. The
+  forces of McMillan17 take about 0.1 ms per point instead of 15 ms.
 
 - ``actionAngleStaeckelInverse`` evaluates every point of an interpolated
   family (``setup_interp=True``) with the harmonics that the tori around it

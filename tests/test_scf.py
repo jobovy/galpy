@@ -1977,3 +1977,73 @@ def test_tdep_warning_not_lower_triangular():
     Asin = numpy.zeros((5, 2, 3, 3))
     with pytest.raises(RuntimeWarning):
         SCFPotential(Acos=Acos, Asin=Asin, tgrid=numpy.linspace(0, 1, 5))
+
+
+def test_scf_arrays_equal_points():
+    # Arrays of points are evaluated in one batched pass (no Python loop over the
+    # points); its values are those of evaluating the points one by one, bit for
+    # bit, for every method: non-axisymmetric and time-dependent expansions
+    # (one time per point and one shared time), DiskSCFPotential, the centre,
+    # the symmetry axis (the second derivatives' pole nudge) and infinity
+    from galpy.potential import (
+        DiskSCFPotential,
+        evaluateDensities,
+        evaluatephi2derivs,
+        evaluatephitorques,
+        evaluatephizderivs,
+        evaluatePotentials,
+        evaluateR2derivs,
+        evaluateRforces,
+        evaluateRphiderivs,
+        evaluateRzderivs,
+        evaluatez2derivs,
+        evaluatezforces,
+    )
+
+    rng = numpy.random.default_rng(5)
+    A = numpy.tril(rng.normal(size=(5, 4, 4)) * 0.1)
+    A[0, 0, 0] = 1.0
+    S = numpy.tril(rng.normal(size=(5, 4, 4)) * 0.1)
+    tg = numpy.linspace(0.0, 2.0, 9)
+    pots = [
+        potential.SCFPotential(amp=0.9, Acos=A, Asin=S, a=0.8),
+        potential.SCFPotential(
+            Acos=numpy.array([A * (1 + 0.1 * tt) for tt in tg]),
+            Asin=numpy.array([S * (1 - 0.05 * tt) for tt in tg]),
+            a=1.1,
+            tgrid=tg,
+        ),
+        DiskSCFPotential(N=6, L=6),
+    ]
+    R = numpy.array([0.0, 0.0, 0.7, 1.3, 2.2, numpy.inf])
+    z = numpy.array([0.0, 0.6, -0.4, 0.0, 1.1, 0.0])
+    phi = numpy.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    funcs = [
+        evaluatePotentials,
+        evaluateDensities,
+        evaluateRforces,
+        evaluatezforces,
+        evaluatephitorques,
+        evaluateR2derivs,
+        evaluatez2derivs,
+        evaluateRzderivs,
+        evaluatephi2derivs,
+        evaluateRphiderivs,
+        evaluatephizderivs,
+    ]
+    with numpy.errstate(all="ignore"):
+        for pot in pots:
+            for t in (0.3, numpy.linspace(0.1, 1.9, len(R))):
+                tv = numpy.broadcast_to(t, R.shape)
+                for f in funcs:
+                    got = numpy.broadcast_to(  # axisymmetric phi derivatives: 0
+                        f(pot, R, z, phi=phi, t=t, use_physical=False), R.shape
+                    )
+                    want = [
+                        f(pot, R[i], z[i], phi=phi[i], t=tv[i], use_physical=False)
+                        for i in range(len(R))
+                    ]
+                    assert numpy.array_equal(got, want, equal_nan=True), (
+                        f"{f.__name__} at arrays of points differs from point by point"
+                    )
+    return None
