@@ -1827,6 +1827,26 @@ def test_king_cumulative_mass_is_made_monotone():
     return None
 
 
+def test_king_cumul_mass_strictly_increasing():
+    # The cumulative mass -r^2 dW/dr of a King model is made strictly
+    # increasing: where the Poisson solution has a round-off decrease (as in
+    # these very shallow models on a fine grid, even at the ODE's 1e-10
+    # tolerance), the step is replaced by one of 2 eps
+    from galpy.df.kingdf import _scalefreekingdf
+
+    ndecrease = 0
+    for W0 in (0.005, 0.01, 0.015):
+        sfk = _scalefreekingdf(W0)
+        sfk.solve(2001)
+        ndecrease += numpy.sum(numpy.diff(-sfk._dWdr * sfk._r**2.0) < 0.0)
+        assert numpy.all(numpy.diff(sfk._cumul_mass) > 0.0), (
+            f"The cumulative mass of a King model with W0 = {W0} is not strictly increasing"
+        )
+        assert sfk.mass == sfk._cumul_mass[-1]
+    assert ndecrease > 0, "None of these King models has a decrease to repair"
+    return None
+
+
 def test_king_dens_massprofile():
     pot = potential.KingPotential(W0=3.0, M=2.3, rt=1.76)
     dfk = kingdf(W0=3.0, M=2.3, rt=1.76)
