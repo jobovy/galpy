@@ -1795,17 +1795,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     # ---------- the momentum-matched maps and their lifts
     @staticmethod
-    def _map(tau, Dm, ms):
+    def _map(tau, Dm, ms, full=False):
         """The anomaly map eta(tau) = tau + sum_m D_m sin(m tau) over the
-        harmonics ms, its derivative, and the sine matrix it is built from;
+        harmonics ms, its derivative, and the sine matrix it is built from
+        (and, with full, the cosine matrix);
         the coefficients are those of one torus, (M,), or of every point's
         own torus, (M, npoints)"""
         smt, cmt = _harmonics(tau, ms)
-        return (
+        out = (
             tau + _contract(smt, Dm),
             1.0 + _contract(cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm),
             smt,
         )
+        return (*out, cmt) if full else out
 
     def _match_anomaly(self, tau, ft, flux, cumulative, ms):
         """The momentum-matched map of one libration onto the auxiliary's:
@@ -3613,13 +3615,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "which tori lie inside" + self._target_hint
         )
 
-    def _interp_tables_array(self, Lz, x, y, Om, uc, duc, N, nharm):
+    def _interp_tables_array(self, Lz, x, y, Om, uc, duc, N, *rest):
         """The family's tables of many tori at once, none on a degenerate
         face, from their labels (_label_tori), as _interp_tables returns
         them for one torus but with a leading point axis and with the first
         nharm = (u, v) coefficients of the two maps (the maps' coefficients
         as (M, npoints), their chains as (M, npoints, 3))"""
         tab = {"Om": Om, "uc": uc, "duc": duc, "udeg": False, "vdeg": False}
+        nharm = rest[-1]
+        if len(rest) > 1:
+            # (the labels of a family whose focal length follows its tori)
+            tab["delta"], tab["ddelta"] = rest[:2]
         wE, ell = numpy.sqrt(x), numpy.fabs(Lz)
         for ip, sv, fs, key, nh in (
             (self._U_ip, numpy.sqrt(1.0 - y), -1.0, "u", nharm[0]),
@@ -3663,7 +3669,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "dDmv": self._dDmvs[ii] @ N,
         }
 
-    def _kernel_u(self, tau, a, e, L, Dm, uc, wu, chains):
+    def _kernel_u(self, tau, a, e, L, Dm, uc, wu, chains, jac=False):
         """Everything the evaluation needs from the u libration at anomaly
         tau, in one pass and from the tables alone: the auxiliary anomaly
         eta(tau), the auxiliary's radial angle (Kepler's equation, closed
@@ -3674,8 +3680,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         with sin(eta)/sin(tau) grouped so that every factor is regular at
         the turning points), and, for each chain (da, de, duc, dwu, dDm),
         the compensation p^A dr^A/dJ|_tau - p_u du/dJ|_tau. The map has as
-        many harmonics as coefficients are given."""
-        eta, deta, smt = self._map(tau, Dm, self._nforDm[: len(Dm)])
+        many harmonics as coefficients are given. With jac, also the
+        derivatives of p_u and of the compensations with respect to tau,
+        in closed form."""
+        ms = self._nforDm[: len(Dm)]
+        eta, deta, smt, *cmt = self._map(tau, Dm, ms, jac)
         se, ce = numpy.sin(eta), numpy.cos(eta)
         rA, pA, gA = self._aAIinv._profile(a, e, eta)
         kap = a * e / (a + self._b)
@@ -3710,17 +3719,61 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             - pu * (duc - dwu * ct)
             for da, de, duc, dwu, dDm in chains
         ]
-        return eta, thetaA, dthetaA, Lam, dLam, u, pu, comps
+        out = (eta, thetaA, dthetaA, Lam, dLam, u, pu, comps)
+        if not jac:
+            return out
+        ms = ms[:, None] if Dm.ndim == 2 else ms
+        d2eta = -_contract(smt, ms**2 * Dm)
+        y = 1.0 - e * ce
+        sA, dy, yb = self._b + a * y, e * se, y + self._b / a
+        # with p^A = P sin(eta): P, and the derivatives with respect to eta
+        # of ln P, of g^A and of the radius partials
+        P = numpy.sqrt(self._GM / (a + self._b)) * a * e / rA
+        dlnP = -gA * se / rA
+        dgA = gA * dy * (1.0 / yb - yb * a**2 / rA**2)
+        dXa = (dy * sA + y * a * dy) / rA - y * sA * gA * se / rA**2
+        dXe = -a * ((a * dy * ce - sA * se) / rA - sA * ce * gA * se / rA**2)
+        # every factor regular at the turning points: sin(eta) times the
+        # derivative of sin(eta)/sin(tau) is that ratio times [cos(eta)
+        # eta' - (sin(eta)/sin(tau)) cos(tau)]
+        dpu = (
+            P
+            * sratio
+            / wu
+            * (
+                ((dlnP * gA + dgA) * se + 2.0 * gA * ce) * deta**2
+                - gA * sratio * ct * deta
+                + gA * se * d2eta
+            )
+        )
+        dpA = P * (dlnP * se + ce) * deta
+        dcomps = []
+        for da, de, duc, dwu, dDm in chains:
+            S = _contract(smt, dDm)
+            dcomps.append(
+                dpA * (drA_da * da + drA_de * de + gA * se * S)
+                + pA
+                * (
+                    (dXa * da + dXe * de + (dgA * se + gA * ce) * S) * deta
+                    + gA * se * _contract(cmt[0], ms * dDm)
+                )
+                - dpu * (duc - dwu * ct)
+                - pu * dwu * st
+            )
+        return (*out, dpu, dcomps)
 
-    def _kernel_v(self, tau, L, c, Dm, wv, chains):
+    def _kernel_v(self, tau, L, c, Dm, wv, chains, jac=False):
         """Everything the evaluation needs from the v libration at anomaly
         tau: the auxiliary's polar anomaly zeta(tau) and its derivative,
         the target's v and p_v (the flux identity, regular at the turning
         points), and, for each chain (dc, dwv, dDm), the compensation
         p^A_theta d theta^A/dJ|_tau - p_v dv/dJ|_tau, whose auxiliary part
         is grouped as -L sin(zeta) cos(zeta) / [2 sin^2 theta^A] dc, regular
-        down to the planar edge, plus the flux times the map's shift."""
-        zeta, dzeta, smt = self._map(tau, Dm, self._nforDmv[: len(Dm)])
+        down to the planar edge, plus the flux times the map's shift. With
+        jac, also the derivatives of p_v and of the compensations with
+        respect to tau, in closed form."""
+        ms = self._nforDmv[: len(Dm)]
+        zeta, dzeta, smt, *cmt = self._map(tau, Dm, ms, jac)
         sz, cz = numpy.sin(zeta), numpy.cos(zeta)
         sinth2 = 1.0 - c * cz**2
         fluxA = L * c * sz**2 / sinth2
@@ -3736,15 +3789,42 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             + pv * dwv * ct
             for dc, dwv, dDm in chains
         ]
-        return zeta, dzeta, v, pv, comps
+        out = (zeta, dzeta, v, pv, comps)
+        if not jac:
+            return out
+        ms = ms[:, None] if Dm.ndim == 2 else ms
+        d2zeta = -_contract(smt, ms**2 * Dm)
+        ds2 = 2.0 * c * cz * sz * dzeta
+        dpv = (
+            L
+            * c
+            * sratio
+            / wv
+            * (
+                ((2.0 * cz * dzeta - sratio * ct) * dzeta + sz * d2zeta) / sinth2
+                - sz * dzeta * ds2 / sinth2**2
+            )
+        )
+        dA = ((cz**2 - sz**2) * dzeta * sinth2 - sz * cz * ds2) / sinth2**2
+        dflux = L * c * (2.0 * sz * cz * dzeta * sinth2 - sz**2 * ds2) / sinth2**2
+        dcomps = [
+            -0.5 * L * dA * dc
+            + dflux * _contract(smt, dDm)
+            + fluxA * _contract(cmt[0], ms * dDm)
+            + dpv * dwv * ct
+            - pv * dwv * st
+            for dc, dwv, dDm in chains
+        ]
+        return (*out, dpv, dcomps)
 
-    def _torus_at(self, tu, tv, aux, chains_u, chains_v):
+    def _torus_at(self, tu, tv, aux, chains_u, chains_v, jac=False):
         """The torus at the anomaly pair (tau_u, tau_v): the auxiliary's
         radial and vertical angles with their derivatives, the point
         (u, p_u, v, p_v), the auxiliary's polar anomaly, and the total
         compensation of each chain (the u chains and v chains paired, and
         each libration's part on its own)"""
         n = len(tu)
+        ju = jv = (0.0, [0.0, 0.0])
         if aux["udeg"]:
             # a shell orbit: the auxiliary's radial libration is degenerate
             # too (e = 0), so its radial angle is the anomaly and Lambda is
@@ -3754,7 +3834,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             u, pu = aux["uc"] * numpy.ones(n), numpy.zeros(n)
             comps_u = [numpy.zeros(n)] * len(chains_u)
         else:
-            _, thetaAr, dthetaAr, Lam, dLam, u, pu, comps_u = self._kernel_u(
+            _, thetaAr, dthetaAr, Lam, dLam, u, pu, comps_u, *ju = self._kernel_u(
                 tu,
                 aux["a"],
                 aux["e"],
@@ -3763,18 +3843,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 aux["uc"],
                 aux["wu"],
                 chains_u,
+                jac,
             )
         if aux["vdeg"]:
             zeta, dzeta = tv, numpy.ones(n)
             v, pv = 0.5 * numpy.pi * numpy.ones(n), numpy.zeros(n)
             comps_v = [numpy.zeros(n)] * len(chains_v)
         else:
-            zeta, dzeta, v, pv, comps_v = self._kernel_v(
-                tv, aux["L"], aux["c"], aux["Dmv"], aux["wv"], chains_v
+            zeta, dzeta, v, pv, comps_v, *jv = self._kernel_v(
+                tv, aux["L"], aux["c"], aux["Dmv"], aux["wv"], chains_v, jac
             )
         # the auxiliary's vertical angle: affine in its polar anomaly (the
         # in-plane phase psi = zeta + pi/2), plus its radial angle relation
-        return {
+        T = {
             "thetaAr": thetaAr,
             "dthetaAr": dthetaAr,
             "thetaAz": zeta + 0.5 * numpy.pi + aux["ratio"] * thetaAr - Lam,
@@ -3790,6 +3871,80 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "comps_u": comps_u,
             "comps_v": comps_v,
         }
+        if "dlnD" in aux:
+            self._dilate(T, tu, tv, aux, ju, jv, jac)
+        return T
+
+    def _dilate(self, T, tu, tv, aux, ju, jv, jac):
+        """The compensation of a focal length that follows the tori, added
+        to those of the torus T in place: the point transformation (u, v)
+        -> (R, z) = delta (sinh u sin v, cosh u cos v) dilates with the
+        torus's focal length, which adds -(R p_R + z p_z) dln(delta)/dJ to
+        the angle of each chain, with R p_R + z p_z = [sinh u cosh u p_u -
+        sin v cos v p_v] / (sinh^2 u + sin^2 v); it couples the two
+        librations. With jac, also the Jacobian of the two angle relations,
+        d(theta_R, theta_z)/d(tau_u, tau_v) row by row, in closed form from
+        the kernels' derivatives (ju, jv)"""
+        u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
+        shc, snc = 0.5 * numpy.sinh(2.0 * u), 0.5 * numpy.sin(2.0 * v)
+        den = numpy.sinh(u) ** 2 + numpy.sin(v) ** 2
+        xp = (shc * pu - snc * pv) / den
+        dl = aux["dlnD"]
+        T["comps"] = [c - xp * d for c, d in zip(T["comps"], dl)]
+        if jac:
+            du, dv = aux["wu"] * numpy.sin(tu), aux["wv"] * numpy.sin(tv)
+            xu = (
+                numpy.cosh(2.0 * u) * du * pu
+                + shc * ju[0]
+                - xp * numpy.sinh(2.0 * u) * du
+            ) / den
+            xv = (
+                -(
+                    numpy.cos(2.0 * v) * dv * pv
+                    + snc * jv[0]
+                    + xp * numpy.sin(2.0 * v) * dv
+                )
+                / den
+            )
+            T["jac"] = (
+                T["dthetaAr"] + ju[1][0] - xu * dl[0],
+                jv[1][0] - xv * dl[0],
+                T["dthetaAz_du"] + ju[1][1] - xu * dl[1],
+                T["dthetaAz_dv"] + jv[1][1] - xv * dl[1],
+            )
+        return None
+
+    def _newton_angles_dilated(self, thR, thz, aux, chains_u, chains_v):
+        """_newton_angles for a family whose focal length follows its
+        tori, whose compensation couples the two librations: Newton steps
+        with the Jacobian of the two angle relations in closed form, on a
+        fixed schedule (maxiter steps, a pair that has converged stays, a
+        step is at most 0.5 long in each anomaly and a vanishing
+        determinant is replaced by one, so that every step is finite)"""
+
+        def residuals(x, y):
+            T = self._torus_at(x, y, aux, chains_u, chains_v, jac=True)
+            FR = T["thetaAr"] + T["comps"][0] - thR
+            Fz = T["thetaAz"] + T["comps"][1] - thz
+            FR, Fz = ((F + numpy.pi) % (2.0 * numpy.pi) - numpy.pi for F in (FR, Fz))
+            return FR, Fz, numpy.maximum(numpy.fabs(FR), numpy.fabs(Fz)), T["jac"]
+
+        x = numpy.array(thR, dtype="float")
+        T0 = self._torus_at(x, 0.0 * x, aux, [], [])
+        y = thz - 0.5 * numpy.pi - aux["ratio"] * T0["thetaAr"] + T0["Lam"]
+        for _ in range(self._maxiter):
+            FR, Fz, norm, (a, b, c, d) = residuals(x, y)
+            go = norm >= self._angle_tol
+            if not numpy.any(go):
+                # (all the remaining steps would be masked)
+                break
+            det = a * d - b * c
+            det = numpy.where(numpy.fabs(det) > 1e-10, det, 1.0)
+            x = x + go * numpy.clip(-(d * FR - b * Fz) / det, -0.5, 0.5)
+            y = y + go * numpy.clip(-(a * Fz - c * FR) / det, -0.5, 0.5)
+        else:
+            go = residuals(x, y)[2] >= self._angle_tol
+        return x, y, numpy.flatnonzero(go)
 
     def _newton_angles(self, thR, thz, aux, chains_u, chains_v):
         """Newton solve of the two angle relations theta_R(tau_u, tau_v) and
@@ -3802,6 +3957,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         secants between successive iterates and the convergence is
         superlinear; returns the anomalies and the indices of the pairs
         that did not converge within maxiter iterations"""
+        if "dlnD" in aux:
+            return self._newton_angles_dilated(thR, thz, aux, chains_u, chains_v)
 
         def wrap(f):
             return (f + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
@@ -4117,11 +4274,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         actions of shape (n,1) with angles of shape (m,): every angle on
         every torus as (n,m) arrays); a single torus returns its
         frequencies as floats"""
-        if self._delta_rule is not None:
-            raise NotImplementedError(
-                "the points of a family whose focal length follows its tori are "
-                "not implemented yet"
-            )
         scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
         jr, jphi, jz, angler, anglephi, anglez = numpy.broadcast_arrays(
             *(
@@ -4269,6 +4421,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "udeg": tab["udeg"],
             "vdeg": tab["vdeg"],
         }
+        if "delta" in tab:
+            aux["delta"], aux["dlnD"] = tab["delta"], tab["ddelta"] / tab["delta"]
         # the three action chains, (J_R, J_z, J_phi): through the auxiliary
         # torus's parameters -- (a, e) from (J_R, L) and c = sin^2 i from
         # (L, L_z), with L = J_z + |L_z| -- the turning points, and the
@@ -4289,14 +4443,22 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         tu, tv = self._solve_angles(thR, thz, aux, chains_u[:2], chains_v[:2])
         T = self._torus_at(tu, tv, aux, chains_u, chains_v)
         Om = tab["Om"]
-        return (*self._point(T, Lz, L, anglephi), Om[0], Om[2], Om[1])
+        return (
+            *self._point(T, Lz, L, anglephi, aux.get("delta")),
+            Om[0],
+            Om[2],
+            Om[1],
+        )
 
-    def _point(self, T, Lz, L, anglephi):
+    def _point(self, T, Lz, L, anglephi, delta=None):
         """(R, v_R, v_T, z, v_z, phi) from the two librations of _torus_at:
         the azimuth from the auxiliary's angle relations, phi = theta^A_phi
         - sgn(L_z) theta^A_z + arctan2(cos i sin psi, cos psi) with the
         in-plane phase psi = zeta + pi/2 and cos i = L_z / L, at the
-        compensated azimuthal angle"""
+        compensated azimuthal angle; in the coordinates of the focal
+        length delta (of each point's own torus when it follows the tori,
+        else the family's)"""
+        delta = self._delta if delta is None else delta
         zeta = T["zeta"]
         phi = (
             anglephi
@@ -4307,13 +4469,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
         sh, ch = numpy.sinh(u), numpy.cosh(u)
         sn, cs = numpy.sin(v), numpy.cos(v)
-        den = self._delta * (sh**2 + sn**2)
-        R = self._delta * sh * sn
+        den = delta * (sh**2 + sn**2)
+        R = delta * sh * sn
         return (
             R,
             (pu * ch * sn + pv * sh * cs) / den,
             Lz / R,
-            self._delta * ch * cs,
+            delta * ch * cs,
             (pu * sh * cs - pv * ch * sn) / den,
             phi % (2.0 * numpy.pi),
         )
@@ -4348,6 +4510,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "udeg": False,
             "vdeg": False,
         }
+        if "delta" in tab:
+            aux["delta"] = tab["delta"][rows]
+            aux["dlnD"] = (tab["ddelta"] / tab["delta"][:, None])[rows].T
         zero, one = numpy.zeros(len(jr)), numpy.ones(len(jr))
         dL = numpy.stack([zero, one, sgn], axis=1)
         dc = (2.0 * Lz**2 / L**3)[:, None] * dL - (2.0 * Lz / L**2)[
@@ -4372,7 +4537,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         T = self._torus_at(tu, tv, aux, chains_u, chains_v)
         Om = tab["Om"][rows]
         return (
-            *self._point(T, Lz[rows], L[rows], anglephi),
+            *self._point(T, Lz[rows], L[rows], anglephi, aux.get("delta")),
             *Om[:, [0, 2, 1]].T,
             numpy.isin(numpy.arange(len(rows)), bad),
         )
