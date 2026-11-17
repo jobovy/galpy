@@ -95,7 +95,8 @@ at release.]
   potential at and near the centre is now finite and correct (as in C; it was
   2e26 at the centre for McMillan17's disc expansion, and overflowed at tiny
   radii for large L), so OblateStaeckelWrapperPotential(pot=McMillan17,
-  ntab=...) can be built; elsewhere the potential changes at round-off.
+  ntab=...) can be built; elsewhere the potential, forces and second
+  derivatives change at round-off (<~ 1e-13 relative).
 
 - ``actionAngleStaeckelInverse`` evaluates every point of an interpolated
   family (``setup_interp=True``) with the harmonics that the tori around it

@@ -976,7 +976,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # Factored as (a r / ar^2)^l / (r^2 ar^5) -- a small, stable number for
         # large r -- rather than (a r)^l / ar^(5+2l), whose intermediate powers
         # overflow to inf/inf=NaN at large l (matches the C compute_d2phiTilde).
-        rterm = numpy.power(a * r / ar2, l) / (r * r * ar3 * ar2)
+        rterm = (a * r / ar2) ** l / (r * r * ar3 * ar2)
         out = rterm * (
             CC
             * (
