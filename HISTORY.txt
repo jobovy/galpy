@@ -47,7 +47,17 @@ at release.]
   adaptive rejection sampling, as on galpy's v2 branch; seeded samples (and
   those of ``streamgapdf``) change, and are the same as v2's.
 
-- [slot 05]
+- ``actionAngleStaeckel``'s pure-Python implementation (``c=False``) is
+  vectorized over all phase-space points, as on galpy's v2 branch: the turning
+  points by a fixed-schedule bracket-and-bisect and the actions, frequencies,
+  and angles by the chi-anomaly quadrature on C's mesh, as in C (the actions
+  no longer use adaptive quadrature, so the ``fixed_quad=`` and
+  ``scipy.integrate.quad`` keywords are removed). It is 3 to 30 times faster,
+  its outputs move by less than 2e-9 and equal v2's bit for bit, and a planar,
+  radially eccentric orbit's frequencies are now C's (NaN and infinite rather
+  than the epicycle ones). A potential whose methods take scalar coordinates
+  only (e.g., ``AnyAxisymmetricRazorThinDiskPotential``) is evaluated point by
+  point. The internal ``actionAngleStaeckelSingle`` class is removed.
 
 - [slot 06]
 

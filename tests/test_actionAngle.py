@@ -2963,6 +2963,10 @@ def test_actionAngleAdiabaticGrid_outsidegrid_c():
     assert numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz, phi)) < 10.0**-8.0, (
         "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     )
+    # Jz also takes (R,vR,vT,z,vz), without phi
+    assert numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz)) < 10.0**-8.0, (
+        "actionAngleAdiabaticGrid Jz without phi outside of the grid fails"
+    )
     # Also for array
     s = numpy.ones(2)
     js = aA(R, vR, vT, z, vz, phi)
@@ -3750,44 +3754,44 @@ def test_actionAngleStaeckel_angles_order_c():
     return None
 
 
-# Test that the pure-Python (c=False) actionAngleStaeckel frequencies and angles
-# agree with the C implementation over a grid of ICs hitting every branch.
-def test_actionAngleStaeckel_single_action_cache():
-    # actionAngleStaeckelSingle caches JR/Jz per (fixed_quad, order): a repeat
-    # call with the same settings returns the cached value, while changing the
-    # order recomputes (the cache used to ignore order, which silently
-    # returned the first result for any subsequent order)
-    from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle
-    from galpy.potential import MWPotential2014
+def test_actionAngleStaeckel_python_scalar_only_potential():
+    # A potential whose forces take scalar coordinates only is evaluated point
+    # by point on the vectorized pure-Python path: its actions, frequencies, and
+    # angles agree with C's
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import DoubleExponentialDiskPotential, HernquistPotential
 
-    aA = actionAngleStaeckelSingle(
-        1.1, 0.05, 0.9, 0.15, 0.12, pot=MWPotential2014, delta=0.45
+    pot = DoubleExponentialDiskPotential(
+        normalize=0.6, hr=1.0 / 3.0, hz=1.0 / 27.0
+    ) + HernquistPotential(normalize=0.4, a=2.0)
+    xv = (
+        numpy.array([1.0, 0.9]),
+        numpy.array([0.05, -0.1]),
+        numpy.array([0.95, 1.05]),
+        numpy.array([0.05, -0.02]),
+        numpy.array([0.03, 0.06]),
+        numpy.array([0.3, 2.0]),
     )
-    jr1 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]
-    jr2 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]  # cache hit
-    assert jr1 == jr2, (
-        "Repeated actionAngleStaeckelSingle.JR call with identical settings "
-        "does not return the cached value"
-    )
-    jz1 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]
-    jz2 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]  # cache hit
-    assert jz1 == jz2, (
-        "Repeated actionAngleStaeckelSingle.Jz call with identical settings "
-        "does not return the cached value"
-    )
-    # Changing the order must recompute, not return the cached value; both
-    # are converged, so they agree to machine precision without being
-    # bit-identical in general
-    jr3 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=40))[0]
-    jz3 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=40))[0]
-    assert numpy.fabs(jr3 - jr1) < 1e-12, (
-        "actionAngleStaeckelSingle.JR at a different order does not agree "
-        "with the default order"
-    )
-    assert numpy.fabs(jz3 - jz1) < 1e-12, (
-        "actionAngleStaeckelSingle.Jz at a different order does not agree "
-        "with the default order"
-    )
+    aAp = actionAngleStaeckel(pot=pot, delta=0.3, c=False)
+    aAc = actionAngleStaeckel(pot=pot, delta=0.3, c=True)
+    for p, c in zip(aAp.actionsFreqsAngles(*xv), aAc.actionsFreqsAngles(*xv)):
+        numpy.testing.assert_allclose(p, c, rtol=1e-8, atol=1e-10)
+    return None
+
+
+def test_actionAngleStaeckel_iterate_bracket():
+    # The turning points' bracket expansion runs at most n steps, stopping
+    # early at a fixed point (only an orbit over the pole uses all of them)
+    from galpy.actionAngle.actionAngleStaeckel import _iterate_bracket
+
+    halve_to_one = lambda x: numpy.maximum(0.5 * x, 1.0)
+    assert _iterate_bracket(halve_to_one, numpy.array([8.0, 2.0]), 10).tolist() == [
+        1.0,
+        1.0,
+    ], "_iterate_bracket does not stop at the fixed point"
+    assert _iterate_bracket(lambda x: 0.5 * x, numpy.array([8.0]), 2).tolist() == [
+        2.0
+    ], "_iterate_bracket does not stop after n steps"
     return None
 
 
@@ -3812,8 +3816,8 @@ def test_actionAngleStaeckel_chi_quadrature_convergence():
         ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 3e-11),  # z<0, vR<0: other branches
         ([1.1, 0.02, 0.9, 0.002, 0.02, 1.0], 1e-8),  # nearly planar
     ):
-        lo = aAS.actionsFreqsAngles(*ic, fixed_quad=True, order=10)
-        hi = aAS.actionsFreqsAngles(*ic, fixed_quad=True, order=200)
+        lo = aAS.actionsFreqsAngles(*ic, order=10)
+        hi = aAS.actionsFreqsAngles(*ic, order=200)
         for ii in range(9):
             assert numpy.fabs(lo[ii][0] - hi[ii][0]) < tol, (
                 "Pure-Python actionAngleStaeckel chi-quadrature output %i at "
@@ -4843,7 +4847,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
 
 
 # Test the actions of an actionAngleStaeckel
-def test_actionAngleStaeckel_conserved_actions_fixed_quad():
+def test_actionAngleStaeckel_conserved_actions_phi():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit.Orbits import ext_loaded
@@ -4860,7 +4864,6 @@ def test_actionAngleStaeckel_conserved_actions_fixed_quad():
             -5.0,
             -2.0,
             ntimes=101,
-            fixed_quad=True,
             inclphi=True,
         )
     else:
@@ -4872,7 +4875,6 @@ def test_actionAngleStaeckel_conserved_actions_fixed_quad():
             -8.0,
             -2.0,
             ntimes=101,
-            fixed_quad=True,
             inclphi=True,
         )
     return None
@@ -5096,40 +5098,6 @@ def test_actionAngleStaeckel_otherIsochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert djr < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
-        % (djr * 100.0)
-    )
-    # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
-        % (dlz * 100.0)
-    )
-    assert djz < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
-        % (djz * 100.0)
-    )
-    return None
-
-
-# Test the actionAngleStaeckel against an isochrone potential: actions
-def test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad():
-    from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleStaeckel,
-        estimateDeltaStaeckel,
-    )
-    from galpy.potential import IsochronePotential
-
-    ip = IsochronePotential(normalize=1.0, b=1.2)
-    aAI = actionAngleIsochrone(ip=ip)
-    aAA = actionAngleStaeckel(pot=ip, c=False, delta=0.1)  # not ideal
-    R, vR, vT, z, vz, phi = 1.01, 0.05, 1.05, 0.05, 0.0, 2.0
-    ji = aAI(R, vR, vT, z, vz, phi)
-    jia = aAA(R, vR, vT, z, vz, phi, fixed_quad=True)
-    djr = numpy.fabs((ji[0] - jia[0]) / ji[0])[0]
-    dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])[0]
-    djz = numpy.fabs((ji[2] - jia[2]) / ji[2])[0]
     assert djr < 10.0**-3.0, (
         "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
         % (djr * 100.0)
@@ -9089,34 +9057,11 @@ def check_actionAngle_conserved_actions(
 ):
     times = numpy.linspace(0.0, 100.0, ntimes)
     obs.integrate(times, pot, method="dopr54_c")
-    if fixed_quad and inclphi:
-        js = aA(
-            obs.R(times),
-            obs.vR(times),
-            obs.vT(times),
-            obs.z(times),
-            obs.vz(times),
-            obs.phi(times),
-            fixed_quad=True,
-        )
-    elif fixed_quad and not inclphi:
-        js = aA(
-            obs.R(times),
-            obs.vR(times),
-            obs.vT(times),
-            obs.z(times),
-            obs.vz(times),
-            fixed_quad=True,
-        )
-    elif inclphi:
-        js = aA(
-            obs.R(times),
-            obs.vR(times),
-            obs.vT(times),
-            obs.z(times),
-            obs.vz(times),
-            obs.phi(times),
-        )
+    if fixed_quad or inclphi:
+        args = [obs.R(times), obs.vR(times), obs.vT(times), obs.z(times), obs.vz(times)]
+        if inclphi:
+            args.append(obs.phi(times))
+        js = aA(*args, **({"fixed_quad": True} if fixed_quad else {}))
     else:
         # Test Orbit with multiple objects case, but calling
         js = aA(obs(times))

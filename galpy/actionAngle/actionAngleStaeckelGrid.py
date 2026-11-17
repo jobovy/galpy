@@ -180,7 +180,6 @@ class actionAngleStaeckelGrid(actionAngle):
             thisLzs / thisR,  # vT
             numpy.zeros(len(thisR)),  # z
             thisv * numpy.sin(thispsi),  # vz
-            fixed_quad=True,
         )
         if interpecc:
             mecc, mzmax, mrperi, mrap = self._aA.EccZmaxRperiRap(
@@ -206,7 +205,6 @@ class actionAngleStaeckelGrid(actionAngle):
                 thisLzs[indx] / thisR[indx],  # vT
                 numpy.zeros(numpy.sum(indx)),  # z
                 thisv[indx] * numpy.sin(thispsi[indx]),  # vz
-                fixed_quad=True,
             )
             if interpecc:
                 (
@@ -482,26 +480,6 @@ class actionAngleStaeckelGrid(actionAngle):
                 )
                 jr[indx] = jrindiv
                 jz[indx] = jzindiv
-                """
-                jrindiv= numpy.empty(numpy.sum(indx))
-                jzindiv= numpy.empty(numpy.sum(indx))
-                for ii in range(numpy.sum(indx)):
-                    try:
-                        thisaA= actionAngleStaeckel.actionAngleStaeckelSingle(\
-                            R[indx][ii], #R
-                            vR[indx][ii], #vR
-                            vT[indx][ii], #vT
-                            z[indx][ii], #z
-                            vz[indx][ii], #vz
-                            pot=self._pot,delta=self._delta)
-                        jrindiv[ii]= thisaA.JR(fixed_quad=True)[0]
-                        jzindiv[ii]= thisaA.Jz(fixed_quad=True)[0]
-                    except (UnboundError,OverflowError):
-                        jrindiv[ii]= numpy.nan
-                        jzindiv[ii]= numpy.nan
-                jr[indx]= jrindiv
-                jz[indx]= jzindiv
-                """
         else:
             jr, Lz, jz = self(
                 numpy.array([R]),
