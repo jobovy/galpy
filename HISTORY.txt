@@ -79,7 +79,9 @@ at release.]
 
 - [slot 15]
 
-- [slot 16]
+- ``quasiisothermaldf.sampleV_interpolate`` returns velocities with the
+  correct sign of ``v_z`` below the plane (before, samples at ``z < 0`` had
+  the tilt of the velocity ellipsoid that belongs above the plane).
 
 - [slot 17]
 
