@@ -564,10 +564,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             its derivatives are those at the fit, held fixed. The delta
             method of a family returns its focal lengths and is itself such
             a rule (delta=family.delta gives another family of the same
-            potential the same focal lengths without fitting them again). A
-            rule requires setup_interp=True (without target=) and one of
-            the built-in rules for the reference curve (u0='torus' is the
-            default with it).
+            potential the same focal lengths without fitting them again,
+            for instance the localized families of many targets). A rule
+            requires setup_interp=True and one of the built-in rules for
+            the reference curve (u0='torus' is the default with it).
         u0 : float, callable, 'torus', 'fit' or 'shell', optional
             Reference u of the wrapping (see OblateStaeckelWrapperPotential),
             whose curve R_0 = delta sinh(u0) is where the Staeckel
@@ -649,11 +649,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._setup_staeckel(_check_potential_list_and_deprecate(pot), delta, u0)
         self._target = None if target is None else _parse_target(target)
         self._target_pad, self._target_minwidth = target_pad, target_minwidth
-        if self._delta_rule is not None and (not setup_interp or target is not None):
+        if self._delta_rule is not None and not setup_interp:
             raise TypeError(
-                "a focal length that follows the tori (delta='fit' or a callable) builds "
-                "an interpolated family and requires setup_interp=True without "
-                "target="
+                "a focal length that follows the tori (delta='fit' or a callable) "
+                "builds an interpolated family and requires setup_interp=True"
             )
         if self._target is not None and not setup_interp:
             raise TypeError(
@@ -3031,25 +3030,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
         )
         E = numpy.array([self._E_of_xL(ww**2, ll)[0] for ww, ll in zip(w, L)])
-        Rc = numpy.array([self._circular(ll)["Rc"] for ll in L])
-
-        def above(R):
-            # the planar orbit's energy above the effective potential
-            return (
-                E
-                - evaluatePotentials(self._chart_pot, R, 0.0 * R, use_physical=False)
-                - L**2 / (2.0 * R**2)
-            )
-
-        args = (
-            self._chart_pot,
-            E,
-            L,
-            f,
-            _bisect(above, 1e-4 * Rc, Rc),
-            _bisect(lambda R: -above(R), Rc, 1.01 * self._Rinf + 0.0 * Rc),
-            self._u0_rule,
-        )
+        args = (self._chart_pot, E, L, f, *self._planar_radii(E, L), self._u0_rule)
         D = _focal_fit(*args)
         # (the grid's variable is that of the model in which the nodes of
         # an (E, L_z) are placed, here that of its middle torus's optimum)
@@ -3094,6 +3075,46 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         ).reshape(x.shape[0], x.shape[2], 3)
         return None
 
+    def _planar_radii(self, E, L):
+        """The pericentres and apocentres of the planar orbits (E, L_z), for
+        arrays of them (inside Rinf)"""
+        Rc = numpy.array([self._circular_RE(ll)[0] for ll in L])
+
+        def above(R):
+            # the planar orbit's energy above the effective potential
+            return (
+                E
+                - evaluatePotentials(self._chart_pot, R, 0.0 * R, use_physical=False)
+                - L**2 / (2.0 * R**2)
+            )
+
+        return (
+            _bisect(above, 1e-4 * Rc, Rc),
+            _bisect(lambda R: -above(R), Rc, 1.01 * self._Rinf + 0.0 * Rc),
+        )
+
+    def _target_deltas(self, R, vR, vT, z, vz):
+        """The focal lengths in which the points of a target are labelled
+        for its box, when the focal length follows the tori (else None for
+        each): the rule at the middle of the third-integral range of each
+        point's (E, L_z), called with the arrays of all points, or for
+        delta='fit', which is fitted on the box, the optimum of the torus
+        halfway between the planar and the shell orbit (the box is padded,
+        so that the difference to the torus's own model is immaterial)"""
+        if self._delta_rule is None:
+            return [None] * len(R)
+        E = 0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(
+            self._chart_pot, R, z, use_physical=False
+        )
+        L, half = R * numpy.fabs(vT), 0.5 + 0.0 * R
+        if self._delta_rule == "fit":
+            return _focal_fit(
+                self._chart_pot, E, L, half, *self._planar_radii(E, L), self._u0_rule
+            )
+        return (
+            conversion.parse_length(self._delta_rule(E, L, half), ro=self._ro) + 0.0 * E
+        )
+
     def _node_delta(self, ii):
         """The ii-th torus's focal length when it follows the tori, else None"""
         return None if self._delta_rule is None else float(self._delta_tab.flat[ii])
@@ -3110,6 +3131,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         the L_z ends are anchors that the box may exceed."""
         R, vR, vT, z, vz = self._target
         Lzs = R * numpy.fabs(vT)
+        deltas = self._target_deltas(R, vR, vT, z, vz)
         wEs, wIs = numpy.empty(len(Lzs)), numpy.empty(len(Lzs))
         for i, (Rp, vRp, vTp, zp, vzp, Lz) in enumerate(zip(R, vR, vT, z, vz, Lzs)):
             kin = 0.5 * (vRp**2 + vTp**2 + vzp**2)
@@ -3117,7 +3139,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # reference curve varies smoothly, so the model error in the
             # energy is immaterial for the box
             Eraw = kin + evaluatePotentials(self._chart_pot, Rp, zp, use_physical=False)
-            with self._in_chart(Eraw, Lz, self._target_I3(Eraw, Lz, Rp, vRp, zp, vzp)):
+            with self._in_chart(Eraw, Lz, False, deltas[i]):
+                I3 = self._target_I3(Eraw, Lz, Rp, vRp, zp, vzp)
+            with self._in_chart(Eraw, Lz, I3, deltas[i]):
                 E = kin + evaluatePotentials(
                     self._staeckelwrap, Rp, zp, use_physical=False
                 )
