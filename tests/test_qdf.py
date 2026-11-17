@@ -780,7 +780,7 @@ def test_sampleV():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     numpy.random.seed(1)
-    samples = qdf.sampleV(0.8, 0.1, n=1000)
+    samples = qdf.sampleV(0.8, 0.1, n=4000)
     # test vR
     assert numpy.fabs(numpy.mean(samples[:, 0])) < 0.02, "sampleV vR mean is not zero"
     assert (
@@ -810,6 +810,36 @@ def test_sampleV():
     return None
 
 
+def test_sampleV_innerdisk():
+    # Inside refr the dispersions grow as exp(-R/hsr); the samplers' Gaussian
+    # proposals must grow with them to bound the DF, else the samples are too
+    # cold (sigma_z^2 10 per cent low at R = 0.15 when the proposals had the
+    # widths of refr)
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+    )
+    numpy.random.seed(3)
+    n = 4000
+    R = 0.15
+    sR2, sz2 = qdf.sigmaR2(R, 0.0, ngl=20), qdf.sigmaz2(R, 0.0, ngl=20)
+    for samples in [
+        qdf.sampleV(R, 0.0, n=n),
+        qdf.sampleV_interpolate(
+            numpy.linspace(R - 0.01, R + 0.01, n),
+            numpy.linspace(0.0, 0.02, n),
+            R_pixel=0.005,
+            z_pixel=0.005,
+        ),
+    ]:
+        assert numpy.fabs(numpy.var(samples[:, 0]) / sR2 - 1.0) < 4.0 * numpy.sqrt(
+            2.0 / n
+        ), "sampleV vR dispersion in the inner disk is not equal to sigmaR"
+        assert numpy.fabs(numpy.var(samples[:, 2]) / sz2 - 1.0) < 4.0 * numpy.sqrt(
+            2.0 / n
+        ), "sampleV vz dispersion in the inner disk is not equal to sigmaz"
+    return None
+
+
 def test_sampleV_physical():
     # Test physical output of sampleV
     qdf = quasiisothermaldf(
@@ -817,7 +847,7 @@ def test_sampleV_physical():
     )
     numpy.random.seed(1)
     vo = 225.0
-    samples = qdf.sampleV(0.8, 0.1, n=1000, vo=vo)
+    samples = qdf.sampleV(0.8, 0.1, n=4000, vo=vo)
     # test vR
     assert numpy.fabs(numpy.mean(samples[:, 0])) < 0.02 * vo, (
         "sampleV vR mean is not zero"
@@ -873,8 +903,8 @@ def test_sampleV_interpolate():
     numpy.random.seed(4)
 
     def Rz_array(R_array, z_array, num_std=3, R_min=None, R_max=None, z_max=None):
-        R = numpy.hstack([i * numpy.ones(1000) for i in R_array])
-        z = numpy.hstack([i * numpy.ones(1000) for i in z_array])
+        R = numpy.hstack([i * numpy.ones(3000) for i in R_array])
+        z = numpy.hstack([i * numpy.ones(3000) for i in z_array])
         # add outlier
         R = numpy.append(R, 8.0)
         z = numpy.append(z, 5.0)
@@ -889,7 +919,7 @@ def test_sampleV_interpolate():
             R_max=R_max,
             z_max=z_max,
         )
-        samples = samples[1000:2000, :]
+        samples = samples[3000:6000, :]
         # test vR
         assert numpy.fabs(numpy.mean(samples[:, 0])) < 0.02, (
             "sampleV interpolate vR mean is not zero"
