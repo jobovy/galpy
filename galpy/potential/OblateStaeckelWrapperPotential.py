@@ -27,6 +27,19 @@ if _APY_LOADED:
     from astropy import units
 
 
+def _tabulate(func, grid):
+    """A function of u or v on the grid of its table: in one call on the
+    whole grid when the wrapped potential evaluates arrays, point by point
+    otherwise"""
+    try:
+        vals = numpy.array(func(grid), dtype=float)
+    except (TypeError, ValueError):
+        vals = None
+    if vals is None or vals.shape != grid.shape:
+        vals = numpy.array([float(func(x)) for x in grid])
+    return vals
+
+
 class OblateStaeckelWrapperPotential(parentWrapperPotential):
     r"""Potential wrapper class that approximates a given axisymmetric potential as an oblate Staeckel potential by defining (see `Binney 2012 <https://ui.adsabs.harvard.edu/abs/2012MNRAS.426.1324B/abstract>`__; `Bovy 2026 <https://galaxiesbook.org/chapters/II-03.-Orbits-in-Disks_4-Action-angle-coordinates-in-and-around-disks.html#specifically-choosing-a-reference-value-u-0>`__)
 
@@ -120,8 +133,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             veval = numpy.copy(vgrid)
             veval[0] = 1e-9
             uvals = [
-                numpy.array([float(func(x)) for x in ugrid])
-                for func in (self._U, self._dUdu, self._d2Udu2)
+                _tabulate(func, ugrid) for func in (self._U, self._dUdu, self._d2Udu2)
             ]
             # the axis node of the two derivative tables by quadratic
             # extrapolation from the next three knots: at the axis the
@@ -145,8 +157,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             ):
                 uvals[1][0] = 0.0
             vvals = [
-                numpy.array([float(func(x)) for x in veval])
-                for func in (self._V, self._dVdv, self._d2Vdv2)
+                _tabulate(func, veval) for func in (self._V, self._dVdv, self._d2Vdv2)
             ]
             # raw (grid, values) tables; the C side builds natural cubic
             # splines from these with the house GSL 1D machinery at parse time

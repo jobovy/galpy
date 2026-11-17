@@ -8678,6 +8678,67 @@ def test_OblateStaeckelWrapperPotential_ntab_arrays():
     return None
 
 
+def test_OblateStaeckelWrapperPotential_ntab_tables_scalar_only():
+    # The tables are built in one call on their whole grid when the wrapped
+    # potential evaluates arrays, and point by point when it does not: a
+    # potential that only takes single positions gives the same tabulated
+    # wrapper as the one that takes arrays
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        OblateStaeckelWrapperPotential,
+        evaluatePotentials,
+        evaluateR2derivs,
+        evaluateRforces,
+        evaluatez2derivs,
+        evaluatezforces,
+    )
+
+    class ScalarOnlyLogarithmicHaloPotential(LogarithmicHaloPotential):
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            return super()._evaluate(float(R), float(z), phi=phi, t=t)
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            return super()._Rforce(float(R), float(z), phi=phi, t=t)
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            return super()._zforce(float(R), float(z), phi=phi, t=t)
+
+        def _R2deriv(self, R, z, phi=0.0, t=0.0):
+            return super()._R2deriv(float(R), float(z), phi=phi, t=t)
+
+        def _z2deriv(self, R, z, phi=0.0, t=0.0):
+            return super()._z2deriv(float(R), float(z), phi=phi, t=t)
+
+        def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+            return super()._Rzderiv(float(R), float(z), phi=phi, t=t)
+
+    kw = dict(delta=0.45, u0=1.0, ntab=50)
+    tab = OblateStaeckelWrapperPotential(
+        pot=LogarithmicHaloPotential(normalize=1.0, q=0.8), **kw
+    )
+    tab_scalar = OblateStaeckelWrapperPotential(
+        pot=ScalarOnlyLogarithmicHaloPotential(normalize=1.0, q=0.8), **kw
+    )
+    R = numpy.array([0.3, 0.8, 1.2, 2.0])
+    z = numpy.array([0.2, -0.5, 0.0, -1.1])
+    for func in (
+        evaluatePotentials,
+        evaluateRforces,
+        evaluatezforces,
+        evaluateR2derivs,
+        evaluatez2derivs,
+    ):
+        many = func(tab, R, z, use_physical=False)
+        one = func(tab_scalar, R, z, use_physical=False)
+        assert numpy.amax(numpy.fabs(many - one)) < 1e-14 * numpy.amax(
+            numpy.fabs(one)
+        ), (
+            f"The {func.__name__} of a tabulated Staeckel wrapper built point "
+            "by point differs from that built on arrays"
+        )
+    return None
+
+
 def test_OblateStaeckelWrapperPotential_againstKuzmin():
     # Test that wrapping a KuzminDiskPotential as an oblateStaeckelWrapper
     # behaves as expected: U(u) = -GM/Delta cosh(u) and V(v) =-GM/Delta|cos(v)|
