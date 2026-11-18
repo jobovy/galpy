@@ -13568,6 +13568,56 @@ def test_actionAngleStaeckelInverse_delta_fit():
     return None
 
 
+def test_actionAngleStaeckelInverse_delta_target():
+    # target= with a focal length that follows the tori: the box of the
+    # target is found in the rule's models, and a localized family that is
+    # given another family's delta method has that family's tori
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    o = Orbit([1.05, 0.12, 1.05, 0.12, 0.06, 0.0])
+    ts = numpy.linspace(0.0, 30.0, 61)
+    o.integrate(ts, lp)
+    acts = [float(numpy.ravel(q)[0]) for q in actionAngleStaeckel(pot=lp, delta=0.8)(o)]
+    kw = dict(pot=lp, setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=4.0, mm_npt=32)
+    kw.update(progressbar=False, delta_deg=(1, 1, 1))
+    wide = actionAngleStaeckelInverse(delta="fit", nE=7, nLz=7, nI3=7, **kw)
+    calls = []
+
+    def rule(E, Lz, y):
+        calls.append(numpy.shape(E))
+        return wide.delta(E, Lz, y)
+
+    small = dict(target=o(ts), nE=4, nLz=4, nI3=4, **kw)
+    loc = actionAngleStaeckelInverse(delta=rule, **small)
+    assert calls[0] == (61,) and all(c == (4, 4, 4) for c in calls[1:]), (
+        "A callable delta= is not called with the arrays of a target's points "
+        "and of the grid's nodes"
+    )
+    fit = actionAngleStaeckelInverse(delta="fit", **small)
+    angs = numpy.array([[0.3, 2.0, 4.1], [1.0, 4.0, 0.2], [2.0, 5.5, 3.3]])
+    acts = [a + 0.0 * angs[0] for a in acts]
+    assert numpy.all(loc.in_domain(*acts)) and numpy.all(fit.in_domain(*acts)), (
+        "A localized family whose focal length follows its tori does not "
+        "hold its target"
+    )
+    ref = numpy.array(wide.xvFreqs(*acts, *angs))
+    dloc, dfit = (
+        numpy.amax(numpy.fabs(numpy.array(fam.xvFreqs(*acts, *angs)) - ref)[:5])
+        for fam in (loc, fit)
+    )
+    assert dloc < 1e-5, (
+        "A localized family given another family's delta method does not have "
+        "that family's tori: %g" % dloc
+    )
+    assert dloc < dfit < 1e-3, (
+        "A localized family with delta='fit' is not fitted on its own box: %g" % dfit
+    )
+    return None
+
+
 def test_actionAngleStaeckelInverse_target():
     # target= localizes the family's grid on the tori of a set of phase-space
     # points, through the same label relations the node lattice uses: the
