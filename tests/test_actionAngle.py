@@ -15433,3 +15433,54 @@ def test_actionAngleStaeckelInverse_from_actions_many():
     )
     assert circ.in_domain(0.0, 0.8, 0.0)
     return None
+
+
+def test_actionAngleStaeckelInverse_from_actions_sheets():
+    # In the Staeckel approximation of a cusped potential the momentum
+    # function of the u libration has two maxima at small |L_z|, and the
+    # tori form three sheets: one libration across both wells below the
+    # level of the barrier between them, and above it the libration about
+    # the outer maximum and that about the inner one, with the actions
+    # jumping across the barrier's level. A torus is found on whichever
+    # sheet has its actions (about the outer maximum also where the inner
+    # one is the higher of the two), and the tori whose actions lie in a
+    # jump are counted in one error
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.3, mm_npt=64)
+    th = numpy.linspace(0.0, 2.0 * numpy.pi, 12, endpoint=False)
+    thR, thz = (t.ravel() for t in numpy.meshgrid(th, th))
+
+    def reach(jr, Lz, jz):
+        aAI = actionAngleStaeckelInverse(jrs=[jr], Lzs=[Lz], jzs=[jz], **kw)
+        R, _, _, z, _, _ = aAI(jr, Lz, jz, thR, 0.0, thz)
+        assert numpy.all(numpy.isfinite(R)) and numpy.all(R > 0.0)
+        return numpy.amin(numpy.hypot(R, z)), numpy.amax(R)
+
+    # about the outer maximum, at an energy at which the inner one is higher
+    assert reach(0.015098, 0.002183, 0.232254)[0] > 0.15, (
+        "The torus about the outer maximum of a split u libration reaches "
+        "inside the barrier"
+    )
+    # across both wells
+    assert reach(0.322184, 0.009836, 0.110735)[0] < 0.02, (
+        "The torus across both wells of a split u libration does not reach "
+        "the inner one"
+    )
+    # only the libration about the inner maximum has these actions
+    assert reach(0.009532, 0.008259, 0.182493)[1] < 0.12, (
+        "The torus about the inner maximum of a split u libration reaches "
+        "beyond the barrier"
+    )
+    # in the jump of J_R across the barrier's level, and in the jump of J_z
+    # where the v libration merges with the lobes of its momentum function
+    # next to the axis
+    with pytest.raises(ValueError, match="of 2 of the 3 tori"):
+        actionAngleStaeckelInverse(
+            jrs=[0.041499, 0.3, 0.00131],
+            Lzs=[0.001016, 0.5, 0.00212],
+            jzs=[0.225525, 0.2, 0.114926],
+            **kw,
+        )
+    return None
