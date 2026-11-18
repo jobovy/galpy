@@ -15327,6 +15327,21 @@ def test_actionAngleStaeckelInverse_from_actions():
         "The torus around the shell orbit of a split u libration reaches inside "
         "the barrier"
     )
+    # and likewise when the torus is set up from its integrals
+    E, Lz, I3 = -1.36267, 0.00614, 3.37947
+    ints = actionAngleStaeckelInverse(Es=[E], Lzs=[Lz], I3s=[I3], **kw)
+    R, _, _, z, _, _ = ints(
+        ints.JR(E, Lz, I3),
+        Lz,
+        ints.Jz(E, Lz, I3),
+        numpy.linspace(0.0, 6.0, 13),
+        1.0,
+        2.0,
+    )
+    assert numpy.all(numpy.isfinite(R)) and numpy.amin(numpy.hypot(R, z)) > 0.09, (
+        "The torus around the shell orbit of a split u libration, set up from "
+        "its integrals, reaches inside the barrier"
+    )
     return None
 
 
@@ -15371,8 +15386,12 @@ def test_actionAngleStaeckelInverse_setup_not_kept():
 def test_actionAngleStaeckelInverse_from_actions_many():
     # The solve for the integrals of tori from their actions is vectorized
     # over the tori: many tori at once have the requested actions, on the
-    # anomaly grid of the solve and on a finer one of their own, and the
-    # tori without a solution are counted in one error
+    # anomaly grid of the solve and on a finer one of their own, and
+    # whatever the rule for the reference curve (in a Staeckel potential
+    # every rule gives the same model, so the forward transformation checks
+    # the built-in rules, which are vectorized, and a callable, which is
+    # evaluated torus by torus); the tori without a solution are counted in
+    # one error
     import pickle
 
     from galpy.actionAngle import actionAngleStaeckelInverse
@@ -15383,7 +15402,14 @@ def test_actionAngleStaeckelInverse_from_actions_many():
     n = 12
     jr, jz = rng.uniform(0.01, 0.5, n), rng.uniform(0.01, 0.3, n)
     Lz = rng.uniform(0.3, 1.2, n) * rng.choice([-1.0, 1.0], n)
-    for kw in ({}, {"mm_npt": 384}):
+    for kw in (
+        {},
+        {"mm_npt": 384},
+        {"u0": "torus", "mm_npt": 48},
+        {"u0": "fit"},
+        {"u0": "shell"},
+        {"u0": lambda E, Lz, I3: 1.0 + 0.1 * E + 0.01 * I3},
+    ):
         aAI = actionAngleStaeckelInverse(pot=pot, jrs=jr, Lzs=Lz, jzs=jz, **kw)
         R, vR, vT, z, vz, _ = aAI(jr, Lz, jz, 1.0, 2.0, 3.0)
         jrf, Lzf, jzf = aAF(R, vR, vT, z, vz)
