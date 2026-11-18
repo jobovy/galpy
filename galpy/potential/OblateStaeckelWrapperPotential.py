@@ -40,6 +40,19 @@ if _APY_LOADED:
     from astropy import units
 
 
+def _tabulate(func, grid):
+    """A function of u or v on the grid of its table, as host floats: in one
+    call on the whole grid when the wrapped potential evaluates arrays, point
+    by point otherwise"""
+    try:
+        vals = numpy.array(as_numpy(func(grid)), dtype=float)
+    except (TypeError, ValueError):
+        vals = None
+    if vals is None or vals.shape != grid.shape:
+        vals = numpy.array([float(func(x)) for x in grid])
+    return vals
+
+
 class OblateStaeckelWrapperPotential(parentWrapperPotential):
     r"""Potential wrapper class that approximates a given axisymmetric potential as an oblate Staeckel potential by defining (see `Binney 2012 <https://ui.adsabs.harvard.edu/abs/2012MNRAS.426.1324B/abstract>`__; `Bovy 2026 <https://galaxiesbook.org/chapters/II-03.-Orbits-in-Disks_4-Action-angle-coordinates-in-and-around-disks.html#specifically-choosing-a-reference-value-u-0>`__)
 
@@ -146,28 +159,20 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # in dVdv's R0/tan v, whose limit is finite)
             veval = numpy.copy(vgrid)
             veval[0] = 1e-9
-            # numpy tabulates knot by knot (byte-identical tables); a backend
-            # makes one array call per table, not one eager dispatch chain per
-            # knot (minutes under jax at ntab=3000)
+            # a backend makes one array call per table, not one eager dispatch
+            # chain per knot (minutes under jax at ntab=3000); host tables are
+            # built by _tabulate
             if bxp is not None:
                 dev = device_of(self._refpot, self._delta, self._u0)
 
-                def _tabulate(func, grid):
+                def tabulate(func, grid):
                     if not is_backend_array(grid):
                         grid = asarray_on_device(bxp, grid, dev)
                     return func(grid)
 
-            elif get_namespace(ugrid) is numpy:
-
-                def _tabulate(func, grid):
-                    return numpy.array([float(func(x)) for x in grid])
-
             else:
-
-                def _tabulate(func, grid):
-                    return numpy.array(as_numpy(func(grid)), dtype=float)
-
-            uvals = [_tabulate(f, ugrid) for f in (self._U, self._dUdu, self._d2Udu2)]
+                tabulate = _tabulate
+            uvals = [tabulate(f, ugrid) for f in (self._U, self._dUdu, self._d2Udu2)]
             # the axis node of the two derivative tables extrapolated from the
             # next three knots: the exact dU/du vanishes there while a cusp's
             # force does not, and the exact d2U/du2 is the finite part of a
@@ -179,7 +184,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             # term, which gave a smooth disc's force the wrong sign inside
             # R ~ 1e-3 (at ntab=100)
             w = _lagrange_weights_at_zero(ugrid[1:4])
-            dUoff = _tabulate(self._dUdu, numpy.array([1e-9]))[0]
+            dUoff = tabulate(self._dUdu, numpy.array([1e-9]))[0]
             cxp = bxp or numpy
             cored = cxp.abs(dUoff) * ugrid[1] <= 2e-9 * cxp.abs(uvals[1][1])
             for i in (1, 2):
@@ -191,7 +196,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                     if i == 1:
                         y0 = bxp.where(cored, 0.0 * y0, y0)
                     uvals[i] = bxp.concat([bxp.reshape(y0, (1,)), vals[1:]])
-            vvals = [_tabulate(f, veval) for f in (self._V, self._dVdv, self._d2Vdv2)]
+            vvals = [tabulate(f, veval) for f in (self._V, self._dVdv, self._d2Vdv2)]
             self._tables = (ugrid, uvals, vgrid, vvals)
             self._utab_max = ugrid[-1] if is_backend_array(ugrid) else float(ugrid[-1])
             # Python evaluation interpolates the same tables: a natural

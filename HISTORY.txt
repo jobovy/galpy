@@ -99,7 +99,11 @@ at release.]
   derivatives change at round-off (<~ 1e-13 relative). numpy outputs are
   those of main.
 
-- [slot 09]
+- ``OblateStaeckelWrapperPotential`` with tabulated functions (``ntab=``)
+  builds each host table in one call on its grid when the wrapped potential
+  evaluates arrays, and point by point when it does not (before, numpy
+  tabulated point by point); the numpy tables equal main's (twin of main's
+  #1934).
 
 - [slot 10]
 
