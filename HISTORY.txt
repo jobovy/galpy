@@ -83,7 +83,12 @@ at release.]
   time-dependent SCF with jax: about 11x faster, and 30x faster with
   gradients. numpy outputs are unchanged.
 
-- [slot 06]
+- actionAngleStaeckelInverse: a family with an adaptive reference curve
+  (u0='fit' or a callable u0) evaluates traced arrays of actions (jax.jit) in
+  one vectorized pass, each torus with its own Staeckel chart, instead of
+  unrolling one torus per point: the compile time no longer grows with the
+  number of stars (64, 134, 354 s for 1, 2, 4 stars of a MWPotential2014
+  family; now about 25 s for any number).
 
 - [slot 07]
 

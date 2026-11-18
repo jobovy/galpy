@@ -1158,17 +1158,40 @@ def test_jax_jit_array_actions(interp):
 
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")
-def test_jax_jit_array_actions_adaptive():
+@pytest.mark.parametrize("u0", ["fit", "callable"])
+def test_jax_jit_array_actions_adaptive(u0):
     # a family whose reference curve is per torus evaluates traced arrays of
-    # tori one torus at a time
-    aA = _interp(u0=lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E)
-    J, ang = _ARR_TORI[[0, 1]], _ARR_ANG[:, :2]
-    f = jax.jit(lambda a, b, c: jnp.stack(aA.xvFreqs(a, b, c, *ang)))
+    # tori in the one vectorized pass, each row with its own chart: the traced
+    # program does not grow with the number of tori (it was one unrolled torus
+    # per point), and it agrees with numpy, faces and the circular orbit too
+    if u0 == "callable":
+        u0 = lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E  # noqa: E731
+    aA = _interp(u0=u0)
+
+    def f(J, ang):
+        return lambda a, b, c: jnp.stack(aA.xvFreqs(a, b, c, *ang))
+
+    def acts(J):
+        return [jnp.asarray(J[:, k]) for k in range(3)]
+
+    neqns = [
+        len(jax.make_jaxpr(f(J, ang))(*acts(J)).jaxpr.eqns)
+        for J, ang in ((_ARR_TORI[:3], _ARR_ANG[:, :3]), (_ARR_TORI, _ARR_ANG))
+    ]
+    assert neqns[0] == neqns[1], "the traced pass grows with the number of tori"
+    J, ang = _ARR_TORI, _ARR_ANG
     numpy.testing.assert_allclose(
-        numpy.asarray(f(*(jnp.asarray(J[:, k]) for k in range(3)))),
+        numpy.asarray(jax.jit(f(J, ang))(*acts(J))),
         numpy.array(aA.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)),
         rtol=0.0,
-        atol=_PLANE_ATOL,
+        atol=1e-11,
+    )
+    g = jax.jit(lambda a, b, c: jnp.stack(aA.Freqs(a, b, c)))
+    numpy.testing.assert_allclose(
+        numpy.asarray(g(*acts(J))),
+        numpy.array(aA.Freqs(J[:, 0], J[:, 1], J[:, 2])),
+        rtol=0.0,
+        atol=1e-11,
     )
 
 
