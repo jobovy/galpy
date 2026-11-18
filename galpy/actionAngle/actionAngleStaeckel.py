@@ -671,7 +671,7 @@ class actionAngleStaeckel(actionAngle):
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
         inverse : actionAngleStaeckelInverse, optional
-            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). For explicit tori in a single Staeckel model, this is the transformation of that model (order= defaults to 20 with inverse=). For a family (setup_interp=True) with any delta= and u0=, the actions and angles are solved for from the family's own map by Newton's method, starting from those of the Staeckel approximation, and the frequencies are the family's; points that no torus of the family passes through return nan with a warning.
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). For explicit tori in a single Staeckel model, this is the transformation of that model (order= defaults to 20 with inverse=). For a family (setup_interp=True) with any delta= and u0=, the actions and angles are solved for from the family's own map by Newton's method, starting from those of the Staeckel approximation, and the frequencies are the family's; points that no torus of the family passes through return nan with a warning. For explicit tori that each have their own Staeckel model (a rule for u0=), the angles are solved for on the torus that each point lies on, and points that lie on none of the tori return nan with a warning.
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
@@ -742,13 +742,7 @@ class actionAngleStaeckel(actionAngle):
             raise TypeError(
                 "pot= and delta= cannot be given with inverse=, which supplies them"
             )
-        if aAI._adaptive and not aAI._interp:
-            raise NotImplementedError(
-                "inverse= with explicit tori that each have their own Staeckel "
-                "model (a rule for u0= or delta=) is not supported; set up a "
-                "family (setup_interp=True) or use a single model"
-            )
-        self._newton = aAI._interp
+        self._newton = aAI._interp or aAI._adaptive
         kwargs = dict(kwargs)
         kwargs["pot"] = aAI._chart_pot if aAI._adaptive else aAI._staeckelwrap
         kwargs["delta"] = aAI._delta
@@ -767,7 +761,7 @@ class actionAngleStaeckel(actionAngle):
 
     def _from_inverse(self, *args, **kwargs):
         """(J_R, L_z, J_z, Omega_R, Omega_phi, Omega_z, theta_R, theta_phi,
-        theta_z) of the family inverse=: the actions and angles that its
+        theta_z) of the tori of inverse=: the actions and angles that its
         map sends to the points, and its frequencies there"""
         aAI = self._inverse
         if len(args) == 5 or len(args) == 6:
@@ -788,16 +782,58 @@ class actionAngleStaeckel(actionAngle):
             )
         )
         Lz = R * vT
-        guess = self._actionsFreqsAngles(R, vR, vT, z, vz, phi, _model=True, **kwargs)
-        jr, jz, thr, thphi, thz = aAI._invert(
-            R, vR, vT, z, vz, phi, guess[0], guess[2], guess[6], guess[8]
+        guess = numpy.array(
+            self._actionsFreqsAngles(R, vR, vT, z, vz, phi, _model=True, **kwargs)
         )
+        # a point without one of the two librations has no angle of it (nor,
+        # in C, of the other): the guess of a point slightly off it
+        flat = (guess[0] == 0.0) | (guess[2] == 0.0) | numpy.isnan(guess[6] + guess[8])
+        if numpy.any(flat):
+            kick = 1e-3 * numpy.sqrt(vR**2 + vT**2 + vz**2)[flat]
+            guess[6:, flat] = self._actionsFreqsAngles(
+                R[flat],
+                vR[flat] + kick,
+                vT[flat],
+                z[flat],
+                vz[flat] + kick,
+                phi[flat],
+                _model=True,
+                **kwargs,
+            )[6:]
+        x = (R, vR, vT, z, vz, phi)
+        if aAI._interp:
+            jr, jz, thr, thphi, thz = aAI._invert(
+                *x, guess[0], guess[2], guess[6], guess[8]
+            )
+        else:
+            # explicit tori: each point's angles on the torus with its L_z
+            # that is nearest to the guess's actions and, if the point is
+            # not on that one, on the next nearest
+            near = numpy.fabs(aAI._Lzs[:, None] - Lz) <= 1e-8 * (1.0 + numpy.fabs(Lz))
+            dist = numpy.fabs(aAI._jrs[:, None] - guess[0]) + numpy.fabs(
+                aAI._jzs[:, None] - guess[2]
+            )
+            dist[~near] = numpy.inf
+            rank = numpy.argsort(dist, axis=0)
+            jr, jz, thr, thphi, thz = out = numpy.full((5, len(R)), numpy.nan)
+            for ii in rank[:3]:
+                todo = numpy.flatnonzero(
+                    numpy.isnan(jr) & numpy.isfinite(dist[ii, numpy.arange(len(R))])
+                )
+                out[:, todo] = aAI._invert(
+                    *(a[todo] for a in x),
+                    aAI._jrs[ii[todo]],
+                    aAI._jzs[ii[todo]],
+                    guess[6][todo],
+                    guess[8][todo],
+                    fixed=True,
+                )
         good = numpy.isfinite(jr)
         if not numpy.all(good):
             warnings.warn(
-                "{} of the {} points are not in the range of the family "
-                "inverse= (or the solve for their actions and angles did not "
-                "converge); their output is nan".format(numpy.sum(~good), len(R)),
+                "{} of the {} points are not on a torus of inverse= (or the "
+                "solve for their actions and angles did not converge); their "
+                "output is nan".format(numpy.sum(~good), len(R)),
                 galpyWarning,
             )
         Om = numpy.full((3, len(R)), numpy.nan)

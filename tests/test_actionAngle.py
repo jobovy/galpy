@@ -15546,10 +15546,54 @@ def test_actionAngleStaeckel_inverse_explicit():
     )
     with pytest.raises(TypeError, match="cannot be given with inverse="):
         actionAngleStaeckel(inverse=aAI, delta=0.4)
-    with pytest.raises(NotImplementedError, match="explicit tori"):
-        actionAngleStaeckel(
-            inverse=actionAngleStaeckelInverse(delta=0.45, u0="torus", **kw)
-        )
+    return None
+
+
+def test_actionAngleStaeckel_inverse_explicit_rule():
+    # actionAngleStaeckel(inverse=) of explicit tori that each have their own
+    # Staeckel model: the angles on the torus that each point lies on,
+    # among tori that share L_z and are close in the other actions; nan off
+    # the tori
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    jr, Lz, jz = (
+        numpy.array([0.08, 0.081, 0.085, 0.2, 0.0, 0.05]),
+        numpy.array([0.9, 0.9, 0.9, -0.7, 1.1, 1.3]),
+        numpy.array([0.06, 0.059, 0.06, 0.02, 0.1, 0.0]),
+    )
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta=0.45,
+        u0="torus",
+        jrs=jr,
+        Lzs=Lz,
+        jzs=jz,
+        mm_npt=128,
+        progressbar=False,
+    )
+    aAS = actionAngleStaeckel(inverse=aAI)
+    sel = numpy.tile(numpy.arange(len(jr)), 5)
+    dJ, dOm, dang = _staeckel_forward_roundtrip(aAI, aAS, jr[sel], Lz[sel], jz[sel])
+    # (the angle of a vanishing action is arbitrary)
+    assert dJ < 1e-13 and dOm < 1e-13, (
+        "actionAngleStaeckel(inverse=) does not find the explicit torus of "
+        "each point: %g, %g" % (dJ, dOm)
+    )
+    sel = sel[sel < 4]
+    dJ, dOm, dang = _staeckel_forward_roundtrip(aAI, aAS, jr[sel], Lz[sel], jz[sel])
+    assert dang < 1e-10, (
+        "actionAngleStaeckel(inverse=) does not invert explicit tori that "
+        "each have their own Staeckel model: %g" % dang
+    )
+    x = numpy.array(aAI(jr[:2], Lz[:2], jz[:2], 1.0, 2.0, 3.0))
+    x[1, 1] += 0.01
+    x[0, 0], x[2, 0] = 1.01 * x[0, 0], x[2, 0] / 1.01
+    with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+        out = numpy.array(aAS(*x))
+    assert numpy.all(numpy.isnan(out[[0, 2]])), (
+        "actionAngleStaeckel(inverse=) does not return nan off the explicit tori"
+    )
     return None
 
 
@@ -15581,6 +15625,26 @@ def test_actionAngleStaeckel_inverse_family(rule):
         "actionAngleStaeckel(inverse=) does not invert a family: %g, %g, %g"
         % (dJ, dOm, dang)
     )
+    # tori without one or both of the librations (the angle of a vanishing
+    # action is arbitrary)
+    fjr, fLz, fjz = (
+        numpy.array([0.05, 0.0, 0.0, 0.03]),
+        numpy.array([1.0, 1.2, 0.9, -1.1]),
+        numpy.array([0.0, 0.04, 0.0, 0.0]),
+    )
+    out = numpy.array(aAS.actionsFreqsAngles(*aAI(fjr, fLz, fjz, 1.0, 2.0, 3.0)))
+    assert numpy.amax(numpy.fabs(out[:3] - numpy.array([fjr, fLz, fjz]))) < 1e-12, (
+        "actionAngleStaeckel(inverse=) does not invert a family's tori with "
+        "a vanishing action"
+    )
+    assert (
+        numpy.amax(numpy.fabs(out[6, [0, 3]] - 1.0)) < 1e-10
+        and numpy.fabs(out[8, 1] - 3.0) < 1e-10
+        and numpy.amax(numpy.fabs(out[7] - 2.0)) < 1e-10
+    ), (
+        "actionAngleStaeckel(inverse=) does not return the angles of a "
+        "family's tori with a vanishing action"
+    )
     # the other methods and inputs: actions alone without phi, an Orbit
     x = numpy.array(aAI(jr[:3], Lz[:3], jz[:3], 1.0, 2.0, 3.0))
     full = numpy.array(aAS.actionsFreqsAngles(*x))
@@ -15599,7 +15663,7 @@ def test_actionAngleStaeckel_inverse_family(rule):
     for R in (numpy.array([1.0]), numpy.array([x[0, 0], 1.0])):
         z = numpy.array([x[3, 0], 0.0])[-len(R) :]
         vz = numpy.array([x[4, 0], 2.5])[-len(R) :]
-        with pytest.warns(galpyWarning, match="not in the range of the family"):
+        with pytest.warns(galpyWarning, match="not on a torus of inverse="):
             out = numpy.array(
                 aAS.actionsFreqsAngles(R, x[1, 0], x[2, 0] * x[0, 0] / R, z, vz, 0.0)
             )
