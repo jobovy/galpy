@@ -3559,6 +3559,32 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._V_tab, self._V_dwE, self._V_dsv, self._V_dL = V_tab, V_dwE, V_dsv, V_dL
         self._warn_unresolved(perr_u.flatten(), self._Es, self._Lzs, self._I3s, "u")
         self._warn_unresolved(perr_v.flatten(), self._Es, self._Lzs, self._I3s, "v")
+        # a torus whose tables are not finite (its maps so far from
+        # converged, or the potential's forces so ill-behaved along it,
+        # that its slopes are not) cannot be interpolated: say which
+        bad = ~numpy.all(
+            [
+                numpy.isfinite(t).reshape(len(self._Es), -1).all(axis=1)
+                for t in (A_tab, A_dx, A_dy, A_dL, U_tab, U_dwE, U_dsu, U_dL)
+                + (V_tab, V_dwE, V_dsv, V_dL)
+            ],
+            axis=0,
+        )
+        if numpy.any(bad):
+            raise ValueError(
+                "The tables of the (E, L_z, I_3) tori {} are not finite, so that "
+                "the family cannot be interpolated: their maps are far from "
+                "converged (see the warnings above; increase mm_npt and, with "
+                "it, mm_nta) or the potential's forces are not finite along "
+                "them; or keep the grid away from them".format(
+                    ", ".join(
+                        f"({E:g}, {Lz:g}, {I3:g})"
+                        for E, Lz, I3 in zip(
+                            self._Es[bad], self._Lzs[bad], self._I3s[bad]
+                        )
+                    )
+                )
+            )
         self._rebuild_interp()
         return None
 
