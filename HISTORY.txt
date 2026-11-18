@@ -140,6 +140,53 @@ at release.]
 
 - [slot 18]
 
+- ``actionAngleStaeckel(inverse=)`` sets up the transformation that
+  inverts an ``actionAngleStaeckelInverse`` instance: for explicit tori in
+  a single Staeckel model, the transformation of that model; for an
+  interpolated family with any ``delta=`` and ``u0=``, the actions and
+  angles that the family's own map sends to each point (Newton's method
+  on that map, starting from the Staeckel approximation), with the
+  family's frequencies; for explicit tori that each have their own
+  Staeckel model, the angles on the torus that each point lies on.
+
+- [slot 20]
+
+- [slot 21]
+
+- [slot 22]
+
+- [slot 23]
+
+- [slot 24]
+
+- [slot 25]
+
+- [slot 26]
+
+- [slot 27]
+
+- [slot 28]
+
+- [slot 29]
+
+- [slot 30]
+
+- [slot 31]
+
+- [slot 32]
+
+- [slot 33]
+
+- [slot 34]
+
+- [slot 35]
+
+- [slot 36]
+
+- [slot 37]
+
+- [slot 38]
+
 - ``actionAngleStaeckelInverse``: the focal length of the Staeckel
   approximation of a general potential can follow the torus in an
   interpolated family: ``delta='fit'`` gives each torus the focal length
