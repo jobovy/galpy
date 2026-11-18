@@ -25,6 +25,7 @@ from ..backend import (
     promote_scalars,
     to_host,
 )
+from ..backend._coerce import fill_where
 from ..potential import _dim, epifreq, rl, vcirc
 from ..potential.planarPotential import (
     _evaluateplanarPotentials,
@@ -267,10 +268,10 @@ class actionAngleSpherical(actionAngle):
             # them here -- rather than falling through to the numpy/scipy core.
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
-            rperi, rap, rad, epi = self._problem_backend(r, vr, E, L)
+            rperi, rap, rad, epi, unbound = self._problem_backend(r, vr, E, L)
             _, isepi, _, kappa, _, dE, _ = epi
             Jr = xp.where(isepi, dE / kappa, self._calc_jr_backend(rperi, rap, rad))
-            return (Jr, Lz, L - xp.abs(Lz))
+            return (fill_where(xp, unbound, Jr, numpy.nan), Lz, L - xp.abs(Lz))
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
             vr = (R * vR + z * vz) / r
@@ -655,18 +656,21 @@ class actionAngleSpherical(actionAngle):
             # numpy inputs (promote first), exercising the backend for real.
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
-            rperi, rap, _, epi = self._problem_backend(r, vr, E, L)
+            rperi, rap, _, epi, unbound = self._problem_backend(r, vr, E, L)
             _, isepi, rc, _, _, _, w = epi
             # a circular orbit to round-off has its radius as both turning points
             circ = w <= _EPS * rc
             rperi = xp.where(isepi, xp.where(circ, r, rc - w), rperi)
             rap = xp.where(isepi, xp.where(circ, r, rc + w), rap)
-            return (
-                (rap - rperi) / (rap + rperi),
-                rap * xp.sqrt(1.0 - Lz**2.0 / L2),
-                rperi,
-                rap,
+            e, zmax, rap = (
+                fill_where(xp, unbound, x, numpy.nan)
+                for x in (
+                    (rap - rperi) / (rap + rperi),
+                    rap * xp.sqrt(1.0 - Lz**2.0 / L2),
+                    rap,
+                )
             )
+            return (e, zmax, rperi, rap)
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
             vr = (R * vR + z * vz) / r
@@ -897,8 +901,12 @@ class actionAngleSpherical(actionAngle):
         rap = _backend_brentq(f, xp.where(at_peri, r + dap, r), rend, xtol=xtol)
         rperi = xp.where(at_peri, r, xp.where(plunge, xp.zeros_like(r), rperi))
         rap = xp.where(at_apo, r, rap)
-        # unbound (no apocentre within 2^80 r): NaN, where numpy raises
-        rap = xp.where(f(rend) > 0.0, xp.full_like(rap, xp.nan), rap)
+        # unbound (no apocentre within 2^80 r): numpy raises, the callers return
+        # NaN; 2 r stands in for the apocentre so that what is computed from it
+        # stays finite (a NaN there NaN-poisons every reverse-mode gradient,
+        # masked or not)
+        unbound = f(rend) > 0.0
+        rap = xp.where(unbound, 2.0 * r, rap)
         # anchor: the radicand vanishes exactly at the turning points
         pos = rperi > 0.0
         dp = xp.where(pos, f(xp.where(pos, rperi, r)), xp.zeros_like(r))
@@ -914,7 +922,7 @@ class actionAngleSpherical(actionAngle):
             rel = self._rel_phieff_backend(x, r0, window, L, force, Phi0)
             return 2.0 * (_b(Erel) - rel - anchor)
 
-        return rperi, rap, rad, epi
+        return rperi, rap, rad, epi, unbound
 
     @staticmethod
     def _rmean_backend(xp, rperi, rap):
@@ -1058,15 +1066,16 @@ class actionAngleSpherical(actionAngle):
         """Vectorised (Jr,Lz,Jz,Or,Op,Oz) for backend (jax/torch) inputs."""
         xp = get_namespace(R)
         r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
-        rperi, rap, rad, epi = self._problem_backend(r, vr, E, L)
+        rperi, rap, rad, epi, unbound = self._problem_backend(r, vr, E, L)
         _, isepi, _, kappa, Omc, dE, _ = epi
         Jr = self._calc_jr_backend(rperi, rap, rad)
         Or, Op = self._calc_or_op_backend(
             self._rmean_backend(xp, rperi, rap), rperi, rap, L, rad
         )
-        Jr = xp.where(isepi, dE / kappa, Jr)
-        Or = xp.where(isepi, kappa, Or)
-        Op = xp.where(isepi, Omc, Op)
+        Jr, Or, Op = (
+            fill_where(xp, unbound, xp.where(isepi, e, x), numpy.nan)
+            for e, x in ((dE / kappa, Jr), (kappa, Or), (Omc, Op))
+        )
         Oz = Op  # copy (magnitude)
         Op = xp.where(vT < 0.0, -Op, Op)
         return (Jr, Lz, L - xp.abs(Lz), Or, Op, Oz)
@@ -1076,7 +1085,7 @@ class actionAngleSpherical(actionAngle):
         xp = get_namespace(R)
         r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
         vtheta = (z * vR - R * vz) / r
-        rperi, rap, rad, epi = self._problem_backend(r, vr, E, L)
+        rperi, rap, rad, epi, unbound = self._problem_backend(r, vr, E, L)
         _, isepi, rc, kappa, Omc, dE, w = epi
         Jr = self._calc_jr_backend(rperi, rap, rad)
         Rmean = self._rmean_backend(xp, rperi, rap)
@@ -1094,11 +1103,16 @@ class actionAngleSpherical(actionAngle):
         az_e = self._calc_psi_backend(
             z, r, L, Lz, vtheta, phi
         ) - 2.0 * Omc / kappa * w / rc * xp.sin(ar_e)
-        Jr = xp.where(isepi, dE / kappa, Jr)
-        Or = xp.where(isepi, kappa, Or)
-        Op = xp.where(isepi, Omc, Op)
-        ar = xp.where(isepi, ar_e, ar)
-        az = xp.where(isepi, az_e, az)
+        Jr, Or, Op, ar, az = (
+            fill_where(xp, unbound, xp.where(isepi, e, x), numpy.nan)
+            for e, x in (
+                (dE / kappa, Jr),
+                (kappa, Or),
+                (Omc, Op),
+                (ar_e, ar),
+                (az_e, az),
+            )
+        )
         Oz = Op  # copy (magnitude)
         Op = xp.where(vT < 0.0, -Op, Op)
         ap = xp.where(vT < 0.0, asc - az, asc + az)

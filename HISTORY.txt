@@ -131,7 +131,9 @@ at release.]
   the grid has one shape at every R, so that it can be traced (twin of
   main's #1937).
 
-- [slot 13]
+- ``actionAngleSpherical`` and ``actionAngleAdiabatic`` on a backend: an
+  unbound orbit in a batch no longer makes the reverse-mode gradient of the
+  whole batch NaN (its actions, frequencies and angles are still NaN).
 
 - [slot 14]
 
