@@ -13337,6 +13337,12 @@ def test_actionAngleStaeckelInverse_target():
         actionAngleStaeckelInverse(
             target=numpy.vstack((rows, rows2)), target_pad=50.0, **kw
         )
+    # a padding under which the circular orbits of the box stay inside Rinf
+    # but the bottom of its energies does not: the message names the padding
+    with pytest.raises(ValueError, match="Rinf is too small.*or reduce target_pad"):
+        actionAngleStaeckelInverse(
+            target=numpy.vstack((rows, rows2)), target_pad=12.0, **kw
+        )
     assert numpy.all(numpy.isfinite(big(0.0, lz, 0.0, 0.3, 1.0, 2.0)[0])) and (
         numpy.all(numpy.isfinite(big(0.0, lz, jz, 0.3, 1.0, 2.0)[0]))
     ), "A generously padded target box does not reach the faces"

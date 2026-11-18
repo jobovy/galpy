@@ -2466,6 +2466,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "Rinf is too small: the planar orbit without angular momentum at "
                 "the circular orbit's energy of the grid's largest |L_z| reaches "
                 "beyond Rinf; increase Rinf"
+                + (
+                    ""
+                    if self._target is None
+                    else " or reduce target_pad: the grid's largest |L_z|, "
+                    f"{self._Lzgrid[-1]:g}, is the target's, "
+                    f"{numpy.amax(self._target[0] * numpy.fabs(self._target[2])):g}, "
+                    f"padded by target_pad = {self._target_pad:g} times the "
+                    "target's range of |L_z|"
+                )
             )
         self._wEs = numpy.linspace(box[1][0], box[1][1], nE)
         self._wIs = numpy.linspace(box[2][0], box[2][1], nI3)
