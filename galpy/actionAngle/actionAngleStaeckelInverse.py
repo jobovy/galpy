@@ -35,6 +35,7 @@ from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, coords, galpyWarning
 from ..util._hermite import HermiteFamily3D, slope_at_zero
 from ..util._optional_deps import _TQDM_LOADED
+from ..util.conversion import actionAngleInverse_physical_input
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
@@ -2456,52 +2457,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     xtol=1e-15,
                 )
                 return wE * wE, face
-        # Newton on the total action and on the vertical fraction of it,
-        # both of which the grid coordinates control at every scale: near
-        # the circular edge both actions vanish with x and their fraction
-        # alone fixes y, so a Newton on the actions themselves would have a
-        # degenerate direction there
-        jtot, frac = jr + jz, jz / (jr + jz)
-        x = 0.5 * (xlo + xhi)
-        y = min(max(frac, ylo + 0.02 * (yhi - ylo)), yhi - 0.02 * (yhi - ylo))
-        for attempt in range(2):
-            for _ in range(60):
-                v = A(x, y)
-                tot = v[0] + v[1]
-                G = numpy.array([tot / jtot - 1.0, v[1] / tot - frac])
-                if numpy.max(numpy.fabs(G)) < 1e-12:
-                    return x, y
-                vx, vy = A(x, y, dx=1), A(x, y, dy=1)
-                Gx = numpy.array(
-                    [
-                        (vx[0] + vx[1]) / jtot,
-                        (vx[1] * tot - v[1] * (vx[0] + vx[1])) / tot**2,
-                    ]
-                )
-                Gy = numpy.array(
-                    [
-                        (vy[0] + vy[1]) / jtot,
-                        (vy[1] * tot - v[1] * (vy[0] + vy[1])) / tot**2,
-                    ]
-                )
-                det = Gx[0] * Gy[1] - Gy[0] * Gx[1]
-                dx = -(Gy[1] * G[0] - Gy[0] * G[1]) / det
-                dy = -(-Gx[1] * G[0] + Gx[0] * G[1]) / det
-                lim = min(1.0, 0.3 / max(numpy.fabs(dx), numpy.fabs(dy), 1e-300))
-                x = min(max(x + lim * dx, xlo), xhi)
-                y = min(max(y + lim * dy, ylo), yhi)
-            if attempt == 0:
-                # restart from the best point of a coarse scan
-                xs, ys = numpy.meshgrid(
-                    numpy.linspace(xlo + 0.05 * (xhi - xlo), xhi, 12),
-                    numpy.linspace(ylo, yhi, 12),
-                )
-                res = [
-                    numpy.sum(numpy.fabs(A(xx, yy)[:2] - [jr, jz]))
-                    for xx, yy in zip(xs.flatten(), ys.flatten())
-                ]
-                k = int(numpy.argmin(res))
-                x, y = xs.flatten()[k], ys.flatten()[k]
+        x, y, bad = self._interp_coords_array(
+            numpy.array([jr]), numpy.array([jz]), numpy.array([ell])
+        )
+        if not bad[0]:
+            return x[0], y[0]
         top = max(numpy.sum(A(xhi, yy)[:2]) for yy in numpy.linspace(ylo, yhi, 33))
         raise ValueError(
             f"(J_R, J_z) = ({jr}, {jz}) could not be matched inside the "
@@ -2576,49 +2536,102 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _interp_coords_array(self, jr, jz, ell):
         """The grid coordinates (x, y) of many tori at once (none of them on
-        a degenerate face): the Newton of _interp_coords vectorized over the
-        tori on the batched action interpolant, with the scalar inversion
-        as the fallback for any torus that does not converge"""
-        n = len(jr)
+        a degenerate face), and which of them could not be matched inside
+        the family: a Newton iteration vectorized over the tori on the
+        batched action interpolant (_newton_labels) from the middle of the
+        energies at the vertical fraction of the actions and, for the tori
+        that this leaves, from the best point of a coarse scan of the box"""
+        xlo, xhi = self._wEs[0] ** 2, self._wEs[-1] ** 2
+        ylo, yhi = self._ys[0], self._ys[-1]
+        frac = jz / (jr + jz)
+        x = numpy.full(len(jr), 0.5 * (xlo + xhi))
+        y = numpy.clip(frac, ylo + 0.02 * (yhi - ylo), yhi - 0.02 * (yhi - ylo))
+        bad = self._newton_labels(jr, jz, ell, x, y)
+        left = numpy.flatnonzero(bad)
+        if len(left) > 0:
+            xs, ys = (
+                t.ravel()
+                for t in numpy.meshgrid(
+                    numpy.linspace(xlo + 0.05 * (xhi - xlo), xhi, 12),
+                    numpy.linspace(ylo, yhi, 12),
+                )
+            )
+            A = self._A_ip.batch_all(
+                numpy.tile(xs, len(left)),
+                numpy.tile(ys, len(left)),
+                numpy.repeat(ell[left], len(xs)),
+            )[0].reshape(len(left), len(xs), 3)
+            k = numpy.argmin(
+                numpy.fabs(A[:, :, 0] - jr[left, None])
+                + numpy.fabs(A[:, :, 1] - jz[left, None]),
+                axis=1,
+            )
+            xl, yl = xs[k], ys[k]
+            bad[left] = self._newton_labels(jr[left], jz[left], ell[left], xl, yl)
+            x[left], y[left] = xl, yl
+        return x, y, bad
+
+    def _newton_labels(self, jr, jz, ell, x, y):
+        """Newton iteration for the grid coordinates of many tori from the
+        starting points (x, y), which it overwrites; returns which tori did
+        not converge. The unknowns are solved from the total action and
+        the vertical fraction of it, both of which the grid coordinates
+        control at every scale: near the circular edge both actions vanish
+        with x and their fraction alone fixes y, so a Newton on the actions
+        themselves would have a degenerate direction there. A step is at
+        most 0.3 long, is kept inside the box, and is halved until it
+        reduces the residual: full steps can cycle between a face and the
+        interior where an action rises steeply out of the face. A torus
+        outside the family ends against a face of the box, where no step
+        reduces the residual."""
         xlo, xhi = self._wEs[0] ** 2, self._wEs[-1] ** 2
         ylo, yhi = self._ys[0], self._ys[-1]
         jtot, frac = jr + jz, jz / (jr + jz)
-        x = numpy.full(n, 0.5 * (xlo + xhi))
-        y = numpy.clip(frac, ylo + 0.02 * (yhi - ylo), yhi - 0.02 * (yhi - ylo))
+        n = len(jr)
+        # the trial points; (x, y) are the accepted iterates, with their
+        # residuals, Newton directions and step lengths
+        xt, yt = x.copy(), y.copy()
+        norm, t = numpy.full(n, numpy.inf), numpy.ones(n)
+        dx, dy = numpy.zeros(n), numpy.zeros(n)
         active = numpy.arange(n)
-        for _ in range(60):
-            xa, ya, ea = x[active], y[active], ell[active]
-            v, vx, vy, _ = self._A_ip.batch_all(xa, ya, ea)
+        for _ in range(200):
+            v, vx, vy, _ = self._A_ip.batch_all(xt[active], yt[active], ell[active])
             tot = v[:, 0] + v[:, 1]
-            G0, G1 = tot / jtot[active] - 1.0, v[:, 1] / tot - frac[active]
-            done = numpy.maximum(numpy.fabs(G0), numpy.fabs(G1)) < 1e-12
-            if numpy.all(done):
-                active = active[~done]
-                break
-            Gx0, Gx1 = (
-                (vx[:, 0] + vx[:, 1]) / jtot[active],
-                (vx[:, 1] * tot - v[:, 1] * (vx[:, 0] + vx[:, 1])) / tot**2,
+            with numpy.errstate(divide="ignore", invalid="ignore"):
+                G0, G1 = tot / jtot[active] - 1.0, v[:, 1] / tot - frac[active]
+                Gx0, Gx1 = (
+                    (vx[:, 0] + vx[:, 1]) / jtot[active],
+                    (vx[:, 1] * tot - v[:, 1] * (vx[:, 0] + vx[:, 1])) / tot**2,
+                )
+                Gy0, Gy1 = (
+                    (vy[:, 0] + vy[:, 1]) / jtot[active],
+                    (vy[:, 1] * tot - v[:, 1] * (vy[:, 0] + vy[:, 1])) / tot**2,
+                )
+                det = Gx0 * Gy1 - Gy0 * Gx1
+                ndx = -(Gy1 * G0 - Gy0 * G1) / det
+                ndy = -(-Gx1 * G0 + Gx0 * G1) / det
+            # an interpolant that leaves the physical range is no improvement
+            new = numpy.where(
+                tot > 0.0, numpy.maximum(numpy.fabs(G0), numpy.fabs(G1)), numpy.inf
             )
-            Gy0, Gy1 = (
-                (vy[:, 0] + vy[:, 1]) / jtot[active],
-                (vy[:, 1] * tot - v[:, 1] * (vy[:, 0] + vy[:, 1])) / tot**2,
-            )
-            det = Gx0 * Gy1 - Gy0 * Gx1
-            dx = -(Gy1 * G0 - Gy0 * G1) / det
-            dy = -(-Gx1 * G0 + Gx0 * G1) / det
-            lim = numpy.minimum(
+            acc = new < norm[active]
+            a, r = active[acc], active[~acc]
+            x[a], y[a], norm[a] = xt[a], yt[a], new[acc]
+            dx[a], dy[a] = ndx[acc], ndy[acc]
+            t[a] = numpy.minimum(
                 1.0,
                 0.3
-                / numpy.maximum(numpy.maximum(numpy.fabs(dx), numpy.fabs(dy)), 1e-300),
+                / numpy.maximum(
+                    numpy.maximum(numpy.fabs(dx[a]), numpy.fabs(dy[a])), 1e-300
+                ),
             )
-            # the converged tori stay where they are
-            upd = active[~done]
-            x[upd] = numpy.clip((xa + lim * dx)[~done], xlo, xhi)
-            y[upd] = numpy.clip((ya + lim * dy)[~done], ylo, yhi)
-            active = upd
-        for ii in active:
-            x[ii], y[ii] = self._interp_coords(jr[ii], jz[ii], ell[ii])
-        return x, y
+            t[r] *= 0.5
+            active = active[(norm[active] >= 1e-12) & (t[active] >= 1e-6)]
+            if active.size == 0:
+                break
+            xt[active] = numpy.clip(x[active] + t[active] * dx[active], xlo, xhi)
+            yt[active] = numpy.clip(y[active] + t[active] * dy[active], ylo, yhi)
+        return norm >= 1e-12
 
     def _label_tori(self, jr, jz, Lz):
         """What the evaluation of many (J_R, J_z, L_z) tori of a family,
@@ -2630,11 +2643,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         torus's cell, which is the pair of the cell's numbers of
         coefficients of the u and of the v map (_nharm_cell_u,
         _nharm_cell_v) as one integer"""
-        ell, sgn = numpy.fabs(Lz), numpy.sign(Lz)
-        outside = (ell < self._Lzgrid[0]) | (ell > self._Lzgrid[-1])
-        if numpy.any(outside):
-            self._check_Lz(ell[numpy.argmax(outside)])
-        x, y = self._interp_coords_array(jr, jz, ell)
+        sgn = numpy.sign(Lz)
+        x, y, ell, inside = self._locate_tori(jr, jz, Lz)
         A, Ax, Ay, AL = self._A_ip.batch_all(x, y, ell)
         det = Ax[:, 0] * Ay[:, 1] - Ay[:, 0] * Ax[:, 1]
         N = numpy.zeros((len(jr), 3, 3))
@@ -2657,6 +2667,43 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._nharm_cell_u[self._U_ip.cells(wE, numpy.sqrt(1.0 - y), ell)]
             * (self._nptv + 1)
             + self._nharm_cell_v[self._V_ip.cells(wE, numpy.sqrt(y), ell)],
+            inside,
+        )
+
+    def _locate_tori(self, jr, jz, Lz):
+        """The grid coordinates (x, y, |L_z|) of many tori, none on a
+        degenerate face, and which of them lie inside the family: those with
+        |L_z| inside the grid whose actions the label inversion matches. A
+        torus outside gets the middle of the box at the nearest |L_z| of the
+        grid, a placeholder at which the tables evaluate."""
+        ell = numpy.fabs(Lz)
+        inside = (ell >= self._Lzgrid[0]) & (ell <= self._Lzgrid[-1])
+        ell = numpy.clip(ell, self._Lzgrid[0], self._Lzgrid[-1])
+        x = numpy.full(len(jr), 0.5 * (self._wEs[0] ** 2 + self._wEs[-1] ** 2))
+        y = numpy.full(len(jr), 0.5 * (self._ys[0] + self._ys[-1]))
+        xi, yi, bad = self._interp_coords_array(jr[inside], jz[inside], ell[inside])
+        ok = numpy.flatnonzero(inside)[~bad]
+        x[ok], y[ok] = xi[~bad], yi[~bad]
+        inside[inside] = ~bad
+        return x, y, ell, inside
+
+    def _raise_outside(self, tori, inside):
+        """Raise for the tori, rows of (J_R, J_phi, J_z), of an array
+        evaluation that lie outside the family: all of them are counted, the
+        first is named"""
+        if numpy.all(inside):
+            return None
+        ell = numpy.fabs(tori[:, 1])
+        offgrid = (ell < self._Lzgrid[0]) | (ell > self._Lzgrid[-1])
+        first = tori[numpy.argmin(inside)]
+        raise ValueError(
+            f"{numpy.sum(~inside)} of the {len(tori)} tori lie outside the "
+            f"interpolated family: {numpy.sum(offgrid)} with |L_z| outside the "
+            f"interpolation grid [{self._Lzgrid[0]}, {self._Lzgrid[-1]}] and "
+            f"{numpy.sum(~inside & ~offgrid)} whose (J_R, J_z) could not be matched "
+            "inside the family at their |L_z|; the first is (J_R, L_z, J_z) = "
+            f"({first[0]}, {first[1]}, {first[2]}); in_domain(jr, jphi, jz) returns "
+            "which tori lie inside" + self._target_hint
         )
 
     def _interp_tables_array(self, Lz, x, y, Om, uc, duc, N, nharm):
@@ -2913,12 +2960,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # theta_R - tau_u and theta_z - tau_v are periodic and bounded,
             # so [theta - s, theta + s] with s beyond their extremes are
             # guaranteed brackets: the vertical relation is solved at each
-            # trial tau_u inside the solve of the radial one
+            # trial tau_u inside the solve of the radial one. The extremes
+            # are estimated on a grid, which can miss them, but by less than
+            # 2 pi, by which the periodic part of an increasing angle
+            # relation can vary at most
             g = numpy.linspace(0.0, 2.0 * numpy.pi, 48, endpoint=False)
             GU, GV = (q.flatten() for q in numpy.meshgrid(g, g))
             Ts = self._torus_at(GU, GV, aux, chains_u, chains_v)
-            sR = numpy.max(numpy.fabs(Ts["thetaAr"] + Ts["comps"][0] - GU)) + 0.1
-            sz = numpy.max(numpy.fabs(Ts["thetaAz"] + Ts["comps"][1] - GV)) + 0.1
+            sR = numpy.max(numpy.fabs(Ts["thetaAr"] + Ts["comps"][0] - GU)) + 6.3
+            sz = numpy.max(numpy.fabs(Ts["thetaAz"] + Ts["comps"][1] - GV)) + 6.3
             for ii in bad:
                 thri, thzi = thR[ii], thz[ii]
 
@@ -3084,6 +3134,54 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """
         return self._actions_from_integrals(E, Lz, I3)[1]
 
+    @actionAngleInverse_physical_input
+    def in_domain(self, jr, jphi, jz, **kwargs):
+        """
+        Whether tori lie inside the domain on which this instance can evaluate them.
+
+        Parameters
+        ----------
+        jr : float, numpy.ndarray or Quantity
+            Radial action.
+        jphi : float, numpy.ndarray or Quantity
+            Azimuthal action.
+        jz : float, numpy.ndarray or Quantity
+            Vertical action.
+
+        Returns
+        -------
+        bool or numpy.ndarray
+            True for the tori that the instance evaluates, False for those for which an evaluation raises, in the broadcast shape of the actions (a bool for a single torus).
+
+        Notes
+        -----
+        - For an interpolating instance (setup_interp=True), the tori with |L_z| inside the angular-momentum grid whose (J_R, J_z) the family covers at that |L_z|; for an instance set up with explicit tori, those tori. An array evaluation raises when any of its tori lies outside, so use this to select the tori of a sample beforehand.
+        - 2026-11-16 - Written - Bovy (UofT)
+        """
+        jr, Lz, jz = numpy.broadcast_arrays(
+            *(numpy.asarray(t, dtype="float") for t in (jr, jphi, jz))
+        )
+        shape = jr.shape
+        jr, Lz, jz = jr.ravel(), Lz.ravel(), jz.ravel()
+        out = numpy.zeros(len(jr), dtype="bool")
+        valid = (jr >= 0.0) & (jz >= 0.0) & (Lz != 0.0)
+        # the tori with both librations of a family are located in one
+        # vectorized pass, the others one by one
+        many = valid & (jr > 0.0) & (jz > 0.0) & self._interp
+        if numpy.any(many):
+            out[many] = self._locate_tori(jr[many], jz[many], Lz[many])[3]
+        for ii in numpy.flatnonzero(valid & ~many):
+            try:
+                if jr[ii] == 0.0 and jz[ii] == 0.0 and self._interp:
+                    self._check_Lz(numpy.fabs(Lz[ii]))
+                    self._check_circular()
+                else:
+                    self._tables(jr[ii], jz[ii], Lz[ii])
+                out[ii] = True
+            except ValueError:
+                pass
+        return out.reshape(shape) if shape else bool(out[0])
+
     def _tables(self, jr, jz, Lz):
         """The tables of the requested torus, from the family or from the
         explicit tori"""
@@ -3164,9 +3262,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # each point's row among the tori of the vectorized pass
             rows = (numpy.cumsum(~single) - 1)[inv[pts]]
             tsel = tori[~single]
-            *labels, group = _chunked(
+            *labels, group, inside = _chunked(
                 self._label_tori, len(tsel), tsel[:, 0], tsel[:, 2], tsel[:, 1]
             )
+            self._raise_outside(tsel, inside)
             group = group[rows]
             _, ginv, counts = numpy.unique(
                 group, return_inverse=True, return_counts=True
@@ -3378,9 +3477,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         for k in numpy.flatnonzero(single):
             Om[:, k] = self._Freqs_torus(*tori[k])
         if not numpy.all(single):
-            Om[:, ~single] = self._label_tori(
+            labels = self._label_tori(
                 tori[~single, 0], tori[~single, 2], tori[~single, 1]
-            )[2][:, [0, 2, 1]].T
+            )
+            self._raise_outside(tori[~single], labels[-1])
+            Om[:, ~single] = labels[2][:, [0, 2, 1]].T
         return tuple(o.reshape(jr.shape) for o in Om[:, inv.ravel()])
 
     def _Freqs_torus(self, jr, Lz, jz):

@@ -14474,3 +14474,110 @@ def test_actionAngleStaeckelInverse_polar_torus():
         "A nearly polar torus does not come close to the axis"
     )
     return None
+
+
+def test_actionAngleStaeckelInverse_in_domain(
+    staeckel_inverse_interp, staeckel_inverse_explicit
+):
+    # in_domain tells which tori an instance evaluates: for a family those
+    # with |L_z| inside the grid and (J_R, J_z) covered there, the circular
+    # orbits and the tori on the degenerate faces included; for explicit
+    # tori those tori. An array evaluation with tori outside raises once,
+    # counting them all
+    aAI = staeckel_inverse_interp
+    pot = _staeckel_inverse_potential()
+    rng = numpy.random.default_rng(4)
+    n = 60
+    jr, jz = 10.0 ** rng.uniform(-3, 0.3, (2, n))
+    Lz = rng.uniform(0.6, 2.2, n) * rng.choice([-1.0, 1.0], n)
+    inside = aAI.in_domain(jr, Lz, jz)
+    assert inside.shape == (n,) and 5 < numpy.sum(inside) < n - 5, (
+        "The test tori are not on both sides of the family's edge"
+    )
+    out = numpy.array(aAI(jr[inside], Lz[inside], jz[inside], 0.3, 1.0, 2.0))
+    assert numpy.all(numpy.isfinite(out)), (
+        "A torus that in_domain places inside the family does not evaluate"
+    )
+    for ii in numpy.flatnonzero(~inside):
+        with pytest.raises(ValueError, match="outside the interpol|not be matched"):
+            aAI(jr[ii], Lz[ii], jz[ii], 0.3, 1.0, 2.0)
+    assert aAI.in_domain(jr[:, None], Lz[0], jz[None, :4]).shape == (n, 4), (
+        "in_domain does not broadcast its actions"
+    )
+    # the grid spans the circular angular momenta of Rmin = 0.7 and Rmax = 1.6
+    offgrid = (numpy.fabs(Lz) < 0.7 * pot.vcirc(0.7)) | (
+        numpy.fabs(Lz) > 1.6 * pot.vcirc(1.6)
+    )
+    msg = (
+        f"{numpy.sum(~inside)} of the {n} tori lie outside the interpolated "
+        f"family: {numpy.sum(offgrid)} with .* and "
+        f"{numpy.sum(~inside & ~offgrid)} whose .* could not be matched"
+    )
+    with pytest.raises(ValueError, match=msg):
+        aAI(jr, Lz, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=msg):
+        aAI.Freqs(jr, Lz, jz)
+    # single tori: inside, the circular orbit, the degenerate faces, and
+    # what an evaluation rejects
+    for actions, expected in (
+        ((0.05, 0.9, 0.05), True),
+        ((0.0, 0.9, 0.0), True),
+        ((0.05, -0.9, 0.0), True),
+        ((0.0, 0.9, 0.05), True),
+        ((0.0, 5.0, 0.0), False),
+        ((50.0, 0.9, 0.0), False),
+        ((0.05, 5.0, 0.05), False),
+        ((-0.05, 0.9, 0.05), False),
+        ((0.05, 0.0, 0.05), False),
+    ):
+        assert aAI.in_domain(*actions) is expected, (
+            f"in_domain{actions} of a family is not {expected}"
+        )
+    # explicit tori
+    aAE = staeckel_inverse_explicit
+    labels = [
+        _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[k])
+        for k in ("benign", "eccentric")
+    ]
+    jrs = numpy.array([aAE.JR(*l) for l in labels])
+    jzs = numpy.array([aAE.Jz(*l) for l in labels])
+    Lzs = numpy.array([l[1] for l in labels])
+    assert numpy.all(aAE.in_domain(jrs, Lzs, jzs)), (
+        "in_domain does not hold the explicit tori of an instance"
+    )
+    assert not numpy.any(aAE.in_domain(1.1 * jrs, Lzs, jzs)), (
+        "in_domain holds tori that an instance of explicit tori does not have"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_label_inversion(staeckel_inverse_interp):
+    # The actions of a family at integrals inside its grid are inside it by
+    # construction, also where an action rises steeply out of a face, as J_z
+    # does out of the planar face for eccentric tori: the label inversion's
+    # Newton steps are halved until they reduce the residual, so that it
+    # finds every such torus, one at a time and in an array
+    from galpy.potential import evaluatePotentials
+
+    aAI = staeckel_inverse_interp
+    pot = _staeckel_inverse_potential()
+    actions = []
+    for Lz in 0.7 * pot.vcirc(0.7) * numpy.array([1.01, 1.3, 1.8]):
+        for R0 in (2.2, 2.8, 3.4):
+            # the energy of the planar orbit without angular momentum that
+            # reaches R0, and third integrals close above the planar orbit's
+            E = evaluatePotentials(pot, R0, 0.0)
+            Ipl = Lz**2 / 2.0 / _STAECKEL_INVERSE_DELTA**2 - E
+            for dI in (1e-4, 1e-3, 1e-2, 5e-2):
+                jr, jz = aAI.JR(E, Lz, Ipl + dI), aAI.Jz(E, Lz, Ipl + dI)
+                actions.append((jr, Lz, jz))
+                assert aAI.in_domain(jr, Lz, jz), (
+                    "The actions of a family at integrals inside its grid are "
+                    "not inside its domain"
+                )
+                assert numpy.all(numpy.isfinite(aAI(jr, Lz, jz, 0.1, 0.2, 0.3)))
+    jr, Lz, jz = numpy.array(actions).T
+    assert numpy.all(aAI.in_domain(jr, Lz, jz)) and numpy.all(
+        numpy.isfinite(aAI(jr, Lz, jz, 0.1, 0.2, 0.3))
+    ), "An array of tori inside a family's grid is not located"
+    return None
