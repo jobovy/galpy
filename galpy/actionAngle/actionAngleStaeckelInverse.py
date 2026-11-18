@@ -802,6 +802,26 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 W = self._Wu(us, E, Lz, 0.0)
             finite = numpy.isfinite(W)
             us, W = us[finite], W[finite]
+            tops = numpy.flatnonzero((W[1:-1] > W[:-2]) & (W[1:-1] >= W[2:])) + 1
+            if (
+                self._interp
+                and numpy.sum(W[tops] > 2.0 * self._delta**2 * self._I3_planar(E, Lz))
+                > 1
+            ):
+                # at small |L_z| in a cusped potential p_u^2 has a second
+                # maximum close to the centre: tori there share their
+                # integrals with tori further out and merge with them where
+                # I_3 lifts the barrier between the two above zero, across
+                # which the tori are not a continuous family
+                raise ValueError(
+                    "The momentum function of the u libration of the tori at "
+                    f"(E, L_z) = ({E}, {Lz}) has more than one maximum: tori "
+                    "close to the centre share their integrals with tori further "
+                    "out (as they do at small |L_z| in a cusped potential), the "
+                    "tori at these integrals are not a continuous family, and an "
+                    "interpolation grid cannot hold them. Keep the grid away "
+                    "from the axis (a larger Rmin) or change delta"
+                )
             j = int(numpy.argmax(W))
             if j == 0 or j == len(us) - 1:
                 raise ValueError(
@@ -895,10 +915,39 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             vmin = 0.5 * numpy.pi
         else:
             Wv = lambda v: float(self._Wv(v, E, Lz, I3))
-            vlo = 0.35 * numpy.pi
-            while Wv(vlo) > 0.0:
-                vlo *= 0.7
-            vmin = brentq(Wv, vlo, 0.5 * numpy.pi, xtol=1e-14)
+            # the libration about the midplane ends at the first root below
+            # pi/2, bracketed by the first change of sign on a scan down
+            # from the midplane. In a Staeckel potential p_v^2 falls
+            # monotonically from the midplane to that root; in a Staeckel
+            # approximation whose foci attract (V(0) > U(0), as near the
+            # centre of a cusped potential) it can rise again toward the
+            # axis, where a second torus shares the integrals, until I_3
+            # lifts the barrier between the two above zero and they merge
+            # into one, across which the tori are not a continuous family:
+            # no grid can hold them
+            vs = 0.5 * numpy.pi * (1.0 - numpy.linspace(0.0, 1.0, 49)[:-1])
+            Ws = self._Wv(vs, E, Lz, I3)
+            neg = numpy.flatnonzero(Ws <= 0.0)
+            npos = neg[0] if len(neg) > 0 else len(vs)
+            if self._interp and numpy.any(numpy.diff(Ws[:npos]) > 1e-10 * Ws[0]):
+                raise ValueError(
+                    "The momentum function of the v libration of the (E, L_z, I_3) "
+                    f"= ({E}, {Lz}, {I3}) torus does not fall monotonically from "
+                    "the midplane to its turning point: in this Staeckel "
+                    "approximation the tori at these integrals do not continue "
+                    "those about the midplane (near its foci, which attract as "
+                    "they do at the centre of a cusped potential, the "
+                    "approximation holds tori of its own), and an interpolation "
+                    "grid cannot hold them. Keep the grid away from the axis (a "
+                    "larger Rmin) or change delta or u0"
+                )
+            if len(neg) > 0:
+                vlo, vhi = vs[npos], vs[npos - 1]
+            else:
+                vlo = vhi = vs[-1]
+                while Wv(vlo) > 0.0:
+                    vlo *= 0.7
+            vmin = brentq(Wv, vlo, vhi, xtol=1e-14)
         return (
             0.5 * (umin + umax),
             0.5 * (umax - umin),
