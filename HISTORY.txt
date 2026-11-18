@@ -93,7 +93,16 @@ at release.]
 
 - [slot 19]
 
-- [slot 20]
+- SCFPotential (and DiskSCFPotential, whose expansion is one) evaluates arrays
+  of points in one vectorized pass instead of a Python loop over the points
+  (potential, density, forces and second derivatives; the Gegenbauer
+  recurrence is vectorized over l too), with bit-identical values. The
+  forces of McMillan17 take about 0.1 ms per point instead of 15 ms. Its
+  potential at and near the centre is now finite and correct (as in C; it was
+  2e26 at the centre for McMillan17's disc expansion, and overflowed at tiny
+  radii for large L), so OblateStaeckelWrapperPotential(pot=McMillan17,
+  ntab=...) can be built; elsewhere the potential, forces and second
+  derivatives change at round-off (<~ 1e-13 relative).
 
 - ``actionAngleStaeckelInverse`` evaluates every point of an interpolated
   family (``setup_interp=True``) with the harmonics that the tori around it

@@ -1977,3 +1977,110 @@ def test_tdep_warning_not_lower_triangular():
     Asin = numpy.zeros((5, 2, 3, 3))
     with pytest.raises(RuntimeWarning):
         SCFPotential(Acos=Acos, Asin=Asin, tgrid=numpy.linspace(0, 1, 5))
+
+
+def test_scf_arrays_equal_points():
+    # Arrays of points are evaluated in one batched pass (no Python loop over the
+    # points); its values are those of evaluating the points one by one, bit for
+    # bit, for every method: non-axisymmetric and time-dependent expansions
+    # (one time per point and one shared time), DiskSCFPotential, the centre,
+    # the symmetry axis (the second derivatives' pole nudge) and infinity
+    from galpy.potential import (
+        DiskSCFPotential,
+        evaluateDensities,
+        evaluatephi2derivs,
+        evaluatephitorques,
+        evaluatephizderivs,
+        evaluatePotentials,
+        evaluateR2derivs,
+        evaluateRforces,
+        evaluateRphiderivs,
+        evaluateRzderivs,
+        evaluatez2derivs,
+        evaluatezforces,
+    )
+
+    rng = numpy.random.default_rng(5)
+    A = numpy.tril(rng.normal(size=(5, 4, 4)) * 0.1)
+    A[0, 0, 0] = 1.0
+    S = numpy.tril(rng.normal(size=(5, 4, 4)) * 0.1)
+    tg = numpy.linspace(0.0, 2.0, 9)
+    pots = [
+        potential.SCFPotential(amp=0.9, Acos=A, Asin=S, a=0.8),
+        potential.SCFPotential(
+            Acos=numpy.array([A * (1 + 0.1 * tt) for tt in tg]),
+            Asin=numpy.array([S * (1 - 0.05 * tt) for tt in tg]),
+            a=1.1,
+            tgrid=tg,
+        ),
+        DiskSCFPotential(N=6, L=6),
+    ]
+    R = numpy.array([0.0, 0.0, 0.7, 1.3, 2.2, numpy.inf])
+    z = numpy.array([0.0, 0.6, -0.4, 0.0, 1.1, 0.0])
+    phi = numpy.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
+    funcs = [
+        evaluatePotentials,
+        evaluateDensities,
+        evaluateRforces,
+        evaluatezforces,
+        evaluatephitorques,
+        evaluateR2derivs,
+        evaluatez2derivs,
+        evaluateRzderivs,
+        evaluatephi2derivs,
+        evaluateRphiderivs,
+        evaluatephizderivs,
+    ]
+    with numpy.errstate(all="ignore"):
+        for pot in pots:
+            for t in (0.3, numpy.linspace(0.1, 1.9, len(R))):
+                tv = numpy.broadcast_to(t, R.shape)
+                for f in funcs:
+                    got = numpy.broadcast_to(  # axisymmetric phi derivatives: 0
+                        f(pot, R, z, phi=phi, t=t, use_physical=False), R.shape
+                    )
+                    want = [
+                        f(pot, R[i], z[i], phi=phi[i], t=tv[i], use_physical=False)
+                        for i in range(len(R))
+                    ]
+                    assert numpy.array_equal(got, want, equal_nan=True), (
+                        f"{f.__name__} at arrays of points differs from point by point"
+                    )
+    return None
+
+
+def test_scf_potential_at_the_centre():
+    # phi_tilde_nl ~ r^l: at the centre only l = 0 contributes, so the potential
+    # there is its r -> 0 limit (it used the l = 0 limit for every l), and the
+    # basis stays finite at tiny radii for large L (r^(-l-1) overflowed there)
+    rng = numpy.random.default_rng(3)
+    A = numpy.tril(rng.normal(size=(8, 30, 30)) * 1e-3)
+    A[0, 0, 0] = 1.0
+    S = numpy.tril(rng.normal(size=(8, 30, 30)) * 1e-3)
+    pot = SCFPotential(Acos=A, Asin=S, a=2.5)
+    centre = potential.evaluatePotentials(pot, 0.0, 0.0, phi=0.3)
+    near = potential.evaluatePotentials(pot, 1e-9, 0.0, phi=0.3)
+    assert numpy.fabs(centre - near) < 1e-8 * numpy.fabs(centre), (
+        "the SCF potential at the centre is not its limit"
+    )
+    tiny = potential.evaluatePotentials(pot, 0.0, 1e-17, phi=0.3)
+    assert numpy.isfinite(tiny) and numpy.fabs(tiny - centre) < 1e-8 * numpy.fabs(
+        centre
+    ), "the SCF potential is not finite near the centre"
+    return None
+
+
+def test_diskscf_tabulated_staeckel_wrapper():
+    # the tabulated OblateStaeckelWrapperPotential's u table starts at the
+    # centre, which a DiskSCFPotential's expansion now evaluates (it was NaN)
+    from galpy.potential import DiskSCFPotential, OblateStaeckelWrapperPotential
+
+    dp = DiskSCFPotential(N=10, L=10)
+    tab = OblateStaeckelWrapperPotential(pot=dp, delta=0.45, u0=1.0, ntab=100)
+    exact = OblateStaeckelWrapperPotential(pot=dp, delta=0.45, u0=1.0)
+    for R, z in ((0.5, 0.1), (1.2, -0.4)):
+        for f in (potential.evaluatePotentials, potential.evaluateRforces):
+            assert numpy.fabs(f(tab, R, z) - f(exact, R, z)) < 1e-5 * numpy.fabs(
+                f(exact, R, z)
+            ), "the tabulated Staeckel wrapper of a DiskSCFPotential is off"
+    return None
