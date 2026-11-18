@@ -13188,6 +13188,45 @@ def test_actionAngleStaeckelInverse_u0_rules_explicit():
     return None
 
 
+def test_actionAngleStaeckelInverse_u0_rules_points():
+    # With a rule for the reference curve, the map of the u libration
+    # depends on the curve too, although the libration itself does not:
+    # the curve changes J_z, and with it the auxiliary torus onto which the
+    # u libration is lifted, whose angular momentum is J_z + |L_z|. With
+    # that part of the derivative tables, the points of a family converge
+    # between its nodes to those of the tori that the rule sets up
+    # explicitly, at the same actions and angles (without it they stall)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    kw = dict(pot=lp, delta=0.8, u0="torus", mm_npt=32, progressbar=False)
+    angles = numpy.random.default_rng(5).uniform(0.0, 2.0 * numpy.pi, (3, 12))
+    refs = []
+    for Lz, fE, y in ((1.05, 0.45, 0.55), (0.95, 0.3, 0.8), (1.15, 0.6, 0.3)):
+        E, Lz, I3 = _staeckel_inverse_general_labels(lp, 0.8, 2.8, Lz, fE, y)
+        ex = actionAngleStaeckelInverse(Es=[E], Lzs=[Lz], I3s=[I3], **kw)
+        acts = (ex.JR(E, Lz, I3), Lz, ex.Jz(E, Lz, I3))
+        refs.append((acts, numpy.array(ex(*acts, *angles))[:5]))
+    errs = []
+    for n in (5, 9):
+        fam = actionAngleStaeckelInverse(
+            setup_interp=True, Rmin=0.8, Rmax=1.3, Rinf=2.8, nE=n, nLz=n, nI3=n, **kw
+        )
+        errs.append(
+            [
+                numpy.amax(numpy.fabs(numpy.array(fam(*acts, *angles))[:5] - x))
+                for acts, x in refs
+            ]
+        )
+    errs = numpy.array(errs)
+    assert numpy.all(errs[1] < errs[0] / 5.0) and numpy.all(errs[1] < 2e-5), (
+        "The points of a family with a rule for u0 do not converge between its "
+        "nodes to those of the tori that the rule sets up explicitly"
+    )
+    return None
+
+
 def test_actionAngleStaeckelInverse_target():
     # target= localizes the family's grid on the tori of a set of phase-space
     # points, through the same label relations the node lattice uses: the
