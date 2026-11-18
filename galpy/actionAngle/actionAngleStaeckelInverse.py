@@ -147,6 +147,176 @@ def _parse_target(target):
     return out
 
 
+def _bisect(fn, lo, hi, n=40):
+    """The roots of fn between the arrays lo, where it is negative, and hi,
+    where it is positive, by n bisections of all of them at once"""
+    for _ in range(n):
+        mid = 0.5 * (lo + hi)
+        neg = fn(mid) < 0.0
+        lo, hi = numpy.where(neg, mid, lo), numpy.where(neg, hi, mid)
+    return 0.5 * (lo + hi)
+
+
+def _golden(fn, lo, hi, n=40):
+    """The minima of fn between the arrays lo and hi, where it has one
+    each, by n golden-section steps of all of them at once"""
+    g = 0.5 * (numpy.sqrt(5.0) - 1.0)
+    a, b = hi - g * (hi - lo), lo + g * (hi - lo)
+    fa, fb = fn(a), fn(b)
+    for _ in range(n):
+        left = fa < fb
+        lo, hi = numpy.where(left, lo, a), numpy.where(left, b, hi)
+        a, b = (
+            numpy.where(left, hi - g * (hi - lo), b),
+            numpy.where(left, a, lo + g * (hi - lo)),
+        )
+        fnew = fn(numpy.where(left, a, b))
+        fa, fb = numpy.where(left, fnew, fb), numpy.where(left, fa, fnew)
+    return 0.5 * (lo + hi)
+
+
+def _focal_tori(pot, E, Lz, f, delta, Rm, Rp, rule):
+    """The tori (E, L_z, f) of the Staeckel approximations of pot with the
+    focal lengths delta, f the fraction of the way of I_3 from the planar
+    to the shell orbit's and all of them arrays of one shape, from the
+    potential alone: the potential and the I_3 at which p_u^2 vanishes at
+    R = delta sinh(u) in the plane, as functions; I_3; the radii in the
+    plane of the two u turning points; and a function that returns V(v),
+    p_v^2(v) and the v turning point for a reference radius R_0 = delta
+    sinh(u0) and a third integral. Rm and Rp are the pericentre and the
+    apocentre of the planar orbits (E, L_z), which do not depend on the
+    focal length; the reference radius of the rule for u0 is the last
+    entry"""
+
+    def Phi(R, z=None):
+        z = 0.0 * R if z is None else z
+        return evaluatePotentials(
+            pot, R.ravel(), z.ravel(), use_physical=False
+        ).reshape(R.shape)
+
+    def col(a, like):
+        return a.reshape(a.shape + (1,) * (like.ndim - a.ndim))
+
+    d2 = delta**2
+
+    def w(R):
+        P = Phi(R)
+        return (R**2 * (col(E, R) - P) - col(d2, R) * P) / col(d2, R) - col(
+            Lz, R
+        ) ** 2 / (2.0 * R**2)
+
+    Rsh = _golden(lambda R: -w(R), Rm, Rp, n=30)
+    Ipl, Ish = Lz**2 / (2.0 * d2) - E, w(Rsh)
+    I3 = Ipl + f * (Ish - Ipl)
+    R1 = _bisect(lambda R: w(R) - I3, Rm, Rsh)
+    R2 = _bisect(lambda R: I3 - w(R), Rsh, Rp)
+
+    def vlib(R0, I):
+        sh0 = R0 / delta
+        ch0 = numpy.sqrt(1.0 + sh0**2)
+        Phi0 = ch0**2 * Phi(R0)
+
+        def V(v):
+            sn = numpy.sin(v)
+            return col(Phi0, v) - (col(sh0, v) ** 2 + sn**2) * Phi(
+                col(delta * sh0, v) * sn, col(delta * ch0, v) * numpy.cos(v)
+            )
+
+        def Wv(v):
+            sn2 = numpy.sin(v) ** 2
+            return (
+                2.0 * col(d2, v) * (col(E, v) * sn2 + V(v) + col(I, v))
+                - col(Lz, v) ** 2 / sn2
+            )
+
+        return V, Wv, _bisect(Wv, 1e-8 + 0.0 * E, 0.5 * numpy.pi + 0.0 * E)
+
+    R0 = {
+        "torus": 2.0 * R1 * R2 / (R1 + R2),
+        "fit": 2.0 * Rm * Rp / (Rm + Rp),
+        "shell": Rsh,
+    }[rule]
+    return Phi, w, I3, Ish, R1, R2, vlib, R0
+
+
+def _focal_spread(pot, E, Lz, f, delta, Rm, Rp, rule="torus", n=16):
+    """The rms spread of the true Hamiltonian over the tori (E, L_z, f) of
+    the Staeckel approximations of pot with the focal lengths delta
+    (_focal_tori). H - E is the error potential Phi - Phi_S, averaged over
+    the model torus with the time spent, (sinh^2 u + sin^2 v) du dv / (p_u
+    p_v), on n x n/2 anomalies"""
+    Phi, w, I3, _, R1, R2, vlib, R0 = _focal_tori(pot, E, Lz, f, delta, Rm, Rp, rule)
+    V, Wv, vmin = vlib(R0, I3)
+    u1, u2 = numpy.arcsinh(R1 / delta), numpy.arcsinh(R2 / delta)
+    wu, wv = 0.5 * (u2 - u1), 0.5 * numpy.pi - vmin
+    tu = numpy.pi * (numpy.arange(n) + 0.5) / n
+    tv = 0.5 * numpy.pi * (numpy.arange(n // 2) + 0.5) / (n // 2)
+    u = (0.5 * (u1 + u2))[..., None] - wu[..., None] * numpy.cos(tu)
+    v = 0.5 * numpy.pi - wv[..., None] * numpy.cos(tv)
+    Ru = delta[..., None] * numpy.sinh(u)
+    gu = (
+        wu[..., None]
+        * numpy.sin(tu)
+        / numpy.sqrt(
+            numpy.maximum(2.0 * delta[..., None] ** 2 * (w(Ru) - I3[..., None]), 1e-300)
+        )
+    )
+    gv = wv[..., None] * numpy.sin(tv) / numpy.sqrt(numpy.maximum(Wv(v), 1e-300))
+    U = numpy.cosh(u) ** 2 * Phi(Ru)
+    sh2, sn2 = numpy.sinh(u)[..., :, None] ** 2, numpy.sin(v)[..., None, :] ** 2
+    dd = delta[..., None, None]
+    dH = Phi(
+        dd * numpy.sinh(u)[..., :, None] * numpy.sin(v)[..., None, :],
+        dd * numpy.cosh(u)[..., :, None] * numpy.cos(v)[..., None, :],
+    ) - (U[..., :, None] - V(v)[..., None, :]) / (sh2 + sn2)
+    wt = (sh2 + sn2) * gu[..., :, None] * gv[..., None, :]
+    norm = numpy.sum(wt, axis=(-2, -1))
+    mean = numpy.sum(wt * dH, axis=(-2, -1)) / norm
+    return numpy.sqrt(
+        numpy.sum(wt * (dH - mean[..., None, None]) ** 2, axis=(-2, -1)) / norm
+    )
+
+
+def _focal_y(pot, E, Lz, f, delta, Rm, Rp, rule, axis_weight):
+    """The third-integral variable y of a family's grid (_y_of_I3) for the
+    tori of _focal_tori, on the arrays of all of them at once: the fraction
+    f blended with the axis reach, from the turning points alone"""
+    _, _, I3, Ish, R1, R2, vlib, R0 = _focal_tori(pot, E, Lz, f, delta, Rm, Rp, rule)
+    # the v turning points are those of the model of the planar orbit
+    Rpl = R0 if rule == "shell" else 2.0 * Rm * Rp / (Rm + Rp)
+
+    def Qu(Ra, Rb):
+        th = lambda R: R / numpy.sqrt(R**2 + delta**2)  # noqa: E731
+        return 1.0 - numpy.sqrt(1.0 + 4.0 * numpy.log(th(Rb) / th(Ra)) ** 2)
+
+    def Qv(I):
+        return -2.0 * numpy.log(numpy.sin(vlib(Rpl, I)[2]))
+
+    lpl, lsh = Qu(Rm, Rp), Qv(Ish)
+    return (f + axis_weight * (Qu(R1, R2) + Qv(I3) - lpl)) / (
+        1.0 + axis_weight * (lsh - lpl)
+    )
+
+
+def _focal_fit(pot, E, Lz, f, Rm, Rp, rule="torus", nscan=12):
+    """The focal lengths that minimize _focal_spread for the tori (E, L_z,
+    f): the best of nscan between 0.05 of the harmonic mean of the planar
+    orbit's pericentre and apocentre and 2.5 of its apocentre, uniform in
+    the logarithm, refined between its neighbours"""
+
+    def spread(lnD):
+        args = numpy.broadcast_arrays(E, Lz, f, numpy.exp(lnD), Rm, Rp)
+        with numpy.errstate(all="ignore"):
+            s = _focal_spread(pot, *args, rule=rule)
+        return numpy.where(numpy.isfinite(s), s, numpy.inf)
+
+    lo, hi = numpy.log(0.1 * Rm * Rp / (Rm + Rp)), numpy.log(2.5 * Rp)
+    grid = lo + (hi - lo) * numpy.linspace(0.0, 1.0, nscan)[:, None]
+    k = numpy.clip(numpy.argmin(spread(grid), axis=0), 1, nscan - 2)
+    pick = numpy.arange(len(E))
+    return numpy.exp(_golden(spread, grid[k - 1, pick], grid[k + 1, pick], n=20))
+
+
 class actionAngleStaeckelInverse(actionAngleInverse):
     """Inverse action-angle transformation for axisymmetric Staeckel
     potentials through a momentum-matched canonical map onto an isochrone
@@ -185,6 +355,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # the rule for a focal length that follows the tori (None: a single
     # one), and what of a Staeckel model goes with its focal length
     _delta_rule = None
+    # the coefficients of the fitted focal length (delta='fit')
+    _delta_fit = None
     _MODEL_STATE = "_delta _ush_cache _reach_cache _u_turning_memo _reach_v".split()
 
     def __setstate__(self, state):
@@ -233,6 +405,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         target=None,
         target_pad=1.5,
         target_minwidth=0.02,
+        delta_deg=(3, 3, 3),
         **kwargs,
     ):
         """
@@ -364,7 +537,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             If True, display tqdm progress bars over the tori while they
             are lifted and their tables computed (requires tqdm to be
             installed). Default is True.
-        delta : float, Quantity or callable, optional
+        delta : float, Quantity, 'fit' or callable, optional
             Focal length of the prolate spheroidal coordinate system, to
             wrap a general axisymmetric potential in the Staeckel
             approximation. A potential that supplies its own focal length
@@ -383,9 +556,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             carry the variation of the model along it, the angles
             compensate the dilation of the coordinates, so that the map
             stays exactly canonical, and the frequencies are dE/dJ along
-            the family. A callable requires setup_interp=True
-            (without target=) and one of the built-in rules for the
-            reference curve (u0='torus' is the default with it).
+            the family. 'fit' is the built-in rule: on a
+            sub-grid of the family's tori, the focal length that minimizes
+            the spread of the true Hamiltonian over each torus of the
+            Staeckel approximation, and a smooth polynomial fit of it
+            (delta_deg); the family is that of the fitted polynomial, and
+            its derivatives are those at the fit, held fixed. The delta
+            method of a family returns its focal lengths and is itself such
+            a rule (delta=family.delta gives another family of the same
+            potential the same focal lengths without fitting them again). A
+            rule requires setup_interp=True (without target=) and one of
+            the built-in rules for the reference curve (u0='torus' is the
+            default with it).
         u0 : float, callable, 'torus', 'fit' or 'shell', optional
             Reference u of the wrapping (see OblateStaeckelWrapperPotential),
             whose curve R_0 = delta sinh(u0) is where the Staeckel
@@ -447,6 +629,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             of that axis's default span: what keeps the box of a single
             orbit, whose spread is zero on every axis, a grid rather than a
             point.
+        delta_deg : tuple of int, optional
+            The degrees of the polynomial that delta='fit' fits to the
+            logarithm of the focal length, in the energy variable, the
+            third-integral variable and ln L_z; the fit uses 2 deg + 1
+            tori along each.
 
         Notes
         -----
@@ -458,12 +645,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         actionAngleInverse.__init__(self, *[], **kwargs)
         if pot is None:
             raise OSError("Must specify pot= for actionAngleStaeckelInverse")
+        self._delta_deg = delta_deg
         self._setup_staeckel(_check_potential_list_and_deprecate(pot), delta, u0)
         self._target = None if target is None else _parse_target(target)
         self._target_pad, self._target_minwidth = target_pad, target_minwidth
         if self._delta_rule is not None and (not setup_interp or target is not None):
             raise TypeError(
-                "a focal length that follows the tori (a callable delta=) builds "
+                "a focal length that follows the tori (delta='fit' or a callable) builds "
                 "an interpolated family and requires setup_interp=True without "
                 "target="
             )
@@ -585,11 +773,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "the string values u0= accepts are 'torus', 'fit' and 'shell'"
             )
         self._models = {}
-        if callable(delta):
+        if isinstance(delta, str) and delta != "fit":
+            raise ValueError("the only string value delta= accepts is 'fit'")
+        if callable(delta) or isinstance(delta, str):
             # (the wrapper set up here only serves the midplane)
             if not (u0 is None or isinstance(u0, str)):
                 raise TypeError(
-                    "a focal length that follows the tori (a callable delta=) "
+                    "a focal length that follows the tori (delta='fit' or a callable) "
                     "needs a built-in rule for the reference curve: u0='torus' "
                     "(the default with it), 'fit' or 'shell'"
                 )
@@ -2676,7 +2866,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         follows its tori, from the rule delta(E, L_z, y) called with the
         arrays of all nodes at once, and their partials with respect to the
         grid coordinates (x, y, L_z), by central differences of the rule
-        (FINITE DIFFERENCES IN THE SET-UP, of the user's callable alone)"""
+        (FINITE DIFFERENCES IN THE SET-UP, of the user's callable alone);
+        those of delta='fit' are closed forms (_setup_delta_fit)"""
+        if self._delta_rule == "fit":
+            return self._setup_delta_fit()
         Egrid = numpy.array(
             [[self._E_of_xL(wE**2, Lz) for Lz in self._Lzgrid] for wE in self._wEs]
         )
@@ -2750,6 +2943,155 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     )
             self._ush_tab[iE, iI, iL] = ush
             self._Ipl_tab[iE, iI, iL], self._Ish_tab[iE, iI, iL] = Ipn, Isn
+        return None
+
+    def _delta_features(self, x, y, L):
+        """The tensor monomials x^i y^j lam^k, up to the degrees delta_deg,
+        of the grid coordinates of the tori (x, y, L_z), with lam the
+        position of ln L_z in the grid's range, and their partials with
+        respect to (x, y, L_z): the basis of the fitted focal length"""
+        span = numpy.log(self._Lzgrid[-1] / self._Lzgrid[0])
+        lam = numpy.log(L / self._Lzgrid[0]) / span
+        P, dP = (
+            [
+                numpy.array(
+                    [t**i if k == 0 else i * t ** max(i - 1, 0) for i in range(d + 1)]
+                )
+                for t, d in zip((x, y, lam), self._delta_deg)
+            ]
+            for k in range(2)
+        )
+
+        def tensor(a, b, c):
+            return numpy.einsum("in,jn,kn->nijk", a, b, c).reshape(len(x), -1)
+
+        return (
+            tensor(*P),
+            tensor(dP[0], P[1], P[2]),
+            tensor(P[0], dP[1], P[2]),
+            tensor(P[0], P[1], dP[2]) / (L * span)[:, None],
+        )
+
+    def _delta_fitted(self, x, y, L):
+        """The fitted focal length of the tori (x, y, L_z) and its partials
+        with respect to them: exp[s(P)], with P the fitted tensor
+        polynomial (_delta_features) and s a soft limit to [b0, b1],
+        s = P - m ln[1 + e^((P - b1) / m)] + m ln[1 + e^((b0 - P) / m)]:
+        P itself (to e^(-10) of m) wherever P stays within the range of the
+        fitted optima, and bent smoothly onto b0 or b1, which lie a quarter
+        of that range beyond it, where P leaves it by more"""
+        coef, b0, b1, m = self._delta_fit
+        F = self._delta_features(x, y, L)
+        P = F[0] @ coef
+        D = numpy.exp(
+            P
+            - m * numpy.logaddexp(0.0, (P - b1) / m)
+            + m * numpy.logaddexp(0.0, (b0 - P) / m)
+        )
+        ds = 0.5 * (numpy.tanh(0.5 * (b1 - P) / m) - numpy.tanh(0.5 * (b0 - P) / m))
+        return D, [D * ds * (G @ coef) for G in F[1:]]
+
+    def _setup_delta_fit(self):
+        """The focal lengths of the nodes for delta='fit', with their
+        partials in closed form. On a sub-grid of the family's box (2 deg +
+        1 tori along each coordinate: from a tenth of the way up in the
+        energy variable, where the spread is too small to fit, between
+        0.15 and 0.7 of the third-integral range in w_I (the spread
+        vanishes on the planar and on the shell orbits, and with the
+        reference curve on the torus's own spheroid the optima close to
+        the shell orbit are noise), and
+        uniform in ln L_z), the focal length that minimizes the spread of
+        the true Hamiltonian over each torus (_focal_fit: an optimization,
+        on the arrays of all these tori at once); then the least-squares
+        tensor polynomial of the degrees delta_deg for its logarithm in the
+        grid coordinates (_delta_features), with each torus at the grid's
+        third-integral variable of its own model (_focal_y), without the
+        tori whose optimum lies far from the fit of the others, limited
+        softly to about the range of their optima (_delta_fitted). The fit
+        is then held fixed: the family's nodes and derivative tables are
+        those of the limited polynomial"""
+        deg, box = self._delta_deg, self._box
+        w, f, L = (
+            t.ravel()
+            for t in numpy.meshgrid(
+                box[1][0]
+                + (box[1][1] - box[1][0]) * numpy.linspace(0.1, 1.0, 2 * deg[0] + 1),
+                numpy.sin(
+                    0.5
+                    * numpy.pi
+                    * (
+                        box[2][0]
+                        + (box[2][1] - box[2][0])
+                        * numpy.linspace(0.15, 0.7, 2 * deg[1] + 1)
+                    )
+                )
+                ** 2,
+                numpy.geomspace(self._Lzgrid[0], self._Lzgrid[-1], 2 * deg[2] + 1),
+                indexing="ij",
+            )
+        )
+        E = numpy.array([self._E_of_xL(ww**2, ll)[0] for ww, ll in zip(w, L)])
+        Rc = numpy.array([self._circular(ll)["Rc"] for ll in L])
+
+        def above(R):
+            # the planar orbit's energy above the effective potential
+            return (
+                E
+                - evaluatePotentials(self._chart_pot, R, 0.0 * R, use_physical=False)
+                - L**2 / (2.0 * R**2)
+            )
+
+        args = (
+            self._chart_pot,
+            E,
+            L,
+            f,
+            _bisect(above, 1e-4 * Rc, Rc),
+            _bisect(lambda R: -above(R), Rc, 1.01 * self._Rinf + 0.0 * Rc),
+            self._u0_rule,
+        )
+        D = _focal_fit(*args)
+        # (the grid's variable is that of the model in which the nodes of
+        # an (E, L_z) are placed, here that of its middle torus's optimum)
+        nf = 2 * deg[1] + 1
+        Dc = numpy.repeat(D.reshape(-1, nf, 2 * deg[2] + 1)[:, nf // 2], nf, axis=0)
+        y = _focal_y(
+            *args[:4],
+            Dc.reshape(-1, nf, Dc.shape[1]).swapaxes(0, 1).ravel(),
+            *args[4:],
+            self._axisw,
+        )
+        F, lnD = self._delta_features(w**2, y, L)[0], numpy.log(D)
+        keep = numpy.ones(len(D), dtype="bool")
+        for _ in range(3):
+            # (twice without the tori whose optimum lies far from the fit:
+            # the spread of an extreme torus can have two minima of the
+            # same depth, far apart). The polynomial is fitted to ln delta
+            # itself and limited softly (_delta_fitted) to the range of the
+            # kept optima widened on each side by a quarter of it (and by
+            # at least 0.05), over a tenth of that widening: the limit
+            # leaves the polynomial as it is wherever it stays within the
+            # optima's range, so that it adds nothing for the tables to
+            # resolve, and holds it where it would run away between or
+            # beyond the fitted tori
+            lo, hi = numpy.amin(lnD[keep]), numpy.amax(lnD[keep])
+            a = 0.25 * (hi - lo) + 0.05
+            coef = numpy.linalg.lstsq(F[keep], lnD[keep], rcond=None)[0]
+            self._delta_fit = (coef, lo - a, hi + a, 0.1 * a)
+            res = numpy.fabs(numpy.log(self._delta_fitted(w**2, y, L)[0]) - lnD)
+            keep = res < max(0.25, 5.0 * numpy.median(res))
+        x, y, L = numpy.meshgrid(self._wEs**2, self._ys, self._Lzgrid, indexing="ij")
+        self._delta_tab, dD = self._delta_fitted(x.ravel(), y.ravel(), L.ravel())
+        self._delta_tab = self._delta_tab.reshape(x.shape)
+        self._ddelta_tab = numpy.stack([d.reshape(x.shape) for d in dD], axis=-1)
+        # the model in which the nodes of each (E, L_z) are placed: the fit
+        # at y = 1/2, with its partials in (E, L_z) at fixed L_z and E
+        xc, Lc = x[:, 0].ravel(), L[:, 0].ravel()
+        Dc, (Dx, _, DL) = self._delta_fitted(xc, 0.5 + 0.0 * xc, Lc)
+        dE = numpy.array([self._E_of_xL(xx, ll)[1:] for xx, ll in zip(xc, Lc)])
+        self._delta_col = numpy.stack(
+            [Dc, Dx / dE[:, 0], DL - Dx * dE[:, 1] / dE[:, 0]], axis=-1
+        ).reshape(x.shape[0], x.shape[2], 3)
         return None
 
     def _node_delta(self, ii):
@@ -4152,6 +4494,64 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
         A = self._A_ip(min(max(x, xlo), xhi), min(max(y, ylo), yhi), ell)[0, 0]
         return A[0], A[1]
+
+    @conversion.physical_conversion("position", pop=True)
+    def delta(self, E, Lz, y, **kwargs):
+        """
+        Return the focal length of the Staeckel model of the torus (E, L_z, y).
+
+        Parameters
+        ----------
+        E : float, numpy.ndarray or Quantity
+            Energy of the torus.
+        Lz : float, numpy.ndarray or Quantity
+            z-component of the angular momentum of the torus.
+        y : float or numpy.ndarray
+            Third-integral variable of the torus: the family's grid
+            variable, from 0 for the planar orbit to 1 for the shell orbit
+            of (E, L_z).
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity
+            Focal length of the prolate spheroidal coordinates in which the
+            torus is a torus of the Staeckel approximation.
+
+        Notes
+        -----
+        - The single focal length of a family or of explicit tori; for a
+          family whose focal length follows its tori, the fitted polynomial
+          (delta='fit', also beyond the grid, where it extends smoothly,
+          limited softly to a little beyond the range of the fitted
+          optima) or the family's own table of it (a callable delta=,
+          within the grid).
+        - The method is itself a rule: delta=family.delta gives another
+          family of the same potential (with the same axis_weight) the
+          same focal lengths without fitting them again.
+        - 2026-11-17 - Written - Bovy (UofT)
+        """
+        E = conversion.parse_energy(E, vo=self._vo)
+        Lz = conversion.parse_angmom(Lz, ro=self._ro, vo=self._vo)
+        E, ell, y = numpy.broadcast_arrays(
+            *(numpy.asarray(t, dtype="float") for t in (E, numpy.fabs(Lz), y))
+        )
+        if self._delta_rule is None:
+            return (self._delta + 0.0 * E)[()]
+        x = numpy.empty(E.size)
+        for k, (e, l) in enumerate(zip(E.ravel(), ell.ravel())):
+            R0c, _, R0m, _ = self._R0_edges(l)
+            x[k] = numpy.log(self._R0(e, 0.5 * R0c, 2.0 * R0m) / R0c) / numpy.log(
+                R0m / R0c
+            )
+        if self._delta_fit is not None:
+            out = self._delta_fitted(x, y.ravel(), ell.ravel())[0]
+        else:
+            out = self._A_ip.batch_all(
+                numpy.clip(x, self._wEs[0] ** 2, self._wEs[-1] ** 2),
+                numpy.clip(y.ravel(), self._ys[0], self._ys[-1]),
+                numpy.clip(ell.ravel(), self._Lzgrid[0], self._Lzgrid[-1]),
+            )[0][:, 3]
+        return out.reshape(E.shape)[()]
 
     @conversion.physical_conversion("action", pop=True)
     def JR(self, E, Lz, I3, **kwargs):
