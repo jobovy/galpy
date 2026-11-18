@@ -81,7 +81,10 @@ at release.]
 
 - [slot 16]
 
-- [slot 17]
+- ``quasiisothermaldf.sampleV`` draws its proposals as wide as the local
+  velocity dispersion inside the reference radius (before, the fixed
+  proposal did not bound the distribution function in the inner disk and
+  the samples there were a few percent too cold).
 
 - [slot 18]
 

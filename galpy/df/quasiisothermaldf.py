@@ -2146,6 +2146,7 @@ class quasiisothermaldf(df):
             )
         )
         logmaxVD = self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
+        sR, sz = self._proposal_scales(R)
         # Now rejection-sample
         vRs = []
         vTs = []
@@ -2153,9 +2154,9 @@ class quasiisothermaldf(df):
         while len(vRs) < n:
             nmore = n - len(vRs) + 1
             # sample
-            propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-            propvT = numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT
-            propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+            propvR = numpy.random.normal(size=nmore) * 2.0 * sR
+            propvT = numpy.random.normal(size=nmore) * 2.0 * sR + maxVT
+            propvz = numpy.random.normal(size=nmore) * 2.0 * sz
             VDatprop = (
                 self(
                     R + numpy.zeros(nmore),
@@ -2169,9 +2170,9 @@ class quasiisothermaldf(df):
                 - logmaxVD
             )
             VDatprop -= -0.5 * (
-                propvR**2.0 / 4.0 / self._sr**2.0
-                + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - maxVT) ** 2.0 / 4.0 / self._sr**2.0
+                propvR**2.0 / 4.0 / sR**2.0
+                + propvz**2.0 / 4.0 / sz**2.0
+                + (propvT - maxVT) ** 2.0 / 4.0 / sR**2.0
             )
             VDatprop = numpy.reshape(VDatprop, (nmore))
             indx = VDatprop > numpy.log(numpy.random.random(size=nmore))  # accept
@@ -2354,16 +2355,16 @@ class quasiisothermaldf(df):
         maxVR = numpy.zeros(length)
         maxVz = numpy.zeros(length)
         logmaxVD = self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
+        sR, sz = self._proposal_scales(R)
         # Now rejection-sample
         # Initialize boolean index of position remaining to be sampled
         remain_indx = numpy.full(length, True)
         while numpy.any(remain_indx):
             nmore = numpy.sum(remain_indx)
-            propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
-            propvT = (
-                numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT[remain_indx]
-            )
-            propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+            sRr, szr = sR[remain_indx], sz[remain_indx]
+            propvR = numpy.random.normal(size=nmore) * 2.0 * sRr
+            propvT = numpy.random.normal(size=nmore) * 2.0 * sRr + maxVT[remain_indx]
+            propvz = numpy.random.normal(size=nmore) * 2.0 * szr
             VDatprop = (
                 self(
                     R[remain_indx],
@@ -2377,9 +2378,9 @@ class quasiisothermaldf(df):
                 - logmaxVD[remain_indx]
             )
             VDatprop -= -0.5 * (
-                propvR**2.0 / 4.0 / self._sr**2.0
-                + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / self._sr**2.0
+                propvR**2.0 / 4.0 / sRr**2.0
+                + propvz**2.0 / 4.0 / szr**2.0
+                + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / sRr**2.0
             )
             accept_indx = VDatprop > numpy.log(numpy.random.random(size=nmore))
             vR_accept = propvR[accept_indx]
@@ -2393,6 +2394,19 @@ class quasiisothermaldf(df):
             # Removing accepted sampled from remain index
             remain_indx[remain_indx] = ~accept_indx
         return out
+
+    def _proposal_scales(self, R):
+        """The dispersions of the samplers' Gaussian proposals (twice these)
+        at R: the DF's dispersion parameters at R, sR exp((refr - R) / hsr) and
+        sz exp((refr - R) / hsz), but never below their values at refr, so
+        that the proposal stays wider than the local velocity distribution
+        inside refr, where the dispersions rise, and keeps its earlier width
+        outside"""
+        R = parse_length(R, ro=self._ro)
+        return (
+            self._sr * numpy.exp(numpy.maximum((self._refr - R) / self._hsr, 0.0)),
+            self._sz * numpy.exp(numpy.maximum((self._refr - R) / self._hsz, 0.0)),
+        )
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
