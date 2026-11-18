@@ -244,6 +244,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         target=None,
         target_pad=1.5,
         target_minwidth=0.02,
+        chunk=None,
         **kwargs,
     ):
         """
@@ -346,6 +347,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             If True, display tqdm progress bars over the tori while they
             are lifted and their tables computed (requires tqdm to be
             installed). Default is True.
+        chunk : int, optional
+            jax/torch evaluation of an interpolated family at arrays of
+            actions: evaluate the points in chunks of this many. The memory
+            of a call is then that of one chunk, and under jax.jit the
+            compiled program is one chunk's, whatever the number of points
+            (the last chunk is padded). Stored as the ``chunk`` attribute,
+            which can be changed. Default is None: all points in one pass.
         delta : float or Quantity, optional
             Focal length of the prolate spheroidal coordinate system, to
             wrap a general axisymmetric potential in the Staeckel
@@ -437,6 +445,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._maxiter = maxiter
         self._angle_tol = angle_tol
         self._progressbar = progressbar and _TQDM_LOADED
+        self.chunk = chunk
         self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
@@ -5489,13 +5498,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
             res = (*(xp.reshape(o, shape) for o in out[:6]), *out[6:])
         else:
-            acts, angs = (jr, jphi, jz), (thR, anglephi, thz)
 
             def torus(a, ang):
                 return self._bk_xvFreqs_torus(xp, *a, *ang)
 
-            if self._interp:
-                out = self._bk_points(
+            def flat(cols):
+                acts, angs = cols[:3], cols[3:]
+                return self._bk_points(
                     xp,
                     acts,
                     angs,
@@ -5508,8 +5517,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         traced,
                     ),
                 )
+
+            cols = (jr, jphi, jz, thR, anglephi, thz)
+            if self._interp:
+                out = self._bk_chunked(xp, cols, flat)
             else:
-                out = self._bk_per_torus(xp, acts, angs, torus)
+                out = self._bk_per_torus(xp, cols[:3], cols[3:], torus)
             res = tuple(xp.reshape(o, shape) for o in out)
         return tuple(match_input_dtype(t, *ins) for t in res)
 
@@ -5650,13 +5663,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 return self._bk_Freqs_torus(xp, *a)
 
             if self._interp:
-                out = self._bk_points(
+                out = self._bk_chunked(
                     xp,
                     acts,
-                    (),
-                    torus,
-                    lambda t, rows, pts, traced: self._bk_Freqs_rows(
-                        xp, *t, rows, traced
+                    lambda a: self._bk_points(
+                        xp,
+                        a,
+                        (),
+                        torus,
+                        lambda t, rows, pts, traced: self._bk_Freqs_rows(
+                            xp, *t, rows, traced
+                        ),
                     ),
                 )
             else:
@@ -6097,6 +6114,36 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             xp.take(xp.concat([o[k] for _, o in pieces]), back, axis=0)
             for k in range(len(pieces[0][1]))
         )
+
+    def _bk_chunked(self, xp, arrays, fn):
+        """fn(arrays) for flat arrays of one length, in chunks of self.chunk
+        points when that is set and smaller: under a jax trace one lax.map
+        over the chunks (the last padded with the first point), so that the
+        compiled program is one chunk's; otherwise a loop over the chunks"""
+        n = arrays[0].shape[0]
+        chunk = getattr(self, "chunk", None)
+        if chunk is None or n <= chunk:
+            return fn(arrays)
+        if under_jax_trace(*arrays):
+            import jax
+
+            nc = -(-n // chunk)
+            pad = nc * chunk - n
+            cols = tuple(
+                xp.reshape(
+                    xp.concat([a, xp.broadcast_to(a[:1], (pad,))]) if pad else a,
+                    (nc, chunk),
+                )
+                for a in arrays
+            )
+            outs = jax.lax.map(fn, cols)
+            return tuple(
+                xp.reshape(o, (nc * chunk,) + tuple(o.shape[2:]))[:n] for o in outs
+            )
+        pieces = [
+            fn(tuple(a[i : i + chunk] for a in arrays)) for i in range(0, n, chunk)
+        ]
+        return tuple(xp.concat([p[k] for p in pieces]) for k in range(len(pieces[0])))
 
     def _bk_actions_from_integrals(self, xp, E, Lz, I3):
         """_actions_from_integrals in jax/torch"""

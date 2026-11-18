@@ -1195,6 +1195,36 @@ def test_jax_jit_array_actions_adaptive(u0):
     )
 
 
+@pytest.mark.parametrize("route", ["jit", "jax", "torch"])
+def test_array_actions_chunked(interp, route):
+    # chunk=: the points of an array evaluation go through in chunks (under
+    # jax.jit one lax.map over padded chunks, eagerly a loop), with the values
+    # of the unchunked evaluation; the chunk size is the family's attribute
+    if (jax if route != "torch" else torch) is None:
+        pytest.skip(f"{route} not installed")
+    J, ang = _ARR_TORI, _ARR_ANG
+    ck = copy.copy(interp)
+    ck.chunk = 4  # 6 points: the last chunk is padded
+    assert interp.chunk is None
+    ref = interp.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)
+    refO = interp.Freqs(J[:, 0], J[:, 1], J[:, 2])
+    arr = (lambda x: torch.tensor(x)) if route == "torch" else jnp.asarray
+    args = [arr(J[:, k]) for k in range(3)]
+    if route == "jit":
+        got = jax.jit(lambda *a: ck.xvFreqs(*a, *ang))(*args)
+        gotO = jax.jit(lambda *a: ck.Freqs(*a))(*args)
+    else:
+        got = ck.xvFreqs(*args, *ang)
+        gotO = ck.Freqs(*args)
+    numpy.testing.assert_allclose(_flat(got), _flat(ref), rtol=0.0, atol=1e-11)
+    numpy.testing.assert_allclose(_flat(gotO), _flat(refO), rtol=0.0, atol=1e-11)
+
+
+def test_chunk_keyword():
+    # the chunk size is set at construction and stored as the chunk attribute
+    assert _interp(chunk=1000).chunk == 1000
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_array_actions_fallbacks(interp):
     # points whose vectorized solve does not converge take the one-torus

@@ -90,7 +90,13 @@ at release.]
   number of stars (64, 134, 354 s for 1, 2, 4 stars of a MWPotential2014
   family; now about 25 s for any number).
 
-- [slot 07]
+- actionAngleStaeckelInverse: a chunk= keyword (stored as the chunk
+  attribute) evaluates an interpolated family's arrays of actions on a
+  backend in chunks of that many points: under jax.jit one lax.map over the
+  (padded) chunks, eagerly a loop. A call's memory is then one chunk's, and the
+  compile time no longer grows with the number of points (u0='fit'
+  MWPotential2014 family, one core: 154 s at 1e4 points and 159 s at 3e4
+  unchunked; 40 and 44 s with chunk=1000).
 
 - SCFPotential (and DiskSCFPotential, whose expansion is one) evaluates arrays
   of points with numpy in one vectorized pass instead of a Python loop over
