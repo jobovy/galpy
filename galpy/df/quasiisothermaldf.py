@@ -740,7 +740,7 @@ class quasiisothermaldf(df):
         nsigma : int, optional
             number of sigma to integrate the vR and vz velocities over (when doing explicit numerical integral; default: 4)
         vTmax : float, optional
-            upper limit for integration over vT (default: 1.5)
+            if given, the Gauss-Legendre integral runs over vT in [0, vTmax] and over vR and vz in +/- nsigma times the dispersion parameters at R; by default, vT runs over vc - va +/- nsigma sigma_R / sqrt(2) (vc the circular velocity, va the asymmetric drift's estimate and sigma_R the radial dispersion parameter at R) and, with ngl/2 nodes, from zero to that range, and vR and vz at each vT node over +/- nsigma times the larger of the dispersion parameters at R and at the guiding radius of Lz = R vT
         mc : bool, optional
             if True, calculate using Monte Carlo integration
         nmc : int, optional
@@ -886,7 +886,7 @@ class quasiisothermaldf(df):
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
-            if not _glqeval is None and ngl != _glqeval.shape[0]:
+            if not _glqeval is None and _glqeval.shape[1:] != (ngl, ngl):
                 _glqeval = None
             # Use Gauss-Legendre integration for all
             if ngl == _DEFAULTNGL:
@@ -903,7 +903,60 @@ class quasiisothermaldf(df):
                 # (numpy path keeps the numpy tables -> byte-identical)
                 glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
                 glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
-            # Evaluate everywhere
+            # vT: an explicit vTmax integrates over [0, vTmax] with ngl
+            # nodes; by default ngl nodes span the core, +/- nsigma times the
+            # estimated vT dispersion (gamma sigmaR1) around the estimated
+            # mean (vc - va), so that they resolve a cold disk's narrow vT
+            # distribution far out, and ngl/2 nodes the low tail down to
+            # zero (when the core does not reach zero)
+            if "vTmax" in kwargs:
+                panels = [(0.0, kwargs["vTmax"], glx, glw)]
+            else:
+                vlo = thisvc - va - nsigma * gamma * sigmaR1
+                vhi = thisvc - va + nsigma * gamma * sigmaR1
+                if xp is numpy:
+                    vlo = max(0.0, vlo)
+                    panels = [(vlo, vhi, glx, glw)]
+                    if vlo > 0.0:
+                        panels.insert(0, (0.0, vlo, glx12, glw12))
+                else:
+                    # one grid shape at every R (traceable): where the core
+                    # reaches zero, the low panel is weighted zero, its nodes
+                    # in the core
+                    vlo = xp.where(vlo > 0.0, vlo, 0.0)
+                    on = vlo > 0.0
+                    panels = [
+                        (0.0, xp.where(on, vlo, vhi), glx12, xp.where(on, glw12, 0.0)),
+                        (vlo, vhi, glx, glw),
+                    ]
+            vT1 = xp.concatenate(
+                [(b - a) / 2.0 * (x + 1.0) + a for a, b, x, _ in panels]
+            )
+            vTw1 = xp.concatenate([(b - a) / 2.0 * w for a, b, _, w in panels])
+            # vR and vz at each vT node over +/- nsigma times the dispersion
+            # parameters at R or the local dispersions of the stars with the
+            # guiding radius of Lz = R vT, whichever is larger: stars with
+            # small vT come from small guiding radii, where the dispersions
+            # are larger; at R, their vR dispersion is the parameter at the
+            # guiding radius and their vz dispersion that times the square
+            # root of the ratio of the vertical frequencies at R and there
+            if "vTmax" in kwargs:
+                sR1T = sigmaR1 + 0.0 * vT1
+                sz1T = sigmaz1 + 0.0 * vT1
+            else:
+                rgT = self._rg(R * vT1)
+                sR1T = xp.maximum(
+                    sigmaR1, self._sr * xp.exp((self._refr - rgT) / self._hsr)
+                )
+                nuratio = potential.verticalfreq(
+                    self._pot, R, use_physical=False
+                ) / potential.verticalfreq(self._pot, rgT, use_physical=False)
+                sz1T = xp.maximum(
+                    sigmaz1,
+                    self._sz
+                    * xp.exp((self._refr - rgT) / self._hsz)
+                    * xp.sqrt(nuratio),
+                )
             if isinstance(
                 self._aA,
                 (
@@ -911,48 +964,32 @@ class quasiisothermaldf(df):
                     actionAngle.actionAngleAdiabaticGrid,
                 ),
             ):
-                vRgl = nsigma * sigmaR1 / 2.0 * (glx + 1.0)
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx + 1.0)
-                vRglw = glw
-                vzglw = glw
+                hgl, hglw = (glx + 1.0) / 2.0, glw / 2.0
             else:
-                vRgl = xp.concatenate(
-                    [
-                        nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
-                        -nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
-                    ]
-                )
-                vzgl = xp.concatenate(
-                    [
-                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
-                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
-                    ]
-                )
-                vRglw = xp.concatenate([glw12, glw12])
-                vzglw = xp.concatenate([glw12, glw12])
-            vTmax = kwargs.get("vTmax", 1.5)
-            vTgl = vTmax / 2.0 * (glx + 1.0)
-            # Tile everything (permute_dims not .T: torch errors on 3-D .T under -W)
-            vTgl = xp.permute_dims(xp.tile(vTgl, (ngl, ngl, 1)), (2, 1, 0))
-            vRgl = xp.tile(xp.reshape(vRgl, (1, ngl)).T, (ngl, 1, ngl))
-            vzgl = xp.tile(vzgl, (ngl, ngl, 1))
-            vTglw = xp.permute_dims(xp.tile(glw, (ngl, ngl, 1)), (2, 1, 0))
-            vRglw = xp.tile(xp.reshape(vRglw, (1, ngl)).T, (ngl, 1, ngl))
-            vzglw = xp.tile(vzglw, (ngl, ngl, 1))
+                hgl = xp.concatenate([(glx12 + 1.0) / 2.0, -(glx12 + 1.0) / 2.0])
+                hglw = xp.concatenate([glw12, glw12]) / 2.0
+            # the grid (vT, vR, vz) with the Jacobians in the weights
+            vTgl = xp.tile(vT1[:, None, None], (1, ngl, ngl))
+            vRgl = nsigma * sR1T[:, None, None] * hgl[None, :, None] + 0.0 * vTgl
+            vzgl = nsigma * sz1T[:, None, None] * hgl[None, None, :] + 0.0 * vTgl
+            vTglw = xp.tile(vTw1[:, None, None], (1, ngl, ngl))
+            vRglw = nsigma * sR1T[:, None, None] * hglw[None, :, None] + 0.0 * vTgl
+            vzglw = nsigma * sz1T[:, None, None] * hglw[None, None, :] + 0.0 * vTgl
+            gshape = (vT1.shape[0], ngl, ngl)
             # evaluate
             if _glqeval is None and _jr is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
-                    R + xp.zeros(ngl * ngl * ngl),
+                    R + xp.zeros(vT1.shape[0] * ngl * ngl),
                     vRgl.flatten(),
                     vTgl.flatten(),
-                    z + xp.zeros(ngl * ngl * ngl),
+                    z + xp.zeros(vT1.shape[0] * ngl * ngl),
                     vzgl.flatten(),
                     log=True,
                     _return_actions=True,
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, gshape)
             elif not _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -961,7 +998,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, gshape)
             elif not _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -974,7 +1011,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, gshape)
             else:
                 logqeval = _glqeval
             if _returngl:
@@ -987,12 +1024,7 @@ class quasiisothermaldf(df):
                         * vTglw
                         * vRglw
                         * vzglw
-                    )
-                    * sigmaR1
-                    * sigmaz1
-                    * 0.125
-                    * vTmax
-                    * nsigma**2,
+                    ),
                     logqeval,
                 )
             elif _return_actions and _return_freqs:
@@ -1005,12 +1037,7 @@ class quasiisothermaldf(df):
                         * vTglw
                         * vRglw
                         * vzglw
-                    )
-                    * sigmaR1
-                    * sigmaz1
-                    * 0.125
-                    * vTmax
-                    * nsigma**2,
+                    ),
                     jr,
                     lz,
                     jz,
@@ -1029,12 +1056,7 @@ class quasiisothermaldf(df):
                         * vTglw
                         * vRglw
                         * vzglw
-                    )
-                    * sigmaR1
-                    * sigmaz1
-                    * 0.125
-                    * vTmax
-                    * nsigma**2,
+                    ),
                     jr,
                     lz,
                     jz,
@@ -1048,11 +1070,6 @@ class quasiisothermaldf(df):
                     * vTglw
                     * vRglw
                     * vzglw
-                    * sigmaR1
-                    * sigmaz1
-                    * 0.125
-                    * vTmax
-                    * nsigma**2
                 )
         elif mc:
             mvT = (thisvc - va) / gamma / sigmaR1
@@ -2525,9 +2542,12 @@ class quasiisothermaldf(df):
         xp = get_namespace()
         # Initialize output array
         coord_v = numpy.empty((numpy.size(R), 3))
-        # Since the sign of z doesn't matter, work with absolute value of z
+        # The DF is symmetric under (z, vz) -> (-z, -vz): sample at |z| and
+        # flip vz below the plane at the end
         R = numpy.asarray(as_numpy(R), dtype=float)
-        z = numpy.abs(numpy.asarray(as_numpy(z), dtype=float))
+        z = numpy.asarray(as_numpy(z), dtype=float)
+        zsign = numpy.where(z < 0.0, -1.0, 1.0)
+        z = numpy.abs(z)
         # Grid edges
         if R_min is None:
             R_min = numpy.amax([numpy.mean(R) - num_std * numpy.std(R), numpy.amin(R)])
@@ -2604,6 +2624,7 @@ class quasiisothermaldf(df):
         # Combine normal and outlier result, preserving original order
         coord_v[mask] = outlier_coord_v
         coord_v[~mask] = normal_coord_v
+        coord_v[:, 2] *= zsign
         if use_physical and not vo is None:
             if _APY_UNITS:
                 return units.Quantity(coord_v * vo, unit=units.km / units.s)
@@ -2730,15 +2751,16 @@ class quasiisothermaldf(df):
             )
             # Now rejection-sample
             # Initialize boolean index of position remaining to be sampled
+            sR, sz = self._proposal_scales(R, numpy)
             remain_indx = numpy.full(length, True)
             while numpy.any(remain_indx):
                 nmore = numpy.sum(remain_indx)
-                propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
+                sRr, szr = sR[remain_indx], sz[remain_indx]
+                propvR = numpy.random.normal(size=nmore) * 2.0 * sRr
                 propvT = (
-                    numpy.random.normal(size=nmore) * 2.0 * self._sr
-                    + maxVT[remain_indx]
+                    numpy.random.normal(size=nmore) * 2.0 * sRr + maxVT[remain_indx]
                 )
-                propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+                propvz = numpy.random.normal(size=nmore) * 2.0 * szr
                 # as_numpy for the same reason as in sampleV above
                 VDatprop = (
                     as_numpy(
@@ -2755,9 +2777,9 @@ class quasiisothermaldf(df):
                     - logmaxVD[remain_indx]
                 )
                 VDatprop -= -0.5 * (
-                    propvR**2.0 / 4.0 / self._sr**2.0
-                    + propvz**2.0 / 4.0 / self._sz**2.0
-                    + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / self._sr**2.0
+                    propvR**2.0 / 4.0 / sRr**2.0
+                    + propvz**2.0 / 4.0 / szr**2.0
+                    + (propvT - maxVT[remain_indx]) ** 2.0 / 4.0 / sRr**2.0
                 )
                 accept_indx = VDatprop > numpy.log(numpy.random.random(size=nmore))
                 vR_accept = propvR[accept_indx]
@@ -2798,6 +2820,7 @@ class quasiisothermaldf(df):
         )
         zero = xp.zeros_like(Rb)
         logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)
+        sR, sz = self._proposal_scales(Rb, xp)
         out = xp.zeros((nb0 + 1, 3), dtype=Rb.dtype)
         remain = numpy.zeros(nb0, dtype=bool)
         remain[:n] = True
@@ -2808,10 +2831,10 @@ class quasiisothermaldf(df):
                 break
             nb = bucket_size(nmore)
             gidx = xp.asarray(numpy.pad(idx, (0, nb - nmore)))
-            mr = mvT[gidx]
-            propvR = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sr
-            propvT = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sr + mr
-            propvz = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * self._sz
+            mr, sRr, szr = mvT[gidx], sR[gidx], sz[gidx]
+            propvR = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * sRr
+            propvT = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * sRr + mr
+            propvz = xp.asarray(numpy.random.normal(size=nb)) * 2.0 * szr
             VDatprop = (
                 self(
                     Rb[gidx],
@@ -2825,9 +2848,9 @@ class quasiisothermaldf(df):
                 - logmaxVD[gidx]
             )
             VDatprop -= -0.5 * (
-                propvR**2.0 / 4.0 / self._sr**2.0
-                + propvz**2.0 / 4.0 / self._sz**2.0
-                + (propvT - mr) ** 2.0 / 4.0 / self._sr**2.0
+                propvR**2.0 / 4.0 / sRr**2.0
+                + propvz**2.0 / 4.0 / szr**2.0
+                + (propvT - mr) ** 2.0 / 4.0 / sRr**2.0
             )
             accept = as_numpy(
                 VDatprop > xp.log(xp.asarray(numpy.random.random(size=nb)))
@@ -2840,6 +2863,19 @@ class quasiisothermaldf(df):
             remain[idx[accept]] = False
         # float32 R in -> float32 out
         return match_input_dtype(out[:n], R)
+
+    def _proposal_scales(self, R, xp):
+        """The dispersions of the samplers' Gaussian proposals (twice these)
+        at R: the DF's dispersion parameters at R, sR exp((refr - R) / hsr) and
+        sz exp((refr - R) / hsz), but never below their values at refr, so
+        that the proposal stays wider than the local velocity distribution
+        inside refr, where the dispersions rise, and keeps its earlier width
+        outside"""
+        dR = self._refr - R
+        return (
+            self._sr * xp.exp(xp.where(dR > 0.0, dR / self._hsr, 0.0)),
+            self._sz * xp.exp(xp.where(dR > 0.0, dR / self._hsz, 0.0)),
+        )
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)

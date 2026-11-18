@@ -110,11 +110,26 @@ at release.]
   tabulated point by point); the numpy tables equal main's (twin of main's
   #1934).
 
-- [slot 10]
+- ``quasiisothermaldf.sampleV_interpolate`` returns velocities with the
+  correct sign of ``v_z`` below the plane (before, samples at ``z < 0`` had
+  the tilt of the velocity ellipsoid that belongs above the plane), with
+  numpy and on a backend (twin of main's #1935).
 
-- [slot 11]
+- ``quasiisothermaldf.sampleV_interpolate`` draws its proposals as wide as
+  the local velocity dispersion inside the reference radius (before, the
+  fixed proposal did not bound the distribution function in the inner disk
+  and the samples there were a few percent too cold), with numpy and on a
+  backend; ``sampleV``'s velocity grid already follows the local
+  dispersions (twin of main's #1936).
 
-- [slot 12]
+- The velocity moments of ``quasiisothermaldf`` (``density``, ``sigmaR2``,
+  ``sigmaz2``, ``sigmaRz``, ``sigmaT2``, ``meanvT``, ``tilt``, ...) are
+  computed on a velocity grid that follows the local velocity
+  distribution: with the default ``ngl=10`` their largest errors drop
+  from about 10 to 20 percent (in the cold outer disk and far from the
+  plane) to about a percent, at 1.5 times the cost per call. On a backend
+  the grid has one shape at every R, so that it can be traced (twin of
+  main's #1937).
 
 - [slot 13]
 

@@ -811,6 +811,38 @@ def test_sampleV():
     return None
 
 
+def test_sampleV_innerdisk():
+    # Inside refr the dispersions grow as exp(-R/hsr); sampleV_interpolate's
+    # Gaussian proposals must grow with them to bound the DF, else its samples
+    # are too cold (sigma_z^2 10 per cent low at R = 0.15 when the proposals
+    # had the widths of refr); sampleV's velocity grid follows the local
+    # dispersions
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+    )
+    numpy.random.seed(3)
+    n = 4000
+    R = 0.15
+    sR2 = as_numpy(qdf.sigmaR2(R, 0.0, ngl=20))
+    sz2 = as_numpy(qdf.sigmaz2(R, 0.0, ngl=20))
+    for samples in [
+        qdf.sampleV(R, 0.0, n=n),
+        qdf.sampleV_interpolate(
+            numpy.linspace(R - 0.01, R + 0.01, n),
+            numpy.linspace(0.0, 0.02, n),
+            R_pixel=0.005,
+            z_pixel=0.005,
+        ),
+    ]:
+        assert numpy.fabs(numpy.var(samples[:, 0]) / sR2 - 1.0) < 4.0 * numpy.sqrt(
+            2.0 / n
+        ), "sampleV vR dispersion in the inner disk is not equal to sigmaR"
+        assert numpy.fabs(numpy.var(samples[:, 2]) / sz2 - 1.0) < 4.0 * numpy.sqrt(
+            2.0 / n
+        ), "sampleV vz dispersion in the inner disk is not equal to sigmaz"
+    return None
+
+
 def test_sampleV_physical():
     # Test physical output of sampleV
     qdf = quasiisothermaldf(
@@ -966,26 +998,54 @@ def test_sampleV_interpolate():
         R_max=1.0,
         z_max=0.3,
     )
-    # test absolute value, also test non-astropy unit-support
+    # test the symmetry under (z, vz) -> (-z, -vz), also test non-astropy
+    # unit-support
     numpy.random.seed(1)
+    zs = numpy.array([0.1, 0.2, 0.3, 0.4])
     pos = qdf.sampleV_interpolate(
         numpy.array([0.7, 0.8, 0.9, 1.0]),
-        numpy.array([0.1, 0.2, 0.3, 0.4]),
+        zs,
         R_pixel=0.07,
         z_pixel=0.07,
         vo=vo,
     )
     numpy.random.seed(1)
+    zsign = numpy.array([-1.0, -1.0, 1.0, -1.0])
     neg = qdf.sampleV_interpolate(
         numpy.array([0.7, 0.8, 0.9, 1.0]),
-        numpy.array([-0.1, -0.2, 0.3, -0.4]),
+        zsign * zs,
         R_pixel=0.07,
         z_pixel=0.07,
         vo=vo,
     )
-    assert numpy.all(numpy.fabs(pos - neg) / vo < 10.0**-8.0), (
-        "sampleV interpolate absolute value of z is incorrect"
+    assert numpy.all(numpy.fabs(pos[:, :2] - neg[:, :2]) / vo < 10.0**-8.0), (
+        "sampleV interpolate vR or vT below the plane is incorrect"
     )
+    assert numpy.all(numpy.fabs(zsign * pos[:, 2] - neg[:, 2]) / vo < 10.0**-8.0), (
+        "sampleV interpolate vz below the plane is not flipped"
+    )
+    return None
+
+
+def test_sampleV_interpolate_tilt_belowplane():
+    # The DF is symmetric under (z, vz) -> (-z, -vz), so <vR vz> changes sign
+    # across the plane: below the plane the samples must follow sigmaRz there
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+    )
+    numpy.random.seed(2)
+    n = 2000
+    R = numpy.linspace(0.75, 0.85, n)
+    for z in [0.15, -0.15]:
+        samples = qdf.sampleV_interpolate(
+            R, z * numpy.ones(n), R_pixel=0.02, z_pixel=0.03
+        )
+        vRvz = samples[:, 0] * samples[:, 2]
+        assert numpy.fabs(
+            numpy.mean(vRvz) - as_numpy(qdf.sigmaRz(0.8, z))
+        ) < 4.0 * numpy.std(vRvz) / numpy.sqrt(n), (
+            f"sampleV interpolate <vR vz> does not follow sigmaRz at z = {z}"
+        )
     return None
 
 
@@ -1452,6 +1512,36 @@ def test_call_diffinoutputs():
         )
         < 10.0**-8
     ), "qdf __call__ w/ func does not work as expected"
+    return None
+
+
+def test_vmomentdensity_outerdisk_convergence():
+    # In the cold outer disk the vT distribution is narrow: the Gauss-Legendre
+    # nodes must resolve it, so the moments must converge with ngl there
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+    )
+    R, z = 2.0, 0.0
+    ref = (
+        as_numpy(qdf.density(R, z, ngl=24)),
+        as_numpy(qdf.sigmaR2(R, z, ngl=24)),
+    )
+    for ngl, tol in [(10, 0.01), (16, 0.002)]:
+        assert numpy.fabs(as_numpy(qdf.density(R, z, ngl=ngl)) / ref[0] - 1.0) < tol, (
+            f"density in the outer disk does not converge with ngl = {ngl}"
+        )
+        assert numpy.fabs(as_numpy(qdf.sigmaR2(R, z, ngl=ngl)) / ref[1] - 1.0) < tol, (
+            f"sigmaR2 in the outer disk does not converge with ngl = {ngl}"
+        )
+    # an explicit vTmax keeps the single panel [0, vTmax]
+    assert (
+        numpy.fabs(
+            as_numpy(qdf.density(1.0, 0.0, ngl=20, vTmax=2.0))
+            / as_numpy(qdf.density(1.0, 0.0, ngl=20))
+            - 1.0
+        )
+        < 0.01
+    ), "density with an explicit vTmax differs from the default one"
     return None
 
 
