@@ -184,6 +184,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Es=[-0.5],
         Lzs=[0.5],
         I3s=[0.1],
+        jrs=None,
+        jzs=None,
         setup_interp=False,
         Rmin=0.5,
         Rmax=2.0,
@@ -226,6 +228,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Third integrals of the tori, in the convention p_u^2 =
             2 delta^2 [E sinh^2 u - U(u) - I_3] - L_z^2 / sinh^2 u with the
             gauge V(pi/2) = 0 (an energy).
+        jrs : array-like or Quantity, optional
+            Radial actions of the tori to set up when setup_interp is
+            False, in place of their integrals: with jzs and Lzs, the tori
+            with the actions (J_R, L_z, J_z) are set up, their (E, I_3)
+            solved for (in the Staeckel model that a rule for the reference
+            curve assigns to each torus, when u0= is a rule). A vanishing
+            action is the shell orbit (J_R = 0), the planar orbit (J_z =
+            0) or the circular orbit (both).
+        jzs : array-like or Quantity, optional
+            Vertical actions of the tori to set up from their actions
+            (paired with jrs and Lzs).
         setup_interp : bool, optional
             If True, set up a grid of tori in (L_z, E, I_3) spanning the
             circular angular momenta of [Rmin, Rmax], energies from the
@@ -436,24 +449,48 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
+        self._ubar_cache = {}
         self._reach_cache = {}
         self._axisw = axis_weight
         if not setup_interp:
-            self._Es = conversion._parse_grid_quantity(
-                Es, conversion.parse_energy, vo=self._vo
-            ).astype("float")
             self._Lzs = conversion._parse_grid_quantity(
                 Lzs, conversion.parse_angmom, ro=self._ro, vo=self._vo
             ).astype("float")
-            self._I3s = conversion._parse_grid_quantity(
-                I3s, conversion.parse_energy, vo=self._vo
-            ).astype("float")
-            if not len(self._Es) == len(self._Lzs) == len(self._I3s):
-                raise ValueError("Es, Lzs, and I3s have to have the same length")
             if numpy.any(self._Lzs == 0.0):
                 raise ValueError(
                     "L_z = 0 is not supported: the v libration of a polar orbit reaches the axis"
                 )
+            if jrs is None and jzs is None:
+                self._Es = conversion._parse_grid_quantity(
+                    Es, conversion.parse_energy, vo=self._vo
+                ).astype("float")
+                self._I3s = conversion._parse_grid_quantity(
+                    I3s, conversion.parse_energy, vo=self._vo
+                ).astype("float")
+                if not len(self._Es) == len(self._Lzs) == len(self._I3s):
+                    raise ValueError("Es, Lzs, and I3s have to have the same length")
+            else:
+                if jrs is None or jzs is None:
+                    raise ValueError(
+                        "tori are set up from their actions with both jrs= and "
+                        "jzs= (and Lzs=)"
+                    )
+                jrs, jzs = (
+                    conversion._parse_grid_quantity(
+                        j, conversion.parse_angmom, ro=self._ro, vo=self._vo
+                    ).astype("float")
+                    for j in (jrs, jzs)
+                )
+                if not len(jrs) == len(self._Lzs) == len(jzs):
+                    raise ValueError("jrs, Lzs, and jzs have to have the same length")
+                if numpy.any(jrs < 0.0) or numpy.any(jzs < 0.0):
+                    raise ValueError("J_R and J_z have to be non-negative")
+                self._Es, self._I3s = numpy.array(
+                    [
+                        self._integrals_of_actions(*J)
+                        for J in zip(jrs, numpy.fabs(self._Lzs), jzs)
+                    ]
+                ).T
         else:
             self._setup_grid(
                 conversion.parse_length(Rmin, ro=self._ro),
@@ -878,9 +915,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     f"No bound u libration exists at (E, L_z) = ({E}, {Lz}): "
                     "the torus is unbound"
                 )
-            self._ush_cache[key] = brentq(
-                lambda u: float(self._dWu(u, E, Lz)), us[j - 1], us[j + 1], xtol=1e-14
-            )
+            dWu = lambda u: float(self._dWu(u, E, Lz))
+            ush = brentq(dWu, us[j - 1], us[j + 1], xtol=1e-14)
+            # the barriers of p_u^2 next to the shell u on either side, where
+            # it has more than one maximum: (u, p_u^2 at I_3 = 0) of the
+            # nearest local minimum (refined where the scan brackets it),
+            # or None
+            dips = numpy.flatnonzero((W[1:-1] < W[:-2]) & (W[1:-1] <= W[2:])) + 1
+            bars = []
+            for side in (dips[dips < j][-1:], dips[dips > j][:1]):
+                bars.append(None)
+                for k in side:
+                    bracketed = dWu(us[k - 1]) < 0.0 < dWu(us[k + 1])
+                    ub = brentq(dWu, us[k - 1], us[k + 1]) if bracketed else us[k]
+                    bars[-1] = (ub, float(self._Wu(ub, E, Lz, 0.0)))
+            self._ush_cache[key], self._ubar_cache[key] = ush, bars
         return self._ush_cache[key]
 
     def _dushell(self, ush, E, Lz):
@@ -1173,18 +1222,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if I3 >= Ish - tolI:
             return ush, ush, ush, True
         Wu = lambda u: float(self._Wu(u, E, Lz, I3))
-        ulo = ush
-        while Wu(ulo) > 0.0:
-            ulo *= 0.7
-        uhi = ush
-        while Wu(uhi) > 0.0:
-            uhi *= 1.3
-        return (
-            brentq(Wu, ulo, ush, xtol=1e-14),
-            brentq(Wu, ush, uhi, xtol=1e-14),
-            ush,
-            False,
-        )
+        # the libration around the shell u ends, on either side, at a
+        # barrier of p_u^2 that this I_3 leaves below zero (the tori beyond
+        # it are tori of their own), and else beyond the barrier, where the
+        # two have merged
+        ends = []
+        for bar, fac in zip(self._ubar_cache[(E, Lz)], (0.7, 1.3)):
+            end = ush if bar is None else bar[0]
+            while Wu(end) > 0.0:
+                end *= fac
+            ends.append(brentq(Wu, *sorted((end, ush)), xtol=1e-14))
+        return (ends[0], ends[1], ush, False)
 
     def _v_turning(self, E, Lz, I3):
         """The turning point of the v libration about the midplane of the
@@ -1289,6 +1337,150 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             smp["v"], smp["pv"] = v, pv
             smp["jz"] = float(numpy.mean(pv * wv * numpy.sin(tau)))
         return smp
+
+    def _integrals_of_actions(self, jr, ell, jz):
+        """(E, I_3) of the torus with actions (J_R, |L_z|, J_z), in the
+        Staeckel model that the reference curve gives it: a Newton
+        iteration in the energy and the fraction f of the way from the
+        planar to the shell orbit's I_3 (f = 0 or 1 held on a face, where
+        the energy alone is solved for), on the actions and their period
+        matrix from the same quadratures as the torus's own, each step
+        halved until it reduces the residual and gives a torus; from the
+        epicycle energy at the vertical fraction of the actions"""
+        circ = self._circular(ell)
+        Ec = circ["Ec"]
+        if jr + jz <= 1e-10 * ell:
+            # not told from the circular orbit
+            return Ec, self._I3_planar(Ec, ell)
+        target, d2 = numpy.array([jr, jz]), self._delta**2
+        # an action below 1e-10 of their sum is that of the face
+        rows = [k for k in (0, 1) if target[k] > 1e-10 * (jr + jz)]
+        both = len(rows) == 2
+        # the first iterations on a coarse anomaly grid
+        ntau, self._ntau = self._ntau, min(self._ntau, 256)
+        try:
+            return self._newton_integrals(jr, ell, jz, Ec, circ, rows, both, ntau)
+        finally:
+            self._ntau = ntau
+
+    def _newton_integrals(self, jr, ell, jz, Ec, circ, rows, both, ntau):
+        """The iteration of _integrals_of_actions: from the epicycle energy
+        and, when that does not converge (the actions of a Staeckel
+        approximation's tori can jump along the way, where its u libration
+        splits), from the best of a scan of energies"""
+        target, d2 = numpy.array([jr, jz]), self._delta**2
+
+        def torus(E, f):
+            # the residual, the actions' derivatives in (E, f), and I_3;
+            # None when no torus exists at (E, f)
+            try:
+                ush = self._ushell(E, ell)
+                Ipl, Ish = self._I3_planar(E, ell), self._I3_shell(E, ell, ush)
+                I3 = Ipl + f * (Ish - Ipl)
+                with self._in_chart(E, ell, I3):
+                    smp = self._sample_torus(E, ell, I3)
+                    M, st = numpy.zeros((2, 2)), numpy.sin(smp["tau"])
+                    if smp["u"] is not None:
+                        ratio = smp["wu"] * st / smp["pu"]
+                        M[0] = [
+                            numpy.mean(d2 * numpy.sinh(smp["u"]) ** 2 * ratio),
+                            -d2 * numpy.mean(ratio),
+                        ]
+                    if smp["v"] is not None:
+                        ratio = smp["wv"] * st / smp["pv"]
+                        M[1] = [
+                            numpy.mean(d2 * numpy.sin(smp["v"]) ** 2 * ratio),
+                            d2 * numpy.mean(ratio),
+                        ]
+                        if self._adaptive:
+                            # the model follows the torus along its rule
+                            M[1] += (
+                                d2
+                                * numpy.mean(
+                                    self._staeckelwrap._dVdu0(smp["v"]) * ratio
+                                )
+                                * self._u0_grad(E, ell, I3)[:2]
+                            )
+            except ValueError:
+                return None
+            D = numpy.stack(
+                [
+                    M[:, 0] + M[:, 1] * (f * numpy.cosh(ush) ** 2 - 1.0),
+                    M[:, 1] * (Ish - Ipl),
+                ],
+                axis=1,
+            )
+            res = (numpy.array([smp["jr"], smp["jz"]]) - target) / (jr + jz)
+            # (not a torus within the tolerance of a face that it is not on,
+            # nor one whose quadratures are not finite)
+            good = (
+                not (both and (smp["u"] is None or smp["v"] is None))
+                and numpy.all(numpy.isfinite(res))
+                and numpy.all(numpy.isfinite(D))
+            )
+            return (res[rows], D[rows], I3) if good else None
+
+        def newton(E, f):
+            out = torus(E, f)
+            for _ in range(100 * (out is not None)):
+                res, D, I3 = out
+                norm = numpy.amax(numpy.fabs(res))
+                if norm < 1e-6 and self._ntau < ntau:
+                    # close: from here on the torus's own anomaly grid
+                    self._ntau = ntau
+                    out = torus(E, f)
+                    res, D, I3 = out
+                    norm = numpy.amax(numpy.fabs(res))
+                # (close to the circular orbit the energy above it, and with
+                # it the actions, are only known to the round-off of the
+                # energy)
+                if norm < max(1e-11, 1.5e-14 * (1.0 + numpy.fabs(E)) / (E - Ec)):
+                    return E, I3
+                step = (
+                    numpy.linalg.solve(D, -res * (jr + jz))
+                    if both
+                    else numpy.array([-res[0] * (jr + jz) / D[0, 0], 0.0])
+                )
+                t, new = 1.0, None
+                while t > 1e-8:
+                    En = max(E + t * step[0], Ec + 0.1 * (E - Ec))
+                    fn = min(max(f + t * step[1], 1e-13), 1.0 - 1e-13) if both else f
+                    new = torus(En, fn)
+                    if new is not None and numpy.amax(numpy.fabs(new[0])) < norm:
+                        break
+                    t, new = 0.5 * t, None
+                if new is None:
+                    break
+                E, f, out = En, fn, new
+            return None
+
+        f = min(max(jz / (jr + jz), 0.05), 0.95) if both else float(rows == [1])
+        nu = circ["nu"] if numpy.isfinite(circ["nu"]) else circ["kappa"]
+        E = Ec + circ["kappa"] * jr + nu * jz
+        for _ in range(60):
+            if torus(E, f) is not None:
+                break
+            E = Ec + 0.5 * (E - Ec)
+        found = newton(E, f)
+        if found is None:
+            # from the energy of a scan at which the total action is closest
+            self._ntau = min(ntau, 256)
+            Es = Ec + (E - Ec) * 2.0 ** numpy.arange(-8.0, 14.0)
+            outs = [torus(Ek, f) for Ek in Es]
+            miss = [
+                numpy.inf if o is None else numpy.fabs(numpy.sum(o[0])) for o in outs
+            ]
+            found = newton(Es[int(numpy.argmin(miss))], f)
+        if found is None:
+            raise ValueError(
+                f"No torus with the actions (J_R, |L_z|, J_z) = ({jr}, {ell}, {jz}) "
+                "was found in this Staeckel model: the solve for its (E, I_3) did "
+                "not converge. Either the model has no such torus (close to the "
+                "axis the tori of a Staeckel approximation are not one continuous "
+                "family, and the actions jump where two of them merge) or the "
+                "torus is unbound"
+            )
+        return found
 
     def _sample_all(self):
         self._samples = []
@@ -1995,6 +2187,36 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "d2Dmv": D2v,
         }
 
+    def _second_order(self):
+        """The second-order tables of the explicit tori (those of the u
+        turning points, the actions and the two maps: _second_order_tables),
+        which make each one-node family quadratic: an explicit torus then
+        carries the true derivatives of the map in the actions at its node.
+        No evaluation needs them, so they are computed when they are first
+        asked for (not for tori set up with a rule for the reference curve,
+        whose tables would need the model's second derivatives along the
+        rule; theirs stay zero)"""
+        if self._d2 is None:
+            ntori = len(self._Es)
+            d2 = (
+                numpy.zeros((ntori, 3, 6)),
+                numpy.zeros((ntori, 2, 6)),
+                numpy.zeros((ntori, self._npt, 6)),
+                numpy.zeros((ntori, self._nptv, 6)),
+            )
+            for ii in range(ntori * (not self._adaptive)):
+                so = self._second_order_tables(ii, self._node_tables(ii))
+                if so is not None:
+                    d2[0][ii], d2[1][ii] = so["d2sup"], so["d2M"]
+                    d2[2][ii], d2[3][ii] = so["d2Dmu"], so["d2Dmv"]
+            self._d2 = d2
+        return self._d2
+
+    _d2sups = property(lambda self: self._second_order()[0])
+    _d2Ms = property(lambda self: self._second_order()[1])
+    _d2Dmus = property(lambda self: self._second_order()[2])
+    _d2Dmvs = property(lambda self: self._second_order()[3])
+
     def _quadratic_node(self, ii):
         """The ii-th explicit torus's one-node family to second order in
         the actions (J_R, J_z, J_phi): with N = d(E, I_3, L_z)/dJ the
@@ -2092,24 +2314,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._Dmvs = numpy.empty((ntori, self._nptv))
         self._dDmus = numpy.zeros((ntori, self._npt, 3))
         self._dDmvs = numpy.zeros((ntori, self._nptv, 3))
-        self._d2sups = numpy.zeros((ntori, 3, 6))
-        self._d2Ms = numpy.zeros((ntori, 2, 6))
-        self._d2Dmus = numpy.zeros((ntori, self._npt, 6))
-        self._d2Dmvs = numpy.zeros((ntori, self._nptv, 6))
+        # (the second-order tables, which no evaluation needs, are computed
+        # when they are first asked for: _second_order)
+        self._d2 = None
         perr_u, perr_v = numpy.empty(ntori), numpy.empty(ntori)
         for ii in _progress(range(ntori), "node tables", self._progressbar):
             with self._in_chart(self._Es[ii], self._Lzs[ii], self._I3s[ii]):
                 node = self._node_tables(ii)
-                # the second-order tables make the one-node family
-                # quadratic: an explicit torus then carries the true
-                # derivatives of the map in the actions at its node (not
-                # for a torus set up with a rule, whose second-order tables
-                # would need the model's second derivatives along the rule:
-                # _quadratic_node)
-                so = None if self._adaptive else self._second_order_tables(ii, node)
-            if so is not None:
-                self._d2sups[ii], self._d2Ms[ii] = so["d2sup"], so["d2M"]
-                self._d2Dmus[ii], self._d2Dmvs[ii] = so["d2Dmu"], so["d2Dmv"]
             if "du0" in node:
                 # a torus set up with a rule for its reference curve is a
                 # torus of the family that the rule defines: its tables

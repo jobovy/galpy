@@ -14743,3 +14743,99 @@ def test_actionAngleStaeckelInverse_pickle_format(
         "Pickled explicit tori do not return their actions identically"
     )
     return None
+
+
+def test_actionAngleStaeckelInverse_from_actions():
+    # Explicit tori are set up from their actions with jrs=, Lzs=, jzs=: the
+    # integrals are solved for, on the faces (a shell, a planar and a
+    # circular orbit) as elsewhere, and in the Staeckel model that a rule
+    # for the reference curve gives the torus; the tori have the requested
+    # actions (the forward transformation's at their points in a Staeckel
+    # potential), and actions that no torus has are refused
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    pot = _staeckel_inverse_potential()
+    aAF = _staeckel_inverse_forward()
+    J = numpy.array(
+        [
+            (0.05, 0.9, 0.05),
+            (0.3, -0.6, 0.2),
+            (0.0, 0.9, 0.1),
+            (0.2, 1.1, 0.0),
+            (0.0, 0.8, 0.0),
+            (1.5, 0.3, 0.02),
+        ]
+    )
+    aAI = actionAngleStaeckelInverse(pot=pot, jrs=J[:, 0], Lzs=J[:, 1], jzs=J[:, 2])
+    assert numpy.all(aAI.in_domain(*J.T)), (
+        "Tori set up from their actions are not the instance's tori"
+    )
+    for jr, Lz, jz in J:
+        R, vR, vT, z, vz, _ = aAI(jr, Lz, jz, [0.3, 2.0, 4.5], 1.0, [1.0, 3.0, 5.5])
+        jrf, Lzf, jzf = aAF(R, vR, vT, z, vz)
+        assert (
+            numpy.amax(numpy.fabs(jrf - jr)) < 1e-8
+            and numpy.amax(numpy.fabs(jzf - jz)) < 1e-8
+            and numpy.amax(numpy.fabs(Lzf - Lz)) < 1e-10
+        ), "A torus set up from its actions does not have them"
+    # a general potential, with a fixed reference curve and with one that
+    # follows the torus: the tori are those of the requested actions
+    for kw in ({}, {"u0": "torus"}):
+        aAM = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.45,
+            jrs=[0.05, 0.4],
+            Lzs=[1.0, 0.3],
+            jzs=[0.02, 0.3],
+            **kw,
+        )
+        assert numpy.all(aAM.in_domain([0.05, 0.4], [1.0, 0.3], [0.02, 0.3]))
+        assert numpy.all(
+            numpy.isfinite(aAM([0.05, 0.4], [1.0, 0.3], [0.02, 0.3], 1.0, 2.0, 3.0))
+        )
+    # guards
+    with pytest.raises(ValueError, match="both jrs= and jzs="):
+        actionAngleStaeckelInverse(pot=pot, jrs=[0.1], Lzs=[0.9])
+    with pytest.raises(ValueError, match="same length"):
+        actionAngleStaeckelInverse(pot=pot, jrs=[0.1, 0.2], Lzs=[0.9], jzs=[0.1])
+    with pytest.raises(ValueError, match="non-negative"):
+        actionAngleStaeckelInverse(pot=pot, jrs=[-0.1], Lzs=[0.9], jzs=[0.1])
+    # a torus that reaches beyond every radius at which a bound libration
+    # is looked for
+    with pytest.raises(ValueError, match="No torus with the actions"):
+        actionAngleStaeckelInverse(pot=pot, jrs=[1e9], Lzs=[0.9], jzs=[0.1])
+    # actions that are tiny but not zero are those of the face that they
+    # are next to: the shell, the planar and the circular orbit
+    tiny = actionAngleStaeckelInverse(
+        pot=pot, jrs=[1e-13, 0.2, 1e-13], Lzs=[0.9, 1.1, 0.8], jzs=[0.1, 1e-13, 1e-13]
+    )
+    for (jr, Lz, jz), face in zip(
+        ((1e-13, 0.9, 0.1), (0.2, 1.1, 1e-13), (1e-13, 0.8, 1e-13)),
+        ((0.0, 0.9, 0.1), (0.2, 1.1, 0.0), (0.0, 0.8, 0.0)),
+    ):
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(tiny(jr, Lz, jz, 1.0, 2.0, 3.0))
+                    - numpy.array(aAI(*face, 1.0, 2.0, 3.0))
+                )
+            )
+            < 1e-9
+        ), "A torus of a tiny action is not the torus of the face next to it"
+    # in the Staeckel approximation of a cusped potential the u libration
+    # splits in two at small |L_z|: the torus is the one around the shell
+    # orbit, whose actions jump where it merges with the inner one, and
+    # actions inside the jump are no torus's
+    kw = dict(pot=MWPotential2014, delta=0.3, u0="torus", mm_npt=64)
+    with pytest.raises(ValueError, match="No torus with the actions"):
+        actionAngleStaeckelInverse(jrs=[0.11032], Lzs=[0.00614], jzs=[0.24778], **kw)
+    outer = actionAngleStaeckelInverse(jrs=[0.1068], Lzs=[0.00614], jzs=[0.36], **kw)
+    R, _, _, z, _, _ = outer(
+        0.1068, 0.00614, 0.36, numpy.linspace(0.0, 6.0, 13), 1.0, 2.0
+    )
+    assert numpy.all(numpy.isfinite(R)) and numpy.amin(numpy.hypot(R, z)) > 0.09, (
+        "The torus around the shell orbit of a split u libration reaches inside "
+        "the barrier"
+    )
+    return None
