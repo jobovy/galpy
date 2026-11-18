@@ -15348,9 +15348,10 @@ def test_actionAngleStaeckelInverse_from_actions():
 def test_actionAngleStaeckelInverse_setup_not_kept():
     # What the set-up computes along the way (the samples of every torus on
     # mm_nta anomalies and their lifts onto the auxiliary) is not kept: an
-    # instance holds its tables, whose size is set by mm_npt, so that a
-    # pickled family or set of explicit tori has the same size whatever
-    # mm_nta is, a few kB per torus, and evaluates identically
+    # instance holds its tables (and a family the interpolants built from
+    # them), whose size is set by mm_npt, so that a pickled family or set of
+    # explicit tori has the same size whatever mm_nta is, of order ten kB
+    # per torus, and evaluates identically
     import pickle
 
     from galpy.actionAngle import actionAngleStaeckelInverse
@@ -15376,9 +15377,9 @@ def test_actionAngleStaeckelInverse_setup_not_kept():
             "The size of a pickled actionAngleStaeckelInverse instance depends on "
             "mm_nta: samples of the set-up are kept"
         )
-        assert sizes[1] < 2**16 + ntori * 2**13, (
-            "A pickled actionAngleStaeckelInverse instance holds more than a "
-            "few kB per torus"
+        assert sizes[1] < 2**16 + ntori * 2**14, (
+            "A pickled actionAngleStaeckelInverse instance holds more than "
+            "about ten kB per torus"
         )
     return None
 

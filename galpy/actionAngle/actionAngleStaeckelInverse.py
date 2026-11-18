@@ -384,25 +384,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # iteration evaluates at most for a torus (_newton_labels)
     _LABEL_STEPS = 32
 
-    # what _rebuild_interp builds from an interpolated family's tables
-    _INTERPOLANTS = (
-        "_A_ip",
-        "_U_ip",
-        "_V_ip",
-        "_nharm_buckets_u",
-        "_nharm_buckets_v",
-        "_nharm_node_u",
-        "_nharm_node_v",
-        "_nharm_cell_u",
-        "_nharm_cell_v",
-    )
-
-    def __getstate__(self):
-        """The state to pickle: an interpolated family is pickled as its
-        tables, without the interpolants built from them, which are three
-        times their size and which __setstate__ rebuilds"""
-        return {k: v for k, v in self.__dict__.items() if k not in self._INTERPOLANTS}
-
     # the rule for a focal length that follows the tori (None: a single
     # one), and what of a Staeckel model goes with its focal length
     _delta_rule = None
@@ -414,7 +395,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """Restore a pickled instance; an interpolated family whose tables
         were stored in another format (or without a format, as before the
         formats were numbered) would be decoded wrongly, and is refused;
-        the interpolants of a family are rebuilt from its tables"""
+        a family is pickled with its interpolants, so that it loads without
+        rebuilding them"""
         if state.get("_interp", False) and state.get(
             "_family_format", 1
         ) != self._FAMILY_FORMAT + (state.get("_delta_rule") is not None):
@@ -425,8 +407,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "its tables cannot be read; rebuild the family"
             )
         self.__dict__.update(state)
-        if self._interp:
-            self._rebuild_interp()
 
     def __init__(
         self,
