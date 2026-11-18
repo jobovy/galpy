@@ -77,7 +77,10 @@ at release.]
 
 - [slot 14]
 
-- [slot 15]
+- ``OblateStaeckelWrapperPotential`` with tabulated functions (``ntab=``)
+  can be evaluated on arrays of positions (before, the tabulated V(v)
+  raised for arrays), and builds its tables in one call on each table's
+  grid when the wrapped potential evaluates arrays.
 
 - [slot 16]
 
