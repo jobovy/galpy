@@ -28,6 +28,7 @@ from ..potential import (
     evaluatePotentials,
     evaluateR2derivs,
     evaluateRforces,
+    evaluatez2derivs,
     evaluatezforces,
     rl,
     vcirc,
@@ -108,6 +109,56 @@ def _solve_increasing(f, fp, lo, hi):
         if done:
             break
     return x
+
+
+def _hermite_table(x, y, yp):
+    """A function tabulated with its slope at the uniform nodes x, as the
+    coefficients of its cubic Hermite interpolant on every interval: (first
+    node, spacing, coefficients (4, intervals) in the fraction of the
+    interval)"""
+    h = (x[-1] - x[0]) / (len(x) - 1)
+    y0, y1, d0, d1 = y[:-1], y[1:], h * yp[:-1], h * yp[1:]
+    return (
+        x[0],
+        h,
+        numpy.array(
+            [y0, d0, 3.0 * (y1 - y0) - 2.0 * d0 - d1, 2.0 * (y0 - y1) + d0 + d1]
+        ),
+    )
+
+
+def _hermite_uniform(tab, x, deriv=False):
+    """The value at x of the cubic Hermite interpolant of _hermite_table,
+    and with deriv also its slope; x is held inside the table, and a NaN
+    stays one"""
+    x0, h, coef = tab
+    s = numpy.clip((x - x0) / h, 0.0, coef.shape[1] - 1e-6)
+    i = numpy.where(s == s, s, 0.0).astype("int")
+    t = s - i
+    c0, c1, c2, c3 = coef[:, i]
+    val = c0 + t * (c1 + t * (c2 + t * c3))
+    if not deriv:
+        return val
+    return val, (c1 + t * (2.0 * c2 + 3.0 * t * c3)) / h
+
+
+def _multisect(f, lo, hi, bits):
+    """The first root of f in each of the brackets [lo, hi] (arrays; f is
+    negative at lo and takes a point axis after the brackets'), located to
+    2^-bits of the bracket by rounds of K-section, each one evaluation of f
+    at the K - 1 interior points of every bracket. K is a power of two set
+    by the number of brackets alone (bisection for many, 64 sections for a
+    few, where the number of calls and not that of evaluations is the
+    cost), so that the schedule is fixed."""
+    logK = int(numpy.clip(numpy.log2(2048.0 / max(len(lo), 1)), 1, 6))
+    w = numpy.arange(1, 2**logK) / 2**logK
+    for _ in range(-(-bits // logK)):
+        d = (hi - lo) / 2**logK
+        with numpy.errstate(invalid="ignore"):
+            neg = f(lo[:, None] + (hi - lo)[:, None] * w) < 0.0
+        lo = lo + numpy.sum(numpy.cumprod(neg, axis=1), axis=1) * d
+        hi = lo + d
+    return 0.5 * (lo + hi)
 
 
 def _contract(smt, D):
@@ -687,6 +738,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._ush_cache = {}
         self._ubar_cache = {}
         self._reach_cache = {}
+        self._midplane_tab, self._Vref_tab = None, None
         self._axisw = axis_weight
         if not setup_interp:
             self._Lzs = conversion._parse_grid_quantity(
@@ -721,12 +773,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     raise ValueError("jrs, Lzs, and jzs have to have the same length")
                 if numpy.any(jrs < 0.0) or numpy.any(jzs < 0.0):
                     raise ValueError("J_R and J_z have to be non-negative")
-                self._Es, self._I3s = numpy.array(
-                    [
-                        self._integrals_of_actions(*J)
-                        for J in zip(jrs, numpy.fabs(self._Lzs), jzs)
-                    ]
-                ).T
+                if self._adaptive:
+                    # (with a rule for the reference curve: torus by torus)
+                    self._Es, self._I3s = numpy.array(
+                        [
+                            self._integrals_of_actions(*J)
+                            for J in zip(jrs, numpy.fabs(self._Lzs), jzs)
+                        ]
+                    ).T
+                else:
+                    self._Es, self._I3s, found = self._integrals_many(
+                        jrs, numpy.fabs(self._Lzs), jzs
+                    )
+                    if not numpy.all(found):
+                        first = numpy.argmin(found)
+                        raise ValueError(
+                            "No torus with the actions (J_R, |L_z|, J_z) of "
+                            f"{numpy.sum(~found)} of the {len(found)} tori was "
+                            "found in this Staeckel model; the first is "
+                            f"({jrs[first]}, {numpy.fabs(self._Lzs[first])}, "
+                            f"{jzs[first]}). Either the model has no such torus "
+                            "(close to the axis the tori of a Staeckel "
+                            "approximation are not one continuous family, and "
+                            "the actions jump where two of them merge) or the "
+                            "torus is unbound"
+                        )
         else:
             self._setup_grid(
                 conversion.parse_length(Rmin, ro=self._ro),
@@ -753,6 +824,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if self._interp:
             del self._tps
         self._u_turning_memo, self._memo_keep, self._reach_v = {}, False, (None, None)
+        # (nor are the tables of the solve of tori from their actions)
+        self._midplane_tab, self._Vref_tab = None, None
         self._check_consistent_units()
         if self._delta_rule is not None:
             # the family is its tables: neither the rule nor the nodes'
@@ -1832,6 +1905,478 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "torus is unbound"
             )
         return found
+
+    # ---------- many tori at once: the momentum functions from tables, the
+    # librations, and the tori of given actions
+    def _midplane(self):
+        """The potential in the midplane, on which U(u) rests, tabulated
+        once with its logarithmic derivative on a uniform grid of ln R (a
+        cubic Hermite interpolant with exact slopes, accurate to about
+        1e-12 of the potential's scale) over the radii at which it
+        evaluates; and the scan of ln R on which the extrema of p_u^2 are
+        first located, with the table's values and slopes on it"""
+        if self._midplane_tab is None:
+            d = self._delta
+            lnR = numpy.linspace(
+                numpy.log(1e-8 * d), numpy.log(d * numpy.sinh(20.0)), 12001
+            )
+            R = numpy.exp(lnR)
+            with numpy.errstate(all="ignore"):
+                Phi = evaluatePotentials(
+                    self._chart_pot, R, 0.0 * R, use_physical=False
+                )
+                dPhi = -R * evaluateRforces(
+                    self._chart_pot, R, 0.0 * R, use_physical=False
+                )
+            # up to the first radius at which the potential does not evaluate
+            n = int(numpy.argmin(numpy.append(numpy.isfinite(Phi + dPhi), False)))
+            tab = _hermite_table(lnR[:n], Phi[:n], dPhi[:n])
+            scan = numpy.linspace(numpy.log(1e-6 * d), lnR[n - 1], 1000)
+            self._midplane_tab = (tab, (scan, *_hermite_uniform(tab, scan, deriv=True)))
+        return self._midplane_tab
+
+    def _W0(self, lnR, E, ell, deriv=False):
+        """p_u^2 + 2 delta^2 I_3 for tori of energies E and angular momenta
+        ell where the u spheroid crosses the midplane at ln R (R = delta
+        sinh u), from the tabulated midplane potential: 2 E R^2 - 2
+        (delta^2 + R^2) Phi(R) - L_z^2 delta^2 / R^2; with deriv, its
+        derivative with respect to ln R instead"""
+        d2, R2 = self._delta**2, numpy.exp(2.0 * lnR)
+        if not deriv:
+            return (
+                2.0 * R2 * E
+                - 2.0 * (d2 + R2) * _hermite_uniform(self._midplane()[0], lnR)
+                - ell**2 * d2 / R2
+            )
+        Phi, dPhi = _hermite_uniform(self._midplane()[0], lnR, deriv=True)
+        return 4.0 * R2 * (E - Phi) - 2.0 * (d2 + R2) * dPhi + 2.0 * ell**2 * d2 / R2
+
+    def _wells(self, E, ell):
+        """The extrema of p_u^2 for tori of energies E and angular momenta
+        ell (I_3 only shifts it): the ln R (R = delta sinh u) of its
+        outermost maximum, of the barrier next to that on the inside and of
+        the maximum inside the barrier (NaN where p_u^2 has a single
+        maximum), and p_u^2 + 2 delta^2 I_3 at the three. In the Staeckel
+        approximation of a cusped potential the three exist at small
+        |L_z|: below the barrier's level one libration spans both wells,
+        above it the libration about the outer maximum and that about the
+        inner one coexist at the same integrals. Each extremum is located
+        on a fixed scan and refined by sectioning."""
+        xs, Phi, dPhi = self._midplane()[1]
+        d2, R2 = self._delta**2, numpy.exp(2.0 * xs)
+        pos = (
+            4.0 * R2 * (E[:, None] - Phi)
+            - 2.0 * (d2 + R2) * dPhi
+            + 2.0 * ell[:, None] ** 2 * d2 / R2
+        ) > 0.0
+        down, up = pos[:, :-1] & ~pos[:, 1:], ~pos[:, :-1] & pos[:, 1:]
+        k = numpy.arange(len(xs) - 1)
+        ko = numpy.amax(numpy.where(down, k, -1), axis=1)
+        kb = numpy.amax(numpy.where(up & (k < ko[:, None]), k, -1), axis=1)
+        ki = numpy.amax(numpy.where(down & (k < kb[:, None]), k, -1), axis=1)
+        # (a barrier counts with the maximum inside it)
+        kb = numpy.where(ki >= 0, kb, -1)
+        # (the three in one pass)
+        kk = numpy.concatenate([ko, kb, ki])
+        sgn = numpy.repeat([-1.0, 1.0, -1.0], len(E))[:, None]
+        E3, l3 = numpy.tile(E, 3), numpy.tile(ell, 3)
+        x = _multisect(
+            lambda x: sgn * self._W0(x, E3[:, None], l3[:, None], deriv=True),
+            xs[numpy.maximum(kk, 0)],
+            xs[numpy.maximum(kk, 0) + 1],
+            36,
+        )
+        x = numpy.where(kk >= 0, x, numpy.nan)
+        with numpy.errstate(invalid="ignore"):
+            return (*x.reshape(3, -1), *self._W0(x, E3, l3).reshape(3, -1))
+
+    def _circular_many(self, ell):
+        """The energies and the epicycle and vertical frequencies of the
+        circular orbits of many angular momenta: the radius bracketed on
+        the tabulated midplane potential and solved on the potential
+        itself"""
+        lnR, _, dPhi = self._midplane()[1]
+        pot = self._chart_pot
+
+        def dphi(R):
+            return -evaluateRforces(
+                pot, R.ravel(), 0.0 * R.ravel(), use_physical=False
+            ).reshape(R.shape)
+
+        L2 = numpy.maximum.accumulate(numpy.exp(2.0 * lnR) * dPhi)
+        k = numpy.clip(numpy.searchsorted(L2, ell**2), 1, len(L2) - 1)
+        # (a point of the scan further on either side: the table's and the
+        # potential's own slopes differ in the last digits)
+        Rc = numpy.exp(
+            _multisect(
+                lambda x: numpy.exp(3.0 * x) * dphi(numpy.exp(x)) - ell[:, None] ** 2,
+                lnR[numpy.maximum(k - 2, 0)],
+                lnR[numpy.minimum(k + 1, len(L2) - 1)],
+                44,
+            )
+        )
+        kappa = numpy.sqrt(
+            evaluateR2derivs(pot, Rc, 0.0 * Rc, use_physical=False)
+            + 3.0 * dphi(Rc) / Rc
+        )
+        with numpy.errstate(invalid="ignore"):
+            nu = numpy.sqrt(evaluatez2derivs(pot, Rc, 0.0 * Rc, use_physical=False))
+        return (
+            evaluatePotentials(pot, Rc, 0.0 * Rc, use_physical=False)
+            + ell**2 / (2.0 * Rc**2),
+            kappa,
+            numpy.where(numpy.isfinite(nu), nu, kappa),
+        )
+
+    def _V_many(self, v):
+        """V(v) for many tori on the family's single reference curve: V is
+        tabulated once on [0, pi/2], about which it is even"""
+        if self._Vref_tab is None:
+            vs = numpy.linspace(1e-10, 0.5 * numpy.pi, 4001)
+            self._Vref_tab = _hermite_table(vs, self._V(vs), self._dV(vs))
+        return _hermite_uniform(self._Vref_tab, v)
+
+    def _u_ends(self, E, ell, I3, wells):
+        """The u librations of many tori from their integrals: the turning
+        points of the libration about the outermost maximum of p_u^2 (it
+        ends at a barrier that I_3 leaves below zero, and spans both wells
+        where I_3 lifts the barrier above zero), the u of that maximum,
+        whether the libration is degenerate, and whether the integrals are
+        those of a torus"""
+        d2 = self._delta**2
+        xo, xb, xi, Wo, Wb, Wi = wells
+        c = 2.0 * d2 * I3
+        split = numpy.isfinite(xb)
+        with numpy.errstate(invalid="ignore"):
+            above = split & (c > Wb)
+            Ipl, Ish = ell**2 / (2.0 * d2) - E, Wo / (2.0 * d2)
+            tolI = 1e-12 * (1.0 + numpy.fabs(Ipl) + numpy.fabs(Ish))
+            udeg = I3 >= Ish - tolI
+            valid = (I3 <= Ish + tolI) & (I3 >= Ipl - tolI)
+        # the inner and the outer turning point in one pass
+        tab, n = self._midplane()[0], len(E)
+        lo = numpy.concatenate([numpy.where(above, xb, tab[0] + tab[1]), xo])
+        hi = numpy.concatenate(
+            [
+                numpy.where(split & ~above, xi, xo),
+                numpy.full(n, tab[0] + tab[1] * (tab[2].shape[1] - 1)),
+            ]
+        )
+        sgn = numpy.repeat([1.0, -1.0], n)
+        E2, l2, c2, deg = (numpy.tile(q, 2) for q in (E, ell, c, udeg))
+        lo = numpy.where(numpy.tile(valid, 2), lo, 0.0)
+        hi = numpy.where(numpy.tile(valid, 2), hi, 1.0)
+        ok = deg | (
+            (sgn * (self._W0(lo, E2, l2) - c2) < 0.0)
+            & (sgn * (self._W0(hi, E2, l2) - c2) >= 0.0)
+        )
+        x = _multisect(
+            lambda x: (
+                sgn[:, None] * (self._W0(x, E2[:, None], l2[:, None]) - c2[:, None])
+            ),
+            lo,
+            hi,
+            48,
+        )
+        um, up = numpy.arcsinh(
+            numpy.exp(numpy.where(deg, numpy.tile(xo, 2), x)) / self._delta
+        ).reshape(2, -1)
+        return (
+            um,
+            up,
+            numpy.arcsinh(numpy.exp(xo) / self._delta),
+            udeg,
+            valid & ok[:n] & ok[n:],
+        )
+
+    def _tori_many(self, E, ell, I3, wells, ntau):
+        """Many tori from their integrals, without a loop over them: the
+        turning points of both librations, and the actions and their
+        derivatives with respect to (E, I_3) by the quadratures of
+        _sample_torus on ntau anomalies (on the half and the quarter of
+        them that the symmetries of the librations leave). Returns the
+        actions (ntori, 2), their derivatives (ntori, 2, 2), and the rows
+        of: the u turning points, the u of the libration's maximum,
+        whether the u and the v libration are degenerate, and whether the
+        integrals are those of a torus"""
+        d2 = self._delta**2
+        um, up, uref, udeg, valid = self._u_ends(E, ell, I3, wells)
+        c = 2.0 * d2 * I3
+        with numpy.errstate(invalid="ignore"):
+            vdeg = I3 <= ell**2 / (2.0 * d2) - E + 1e-12 * (
+                1.0 + numpy.fabs(ell**2 / (2.0 * d2) - E) + numpy.fabs(c / d2)
+            )
+
+        def Wv(v):
+            sn2 = numpy.sin(v) ** 2
+            return (
+                2.0 * d2 * (E[:, None] * sn2 + self._V_many(v) + I3[:, None])
+                - ell[:, None] ** 2 / sn2
+            )
+
+        # the v libration about the midplane ends at the first root below
+        # it (_v_turning)
+        vs = 0.5 * numpy.pi * (1.0 - numpy.linspace(0.0, 1.0, 49)[:-1])
+        with numpy.errstate(invalid="ignore"):
+            neg = ~(Wv(vs[None, :] + 0.0 * E[:, None]) > 0.0)
+        first = numpy.where(numpy.any(neg, axis=1), numpy.argmax(neg, axis=1), len(vs))
+        vmin = numpy.exp(
+            _multisect(
+                lambda x: Wv(numpy.exp(x)),
+                numpy.log(numpy.append(vs, 1e-9)[first]),
+                numpy.log(vs[numpy.maximum(first - 1, 0)]),
+                48,
+            )
+        )
+        vmin = numpy.where(vdeg, 0.5 * numpy.pi, vmin)
+        # the actions and their derivatives: the mean over the anomalies of
+        # a libration is that over the first half of them (a libration is
+        # even about its turning points) or the first quarter (the v
+        # libration also about the midplane)
+        tau = 2.0 * numpy.pi * (numpy.arange(ntau) + 0.5) / ntau
+        J, M = numpy.zeros((len(E), 2)), numpy.zeros((len(E), 2, 2))
+        with numpy.errstate(divide="ignore", invalid="ignore"):
+            t = tau[: ntau // 2]
+            wu = 0.5 * (up - um)[:, None]
+            u = 0.5 * (up + um)[:, None] - wu * numpy.cos(t)
+            pu = numpy.sqrt(
+                numpy.clip(
+                    self._W0(
+                        numpy.log(self._delta * numpy.sinh(u)), E[:, None], ell[:, None]
+                    )
+                    - c[:, None],
+                    0.0,
+                    None,
+                )
+            )
+            ratio = wu * numpy.sin(t) / pu
+            J[:, 0] = numpy.mean(pu * wu * numpy.sin(t), axis=1)
+            M[:, 0, 0] = numpy.mean(d2 * numpy.sinh(u) ** 2 * ratio, axis=1)
+            M[:, 0, 1] = -d2 * numpy.mean(ratio, axis=1)
+            t = tau[: ntau // 4] if ntau % 4 == 0 else t
+            wv = (0.5 * numpy.pi - vmin)[:, None]
+            v = 0.5 * numpy.pi - wv * numpy.cos(t)
+            pv = numpy.sqrt(numpy.clip(Wv(v), 0.0, None))
+            ratio = wv * numpy.sin(t) / pv
+            J[:, 1] = numpy.mean(pv * wv * numpy.sin(t), axis=1)
+            M[:, 1, 0] = numpy.mean(d2 * numpy.sin(v) ** 2 * ratio, axis=1)
+            M[:, 1, 1] = d2 * numpy.mean(ratio, axis=1)
+        return J, M, numpy.array([um, up, uref, udeg, vdeg, valid])
+
+    def _action_residual(self, E, f, ell, jr, jz, ntau=256):
+        """The residual of the solve for the integrals of many tori from
+        their actions, apart from its iteration: at the energies E and the
+        fractions f of the way from the planar orbit's I_3 to that of the
+        shell orbit (the outermost maximum of p_u^2), the actions of the
+        tori minus (J_R, J_z), relative to J_R + J_z; with the derivatives
+        of the actions with respect to (E, f), the I_3 and the rows of
+        _tori_many"""
+        d2 = 2.0 * self._delta**2
+        wells = self._wells(E, ell)
+        Ipl = ell**2 / d2 - E
+        with numpy.errstate(invalid="ignore"):
+            Ish = wells[3] / d2
+            I3 = Ipl + f * (Ish - Ipl)
+            J, M, rows = self._tori_many(E, ell, I3, wells, ntau)
+            D = numpy.stack(
+                [
+                    M[:, :, 0]
+                    + M[:, :, 1]
+                    * (f * (1.0 + numpy.exp(2.0 * wells[0]) / d2 * 2.0) - 1.0)[:, None],
+                    M[:, :, 1] * (Ish - Ipl)[:, None],
+                ],
+                axis=2,
+            )
+            res = (J - numpy.stack([jr, jz], axis=1)) / (jr + jz)[:, None]
+            rows[-1] = rows[-1].astype("bool") & (Ish > Ipl)
+        return res, D, I3, rows
+
+    def _newton_many(self, E, f, ell, jr, jz, Ec, hold, ntau, steps):
+        """Damped Newton iteration on _action_residual for many tori from
+        the starting points (E, f), on a fixed schedule: every torus has
+        steps trial points, each either accepted (it is a torus and it
+        reduces the residual: the torus moves there and takes a new Newton
+        step from it) or rejected (the torus stays and halves its step),
+        and a torus is frozen once its residual is below the tolerance or
+        its step has been halved below 1e-8 of a Newton step; the tori
+        that are frozen are not evaluated any more. hold is 1 for the tori
+        on the shell face and 2 for those on the planar face, whose f is
+        held and whose energy is solved from the other action. Returns the
+        energies, the fractions, the I_3, the rows of _tori_many at the
+        last accepted points, and which tori converged."""
+        n = len(E)
+        E, f, Et, ft = E.copy(), f.copy(), E.copy(), f.copy()
+        I3, norm, t = numpy.full(n, numpy.nan), numpy.full(n, numpy.inf), numpy.ones(n)
+        tol, dE, df = numpy.full(n, 1e-11), numpy.zeros(n), numpy.zeros(n)
+        rows = numpy.full((6, n), numpy.nan)
+        a = numpy.arange(n)
+        for _ in range(steps):
+            res, D, I3t, rowst = self._action_residual(
+                Et[a], ft[a], ell[a], jr[a], jz[a], ntau=ntau
+            )
+            h = hold[a]
+            # a torus held on a face has that face's libration degenerate;
+            # any other torus has neither
+            valid = (rowst[-1] == 1.0) & (rowst[3] == (h == 1)) & (rowst[4] == (h == 2))
+            with numpy.errstate(divide="ignore", invalid="ignore"):
+                r0, r1, tot = res[:, 0], res[:, 1], (jr + jz)[a]
+                new = numpy.where(
+                    h == 0,
+                    numpy.maximum(numpy.fabs(r0), numpy.fabs(r1)),
+                    numpy.where(h == 1, numpy.fabs(r1), numpy.fabs(r0)),
+                )
+                det = D[:, 0, 0] * D[:, 1, 1] - D[:, 0, 1] * D[:, 1, 0]
+                sE = tot * numpy.where(
+                    h == 0,
+                    -(D[:, 1, 1] * r0 - D[:, 0, 1] * r1) / det,
+                    numpy.where(h == 1, -r1 / D[:, 1, 0], -r0 / D[:, 0, 0]),
+                )
+                sf = tot * numpy.where(
+                    h == 0, (D[:, 1, 0] * r0 - D[:, 0, 0] * r1) / det, 0.0
+                )
+                acc = valid & (new < norm[a]) & numpy.isfinite(sE) & numpy.isfinite(sf)
+            g, r = a[acc], a[~acc]
+            E[g], f[g], I3[g], norm[g] = Et[g], ft[g], I3t[acc], new[acc]
+            dE[g], df[g], t[g], rows[:, g] = sE[acc], sf[acc], 1.0, rowst[:, acc]
+            # (close to the circular orbit the energy above it, and with it
+            # the actions, are only known to the round-off of the energy)
+            tol[g] = numpy.maximum(
+                1e-11, 1.5e-14 * (1.0 + numpy.fabs(E[g])) / (E[g] - Ec[g])
+            )
+            t[r] *= 0.5
+            a = a[(norm[a] >= tol[a]) & (t[a] >= 1e-8)]
+            if a.size == 0:
+                break
+            Et[a] = numpy.maximum(E[a] + t[a] * dE[a], Ec[a] + 0.1 * (E[a] - Ec[a]))
+            ft[a] = numpy.where(
+                hold[a] == 0, numpy.clip(f[a] + t[a] * df[a], 1e-13, 1.0 - 1e-13), f[a]
+            )
+        return E, f, I3, rows, norm < tol
+
+    def _integrals_many(self, jr, ell, jz):
+        """(E, I_3) of the tori with actions (J_R, |L_z|, J_z), arrays, and
+        which of the actions are those of a torus (the integrals of the
+        others are NaN): a Newton iteration in the energy and the fraction
+        f of the way from the planar to the shell orbit's I_3 (f = 0 or 1
+        held on a face, where the energy alone is solved for), vectorized
+        over the tori (_newton_many on _action_residual), first on a
+        coarse anomaly grid and then on the tori's own; from the epicycle
+        energy at the vertical fraction of the actions and, for the tori
+        that this leaves, from the best point of a scan of energies and
+        fractions. The u turning points of the tori are remembered for
+        their set-up (_u_turning)."""
+        n = len(jr)
+        E, I3 = numpy.full(n, numpy.nan), numpy.full(n, numpy.nan)
+        found = numpy.zeros(n, dtype="bool")
+        tot = jr + jz
+        circ = tot <= 1e-10 * ell
+        for ii in numpy.flatnonzero(circ):
+            # not told from the circular orbit
+            E[ii] = self._circular(ell[ii])["Ec"]
+            I3[ii], found[ii] = self._I3_planar(E[ii], ell[ii]), True
+        chunk = max(2000000 // self._ntau, 16)
+        todo = numpy.flatnonzero(~circ)
+        for k in range(0, len(todo), chunk):
+            sel = todo[k : k + chunk]
+            E[sel], I3[sel], found[sel] = self._integrals_chunk(
+                jr[sel], ell[sel], jz[sel]
+            )
+        return E, I3, found
+
+    def _integrals_chunk(self, jr, ell, jz):
+        """_integrals_many for tori that are evaluated together, none of
+        them the circular orbit"""
+        n, tot = len(jr), jr + jz
+        Ec, kappa, nu = self._circular_many(ell)
+        # an action below 1e-10 of their sum is that of the face
+        hold = numpy.where(jr <= 1e-10 * tot, 1, numpy.where(jz <= 1e-10 * tot, 2, 0))
+        f0 = numpy.where(hold == 0, numpy.clip(jz / tot, 0.05, 0.95), 1.0 * (hold == 1))
+        # the first iterations on a coarse anomaly grid, where the tori are
+        # many enough for the size of the grid to set the cost (for a few,
+        # the number of evaluations does, and they are on their own grid)
+        coarse = min(self._ntau, 256) if n * self._ntau > 2**15 else self._ntau
+
+        def torus(rows, hold):
+            return (
+                (rows[-1] == 1.0) & (rows[3] == (hold == 1)) & (rows[4] == (hold == 2))
+            )
+
+        # from the epicycle energy at the vertical fraction of the actions,
+        # lowered until a torus exists there: the highest of a ladder of
+        # energies at which one does, on a few anomalies, the rungs taken
+        # in blocks (all at once for a few tori, one by one for many) and
+        # only for the tori without a torus on the rungs above
+        lad = Ec[:, None] + (kappa * jr + nu * jz)[:, None] * 2.0 ** -numpy.arange(16.0)
+        E, a, B = lad[:, -1].copy(), numpy.arange(n), int(min(max(1024 // n, 1), 16))
+        for k0 in range(0, 16, B):
+            ks = numpy.arange(k0, min(k0 + B, 16))
+            rep, kk = numpy.repeat(a, len(ks)), numpy.tile(ks, len(a))
+            rws = self._action_residual(
+                lad[rep, kk], f0[rep], ell[rep], jr[rep], jz[rep], ntau=16
+            )[3]
+            good = torus(rws, hold[rep]).reshape(len(a), -1)
+            hit = numpy.any(good, axis=1)
+            E[a[hit]] = lad[a[hit], ks[numpy.argmax(good[hit], axis=1)]]
+            a = a[~hit]
+            if a.size == 0:
+                break
+        E, f, I3, rows, ok = self._newton_many(E, f0, ell, jr, jz, Ec, hold, coarse, 40)
+        left = numpy.flatnonzero(~ok)
+        if len(left) > 0:
+            # from the best of a scan of energies and fractions
+            Es = Ec[left, None] + (kappa * jr + nu * jz)[
+                left, None
+            ] * 2.0 ** numpy.arange(-8.0, 14.0)
+            fs = numpy.linspace(0.04, 0.96, 9)
+            shape = (len(left), Es.shape[1], len(fs))
+            rep = numpy.repeat(left, shape[1] * shape[2])
+            Eg = numpy.broadcast_to(Es[:, :, None], shape).ravel()
+            fg = numpy.where(
+                hold[rep] == 0, numpy.broadcast_to(fs, shape).ravel(), f0[rep]
+            )
+            res, _, _, rws = self._action_residual(
+                Eg, fg, ell[rep], jr[rep], jz[rep], ntau=min(coarse, 64)
+            )
+            miss = numpy.where(
+                torus(rws, hold[rep]), numpy.sum(numpy.fabs(res), axis=1), numpy.inf
+            ).reshape(shape[0], -1)
+            best = numpy.argmin(miss, axis=1) + numpy.arange(shape[0]) * (
+                shape[1] * shape[2]
+            )
+            E[left], f[left], I3[left], rows[:, left], ok[left] = self._newton_many(
+                Eg[best],
+                fg[best],
+                ell[left],
+                jr[left],
+                jz[left],
+                Ec[left],
+                hold[left],
+                coarse,
+                40,
+            )
+        if self._ntau > coarse:
+            # on the tori's own anomaly grid
+            done = numpy.flatnonzero(ok)
+            E[done], f[done], I3[done], rows[:, done], ok[done] = self._newton_many(
+                E[done],
+                f[done],
+                ell[done],
+                jr[done],
+                jz[done],
+                Ec[done],
+                hold[done],
+                self._ntau,
+                8,
+            )
+        for ii in numpy.flatnonzero(ok):
+            for Lz in (ell[ii], -ell[ii]):
+                self._u_turning_memo[(E[ii], Lz, I3[ii])] = (
+                    rows[0, ii],
+                    rows[1, ii],
+                    rows[2, ii],
+                    bool(rows[3, ii]),
+                )
+        return numpy.where(ok, E, numpy.nan), numpy.where(ok, I3, numpy.nan), ok
 
     def _setup_turning_points(self):
         """The turning points of every torus, each in its own Staeckel
