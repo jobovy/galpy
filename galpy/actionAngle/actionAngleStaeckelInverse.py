@@ -284,7 +284,7 @@ def _focal_tori(pot, E, Lz, f, delta, Rm, Rp, rule):
 
     R0 = {
         "torus": 2.0 * R1 * R2 / (R1 + R2),
-        "fit": 2.0 * Rm * Rp / (Rm + Rp),
+        "planar": 2.0 * Rm * Rp / (Rm + Rp),
         "shell": Rsh,
     }[rule]
     return Phi, w, I3, Ish, R1, R2, vlib, R0
@@ -525,6 +525,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             logarithm of its smallest |L_z|. The tori that stay away from
             the axis (those of a disc) are spaced as with a weight of
             zero, which spaces every torus in the third integral alone.
+            The default does not normally need to be changed: the measure
+            is dimensionless and acts only on the tori that come close to
+            the axis, whose accuracy depends weakly on the weight (a few
+            tens of percent between weights of 0.1 and 0.5).
         mm_npt : int, optional
             Highest harmonic of the two momentum-matched anomaly maps (the
             v map's odd harmonics vanish by the symmetry of its libration
@@ -599,12 +603,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             for instance the localized families of many targets). A rule
             requires setup_interp=True and one of the built-in rules for
             the reference curve (u0='torus' is the default with it).
-        u0 : float, callable, 'torus', 'fit' or 'shell', optional
+        u0 : float, callable, 'torus', 'planar' or 'shell', optional
             Reference u of the wrapping (see OblateStaeckelWrapperPotential),
             whose curve R_0 = delta sinh(u0) is where the Staeckel
             approximation of a general potential is most accurate. A number
-            requires delta= and cannot be given with a potential that
-            supplies its own focal length. A rule gives every torus, of an
+            (one, shared by all tori) requires delta= and cannot be given
+            with a potential that supplies its own focal length. A rule gives every torus, of an
             interpolated family or set up explicitly, its own reference
             curve, so that each torus is a torus of its own Staeckel model
             (without u0=, the explicit tori of a general potential share
@@ -614,7 +618,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             which the torus's own inner and outer turning spheroids cross
             the midplane: it weights the inner turning point, where a
             disc's vertical structure is sharpest, and follows the torus as
-            it tilts out of the plane. 'fit' is that rule on the planar
+            it tilts out of the plane. 'planar' is that rule on the planar
             orbit of the torus's (E, L_z) (the harmonic mean of its
             pericentre and apocentre): the same as 'torus' near the plane,
             and far inside an inclined torus. 'shell' is that rule on the
@@ -810,9 +814,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         given focal length; with an adaptive reference curve, that model
         is the reference one, and every (E, L_z) of the family gets its
         own (_chart)"""
-        if isinstance(u0, str) and u0 not in ("torus", "fit", "shell"):
+        if isinstance(u0, str) and u0 not in ("torus", "planar", "shell"):
             raise ValueError(
-                "the string values u0= accepts are 'torus', 'fit' and 'shell'"
+                "the string values u0= accepts are 'torus', 'planar' and 'shell'"
             )
         self._models = {}
         if isinstance(delta, str) and delta != "fit":
@@ -823,10 +827,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 raise TypeError(
                     "a focal length that follows the tori (delta='fit' or a callable) "
                     "needs a built-in rule for the reference curve: u0='torus' "
-                    "(the default with it), 'fit' or 'shell'"
+                    "(the default with it), 'planar' or 'shell'"
                 )
             self._delta_rule, delta, u0 = delta, 1.0, "torus" if u0 is None else u0
         self._adaptive = callable(u0) or isinstance(u0, str)
+        if numpy.ndim(u0) != 0:
+            raise TypeError(
+                "a numeric u0= is one reference curve shared by all tori; set "
+                "up tori with different ones in separate instances, or use a "
+                "rule (u0='torus', 'planar', 'shell' or a callable)"
+            )
         # the rule: one of the built-in ones, on the turning points of a
         # torus, or a callable of (E, L_z) or of (E, L_z, I_3)
         self._u0_rule = u0 if self._adaptive else None
@@ -959,9 +969,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if self._on_circular(E, ell):
                 return self._circular_RE(ell)[2]
             return self._ushell(E, ell)
-        return self._u0_torus(E, ell, self._I3_planar(E, ell) if rule == "fit" else I3)[
-            0
-        ]
+        return self._u0_torus(
+            E, ell, self._I3_planar(E, ell) if rule == "planar" else I3
+        )[0]
 
     def _u0_torus(self, E, ell, I3, deriv=False):
         """The reference curve that follows a torus's own turning points: the
@@ -970,7 +980,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sinh(u0) = 2 / (1/R_- + 1/R_+) with R = delta sinh(u). It weights the
         inner turning point, where a disc's vertical structure is sharpest;
         it is the harmonic mean of the pericentre and apocentre for the
-        planar orbit (u0='fit' is this rule at the planar orbit's I_3), the
+        planar orbit (u0='planar' is this rule at the planar orbit's I_3), the
         shell orbit's own spheroid for the shell orbit (u0='shell'), and the
         circular radius for the circular orbit; and it is even in the u
         libration's half-width, hence smooth in the variables in which the
@@ -1036,7 +1046,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         rule = self._u0_rule
         if rule == "torus":
             return self._u0_torus(E, ell, I3, deriv=True)[1]
-        if rule == "fit":
+        if rule == "planar":
             g = self._u0_torus(E, ell, self._I3_planar(E, ell), deriv=True)[1]
             return numpy.array(
                 [
@@ -1896,7 +1906,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """The reference u0 that the rule gives each of many tori, with its
         partials in (E, I_3) (None and zeros without a rule). The built-in
         rules are vectorized: 'torus' is the closed form of _u0_torus on
-        the torus's own turning points, 'fit' the same on those of the
+        the torus's own turning points, 'planar' the same on those of the
         planar orbit of (E, L_z), 'shell' the u of the highest maximum of
         p_u^2; a callable, which need not take arrays, is evaluated torus by
         torus, with one-sided differences"""
@@ -1939,7 +1949,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         with numpy.errstate(divide="ignore", invalid="ignore"):
             if self._u0_rule == "torus":
                 return mean(um, up, udeg, uref)
-            if self._u0_rule == "fit":
+            if self._u0_rule == "planar":
                 pm, pp, _, _, _, ok = self._u_ends(
                     E, ell, ell**2 / (2.0 * d2) - E, wells, False
                 )
@@ -3168,7 +3178,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if self._adaptive:
             raise NotImplementedError(
                 "the second-order tables of a torus set up with a rule for its "
-                "reference curve (u0='torus', 'fit', 'shell' or a callable) are "
+                "reference curve (u0='torus', 'planar', 'shell' or a callable) are "
                 "not available: they need the second derivatives of the Staeckel "
                 "model along the rule; set the torus up with the rule's u0 as a "
                 "number for those of its own Staeckel model"
