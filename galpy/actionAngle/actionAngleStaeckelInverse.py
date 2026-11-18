@@ -28,6 +28,7 @@ from ..potential import (
     evaluatePotentials,
     evaluateR2derivs,
     evaluateRforces,
+    evaluatezforces,
     rl,
     vcirc,
     verticalfreq,
@@ -181,15 +182,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         times their size and which __setstate__ rebuilds"""
         return {k: v for k, v in self.__dict__.items() if k not in self._INTERPOLANTS}
 
+    # the rule for a focal length that follows the tori (None: a single
+    # one), and what of a Staeckel model goes with its focal length
+    _delta_rule = None
+    _MODEL_STATE = "_delta _ush_cache _reach_cache _u_turning_memo _reach_v".split()
+
     def __setstate__(self, state):
         """Restore a pickled instance; an interpolated family whose tables
         were stored in another format (or without a format, as before the
         formats were numbered) would be decoded wrongly, and is refused;
         the interpolants of a family are rebuilt from its tables"""
-        if (
-            state.get("_interp", False)
-            and state.get("_family_format", 1) != self._FAMILY_FORMAT
-        ):
+        if state.get("_interp", False) and state.get(
+            "_family_format", 1
+        ) != self._FAMILY_FORMAT + (state.get("_delta_rule") is not None):
             raise RuntimeError(
                 "This interpolated actionAngleStaeckelInverse family was pickled "
                 f"with the table format {state.get('_family_format', 1)}, while "
@@ -359,12 +364,28 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             If True, display tqdm progress bars over the tori while they
             are lifted and their tables computed (requires tqdm to be
             installed). Default is True.
-        delta : float or Quantity, optional
+        delta : float, Quantity or callable, optional
             Focal length of the prolate spheroidal coordinate system, to
             wrap a general axisymmetric potential in the Staeckel
             approximation. A potential that supplies its own focal length
             accepts a delta= that agrees with it (to 1e-14) and rejects one
-            that does not.
+            that does not. A callable delta(E, Lz, y) lets the focal length
+            follow the tori of an interpolated family: each torus is one of
+            the Staeckel approximation in its own prolate spheroidal
+            coordinates. It is called with the arrays of the energies,
+            angular momenta (> 0) and third-integral variables of all the
+            grid's nodes at once (internal units; y is the grid's variable,
+            from 0 for the planar to 1 for the shell orbit of (E, L_z), in
+            the model of the rule's focal length at y = 1/2), returns their
+            focal lengths, and has to be smooth, also slightly outside the
+            nodes' ranges (its partials are central differences). The focal
+            length is then a table of the family, the derivative tables
+            carry the variation of the model along it, the angles
+            compensate the dilation of the coordinates, so that the map
+            stays exactly canonical, and the frequencies are dE/dJ along
+            the family. A callable requires setup_interp=True
+            (without target=) and one of the built-in rules for the
+            reference curve (u0='torus' is the default with it).
         u0 : float, callable, 'torus', 'fit' or 'shell', optional
             Reference u of the wrapping (see OblateStaeckelWrapperPotential),
             whose curve R_0 = delta sinh(u0) is where the Staeckel
@@ -440,6 +461,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._setup_staeckel(_check_potential_list_and_deprecate(pot), delta, u0)
         self._target = None if target is None else _parse_target(target)
         self._target_pad, self._target_minwidth = target_pad, target_minwidth
+        if self._delta_rule is not None and (not setup_interp or target is not None):
+            raise TypeError(
+                "a focal length that follows the tori (a callable delta=) builds "
+                "an interpolated family and requires setup_interp=True without "
+                "target="
+            )
         if self._target is not None and not setup_interp:
             raise TypeError(
                 "target= localizes the interpolation grid and requires setup_interp=True"
@@ -540,6 +567,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             del self._tps
         self._u_turning_memo, self._memo_keep, self._reach_v = {}, False, (None, None)
         self._check_consistent_units()
+        if self._delta_rule is not None:
+            # the family is its tables: neither the rule nor the nodes'
+            # models are kept (and the family pickles whatever the callable)
+            self._delta_rule, self._models, self._chart_cache = True, {}, {}
+            del self._delta_tab, self._ddelta_tab, self._delta_col
         return None
 
     def _setup_staeckel(self, pot, delta, u0):
@@ -552,6 +584,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             raise ValueError(
                 "the string values u0= accepts are 'torus', 'fit' and 'shell'"
             )
+        self._models = {}
+        if callable(delta):
+            # (the wrapper set up here only serves the midplane)
+            if not (u0 is None or isinstance(u0, str)):
+                raise TypeError(
+                    "a focal length that follows the tori (a callable delta=) "
+                    "needs a built-in rule for the reference curve: u0='torus' "
+                    "(the default with it), 'fit' or 'shell'"
+                )
+            self._delta_rule, delta, u0 = delta, 1.0, "torus" if u0 is None else u0
         self._adaptive = callable(u0) or isinstance(u0, str)
         # the rule: one of the built-in ones, on the turning points of a
         # torus, or a callable of (E, L_z) or of (E, L_z, I_3)
@@ -579,7 +621,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if self._adaptive:
             # the reference wrapper keeps the default reference curve
             u0 = None
-        own = _focal_length_of(pot)
+        own = None if self._delta_rule is not None else _focal_length_of(pot)
         if delta is not None:
             delta = conversion.parse_length(delta, ro=self._ro)
             if own is not None:
@@ -638,7 +680,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             I3 = None
         elif I3 is None:
             I3 = self._I3_planar(E, ell)
-        key = (E, ell, I3 if I3 is None else float(I3))
+        key = (E, ell, I3 if I3 is None else float(I3), self._delta)
         if key not in self._chart_cache:
             self._chart_cache[key] = OblateStaeckelWrapperPotential(
                 pot=self._chart_pot,
@@ -648,16 +690,32 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return self._chart_cache[key]
 
     @contextmanager
-    def _in_chart(self, E, Lz, I3=None):
+    def _in_chart(self, E, Lz, I3=None, delta=None):
         """Run the chart-dependent construction of the (E, L_z, I_3) torus
         (its sampling, turning points and edge relations) in its own
-        Staeckel model"""
-        save = self._staeckelwrap
-        self._staeckelwrap = self._chart(E, Lz, I3)
+        Staeckel model: that of the current focal length or, for a torus
+        of a family whose focal length follows its tori, of the focal length
+        delta, with what is remembered of it (I3 False: for U(u) alone)"""
+        keys = ["_staeckelwrap"] + self._MODEL_STATE[: 1 + 4 * (delta is not None)]
+        save = {k: self.__dict__[k] for k in keys}
+        if delta is not None:
+            fresh = {"_delta": delta, "_reach_v": (None, None)}
+            fresh.update({k: {} for k in self._MODEL_STATE[1:4]})
+            self.__dict__.update(self._models.setdefault(delta, fresh))
+            # (U(u) is that of this focal length)
+            if delta not in self._chart_cache:
+                self._chart_cache[delta] = OblateStaeckelWrapperPotential(
+                    pot=self._chart_pot, delta=delta
+                )
+            self._staeckelwrap = self._chart_cache[delta]
+        if I3 is not False:
+            self._staeckelwrap = self._chart(E, Lz, I3)
         try:
             yield
         finally:
-            self._staeckelwrap = save
+            if delta is not None:
+                self._models[delta] = {k: self.__dict__[k] for k in self._MODEL_STATE}
+            self.__dict__.update(save)
 
     def _u0_of(self, E, ell, I3):
         """The reference u0 of the (E, |L_z|, I_3) torus under the rule (I_3
@@ -727,6 +785,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     fp * dush[0] - dHdI * sh2,
                     dHdI,
                     fp * dush[1] + dHdI * ell / (d**2 * sh2),
+                    *(
+                        fp * numpy.array(dush[2:])
+                        - dHdI * self._faces_ddelta(ush, ell)[1]
+                    ),
                 ]
             )
         return u0, dH / (d * numpy.cosh(u0))
@@ -744,10 +806,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             return self._u0_torus(E, ell, I3, deriv=True)[1]
         if rule == "fit":
             g = self._u0_torus(E, ell, self._I3_planar(E, ell), deriv=True)[1]
-            return numpy.array([g[0] - g[1], 0.0, g[2] + g[1] * ell / self._delta**2])
+            return numpy.array(
+                [
+                    g[0] - g[1],
+                    0.0,
+                    g[2] + g[1] * ell / self._delta**2,
+                    *(g[3:] - g[1] * ell**2 / self._delta**3),
+                ]
+            )
         if rule == "shell":
             dush = self._dushell(self._ushell(E, ell), E, ell)
-            return numpy.array([dush[0], 0.0, dush[1]])
+            return numpy.array([dush[0], 0.0, *dush[1:]])
 
         def edges(EE, LL):
             Ipl = self._I3_planar(EE, LL)
@@ -851,23 +920,71 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             - 2.0 * Lz**2 * (3.0 - 2.0 * sn2) / sn2**2
         )
 
+    def _dW_ddelta(self, q, Lz, W=0.0, lib="u"):
+        """The derivative of p_u^2 (for lib 'v', of p_v^2) with respect to
+        the focal length at fixed coordinate q, (E, I_3, L_z) and reference
+        u0, where the momentum squared is W (zero at a turning point): 2 (W
+        + L_z^2/sinh^2 u)/delta - 2 delta^2 dU/ddelta, and 2 (W + L_z^2/sin^2
+        v)/delta + 2 delta^2 dV/ddelta, with dU/ddelta = cosh^2 u sinh u
+        dPhi/dR(delta sinh u, 0) and dV/ddelta = cosh^2 u0 sinh u0
+        dPhi/dR(R_0, 0) - (sinh^2 u0 + sin^2 v) [sinh u0 sin v dPhi/dR +
+        cosh u0 cos v dPhi/dz] on the reference spheroid. A list of one
+        element when the focal length follows the tori (the fourth direction
+        of all that is differentiated along the integrals), else empty"""
+        if self._delta_rule is None:
+            return []
+        d, pot = self._delta, self._chart_pot
+        if lib == "u":
+            sh = numpy.sinh(q)
+            s2 = sh**2
+            dUV = (
+                numpy.cosh(q) ** 2
+                * sh
+                * evaluateRforces(pot, d * sh, 0.0, use_physical=False)
+            )
+        else:
+            u0 = self._staeckelwrap._u0
+            sh, ch, sn, cs = numpy.sinh(u0), numpy.cosh(u0), numpy.sin(q), numpy.cos(q)
+            s2 = sn**2
+            R, z = d * sh * sn, d * ch * cs
+            dUV = (sh**2 + s2) * (
+                sh * sn * evaluateRforces(pot, R, z, use_physical=False)
+                + ch * cs * evaluatezforces(pot, R, z, use_physical=False)
+            ) - ch**2 * sh * evaluateRforces(pot, d * sh, 0.0, use_physical=False)
+        return [2.0 * (W + Lz**2 / s2) / d + 2.0 * d**2 * dUV]
+
+    def _faces_ddelta(self, ush, Lz):
+        """The derivatives with respect to the focal length of the planar
+        and of the shell orbit's I_3 at fixed (E, L_z), as arrays of one
+        element or, for a single focal length, of none (_dW_ddelta)"""
+        d = self._delta
+        return (
+            numpy.array([-(Lz**2) / d**3] * len(self._dW_ddelta(ush, Lz))),
+            numpy.array(self._dW_ddelta(ush, Lz)) / (2.0 * d**2),
+        )
+
     def _tp_derivs_u(self, u, E, Lz):
         """Closed-form derivatives of a u turning point (a root of p_u^2)
         with respect to (E, I_3, L_z), by the level-set rule"""
         sh2 = numpy.sinh(u) ** 2
         d2 = self._delta**2
-        return -numpy.array([2.0 * d2 * sh2, -2.0 * d2, -2.0 * Lz / sh2]) / float(
-            self._dWu(u, E, Lz)
-        )
+        return -numpy.array(
+            [2.0 * d2 * sh2, -2.0 * d2, -2.0 * Lz / sh2, *self._dW_ddelta(u, Lz)]
+        ) / float(self._dWu(u, E, Lz))
 
     def _tp_derivs_v(self, v, E, Lz):
         """Closed-form derivatives of the v turning point with respect to
         (E, I_3, L_z), by the level-set rule"""
         sn2 = numpy.sin(v) ** 2
         d2 = self._delta**2
-        return -numpy.array([2.0 * d2 * sn2, 2.0 * d2, -2.0 * Lz / sn2]) / float(
-            self._dWv(v, E, Lz)
-        )
+        return -numpy.array(
+            [
+                2.0 * d2 * sn2,
+                2.0 * d2,
+                -2.0 * Lz / sn2,
+                *self._dW_ddelta(v, Lz, lib="v"),
+            ]
+        ) / float(self._dWv(v, E, Lz))
 
     # ---------- the circular, shell, and planar edges
     def _circular(self, Lz):
@@ -886,7 +1003,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "nu": verticalfreq(wrap, Rc, use_physical=False),
                 "Omc": ell / Rc**2,
             }
-        return self._circ_cache[ell]
+        circ = self._circ_cache[ell]
+        if self._delta_rule is not None:
+            # (its u in the current model, one of many)
+            circ = {**circ, "uc": numpy.arcsinh(circ["Rc"] / self._delta)}
+        return circ
 
     def _circular_RE(self, ell):
         """The radius, energy and u of the circular orbit of angular
@@ -897,8 +1018,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Ec = evaluatePotentials(
                 self._staeckelwrap, Rc, 0.0, use_physical=False
             ) + ell**2 / (2.0 * Rc**2)
-            self._circRE_cache[ell] = (Rc, Ec, numpy.arcsinh(Rc / self._delta))
-        return self._circRE_cache[ell]
+            self._circRE_cache[ell] = (Rc, Ec)
+        Rc, Ec = self._circRE_cache[ell]
+        return Rc, Ec, numpy.arcsinh(Rc / self._delta)
 
     def _on_circular(self, E, ell):
         """Whether E is the circular orbit's energy at angular momentum ell,
@@ -964,10 +1086,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """Derivatives of the shell u with respect to E and to L_z, by the
         level-set rule on d p_u^2 / du = 0"""
         d2W = float(self._d2Wu(ush, E, Lz))
-        return (
+        out = (
             -2.0 * self._delta**2 * numpy.sinh(2.0 * ush) / d2W,
             -4.0 * Lz * numpy.cosh(ush) / numpy.sinh(ush) ** 3 / d2W,
         )
+        if self._delta_rule is None:
+            return out
+        # and with respect to the focal length: R = delta sinh(u) of the
+        # shell orbit is where 2 R (E - Phi) - (delta^2 + R^2) Phi' + L_z^2
+        # delta^2 / R^3 vanishes, with R-derivative p_u^2'' / (2 delta^2 cosh^2 u)
+        d, sh, ch = self._delta, numpy.sinh(ush), numpy.cosh(ush)
+        R = d * sh
+        dR = -4.0 * d**3 * ch**2 * (Lz**2 / R**2 - self._RdPhi(R)) / R / d2W
+        return (*out, (dR - sh) / (d * ch))
 
     def _I3_planar(self, E, Lz):
         """I_3 of the planar orbit (J_z = 0) of (E, L_z): closed form in the
@@ -1015,7 +1146,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 * d2
                 / (-0.5 * float(self._d2Wu(ush, E, Lz)) * numpy.sinh(2.0 * ush) ** 2)
             )
-            Qu, dQu = 0.0, K * numpy.array([-sh2, 1.0, Lz / (d2 * sh2)])
+            dIshD = self._faces_ddelta(ush, Lz)[1]
+            Qu, dQu = 0.0, K * numpy.array([-sh2, 1.0, Lz / (d2 * sh2), *(-dIshD)])
         else:
             rho = 2.0 * numpy.log(numpy.tanh(umax) / numpy.tanh(umin))
             dumin, dumax = (self._tp_derivs_u(u, E, Lz) for u in (umin, umax))
@@ -1029,7 +1161,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
             if I3 <= Ipl + 1e-12 * (1.0 + numpy.fabs(Ipl) + numpy.fabs(Ish)):
                 K = 2.0 * d2 / (-0.5 * float(self._d2Wv(0.5 * numpy.pi, E, Lz)))
-                Qv, dQv = 0.0, K * numpy.array([1.0, 1.0, -Lz / d2])
+                dIplD = self._faces_ddelta(ush, Lz)[0]
+                Qv, dQv = 0.0, K * numpy.array([1.0, 1.0, -Lz / d2, *(-dIplD)])
             else:
                 # while a column's nodes are placed, from its table and two
                 # chord steps on p_v^2 (the second one negligible), else by
@@ -1047,7 +1180,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 Qv = -2.0 * numpy.log(numpy.sin(vmin))
                 # the level-set rule on the turning point (_tp_derivs_v)
                 sn2 = numpy.sin(vmin) ** 2
-                dvmin = -numpy.array([2.0 * d2 * sn2, 2.0 * d2, -2.0 * Lz / sn2]) / dW
+                dWD = self._dW_ddelta(vmin, Lz, lib="v")
+                dvmin = -numpy.array([2.0 * d2 * sn2, 2.0 * d2, -2.0 * Lz / sn2, *dWD])
+                dvmin = dvmin / dW
                 if self._adaptive:
                     # the model of the planar orbit changes with (E, L_z)
                     # along its reference curve, and the turning point with it
@@ -1059,6 +1194,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             g[0] - g[1],
                             0.0,
                             (g[2] + g[1] * numpy.fabs(Lz) / d2) * numpy.sign(Lz),
+                            *(g[3:] + g[1] * self._faces_ddelta(ush, Lz)[0]),
                         ]
                     )
                 dQv = -2.0 / numpy.tan(vmin) * dvmin
@@ -1074,12 +1210,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             ush = self._ushell(E, Lz)
             sh2 = numpy.sinh(ush) ** 2
             Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
-            dIpl = numpy.array([-1.0, Lz / d2])
-            dIsh = numpy.array([sh2, -Lz / (d2 * sh2)])
+            dIplD, dIshD = self._faces_ddelta(ush, Lz)
+            dIpl = numpy.array([-1.0, Lz / d2, *dIplD])
+            dIsh = numpy.array([sh2, -Lz / (d2 * sh2), *dIshD])
             faces = []
             for I, dI in ((Ipl, dIpl), (Ish, dIsh)):
                 lam, dlam = self._axis_reach(E, Lz, I)
-                faces += [lam, dlam[[0, 2]] + dlam[1] * dI]
+                faces += [lam, numpy.delete(dlam, 1) + dlam[1] * dI]
             self._reach_cache[key] = (Ipl, dIpl, Ish, dIsh, *faces)
         return self._reach_cache[key]
 
@@ -1100,21 +1237,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Ipl, dIpl, Ish, dIsh, lpl, dlpl, lsh, dlsh = self._axis_reach_faces(E, Lz)
         a, DI = self._axisw, Ish - Ipl
         f = (I3 - Ipl) / DI
-        df = (
-            numpy.array(
-                [
-                    -(dIpl[0] + f * (dIsh[0] - dIpl[0])),
-                    1.0,
-                    -(dIpl[1] + f * (dIsh[1] - dIpl[1])),
-                ]
-            )
-            / DI
-        )
+        # (with a fourth partial, along the focal length, for a family
+        # whose focal length follows its tori: _dW_ddelta)
+        df = numpy.insert(-(dIpl + f * (dIsh - dIpl)), 1, 1.0) / DI
         lam, dlam = self._axis_reach(E, Lz, I3)
         D = 1.0 + a * (lsh - lpl)
         y = (f + a * (lam - lpl)) / D
-        dN = df + a * (dlam - numpy.array([dlpl[0], 0.0, dlpl[1]]))
-        dD = a * numpy.array([dlsh[0] - dlpl[0], 0.0, dlsh[1] - dlpl[1]])
+        dN = df + a * (dlam - numpy.insert(dlpl, 1, 0.0))
+        dD = a * numpy.insert(dlsh - dlpl, 1, 0.0)
         return y, (dN - y * dD) / D
 
     def _I3_of_y(self, E, Lz, y, start=None, node=False):
@@ -1158,7 +1288,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 umin -= float(self._Wu(umin, E, Lz, I3) / self._dWu(umin, E, Lz))
                 umax -= float(self._Wu(umax, E, Lz, I3) / self._dWu(umax, E, Lz))
             self._u_turning_memo[(E, Lz, I3)] = (umin, umax, ush, udeg)
-        return I3, numpy.array([-dy[0], 1.0, -dy[2]]) / dy[1]
+        return I3, numpy.insert(-numpy.delete(dy, 1), 1, 1.0) / dy[1]
 
     def _I3_starts(self, E, Lz, ys):
         """First guesses of the I_3 at the third-integral variable's values
@@ -1520,8 +1650,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         kept only during the set-up by a family (the second-order tables of
         explicit tori, computed when first asked for, sample the tori again)"""
         self._tps = []
-        for E, Lz, I3 in zip(self._Es, self._Lzs, self._I3s):
-            with self._in_chart(E, Lz, I3):
+        for ii, (E, Lz, I3) in enumerate(zip(self._Es, self._Lzs, self._I3s)):
+            with self._in_chart(E, Lz, I3, self._node_delta(ii)):
                 self._tps.append(self._turning_points(E, Lz, I3))
         return None
 
@@ -1651,11 +1781,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """Fit the isochrone's (GM, b) to the potential's rotation curve
         over the radial range of the tori (zero-point free, log residuals
         on geometrically spaced radii)"""
-        rlo = min(self._delta * numpy.sinh(tp[0] - tp[1]) for tp in self._tps)
+        ds = [self._node_delta(k) or self._delta for k in range(len(self._tps))]
+        rlo = min(d * numpy.sinh(tp[0] - tp[1]) for d, tp in zip(ds, self._tps))
         rhi = max(
-            self._delta
-            * numpy.sqrt(numpy.sinh(tp[0] + tp[1]) ** 2 + numpy.sin(tp[2]) ** 2)
-            for tp in self._tps
+            d * numpy.sqrt(numpy.sinh(tp[0] + tp[1]) ** 2 + numpy.sin(tp[2]) ** 2)
+            for d, tp in zip(ds, self._tps)
         )
         rlo = max(rlo, 1e-3 * rhi)
         rf = numpy.geomspace(rlo, rhi, 25)
@@ -1787,11 +1917,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dudtau = wu * st
         dWdu = self._dWu(u, E, Lz)
         sh2 = numpy.sinh(u) ** 2
-        dWda = (2.0 * d2 * sh2, -2.0 * d2 * numpy.ones_like(u), -2.0 * Lz / sh2)
+        dWda = (
+            2.0 * d2 * sh2,
+            -2.0 * d2 * numpy.ones_like(u),
+            -2.0 * Lz / sh2,
+            *self._dW_ddelta(u, Lz, pu**2),
+        )
+        ndir = len(dWda)
         _, FAa, FAe = self._aAIinv._cumulative(a, e, eta)
         fAeta = self._aAIinv._flux_derivs(a, e, eta)[0]
-        rhs = numpy.empty((self._ntau, 3))
-        for k in range(3):
+        rhs = numpy.empty((self._ntau, ndir))
+        for k in range(ndir):
             du = dsup[0, k] - dsup[1, k] * ct
             dft = (dWda[k] + dWdu * du) / (2.0 * pu) * dudtau + pu * dsup[1, k] * st
             mt, qt, _, qt0 = _cumulative(dft)
@@ -1821,7 +1957,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dWdv = self._dWv(v, E, Lz)
         sn2 = numpy.sin(v) ** 2
         dWda = [2.0 * d2 * sn2, 2.0 * d2 * numpy.ones_like(v), -2.0 * Lz / sn2]
-        dLz = [0.0, 0.0, 1.0]
+        dWda += self._dW_ddelta(v, Lz, pv**2, lib="v")
+        dLz = [0.0, 0.0, 1.0, 0.0][: len(dWda)]
         if dVdu0 is not None:
             dWda.append(2.0 * d2 * dVdu0)
             dLz.append(0.0)
@@ -1866,14 +2003,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # the trapezoid rule on the periodic grid is spectrally accurate; a
         # degenerate libration has the harmonic limit, J = W(q_0) / (2 sqrt
         # beta) with beta = -W''(q_0)/2 at the degenerate point
-        M = numpy.empty((2, 3))
-        dsup = numpy.full((3, 3), numpy.nan)
+        ndir = 3 + (self._delta_rule is not None)
+        M = numpy.empty((2, ndir))
+        dsup = numpy.full((3, ndir), numpy.nan)
+        # (half the derivatives of the momenta squared; the fourth direction,
+        # of a family whose focal length follows its tori, is _dW_ddelta's)
+        half = lambda dW, w=1.0: [0.5 * numpy.mean(t * w) for t in dW]  # noqa: E731
         if udeg:
             sqb = numpy.sqrt(-0.5 * float(self._d2Wu(ush, E, Lz)))
             sh2 = numpy.sinh(ush) ** 2
-            M[0] = numpy.array([d2 * sh2, -d2, -Lz / sh2]) / sqb
-            dE, dLz = self._dushell(ush, E, Lz)
-            dsup[0] = [dE, 0.0, dLz]
+            dWD = half(self._dW_ddelta(ush, Lz))
+            M[0] = numpy.array([d2 * sh2, -d2, -Lz / sh2, *dWD]) / sqb
+            dush = self._dushell(ush, E, Lz)
+            dsup[0] = [dush[0], 0.0, *dush[1:]]
         else:
             u, pu = smp["u"], smp["pu"]
             ratio = wu * st / pu
@@ -1882,13 +2024,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.mean(d2 * sh2 * ratio),
                 -d2 * numpy.mean(ratio),
                 -Lz * numpy.mean(ratio / sh2),
+                *half(self._dW_ddelta(u, Lz, pu**2), ratio),
             ]
             dinner = self._tp_derivs_u(uc - wu, E, Lz)
             douter = self._tp_derivs_u(uc + wu, E, Lz)
             dsup[0], dsup[1] = 0.5 * (dinner + douter), 0.5 * (douter - dinner)
         if vdeg:
             sqb = numpy.sqrt(-0.5 * float(self._d2Wv(0.5 * numpy.pi, E, Lz)))
-            M[1] = numpy.array([d2, d2, -Lz]) / sqb
+            dWD = half(self._dW_ddelta(0.5 * numpy.pi, Lz, lib="v"))
+            M[1] = numpy.array([d2, d2, -Lz, *dWD]) / sqb
         else:
             v, pv = smp["v"], smp["pv"]
             ratio = wv * st / pv
@@ -1897,13 +2041,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.mean(d2 * sn2 * ratio),
                 d2 * numpy.mean(ratio),
                 -Lz * numpy.mean(ratio / sn2),
+                *half(self._dW_ddelta(v, Lz, pv**2, lib="v"), ratio),
             ]
             dsup[2] = -self._tp_derivs_v(0.5 * numpy.pi - wv, E, Lz)
         # d(E, I_3, L_z)/d(J_R, J_z, J_phi), from J_phi = L_z
-        N = numpy.linalg.inv(numpy.vstack((M, [0.0, 0.0, 1.0])))
+        N = numpy.linalg.inv(numpy.vstack((M[:, :3], [0.0, 0.0, 1.0])))
         L = jz + numpy.fabs(Lz)
         c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
-        dJr, dL = M[0], M[1] + numpy.array([0.0, 0.0, numpy.sign(Lz)])
+        dJr, dL = M[0], M[1] + numpy.array([0.0, 0.0, numpy.sign(Lz), 0.0][:ndir])
         lift_u, lift_v = self._lift(smp)
         dVu = Ju = None
         if self._adaptive and not vdeg:
@@ -1964,9 +2109,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 nh,
                 dLu0=Ju,
             )
-            node["dDmu"] = slopes[:, :3]
+            node["dDmu"] = slopes[:, :ndir]
             if Ju is not None:
-                node["du0u"] = slopes[:, 3]
+                node["du0u"] = slopes[:, ndir]
         if not vdeg:
             # likewise the auxiliary's polar action along the lifted v
             # libration, through its total angular momentum
@@ -1998,8 +2143,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     nh,
                     dVdu0=dVu,
                 )
-                node["dDmv"] = slopes[:, :3]
-                node["du0"] = (Ju, wu0, slopes[:, 3])
+                node["dDmv"] = slopes[:, :ndir]
+                node["du0"] = (Ju, wu0, slopes[:, ndir])
             else:
                 node["dDmv"] = self._map_slopes_v(
                     smp, L, c, lift_v["zeta"], dL, dsup[2], nh
@@ -2480,37 +2625,134 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._wIs = numpy.linspace(box[2][0], box[2][1], nI3)
         self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
         self._E_tab = numpy.empty((nE, nLz))
-        self._ush_tab = numpy.empty((nE, nLz))
-        self._Ipl_tab = numpy.empty((nE, nLz))
-        self._Ish_tab = numpy.empty((nE, nLz))
+        self._ush_tab = numpy.empty((nE, nI3, nLz))
+        self._Ipl_tab = numpy.empty((nE, nI3, nLz))
+        self._Ish_tab = numpy.empty((nE, nI3, nLz))
         I3s = numpy.empty((nE, nI3, nLz))
-        self._dI_tab = numpy.zeros((nE, nI3, nLz, 3))
+        self._dI_tab = numpy.zeros((nE, nI3, nLz, 3 + (self._delta_rule is not None)))
+        varies = self._delta_rule is not None
+        if varies:
+            self._setup_delta_tab()
         for iL, Lz in enumerate(self._Lzgrid):
-            circ = self._circular(Lz)
-            Ec = circ["Ec"]
+            Ec = self._circular(Lz)["Ec"]
             for iE, wE in enumerate(self._wEs):
-                E = self._E_of_xL(wE**2, Lz)[0]
-                if wE == 0.0:
-                    ush = circ["uc"]
-                    Ipl = Ish = self._I3_planar(Ec, Lz)
-                    I3s[iE, :, iL] = Ipl
-                else:
-                    with self._in_chart(E, Lz):
+                E, faces = self._E_of_xL(wE**2, Lz)[0], None
+                # the nodes of (E, L_z) are placed in one Staeckel model
+                # (up to their reference curves); with a focal length that
+                # follows the tori that is the model of the rule's focal
+                # length at the middle of the third-integral range, and each
+                # node then moves to its own (_own_models)
+                with self._in_chart(
+                    E, Lz, delta=self._delta_col[iE, iL, 0] if varies else None
+                ):
+                    if wE == 0.0:
+                        ush = self._circular(Lz)["uc"]
+                        Ipl = Ish = self._I3_planar(Ec, Lz)
+                        I3s[iE, :, iL] = Ipl
+                    else:
                         ush = self._ushell(E, Lz)
                         Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
                         starts = self._I3_starts(E, Lz, self._ys)
                         for iI, y in enumerate(self._ys):
                             I3s[iE, iI, iL], self._dI_tab[iE, iI, iL] = self._I3_of_y(
-                                E, Lz, y, starts[iI], node=True
+                                E, Lz, y, starts[iI], node=not varies
                             )
+                        faces = self._axis_reach_faces(E, Lz)[:4]
                 self._E_tab[iE, iL] = E
-                self._ush_tab[iE, iL] = ush
-                self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL] = Ipl, Ish
+                self._ush_tab[iE, :, iL] = ush
+                self._Ipl_tab[iE, :, iL], self._Ish_tab[iE, :, iL] = Ipl, Ish
+                if varies:
+                    self._own_models(iE, iL, I3s, faces)
         # the tori in (iE, iI, iL) order
         self._Es = numpy.repeat(self._E_tab[:, None, :], nI3, axis=1).flatten()
         self._Lzs = numpy.tile(self._Lzgrid, nE * nI3)
         self._I3s = I3s.flatten()
         return None
+
+    def _setup_delta_tab(self):
+        """The focal lengths of the nodes of a family whose focal length
+        follows its tori, from the rule delta(E, L_z, y) called with the
+        arrays of all nodes at once, and their partials with respect to the
+        grid coordinates (x, y, L_z), by central differences of the rule
+        (FINITE DIFFERENCES IN THE SET-UP, of the user's callable alone)"""
+        Egrid = numpy.array(
+            [[self._E_of_xL(wE**2, Lz) for Lz in self._Lzgrid] for wE in self._wEs]
+        )
+        E, dE_dx, dE_dL = (
+            numpy.repeat(Egrid[:, None, :, k], len(self._ys), axis=1) for k in range(3)
+        )
+        y = self._ys[None, :, None] + 0.0 * E
+        L = self._Lzgrid[None, None, :] + 0.0 * E
+
+        def rule(*a):
+            return conversion.parse_length(self._delta_rule(*a), ro=self._ro) + 0.0 * E
+
+        self._delta_tab = rule(E, L, y)
+        if not numpy.all(self._delta_tab > 0.0):
+            raise ValueError("the callable delta= has to return positive focal lengths")
+        hE, hy, hL = 1e-5 * (E[-1:] - E[:1]), 1e-5, 1e-6 * L
+
+        def partials(yy):
+            return (
+                (rule(E + hE, L, yy) - rule(E - hE, L, yy)) / (2.0 * hE),
+                (rule(E, L + hL, yy) - rule(E, L - hL, yy)) / (2.0 * hL),
+            )
+
+        DE, DL = partials(y)
+        Dy = (rule(E, L, y + hy) - rule(E, L, y - hy)) / (2.0 * hy)
+        self._ddelta_tab = numpy.stack([DE * dE_dx, Dy, DL + DE * dE_dL], axis=-1)
+        # the placement's model of each (E, L_z) and its partials (_setup_grid)
+        mid = 0.5 + 0.0 * y
+        self._delta_col = numpy.stack([rule(E, L, mid), *partials(mid)], axis=-1)[:, 0]
+        return None
+
+    def _own_models(self, iE, iL, I3s, faces):
+        """Move the nodes of an (E, L_z), placed in one model (_setup_grid),
+        to the models of their own focal lengths: a node keeps its fraction
+        f of the way of I_3 from the planar to the shell orbit's. Its I_3
+        and that I_3's partials in (E, y, L_z, delta) at fixed grid
+        coordinates follow from those of f (faces: the planar and shell I_3
+        of the placement's model with partials; None on the circular face)"""
+        E, Lz = self._E_tab[iE, iL], self._Lzgrid[iL]
+        if faces is not None:
+            Ipl, dIpl, Ish, dIsh = faces
+            dc = self._delta_col[iE, iL, 1:]
+
+            def along(d):
+                # -> (d/dE, d/dy, d/dL_z) along the placement's delta(E, L_z)
+                return numpy.array(
+                    [d[0] + d[-1] * dc[0], d[1] * (len(d) == 4), d[-2] + d[-1] * dc[1]]
+                )
+
+        for iI in range(len(self._ys)):
+            with self._in_chart(E, Lz, False, self._delta_tab[iE, iI, iL]):
+                if faces is None:
+                    ush = self._circular(Lz)["uc"]
+                    Ipn = Isn = I3s[iE, iI, iL] = self._I3_planar(E, Lz)
+                else:
+                    f = (I3s[iE, iI, iL] - Ipl) / (Ish - Ipl)
+                    df = (
+                        along(self._dI_tab[iE, iI, iL])
+                        - along(dIpl)
+                        - f * (along(dIsh) - along(dIpl))
+                    ) / (Ish - Ipl)
+                    ush, d2 = self._ushell(E, Lz), self._delta**2
+                    sh2 = numpy.sinh(ush) ** 2
+                    Ipn, Isn = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
+                    dIplD, dIshD = self._faces_ddelta(ush, Lz)
+                    gp = numpy.array([-1.0, 0.0, Lz / d2, dIplD[0]])
+                    gs = numpy.array([sh2, 0.0, -Lz / (d2 * sh2), dIshD[0]])
+                    I3s[iE, iI, iL] = Ipn + f * (Isn - Ipn)
+                    self._dI_tab[iE, iI, iL] = (
+                        gp + f * (gs - gp) + (Isn - Ipn) * numpy.append(df, 0.0)
+                    )
+            self._ush_tab[iE, iI, iL] = ush
+            self._Ipl_tab[iE, iI, iL], self._Ish_tab[iE, iI, iL] = Ipn, Isn
+        return None
+
+    def _node_delta(self, ii):
+        """The ii-th torus's focal length when it follows the tori, else None"""
+        return None if self._delta_rule is None else float(self._delta_tab.flat[ii])
 
     def _target_box(self, Lmin, Lmax):
         """The padded (L_z, w_E, w_I) box that localizes the grid on the
@@ -2731,8 +2973,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         analytic (E, I_3)(w_E, w_I, L_z) relation; on the degenerate faces
         they are the harmonic limits."""
         nE, nI, nL = len(self._wEs), len(self._wIs), len(self._Lzgrid)
-        npt, d2 = self._npt, self._delta**2
-        A_tab, A_dx, A_dy, A_dL = (numpy.zeros((nE, nI, nL, 3)) for _ in range(4))
+        npt, varies = self._npt, self._delta_rule is not None
+        # (with the focal length as a fourth table when it follows the tori)
+        A_tab, A_dx, A_dy, A_dL = (
+            numpy.zeros((nE, nI, nL, 3 + varies)) for _ in range(4)
+        )
         U_tab, U_dwE, U_dsu, U_dL = (
             numpy.zeros((nE, nI, nL, 1 + npt)) for _ in range(4)
         )
@@ -2744,8 +2989,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             iE, rest = divmod(ii, nI * nL)
             iI, iL = divmod(rest, nL)
             wE, wI, Lz = self._wEs[iE], self._wIs[iI], self._Lzgrid[iL]
-            with self._in_chart(self._E_tab[iE, iL], Lz, self._I3s[ii]):
-                y = self._ys[iI]
+            with self._in_chart(
+                self._E_tab[iE, iL], Lz, self._I3s[ii], self._node_delta(ii)
+            ):
+                y, d2 = self._ys[iI], self._delta**2
                 su, sv = numpy.cos(0.5 * numpy.pi * wI), numpy.sin(0.5 * numpy.pi * wI)
                 if True:
                     node = self._node_tables(ii)
@@ -2753,7 +3000,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         node["perr_u"],
                         node["perr_v"],
                     )
-                    A_tab[iE, iI, iL] = [node["jr"], node["jz"], node["uc"]]
+                    A_tab[iE, iI, iL, :3] = [node["jr"], node["jz"], node["uc"]]
+                    if varies:
+                        dD = self._ddelta_tab[iE, iI, iL]
+                        A_tab[iE, iI, iL, 3] = self._delta
+                        (
+                            A_dx[iE, iI, iL, 3],
+                            A_dy[iE, iI, iL, 3],
+                            A_dL[iE, iI, iL, 3],
+                        ) = dD
                     U_tab[iE, iI, iL, 0], U_tab[iE, iI, iL, 1:] = (
                         node["wu"],
                         node["Dmu"],
@@ -2764,8 +3019,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     )
                     circ = self._circular(Lz)
                     Ec = circ["Ec"]
-                    E, ush = self._E_tab[iE, iL], self._ush_tab[iE, iL]
-                    Ipl, Ish = self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL]
+                    E, ush = self._E_tab[iE, iL], self._ush_tab[iE, iI, iL]
+                    Ipl, Ish = self._Ipl_tab[iE, iI, iL], self._Ish_tab[iE, iI, iL]
                     _, dE_dx, dE_dL = self._E_of_xL(wE**2, Lz)
                     if wE == 0.0:
                         # the circular face: both librations harmonic, with
@@ -2780,7 +3035,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             -0.5 * float(self._d2Wv(0.5 * numpy.pi, Ec, Lz))
                         )
                         ch2 = numpy.cosh(uc) ** 2
-                        A_dx[iE, iI, iL] = [
+                        A_dx[iE, iI, iL, :3] = [
                             dE_dx * (1.0 - y) * d2 * ch2 / sqbu,
                             dE_dx * y * d2 * ch2 / sqbv,
                             0.0,
@@ -2794,6 +3049,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             / (circ["Rc"] ** 3 * circ["kappa"] ** 2)
                             / (self._delta * numpy.cosh(uc))
                         )
+                        if varies:
+                            # the circular orbit's u changes with the focal
+                            # length from node to node
+                            A_dy[iE, iI, iL, 2] = -numpy.tanh(uc) / self._delta * dD[1]
+                            A_dL[iE, iI, iL, 2] -= numpy.tanh(uc) / self._delta * dD[2]
                         U_dwE[iE, iI, iL, 0] = (
                             numpy.sqrt(2.0 * d2 * ch2 * dE_dx) / sqbu * su
                         )
@@ -2801,14 +3061,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             numpy.sqrt(2.0 * d2 * ch2 * dE_dx) / sqbv * sv
                         )
                         continue
-                    dI_dE, dI_dy, dI_dL = self._dI_tab[iE, iI, iL]
+                    dI_dE, dI_dy, dI_dL, *dI_dD = self._dI_tab[iE, iI, iL]
 
                     def chain(q):
                         # (dq/dE, dq/dI_3, dq/dL_z) -> (dq/dx, dq/dy, dq/dL_z)
                         # at fixed grid coordinates
                         qE, qI, qL = q[..., 0], q[..., 1], q[..., 2]
                         qx = (qE + qI * dI_dE) * dE_dx
-                        return qx, qI * dI_dy, qL + qI * dI_dL + qx / dE_dx * dE_dL
+                        out = (qx, qI * dI_dy, qL + qI * dI_dL + qx / dE_dx * dE_dL)
+                        if not varies:
+                            return out
+                        # plus the derivative along the focal length at
+                        # fixed grid coordinates times the rule's, when the
+                        # focal length follows the tori
+                        qD = q[..., 3] + qI * dI_dD[0]
+                        return tuple(o + qD * d for o, d in zip(out, dD))
 
                     M, dsup = node["M"], node["dsup"]
                     udeg, vdeg = node["dDmu"] is None, node["dDmv"] is None
@@ -2917,7 +3184,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.moveaxis(V_tab[:, [1, 2], :, 1:], 1, 0),
                 numpy.moveaxis(V_dsv[:, [1, 2], :, 1:], 1, 0),
             )
-        self._family_format = self._FAMILY_FORMAT
+        self._family_format = self._FAMILY_FORMAT + varies
         self._perr_u_tab, self._perr_v_tab = perr_u, perr_v
         self._A_tab, self._A_dx, self._A_dy, self._A_dL = A_tab, A_dx, A_dy, A_dL
         self._U_tab, self._U_dwE, self._U_dsu, self._U_dL = U_tab, U_dwE, U_dsu, U_dL
@@ -3102,6 +3369,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "udeg": jr == 0.0,
             "vdeg": jz == 0.0,
         }
+        if self._delta_rule is not None:
+            # the torus's own focal length and its chain
+            tab["delta"] = A[3]
+            tab["ddelta"] = Ax[3] * N[0] + Ay[3] * N[1] + AL[3] * N[2]
         wE = numpy.sqrt(x)
         for deg, ip, s, fs, key in (
             ("udeg", self._U_ip, numpy.sqrt(1.0 - y), -1.0, "u"),
@@ -3180,7 +3451,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.tile(xs, len(left)),
                 numpy.tile(ys, len(left)),
                 numpy.repeat(ell[left], len(xs)),
-            )[0].reshape(len(left), len(xs), 3)
+            )[0].reshape(len(left), len(xs), -1)
             k = numpy.argmin(
                 numpy.fabs(A[:, :, 0] - jr[left, None])
                 + numpy.fabs(A[:, :, 1] - jz[left, None]),
@@ -3270,7 +3541,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         derivatives d(x, y, |L_z|)/d(J_R, J_z, J_phi), and the group of the
         torus's cell, which is the pair of the cell's numbers of
         coefficients of the u and of the v map (_nharm_cell_u,
-        _nharm_cell_v) as one integer"""
+        _nharm_cell_v) as one integer; for a family whose focal length
+        follows its tori, each torus's focal length and its chain come
+        after the derivatives"""
         sgn = numpy.sign(Lz)
         x, y, ell, inside = self._locate_tori(jr, jz, Lz)
         A, Ax, Ay, AL = self._A_ip.batch_all(x, y, ell)
@@ -3283,6 +3556,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         N[:, 2, 2] = sgn
         _, dE_dx, dE_dL = self._E_of_xL_array(x, ell)
         wE = numpy.sqrt(x)
+        dil = (
+            [A[:, 3], sum(G[:, 3, None] * N[:, k] for k, G in enumerate((Ax, Ay, AL)))]
+            if self._delta_rule is not None
+            else []
+        )
         return (
             x,
             y,
@@ -3292,6 +3570,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             + Ay[:, 2, None] * N[:, 1]
             + AL[:, 2, None] * N[:, 2],
             N,
+            *dil,
             self._nharm_cell_u[self._U_ip.cells(wE, numpy.sqrt(1.0 - y), ell)]
             * (self._nptv + 1)
             + self._nharm_cell_v[self._V_ip.cells(wE, numpy.sqrt(y), ell)],
@@ -3669,6 +3948,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     "tori; to use interpolation, initialize with setup_interp=True"
                 )
             return self._jrs[ii], self._jzs[ii]
+        if self._delta_rule is not None:
+            raise NotImplementedError(
+                "(E, L_z, I_3) do not label the tori of a family whose focal "
+                "length follows them: I_3 is that of each torus's own model"
+            )
         ell = numpy.fabs(Lz)
         self._check_Lz(ell)
         circ = self._circular(ell)
@@ -3833,6 +4117,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         actions of shape (n,1) with angles of shape (m,): every angle on
         every torus as (n,m) arrays); a single torus returns its
         frequencies as floats"""
+        if self._delta_rule is not None:
+            raise NotImplementedError(
+                "the points of a family whose focal length follows its tori are "
+                "not implemented yet"
+            )
         scalar = numpy.ndim(jr) == 0 and numpy.ndim(jphi) == 0 and numpy.ndim(jz) == 0
         jr, jphi, jz, angler, anglephi, anglez = numpy.broadcast_arrays(
             *(

@@ -13227,6 +13227,126 @@ def test_actionAngleStaeckelInverse_u0_rules_points():
     return None
 
 
+def test_actionAngleStaeckelInverse_delta_callable_tables():
+    # A callable delta(E, Lz, y) lets the focal length follow the tori of a
+    # family: it is a fourth table, and the derivative tables carry the
+    # variation of the model along it (the frequencies are dE/dJ along it)
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import LogarithmicHaloPotential, evaluatePotentials, rl
+
+    pot = _staeckel_inverse_potential()
+    grid = dict(setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=3.5, progressbar=False)
+    grid.update(nE=4, nLz=4, nI3=4, mm_npt=32)
+    calls = []
+
+    def exact(E, Lz, y):
+        calls.append(numpy.shape(E) + numpy.shape(Lz) + numpy.shape(y))
+        return _STAECKEL_INVERSE_DELTA
+
+    base = actionAngleStaeckelInverse(pot=pot, **grid)
+    const = actionAngleStaeckelInverse(pot=pot, delta=exact, **grid)
+    assert all(c == (4, 4, 4) * 3 for c in calls), (
+        "A callable delta= is not called with the arrays of all the grid's nodes"
+    )
+    tori = [(0.06, 0.93, 0.10), (0.15, 1.21, 0.03), (0.05, 1.0, 0.0), (0.0, 1.0, 0.05)]
+    for jr, Lz, jz in tori:
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(const.Freqs(jr, Lz, jz)) / base.Freqs(jr, Lz, jz) - 1.0
+                )
+            )
+            < 1e-9
+        ), "A rule that returns a Staeckel potential's focal length changes its family"
+    acts = numpy.array(tori[:2]).T
+    assert numpy.all(const.in_domain(*acts)) and not numpy.any(
+        const.in_domain(5.0 + acts[0], acts[1], acts[2])
+    ), "The domain of a family with a callable delta= is not found"
+    assert numpy.all(
+        numpy.array(pickle.loads(pickle.dumps(const)).Freqs(*acts))
+        == numpy.array(const.Freqs(*acts))
+    ), "A pickled family with a callable delta= does not evaluate identically"
+    # a general potential: with y the fraction of the way from the planar
+    # to the shell orbit's I_3 (axis_weight = 0) and a rule that depends on
+    # it, and with the default y and a rule that does not, so that the same
+    # tori can be set up explicitly, each in its own model
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    Rinf = 4.0
+    wide = dict(setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=Rinf, progressbar=False)
+
+    def edges(Lz):
+        Rc = rl(lp, Lz)
+        Ec = evaluatePotentials(lp, Rc, 0.0) + Lz**2 / 2.0 / Rc**2
+        return Ec, evaluatePotentials(lp, Rinf, 0.0) + Lz**2 / 2.0 / Rinf**2 - Ec
+
+    for rule, axis_weight in (
+        (lambda E, Lz, y: 0.8 * (1.0 - 0.25 * y + 0.1 * (Lz - 1.0)), 0.0),
+        (lambda E, Lz, y: 0.8 * (1.0 + 0.1 * (Lz - 1.0) + 0.3 * E), 0.25),
+    ):
+        knobs = dict(axis_weight=axis_weight, mm_npt=32)
+
+        def actions(E, Lz, y):
+            # (J_R, J_z) of the torus (E, L_z, y), set up in its own model
+            Ec, dE = edges(Lz)
+            delta = rule(E, Lz, y)
+            lab = _staeckel_inverse_general_labels(
+                lp, delta, Rinf, Lz, (E - Ec) / dE, y
+            )
+            kw = dict(Es=[lab[0]], Lzs=[Lz], I3s=[lab[2]], mm_npt=32, progressbar=False)
+            aAI = actionAngleStaeckelInverse(pot=lp, delta=delta, u0="torus", **kw)
+            return aAI.JR(*lab), aAI.Jz(*lab)
+
+        refs = []
+        for Lz, fE, y in ((1.05, 0.45, 0.55), (0.9, 0.3, 0.8)):
+            E = edges(Lz)[0] + fE * edges(Lz)[1]
+            jr, jz = actions(E, Lz, y)
+            refs.append(
+                (jr, Lz, jz, _staeckel_inverse_rule_frequencies(actions, E, Lz, y))
+            )
+        errs = numpy.array(
+            [
+                [
+                    numpy.amax(
+                        numpy.fabs(numpy.array(fam.Freqs(jr, Lz, jz)) / Om - 1.0)
+                    )
+                    for jr, Lz, jz, Om in refs
+                ]
+                for fam in (
+                    actionAngleStaeckelInverse(
+                        pot=lp, delta=rule, nE=n, nLz=n, nI3=n, **wide, **knobs
+                    )
+                    for n in (4, 7)
+                )
+            ]
+        )
+        assert numpy.all(errs[1] < errs[0] / 5.0) and numpy.all(errs[1] < 3e-4), (
+            "The frequencies of a family whose focal length follows its tori "
+            "do not converge between nodes to dE/dJ along the family of models"
+        )
+    for err, match, kw in (
+        (
+            TypeError,
+            "requires setup_interp=True",
+            dict(Es=[-1.5], Lzs=[1.0], I3s=[1.0]),
+        ),
+        (TypeError, "built-in rule for the reference curve", dict(u0=1.0, **wide)),
+        (
+            ValueError,
+            "positive focal length",
+            dict(delta=lambda E, L, y: 0.5 - y, **wide),
+        ),
+    ):
+        with pytest.raises(err, match=match):
+            actionAngleStaeckelInverse(**{**dict(pot=lp, delta=rule), **kw})
+    with pytest.raises(NotImplementedError, match="do not label the tori"):
+        const.JR(-1.5, 1.0, 1.0)
+    with pytest.raises(NotImplementedError, match="not implemented yet"):
+        const(0.06, 0.93, 0.10, 1.0, 2.0, 3.0)
+    return None
+
+
 def test_actionAngleStaeckelInverse_target():
     # target= localizes the family's grid on the tori of a set of phase-space
     # points, through the same label relations the node lattice uses: the
