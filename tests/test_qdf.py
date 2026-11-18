@@ -991,26 +991,54 @@ def test_sampleV_interpolate():
         R_max=1.0,
         z_max=0.3,
     )
-    # test absolute value, also test non-astropy unit-support
+    # test the symmetry under (z, vz) -> (-z, -vz), also test non-astropy
+    # unit-support
     numpy.random.seed(1)
+    zs = numpy.array([0.1, 0.2, 0.3, 0.4])
     pos = qdf.sampleV_interpolate(
         numpy.array([0.7, 0.8, 0.9, 1.0]),
-        numpy.array([0.1, 0.2, 0.3, 0.4]),
+        zs,
         R_pixel=0.07,
         z_pixel=0.07,
         vo=vo,
     )
     numpy.random.seed(1)
+    zsign = numpy.array([-1.0, -1.0, 1.0, -1.0])
     neg = qdf.sampleV_interpolate(
         numpy.array([0.7, 0.8, 0.9, 1.0]),
-        numpy.array([-0.1, -0.2, 0.3, -0.4]),
+        zsign * zs,
         R_pixel=0.07,
         z_pixel=0.07,
         vo=vo,
     )
-    assert numpy.all(numpy.fabs(pos - neg) / vo < 10.0**-8.0), (
-        "sampleV interpolate absolute value of z is incorrect"
+    assert numpy.all(numpy.fabs(pos[:, :2] - neg[:, :2]) / vo < 10.0**-8.0), (
+        "sampleV interpolate vR or vT below the plane is incorrect"
     )
+    assert numpy.all(numpy.fabs(zsign * pos[:, 2] - neg[:, 2]) / vo < 10.0**-8.0), (
+        "sampleV interpolate vz below the plane is not flipped"
+    )
+    return None
+
+
+def test_sampleV_interpolate_tilt_belowplane():
+    # The DF is symmetric under (z, vz) -> (-z, -vz), so <vR vz> changes sign
+    # across the plane: below the plane the samples must follow sigmaRz there
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+    )
+    numpy.random.seed(2)
+    n = 2000
+    R = numpy.linspace(0.75, 0.85, n)
+    for z in [0.15, -0.15]:
+        samples = qdf.sampleV_interpolate(
+            R, z * numpy.ones(n), R_pixel=0.02, z_pixel=0.03
+        )
+        vRvz = samples[:, 0] * samples[:, 2]
+        assert numpy.fabs(numpy.mean(vRvz) - qdf.sigmaRz(0.8, z)) < 4.0 * numpy.std(
+            vRvz
+        ) / numpy.sqrt(n), (
+            f"sampleV interpolate <vR vz> does not follow sigmaRz at z = {z}"
+        )
     return None
 
 

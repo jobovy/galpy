@@ -82,7 +82,9 @@ at release.]
   raised for arrays), and builds its tables in one call on each table's
   grid when the wrapped potential evaluates arrays.
 
-- [slot 16]
+- ``quasiisothermaldf.sampleV_interpolate`` returns velocities with the
+  correct sign of ``v_z`` below the plane (before, samples at ``z < 0`` had
+  the tilt of the velocity ellipsoid that belongs above the plane).
 
 - ``quasiisothermaldf.sampleV`` draws its proposals as wide as the local
   velocity dispersion inside the reference radius (before, the fixed
