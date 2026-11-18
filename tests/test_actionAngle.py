@@ -14878,3 +14878,41 @@ def test_actionAngleStaeckelInverse_from_actions():
         "the barrier"
     )
     return None
+
+
+def test_actionAngleStaeckelInverse_setup_not_kept():
+    # What the set-up computes along the way (the samples of every torus on
+    # mm_nta anomalies and their lifts onto the auxiliary) is not kept: an
+    # instance holds its tables, whose size is set by mm_npt, so that a
+    # pickled family or set of explicit tori has the same size whatever
+    # mm_nta is, a few kB per torus, and evaluates identically
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    pot = _staeckel_inverse_potential()
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    setups = (
+        (dict(setup_interp=True, Rmin=0.8, Rmax=1.4, Rinf=3.0, nE=4, nLz=4, nI3=4), 64),
+        (dict(Es=[E], Lzs=[Lz], I3s=[I3]), 1),
+    )
+    for kwargs, ntori in setups:
+        sizes = []
+        for nta in (384, 1536):
+            aAI = actionAngleStaeckelInverse(pot=pot, mm_npt=48, mm_nta=nta, **kwargs)
+            pickled = pickle.dumps(aAI)
+            sizes.append(len(pickled))
+            jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+            pts = (jr, Lz, jz, 0.3, 1.0, 2.0)
+            assert numpy.all(
+                numpy.array(aAI(*pts)) == numpy.array(pickle.loads(pickled)(*pts))
+            ), "A pickled instance does not evaluate identically"
+        assert numpy.fabs(sizes[1] / sizes[0] - 1.0) < 0.01, (
+            "The size of a pickled actionAngleStaeckelInverse instance depends on "
+            "mm_nta: samples of the set-up are kept"
+        )
+        assert sizes[1] < 2**16 + ntori * 2**13, (
+            "A pickled actionAngleStaeckelInverse instance holds more than a "
+            "few kB per torus"
+        )
+    return None
