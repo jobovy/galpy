@@ -96,7 +96,12 @@ at release.]
   it could fail for tori inside the family at small ``|L_z|``), and the
   fallback of the angle solve always brackets its root.
 
-- [slot 11]
+- ``actionAngleStaeckelInverse`` families store their libration half-widths
+  in variables that keep the inner turning points positive, so that tori of
+  small ``|L_z|`` are no longer returned with points inside the centrifugal
+  barrier (``R <= 0`` or very large ``v_T``); outputs between the nodes of
+  existing families move at the 1e-5 level or below, and families pickled
+  before this change have to be rebuilt.
 
 - [slot 12]
 
