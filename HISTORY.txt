@@ -76,7 +76,10 @@ at release.]
   planar ones), ``u0='shell'`` (the spheroid of the shell orbit of each
   (E, Lz)), and callables ``u0(E, Lz, I3)``.
 
-- [slot 08]
+- ``actionAngleStaeckelInverse``: explicit tori (from ``Es``, ``Lzs``,
+  ``I3s``) accept a rule for the reference curve (``u0='torus'``, ``'fit'``,
+  ``'shell'``, or a callable), each torus then being a torus of its own
+  Staeckel model with the frequencies of the family that the rule defines.
 
 - [slot 09]
 
