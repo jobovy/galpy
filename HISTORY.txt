@@ -103,7 +103,13 @@ at release.]
   existing families move at the 1e-5 level or below, and families pickled
   before this change have to be rebuilt.
 
-- [slot 12]
+- ``actionAngleStaeckelInverse`` families place their third-integral nodes
+  in a variable that resolves the tori that come close to the symmetry
+  axis (new keyword ``axis_weight``; 0 gives the previous grid), which
+  makes families accurate for nearly polar tori (before, their errors at
+  ``|L_z|/L`` below about 0.1 did not decrease with more nodes or
+  harmonics); the nodes of every family move slightly, and the set-up is
+  faster for families with a reference-curve rule.
 
 - [slot 13]
 
