@@ -909,10 +909,10 @@ def test_oblatestaeckel_ntab_folds_v_elementwise(backend_name):
 def test_oblatestaeckel_ntab_tables_built_on_every_backend(
     backend_name, amp_form, monkeypatch
 ):
-    # A backend builds each table in one array call: per knot, eager jax took
-    # 343 s for MWPotential2014 at ntab=3000 (9 s as arrays). numpy keeps the
-    # per-knot loop, so its tables stay byte-identical. Under a forced backend,
-    # normalize= gives a backend amp and backend tables; a float amp, host ones
+    # Every backend builds each table in one array call: per knot, eager jax
+    # took 343 s for MWPotential2014 at ntab=3000 (9 s as arrays); numpy does
+    # so as main does. Under a forced backend, normalize= gives a backend amp
+    # and backend tables; a float amp, host ones
     from galpy.backend import is_backend_array, use
 
     _, ref = _ntab_pair()
@@ -930,9 +930,7 @@ def test_oblatestaeckel_ntab_tables_built_on_every_backend(
             delta=0.5,
             ntab=101,
         )
-    assert len(ncalls) == (101 if backend_name == "numpy" else 1), (
-        f"{backend_name}: U(u) tabulated in {len(ncalls)} calls"
-    )
+    assert len(ncalls) == 1, f"{backend_name}: U(u) tabulated in {len(ncalls)} calls"
     on_backend = backend_name != "numpy" and amp_form == "normalize"
     assert is_backend_array(tab._tables[1][0]) == on_backend, (
         f"{backend_name}, {amp_form} amp: tables built on the wrong side"
