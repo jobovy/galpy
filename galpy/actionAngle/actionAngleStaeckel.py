@@ -670,6 +670,8 @@ class actionAngleStaeckel(actionAngle):
             be left out for a potential that supplies its own (an exact
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
+        inverse : actionAngleStaeckelInverse, optional
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). For explicit tori in a single Staeckel model, this is the transformation of that model (order= defaults to 20 with inverse=). For a family (setup_interp=True) with any delta= and u0=, the actions and angles are solved for from the family's own map by Newton's method, starting from those of the Staeckel approximation, and the frequencies are the family's; points that no torus of the family passes through return nan with a warning.
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
@@ -685,6 +687,12 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2012-11-27 - Started - Bovy (IAS).
         """
+        self._inverse = kwargs.get("inverse", None)
+        # with a family, the actions and angles are those of its own map
+        # (Newton's method on it, from the model's as the guess)
+        self._newton = False
+        if self._inverse is not None:
+            kwargs = self._setup_inverse(kwargs)
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleStaeckel")
@@ -715,13 +723,87 @@ class actionAngleStaeckel(actionAngle):
         else:
             self._c = False
         self._useu0 = kwargs.get("useu0", False)
-        self._order = kwargs.get("order", 10)
+        self._order = kwargs.get("order", 10 if self._inverse is None else 20)
         self._delta = _coerce_delta_arraylike(
             conversion.parse_length(delta, ro=self._ro)
         )
         # Check the units
         self._check_consistent_units()
         return None
+
+    def _setup_inverse(self, kwargs):
+        """The set-up that inverts the actionAngleStaeckelInverse instance
+        inverse=: its Staeckel model, or for tori that each have their own
+        model, the potential that those models approximate with a focal
+        length of the instance (which serve the guess that the instance's
+        own map then corrects)"""
+        aAI = self._inverse
+        if "pot" in kwargs or "delta" in kwargs:
+            raise TypeError(
+                "pot= and delta= cannot be given with inverse=, which supplies them"
+            )
+        if aAI._adaptive and not aAI._interp:
+            raise NotImplementedError(
+                "inverse= with explicit tori that each have their own Staeckel "
+                "model (a rule for u0= or delta=) is not supported; set up a "
+                "family (setup_interp=True) or use a single model"
+            )
+        self._newton = aAI._interp
+        kwargs = dict(kwargs)
+        kwargs["pot"] = aAI._chart_pot if aAI._adaptive else aAI._staeckelwrap
+        kwargs["delta"] = aAI._delta
+        if aAI._delta_rule is not None:
+            # a focal length that follows the tori: that of the middle of
+            # the family
+            Lmid = numpy.sqrt(aAI._Lzgrid[0] * aAI._Lzgrid[-1])
+            kwargs["delta"] = aAI.delta(
+                aAI._E_of_xL(0.5, Lmid)[0], Lmid, 0.5, use_physical=False
+            )
+        if aAI._roSet:
+            kwargs.setdefault("ro", aAI._ro)
+        if aAI._voSet:
+            kwargs.setdefault("vo", aAI._vo)
+        return kwargs
+
+    def _from_inverse(self, *args, **kwargs):
+        """(J_R, L_z, J_z, Omega_R, Omega_phi, Omega_z, theta_R, theta_phi,
+        theta_z) of the family inverse=: the actions and angles that its
+        map sends to the points, and its frequencies there"""
+        aAI = self._inverse
+        if len(args) == 5 or len(args) == 6:
+            R, vR, vT, z, vz = args[:5]
+            phi = args[5] if len(args) == 6 else 0.0
+        else:
+            self._eval_phi = 0.0
+            self._parse_eval_args(*args)
+            R, vR, vT = self._eval_R, self._eval_vR, self._eval_vT
+            z, vz, phi = self._eval_z, self._eval_vz, self._eval_phi
+        R, vR, vT, z, vz, phi = (
+            a.copy()
+            for a in numpy.broadcast_arrays(
+                *(
+                    numpy.atleast_1d(numpy.asarray(a, dtype="float"))
+                    for a in (R, vR, vT, z, vz, phi)
+                )
+            )
+        )
+        Lz = R * vT
+        guess = self._actionsFreqsAngles(R, vR, vT, z, vz, phi, _model=True, **kwargs)
+        jr, jz, thr, thphi, thz = aAI._invert(
+            R, vR, vT, z, vz, phi, guess[0], guess[2], guess[6], guess[8]
+        )
+        good = numpy.isfinite(jr)
+        if not numpy.all(good):
+            warnings.warn(
+                "{} of the {} points are not in the range of the family "
+                "inverse= (or the solve for their actions and angles did not "
+                "converge); their output is nan".format(numpy.sum(~good), len(R)),
+                galpyWarning,
+            )
+        Om = numpy.full((3, len(R)), numpy.nan)
+        if numpy.any(good):
+            Om[:, good] = aAI._Freqs(jr[good], Lz[good], jz[good])
+        return (jr, Lz, jz, *Om, thr, thphi, thz)
 
     def _evaluate(self, *args, **kwargs):
         """
@@ -754,6 +836,8 @@ class actionAngleStaeckel(actionAngle):
         - 2012-11-27 - Written - Bovy (IAS)
         - 2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
+        if not kwargs.pop("_model", False) and self._newton:
+            return self._from_inverse(*args, **kwargs)[:3]
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if len(args) == 5:  # R,vR.vT, z, vz
@@ -856,6 +940,8 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        if not kwargs.pop("_model", False) and self._newton:
+            return self._from_inverse(*args, **kwargs)[:6]
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
@@ -1014,6 +1100,8 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        if not kwargs.pop("_model", False) and self._newton:
+            return self._from_inverse(*args, **kwargs)
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
