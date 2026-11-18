@@ -2956,8 +2956,11 @@ def test_rforce_jax_matches_forces():
     rs = numpy.geomspace(1e-6, 1e2, 61)
     # (potential, rtol of F_r, rtol of dF_r/dr): differentiating NFW's
     # -h(x)/r^2 cancels at r << a, and ExpTruncNFW's closed form cancels above
-    # its series switch, in F_r by an amount that depends on the machine's libm
-    # (1e-13 on CI's runners, 1e-14 locally) and in dF_r/dr by ~eps (a/r)^3
+    # its series switch (r = 1e-3 a), in F_r by ~eps (a/r)^2 and in dF_r/dr by
+    # ~eps (a/r)^3: the numpy and jax forces there are each within ~1e-9 of the
+    # true force, and they agree with each other only as far as scipy's and
+    # jax's exponential integrals round identically (they did to the last bit
+    # up to jax 0.12.0; they differ by an ulp at some arguments from 0.12.1)
     for pot, ftol, dtol in (
         (potential.DehnenCoreSphericalPotential(amp=1.3, a=0.8), 5e-14, 3e-13),
         (potential.HernquistPotential(amp=1.7, a=1.3), 5e-14, 3e-15),
@@ -2969,7 +2972,7 @@ def test_rforce_jax_matches_forces():
             5e-14,
             5e-14,
         ),
-        (potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0), 3e-13, 2e-8),
+        (potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0), 5e-9, 5e-6),
         (
             potential.TruncatedNFWPotential(amp=1.7, a=1.3, rc=4.0, n=2),
             5e-14,
