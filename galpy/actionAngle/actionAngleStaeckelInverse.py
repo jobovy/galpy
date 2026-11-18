@@ -296,7 +296,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             harmonic mean of the pericentre and apocentre of the planar
             orbits at (E, L_z), which weights the pericentre, where a
             disc's vertical structure is sharpest.
-            The reference curve is construction-only gauge (the map's
+            The variation of the Staeckel model from node to node is part
+            of the family's derivative tables, so that the family converges
+            between its nodes, at the interpolation's order, to the tori
+            of the models that the curve assigns; its frequencies are the
+            derivatives of the energy with respect to the actions along
+            that family of models, which differ from those of each torus's
+            own Staeckel model by a term of the order of the potential's
+            departure from Staeckel form (none for a Staeckel potential).
+            The reference curve is construction-only (the map's
             (R, z) <-> (u, v) uses the focal length alone), so this costs
             nothing at evaluation; requires setup_interp=True.
         target : Orbit or array_like, optional
@@ -496,7 +504,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         finally:
             self._staeckelwrap = save
 
-    def _u0_fit(self, E, Lz):
+    def _u0_fit(self, E, Lz, deriv=False):
         """The reference curve of u0='fit': at the harmonic mean of the
         pericentre and apocentre of the planar orbits at (E, L_z), delta
         sinh(u0) = 2 / (1/R_p + 1/R_a), from the potential's midplane, which
@@ -507,7 +515,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         energetic rows, whose v maps then do not resolve, and is worse than
         the default curve near R = 1), the geometric mean and the
         guiding-centre radius, it resolves every map and gives the smallest
-        energy spread on seven of eight test tori"""
+        energy spread on seven of eight test tori. With deriv, also the
+        derivatives of u0 with respect to (E, L_z), by the level-set rule on
+        the two turning points of the planar orbit (not at the circular
+        energy)"""
         ell = numpy.fabs(Lz)
         pot = self._chart_pot
 
@@ -529,7 +540,37 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if E >= Emax - 1e-12 * (1.0 + numpy.fabs(Emax))
             else brentq(lambda R: phieff(R) - E, Rc, self._Rinf, xtol=1e-12)
         )
-        return numpy.arcsinh(2.0 / (1.0 / Rp + 1.0 / Ra) / self._delta)
+        u0 = numpy.arcsinh(2.0 / (1.0 / Rp + 1.0 / Ra) / self._delta)
+        if not deriv:
+            return u0
+
+        def dR(R):
+            # a turning point's derivatives in (E, L_z): Phi_eff(R; L_z) = E
+            return numpy.array([1.0, -ell / R**2]) / (
+                -evaluateRforces(pot, R, 0.0, use_physical=False) - ell**2 / R**3
+            )
+
+        dH = 2.0 * (Ra**2 * dR(Rp) + Rp**2 * dR(Ra)) / (Rp + Ra) ** 2
+        return u0, dH / (self._delta * numpy.cosh(u0))
+
+    def _u0_grad(self, E, Lz):
+        """The derivatives of the reference u0 of the (E, L_z) tori (not the
+        circular orbit) with respect to (E, I_3, L_z), which carry the
+        variation of the Staeckel model from node to node into the family's
+        derivative tables: the closed form for u0='fit', central differences
+        of a callable"""
+        ell = numpy.fabs(Lz)
+        if self._u0_func == self._u0_fit:
+            g = self._u0_fit(E, ell, deriv=True)[1]
+        else:
+            circ = self._circular(ell)
+            hE = 1e-4 * (E - circ["Ec"])
+            hL = min(1e-5 * ell, 1e-3 * (E - circ["Ec"]) / circ["Omc"])
+            g = (
+                (self._u0_func(E + hE, ell) - self._u0_func(E - hE, ell)) / (2.0 * hE),
+                (self._u0_func(E, ell + hL) - self._u0_func(E, ell - hL)) / (2.0 * hL),
+            )
+        return numpy.array([g[0], 0.0, g[1]])
 
     # ---------- the separated Hamilton-Jacobi equation
     def _U(self, u):
@@ -1060,11 +1101,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         out[:nharm] = _sine_galerkin(fAeta, rhs, self._nforDm[:nharm])
         return out
 
-    def _map_slopes_v(self, smp, L, c, zeta, dL, dwv, nharm):
+    def _map_slopes_v(self, smp, L, c, zeta, dL, dwv, nharm, dVdu0=None):
         """The derivatives of the v map's coefficients with respect to
         (E, I_3, L_z), as _map_slopes_u for the u map: the auxiliary's polar
         cumulative action depends on its torus through (L, c = 1 -
-        L_z^2/L^2), with closed-form partials (_aux_vcumulative)"""
+        L_z^2/L^2), with closed-form partials (_aux_vcumulative). With
+        dVdu0, the derivative of V with respect to the reference u0 on the
+        samples, dL and dwv have a fourth entry and so has the result: the
+        derivative with respect to u0 at fixed integrals, in which p_v^2
+        varies by 2 delta^2 dV/du0 (as it does by 2 delta^2 in I_3)"""
         tau, v, pv, wv = smp["tau"], smp["v"], smp["pv"], smp["wv"]
         E, Lz = smp["E"], smp["Lz"]
         d2 = self._delta**2
@@ -1072,17 +1117,22 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dvdtau = wv * st
         dWdv = self._dWv(v, E, Lz)
         sn2 = numpy.sin(v) ** 2
-        dWda = (2.0 * d2 * sn2, 2.0 * d2 * numpy.ones_like(v), -2.0 * Lz / sn2)
+        dWda = [2.0 * d2 * sn2, 2.0 * d2 * numpy.ones_like(v), -2.0 * Lz / sn2]
+        dLz = [0.0, 0.0, 1.0]
+        if dVdu0 is not None:
+            dWda.append(2.0 * d2 * dVdu0)
+            dLz.append(0.0)
+        ndir = len(dWda)
         _, FL, Fc = self._aux_vcumulative(L, c, zeta)
         fAzeta = self._aux_vflux(L, c, zeta)
-        dc = 2.0 * Lz**2 / L**3 * dL - 2.0 * Lz / L**2 * numpy.array([0.0, 0.0, 1.0])
-        rhs = numpy.empty((self._ntau, 3))
-        for k in range(3):
+        dc = 2.0 * Lz**2 / L**3 * dL - 2.0 * Lz / L**2 * numpy.array(dLz)
+        rhs = numpy.empty((self._ntau, ndir))
+        for k in range(ndir):
             dv = -dwv[k] * ct
             dft = (dWda[k] + dWdv * dv) / (2.0 * pv) * dvdtau + pv * dwv[k] * st
             mt, qt, _, qt0 = _cumulative(dft)
             rhs[:, k] = mt * tau + qt - qt0 - FL * dL[k] - Fc * dc[k]
-        out = numpy.zeros((self._nptv, 3))
+        out = numpy.zeros((self._nptv, ndir))
         out[:nharm] = _sine_galerkin(fAzeta, rhs, self._nforDmv[:nharm])
         return out
 
@@ -1196,9 +1246,38 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.amax(numpy.fabs(LA - numpy.fabs(Lz) - jz)) / jz
             )
             nh, node["Dmv"] = kept(lift_v["Dm"])
-            node["dDmv"] = self._map_slopes_v(
-                smp, L, c, lift_v["zeta"], dL, dsup[2], nh
-            )
+            if self._adaptive:
+                # the tables of the v libration along the reference u0 at
+                # fixed integrals (those of the u libration do not depend on
+                # it, because U(u) does not): the action's from the same
+                # quadrature as its period matrix, the half-width's by the
+                # level-set rule, the map's as a fourth direction of its
+                # slopes
+                vt = 0.5 * numpy.pi - wv
+                dVu = self._staeckelwrap._dVdu0(smp["v"])
+                Ju = d2 * numpy.mean(dVu * wv * st / smp["pv"])
+                wu0 = (
+                    2.0
+                    * d2
+                    * float(self._staeckelwrap._dVdu0(vt))
+                    / float(self._dWv(vt, E, Lz))
+                )
+                slopes = self._map_slopes_v(
+                    smp,
+                    L,
+                    c,
+                    lift_v["zeta"],
+                    numpy.append(dL, Ju),
+                    numpy.append(dsup[2], wu0),
+                    nh,
+                    dVdu0=dVu,
+                )
+                node["dDmv"] = slopes[:, :3]
+                node["du0"] = (Ju, wu0, slopes[:, 3])
+            else:
+                node["dDmv"] = self._map_slopes_v(
+                    smp, L, c, lift_v["zeta"], dL, dsup[2], nh
+                )
         return node
 
     def _second_order_tables(self, ii, node):
@@ -1927,6 +2006,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
                     M, dsup = node["M"], node["dsup"]
                     udeg, vdeg = node["dDmu"] is None, node["dDmv"] is None
+                    Mv, dwv, dDmv = M[1], dsup[2], node["dDmv"]
+                    if "du0" in node:
+                        # the Staeckel model changes from node to node with
+                        # its reference curve: the node values' derivatives
+                        # along the grid are those within the node's model
+                        # plus the derivative along u0 at fixed integrals
+                        # times the curve's own (only the v libration's
+                        # tables, since U(u) does not depend on u0)
+                        du0 = self._u0_grad(E, Lz)
+                        Mv = Mv + node["du0"][0] * du0
+                        dwv = dwv + node["du0"][1] * du0
+                        dDmv = dDmv + node["du0"][2][:, None] * du0[None, :]
                     if udeg:
                         # the shell face: the u libration harmonic at the
                         # shell u, its action and half-width vanishing
@@ -1959,10 +2050,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             A_dx[iE, iI, iL, 1],
                             A_dy[iE, iI, iL, 1],
                             A_dL[iE, iI, iL, 1],
-                        ) = chain(M[1])
-                        qx, qy, qL = chain(
-                            numpy.vstack((dsup[2][None, :], node["dDmv"]))
-                        )
+                        ) = chain(Mv)
+                        qx, qy, qL = chain(numpy.vstack((dwv[None, :], dDmv)))
                         V_dwE[iE, iI, iL] = 2.0 * wE * qx
                         V_dsv[iE, iI, iL] = 2.0 * sv * qy
                         V_dL[iE, iI, iL] = qL
