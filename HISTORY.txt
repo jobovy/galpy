@@ -68,7 +68,13 @@ at release.]
   of the energy with respect to the actions along the family and change at
   the level of the potential's departure from Staeckel form.
 
-- [slot 07]
+- ``actionAngleStaeckelInverse``: reference curves of the Staeckel
+  approximation that follow each torus along the third integral:
+  ``u0='torus'`` (the harmonic mean of the radii at which the torus's inner
+  and outer turning spheroids cross the midplane; the recommended rule, far
+  more accurate than ``u0='fit'`` for inclined tori and equal to it for
+  planar ones), ``u0='shell'`` (the spheroid of the shell orbit of each
+  (E, Lz)), and callables ``u0(E, Lz, I3)``.
 
 - [slot 08]
 
