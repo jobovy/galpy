@@ -87,7 +87,17 @@ at release.]
 
 - [slot 07]
 
-- [slot 08]
+- SCFPotential (and DiskSCFPotential, whose expansion is one) evaluates arrays
+  of points with numpy in one vectorized pass instead of a Python loop over
+  the points (potential, density, forces and second derivatives; the
+  Gegenbauer recurrence is vectorized over l too). The forces of McMillan17
+  take about 0.1 ms per point instead of 15 ms. The potential at and near the
+  centre is now finite and correct, with numpy and on a backend (as in C; it
+  was 2e26 at the centre for McMillan17's disc expansion, and overflowed at
+  tiny radii for large L), so OblateStaeckelWrapperPotential(pot=McMillan17,
+  ntab=...) can be built; elsewhere the potential, forces and second
+  derivatives change at round-off (<~ 1e-13 relative). numpy outputs are
+  those of main.
 
 - [slot 09]
 

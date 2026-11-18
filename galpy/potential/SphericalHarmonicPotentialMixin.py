@@ -71,6 +71,14 @@ class SphericalHarmonicPotentialMixin:
             dr_dx = dr_dx * numpy.ones(shape)
             dtheta_dx = dtheta_dx * numpy.ones(shape)
             dphi_dx = dphi_dx * numpy.ones(shape)
+            if hasattr(self, "_compute_spher_forces_at_points"):  # all points at once
+                dPhi_dr, dPhi_dtheta, dPhi_dphi = (
+                    o.reshape(shape)
+                    for o in self._compute_spher_forces_at_points(
+                        R.ravel(), z.ravel(), phi.ravel(), t=t.ravel()
+                    )
+                )
+                return dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
             for idx in numpy.ndindex(*shape):
                 dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
                     R[idx], z[idx], phi[idx], t=t[idx]
@@ -256,6 +264,13 @@ class SphericalHarmonicPotentialMixin:
             z = z * numpy.ones(shape)
             phi = phi * numpy.ones(shape)
             t = t * numpy.ones(shape)
+            if hasattr(self, "_compute_spher_2nd_derivs_at_points"):  # all at once
+                spher = self._compute_spher_2nd_derivs_at_points(
+                    R.ravel(), z.ravel(), phi.ravel(), t=t.ravel()
+                )
+                return self._cyl_2nd_deriv_from_spher(
+                    deriv_type, R, z, *(o.reshape(shape) for o in spher)
+                )
             result = numpy.zeros(shape, float)
             for idx in numpy.ndindex(*shape):
                 result[idx] = self._cyl_2nd_deriv_at_point(
@@ -295,32 +310,56 @@ class SphericalHarmonicPotentialMixin:
         - 2026-02-18 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi)
-        (
-            Phi_rr,
-            Phi_tt,
-            Phi_pp,
-            Phi_rt,
-            Phi_rp,
-            Phi_tp,
-            Phi_r,
-            Phi_t,
-        ) = self._compute_spher_2nd_derivs_at_point(R, z, phi, t=t)
+        spher = self._compute_spher_2nd_derivs_at_point(R, z, phi, t=t)
+        if xp is numpy:
+            if numpy.sqrt(R * R + z * z) == 0.0:
+                return 0.0
+            return self._cyl_2nd_deriv_from_spher(deriv_type, R, z, *spher)
+        # backend path: branchless r == 0 guard. Both xp.where branches are
+        # evaluated under tracing/eager AD, so the chain rule runs at a guarded
+        # radius and the centre is zeroed at the end.
         r2 = R * R + z * z
         r = xp.sqrt(r2)
-        if xp is numpy:
-            if r == 0.0:
-                return 0.0
-        else:
-            # backend path: branchless r == 0 guard. Both xp.where branches are
-            # evaluated under tracing/eager AD, so the chain rule below runs at
-            # a guarded radius and the centre is zeroed at the end.
-            degenerate = r == 0.0
-            r2 = xp.where(degenerate, 1.0, r2)
-            r = xp.where(degenerate, 1.0, r)
+        degenerate = r == 0.0
+        r2 = xp.where(degenerate, 1.0, r2)
+        r = xp.where(degenerate, 1.0, r)
+        out = self._cyl_2nd_deriv_terms(deriv_type, R, z, r, r2, *spher)
+        return xp.where(degenerate, 0.0, out)
+
+    @staticmethod
+    def _cyl_2nd_deriv_from_spher(deriv_type, R, z, *spher):
+        """The chain rule from the spherical second derivatives (Phi_rr, Phi_tt,
+        Phi_pp, Phi_rt, Phi_rp, Phi_tp, Phi_r, Phi_t), for one point or, element
+        by element, for arrays (zero at the centre, as for one point)"""
+        r2 = R * R + z * z
+        r = numpy.sqrt(r2)
+        terms = SphericalHarmonicPotentialMixin._cyl_2nd_deriv_terms
+        if numpy.ndim(r) == 0:
+            return terms(deriv_type, R, z, r, r2, *spher)
+        with numpy.errstate(divide="ignore", invalid="ignore"):
+            out = terms(deriv_type, R, z, r, r2, *spher)
+        return numpy.where(r == 0.0, 0.0, out)
+
+    @staticmethod
+    def _cyl_2nd_deriv_terms(
+        deriv_type,
+        R,
+        z,
+        r,
+        r2,
+        Phi_rr,
+        Phi_tt,
+        Phi_pp,
+        Phi_rt,
+        Phi_rp,
+        Phi_tp,
+        Phi_r,
+        Phi_t,
+    ):
         r3 = r * r2
         r4 = r2 * r2
         if deriv_type == "R2":
-            out = (
+            return (
                 Phi_rr * R * R / r2
                 + Phi_r * z * z / r3
                 + 2.0 * Phi_rt * R * z / r3
@@ -328,7 +367,7 @@ class SphericalHarmonicPotentialMixin:
                 + Phi_t * (-2.0 * R * z) / r4
             )
         elif deriv_type == "z2":
-            out = (
+            return (
                 Phi_rr * z * z / r2
                 + Phi_r * R * R / r3
                 - 2.0 * Phi_rt * z * R / r3
@@ -336,7 +375,7 @@ class SphericalHarmonicPotentialMixin:
                 + Phi_t * 2.0 * R * z / r4
             )
         elif deriv_type == "Rz":
-            out = (
+            return (
                 Phi_rr * R * z / r2
                 + Phi_r * (-R * z) / r3
                 + Phi_rt * (z * z - R * R) / r3
@@ -344,9 +383,8 @@ class SphericalHarmonicPotentialMixin:
                 + Phi_t * (R * R - z * z) / r4
             )
         elif deriv_type == "phi2":
-            out = Phi_pp
+            return Phi_pp
         elif deriv_type == "Rphi":
-            out = Phi_rp * R / r + Phi_tp * z / r2
+            return Phi_rp * R / r + Phi_tp * z / r2
         elif deriv_type == "phiz":
-            out = Phi_rp * z / r + Phi_tp * (-R) / r2
-        return out if xp is numpy else xp.where(degenerate, 0.0, out)
+            return Phi_rp * z / r + Phi_tp * (-R) / r2
