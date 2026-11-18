@@ -157,6 +157,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # 2 since the half-widths are stored as the variables of _halfwidth
     _FAMILY_FORMAT = 2
 
+    # the number of trial points that a pass of the label inversion's Newton
+    # iteration evaluates at most for a torus (_newton_labels)
+    _LABEL_STEPS = 32
+
     def __setstate__(self, state):
         """Restore a pickled instance; an interpolated family whose tables
         were stored in another format (or without a format, as before the
@@ -2637,7 +2641,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         reduces the residual: full steps can cycle between a face and the
         interior where an action rises steeply out of the face. A torus
         outside the family ends against a face of the box, where no step
-        reduces the residual."""
+        reduces the residual. The schedule is fixed: every torus has
+        _LABEL_STEPS trial points, each either accepted (the torus moves
+        there and takes a new Newton step from it) or rejected (it stays
+        and halves its step), and is frozen once its residual is below
+        1e-12 or its step has been halved below 1e-6 of a Newton step; the
+        tori that are frozen are simply not evaluated any more, which gives
+        each torus what _LABEL_STEPS masked iterations over all of them
+        would. A torus that has not converged when the trial points are
+        used up counts as not converged, like one that is stuck."""
         xlo, xhi = self._wEs[0] ** 2, self._wEs[-1] ** 2
         ylo, yhi = self._ys[0], self._ys[-1]
         jtot, frac = jr + jz, jz / (jr + jz)
@@ -2648,7 +2660,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         norm, t = numpy.full(n, numpy.inf), numpy.ones(n)
         dx, dy = numpy.zeros(n), numpy.zeros(n)
         active = numpy.arange(n)
-        for _ in range(200):
+        for _ in range(self._LABEL_STEPS):
             v, vx, vy, _ = self._A_ip.batch_all(xt[active], yt[active], ell[active])
             tot = v[:, 0] + v[:, 1]
             with numpy.errstate(divide="ignore", invalid="ignore"):
