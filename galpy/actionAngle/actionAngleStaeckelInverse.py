@@ -3869,12 +3869,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             (1.0 - x) * Omc * (g / g0c) + x * (Lz / self._Rinf**2) * (g / g0m),
         )
 
-    def _E_of_xL_array(self, x, Lz):
-        """_E_of_xL for arrays of points, each with its own |L_z|: the
-        circular radius and the two apocentre edges from a vectorized
-        root-find on the potential's midplane, which the Staeckel wrapper
-        reproduces exactly, bracketed by the grid's extreme circular radii
-        and Rinf"""
+    def _energy_edges_array(self, Lz):
+        """The circular radius and the apocentres of the planar orbit
+        without angular momentum at the grid's bottom and top energies, for
+        arrays of |L_z| within the grid's range, with the midplane's
+        potential and its radial derivative as functions"""
         wrap = self._chart_pot
 
         def phi(R):
@@ -3899,6 +3898,56 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Rinf = self._Rinf + 0.0 * Lz
         R0c = _solve_increasing(lambda R: phi(R) - Ec, dphi, Rc, Rinf)
         R0m = _solve_increasing(lambda R: phi(R) - Emax, dphi, Rinf, 10.0 * Rinf)
+        return Rc, R0c, R0m, phi, dphi
+
+    def _delta_edges(self, Lz):
+        """The two apocentres between which the grid's energy variable of
+        each |L_z| runs (_energy_edges_array), for the focal lengths of
+        _delta_of at many energies; nan outside the grid's range of |L_z|"""
+        ell = numpy.fabs(Lz)
+        ok = (ell >= self._Lzgrid[0]) & (ell <= self._Lzgrid[-1])
+        out = numpy.full((len(ell), 2), numpy.nan)
+        if self._delta_fit is not None and numpy.any(ok):
+            out[ok] = numpy.array(self._energy_edges_array(ell[ok])[1:3]).T
+        return out
+
+    def _delta_of(self, E, Lz, f, edges):
+        """The focal lengths of the Staeckel models of the tori (E, L_z, f)
+        from the family's rule itself, for arrays of tori (the delta method,
+        vectorized, for the model of a phase-space point): the fitted
+        polynomial's at the grid's energy variable (edges: _delta_edges of
+        the tori), or the callable's; nan outside the grid's range of
+        |L_z|, and None when the rule is a callable that was not kept (a
+        pickled family)"""
+        ell = numpy.fabs(Lz)
+        if self._delta_fit is None:
+            if self._delta_callable is None:
+                return None
+            return (
+                conversion.parse_length(self._delta_callable(E, ell, f), ro=self._ro)
+                + 0.0 * E
+            )
+        ok = numpy.isfinite(edges[:, 0]) & numpy.isfinite(E)
+        out = numpy.full(len(E), numpy.nan)
+        if numpy.any(ok):
+            wrap, R0c, R0m = self._chart_pot, edges[ok, 0], edges[ok, 1]
+            R = _solve_increasing(
+                lambda R: evaluatePotentials(wrap, R, 0.0, use_physical=False) - E[ok],
+                lambda R: -evaluateRforces(wrap, R, 0.0, use_physical=False),
+                0.01 * R0c,
+                10.0 * R0m,
+            )
+            x = numpy.log(R / R0c) / numpy.log(R0m / R0c)
+            out[ok] = self._delta_fitted(x, f[ok], ell[ok])[0]
+        return out
+
+    def _E_of_xL_array(self, x, Lz):
+        """_E_of_xL for arrays of points, each with its own |L_z|: the
+        circular radius and the two apocentre edges from a vectorized
+        root-find on the potential's midplane, which the Staeckel wrapper
+        reproduces exactly, bracketed by the grid's extreme circular radii
+        and Rinf"""
+        Rc, R0c, R0m, phi, dphi = self._energy_edges_array(Lz)
         g0c, g0m = R0c * dphi(R0c), R0m * dphi(R0m)
         R = R0c * (R0m / R0c) ** x
         g = R * dphi(R)
