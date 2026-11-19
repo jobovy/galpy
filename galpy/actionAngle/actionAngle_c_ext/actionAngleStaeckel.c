@@ -207,6 +207,9 @@ double dJzdI3HighStaeckelIntegrand(double,void *);
 double u0Equation(double,void *);
 double evaluatePotentials(double,double,int, struct potentialArg *);
 double evaluatePotentialsUV(double,double,double,int,struct potentialArg *);
+static inline double SuTermsStaeckel(double,double,double,double,double,
+				     double,double,double,double,int,
+				     struct potentialArg *);
 static inline double dSuduStaeckel(double,double,double,double,double,double,
 				   int,struct potentialArg *);
 static inline double wdUStaeckel(double,double,struct dJRStaeckelArg *);
@@ -292,25 +295,217 @@ static inline void calcEModel(int ndata,
   int ii;
   double tdelta, sinh2u, sin2v, sinh2u0;
   int delta_stride= ndelta == 1 ? 0 : 1;
+#ifdef _OPENMP
+  int nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#endif
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii,tdelta,sinh2u,sin2v,sinh2u0)
   for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,nargs);
     tdelta= *(delta+ii*delta_stride);
     sinh2u= sinh(*(ux+ii)) * sinh(*(ux+ii));
     sin2v= sin(*(vx+ii)) * sin(*(vx+ii));
     sinh2u0= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(E+ii)= ( ( sinh2u + 1. )
-	       * evaluatePotentialsUV(*(ux+ii),0.5 * M_PI,tdelta,
-				      nargs,actionAngleArgs)
+	       * evaluatePotentialsUV(*(ux+ii),0.5 * M_PI,tdelta,nargs,targs)
 	       - ( sinh2u0 + 1. )
-	       * evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
-				      nargs,actionAngleArgs)
+	       * evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,nargs,targs)
 	       + ( sinh2u0 + sin2v )
-	       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
-				      nargs,actionAngleArgs) )
+	       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,nargs,targs) )
       / ( sinh2u + sin2v )
       + 0.5 * *(vR+ii) * *(vR+ii)
       + 0.5 * *(vT+ii) * *(vT+ii)
       + 0.5 * *(vz+ii) * *(vz+ii);
   }
+}
+// The reference curve of the Staeckel model of the torus through each
+// point, for a curve that follows the tori (actionAngleStaeckelInverse):
+// u0='torus', delta sinh(u0) = 2 / (1/R_- + 1/R_+) at the turning points
+// of the torus's u libration. The
+// energy and the third integral of a point are those in its model, which
+// depend on u0: one application of the rule at the current u0. With warm,
+// the turning points are those handed in moved to the current model by
+// Newton's method (they move little between applications), and solved for
+// anew only where that does not converge
+static void modelRuleu0(int ndata,
+			double *R,
+			double *vR,
+			double *vT,
+			double *z,
+			double *vz,
+			double *u0,
+			double *u0new,
+			double *umin,
+			double *umax,
+			int warm,
+			int ndelta,
+			double * delta,
+			int nargs,
+			struct potentialArg * actionAngleArgs){
+  int ii, jj, kk, nfull= 0;
+  double tdelta, shux, pux, sm, sp, x, dx, Lz22delta;
+  int delta_stride= ndelta == 1 ? 0 : 1;
+  double *work= (double *) malloc ( 9 * ndata * sizeof(double) );
+  double *E= work, *Lz= work+ndata, *ux= work+2*ndata, *vx= work+3*ndata;
+  double *I3U= work+4*ndata, *sinh2u0= work+5*ndata, *v0= work+6*ndata;
+  double *sin2v0= work+7*ndata, *potu0v0= work+8*ndata;
+  int *full= (int *) malloc ( ndata * sizeof(int) );
+  Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,nargs,actionAngleArgs);
+#ifdef _OPENMP
+  int nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#endif
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii,jj,kk,tdelta,shux,pux,x,dx,Lz22delta)
+  for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,nargs);
+    tdelta= *(delta+ii*delta_stride);
+    *(Lz+ii)= *(R+ii) * *(vT+ii);
+    Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta;
+    *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
+    *(v0+ii)= 0.5 * M_PI;
+    *(sin2v0+ii)= 1.;
+    *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
+					nargs,targs);
+    shux= sinh(*(ux+ii));
+    pux= tdelta * (*(vR+ii) * cosh(*(ux+ii)) * sin(*(vx+ii))
+		   + *(vz+ii) * shux * cos(*(vx+ii)));
+    *(I3U+ii)= *(E+ii) * shux * shux
+      - 0.5 * pux * pux / tdelta / tdelta
+      - Lz22delta / shux / shux
+      - ( shux * shux + 1. )
+      * evaluatePotentialsUV(*(ux+ii),0.5 * M_PI,tdelta,nargs,targs)
+      + ( *(sinh2u0+ii) + 1. ) * *(potu0v0+ii);
+    *(full+ii)= 1 - warm;
+    for (jj=0; jj < 2 && ! *(full+ii); jj++){
+      x= jj == 0 ? *(umin+ii) : *(umax+ii);
+      // (a step below 1e-6 leaves its square)
+      dx= 1.;
+      for (kk=0; kk < 4 && fabs(dx) > 1.e-6 * x; kk++){
+	dx= SuTermsStaeckel(x,*(E+ii),*(I3U+ii),Lz22delta,tdelta,0.5 * M_PI,
+			    1.,*(sinh2u0+ii),*(potu0v0+ii),nargs,targs)
+	  / dSuduStaeckel(x,*(E+ii),Lz22delta,tdelta,0.5 * M_PI,1.,
+			  nargs,targs);
+	x-= dx;
+      }
+      if ( ! ( fabs(dx) <= 1.e-6 * x ) ) *(full+ii)= 1;
+      else if ( jj == 0 ) *(umin+ii)= x;
+      else *(umax+ii)= x;
+    }
+    if ( ! *(full+ii) && ! ( *(umin+ii) < *(umax+ii) ) ) *(full+ii)= 1;
+  }
+  for (ii=0; ii < ndata; ii++) nfull+= *(full+ii);
+  if ( nfull == ndata )
+    calcUminUmax(ndata,umin,umax,ux,ux,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,
+		 sin2v0,potu0v0,nargs,actionAngleArgs);
+  else if ( nfull > 0 ){
+    // (the compressed arrays of the points to solve anew)
+    double *sub= (double *) malloc ( 11 * nfull * sizeof(double) );
+    double *arr[9]= {ux,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0};
+    for (ii=0, kk=0; ii < ndata; ii++)
+      if ( *(full+ii) ){
+	for (jj=0; jj < 9; jj++) *(sub+jj*nfull+kk)= *(arr[jj]+ii);
+	*(sub+9*nfull+kk++)= *(delta+ii*delta_stride);
+      }
+    // (the last block doubles as umin, the first as umax once ux is used)
+    double *smin= sub+10*nfull, *smax= (double *) malloc ( nfull * sizeof(double) );
+    calcUminUmax(nfull,smin,smax,sub,sub,sub+nfull,sub+2*nfull,sub+3*nfull,
+		 nfull,sub+9*nfull,sub+4*nfull,sub+5*nfull,sub+6*nfull,
+		 sub+7*nfull,sub+8*nfull,nargs,actionAngleArgs);
+    for (ii=0, kk=0; ii < ndata; ii++)
+      if ( *(full+ii) ){
+	*(umin+ii)= *(smin+kk);
+	*(umax+ii)= *(smax+kk++);
+      }
+    free(sub);
+    free(smax);
+  }
+  for (ii=0; ii < ndata; ii++){
+    sm= sinh(*(umin+ii));
+    sp= sinh(*(umax+ii));
+    *(u0new+ii)= asinh(2. * sm * sp / ( sm + sp ));
+  }
+  free(work);
+  free(full);
+}
+// The fixed point of that rule for each point, by iterating it with
+// Aitken's acceleration until the distance left (that of the geometric
+// series of the remaining steps, at the rate of the last two) is below
+// MODEL_TOL: from the u0 handed in where that is finite, else from the
+// point's own u
+#define MODEL_TOL 1.e-9
+#define MODEL_MAXITER 10
+#define MODEL_NWORK 12
+static void calcModelu0(int ndata,
+			double *R,
+			double *vR,
+			double *vT,
+			double *z,
+			double *vz,
+			double *u0,
+			int ndelta,
+			double * delta,
+			int nargs,
+			struct potentialArg * actionAngleArgs){
+  int ii, jj, kk, iter, n= ndata, m;
+  double d1, d2, den, acc;
+  int delta_stride= ndelta == 1 ? 0 : 1;
+  int *idx= (int *) malloc ( ndata * sizeof(int) );
+  // the points still iterated, compressed: (R,vR,vT,z,vz,delta), three
+  // iterates, the turning points, and the rate of convergence
+  double *work= (double *) malloc ( MODEL_NWORK * ndata * sizeof(double) );
+  double *in[5]= {R,vR,vT,z,vz};
+  double *cdelta= work+5*ndata, *c0= work+6*ndata, *c1= work+7*ndata;
+  double *c2= work+8*ndata, *cmin= work+9*ndata, *cmax= work+10*ndata;
+  double *rate= work+11*ndata;
+  for (ii=0; ii < ndata; ii++){
+    *(idx+ii)= ii;
+    for (jj=0; jj < 5; jj++) *(work+jj*ndata+ii)= *(in[jj]+ii);
+    *(cdelta+ii)= *(delta+ii*delta_stride);
+    *(c0+ii)= isfinite(*(u0+ii)) ? *(u0+ii)
+      : asinh(*(R+ii) / *(cdelta+ii));
+    *(rate+ii)= 0.9;
+  }
+  for (iter=0; iter < MODEL_MAXITER && n > 0; iter++){
+    modelRuleu0(n,work,work+ndata,work+2*ndata,work+3*ndata,work+4*ndata,
+		c0,c1,cmin,cmax,iter > 0,n,cdelta,nargs,actionAngleArgs);
+    // done where this step alone leaves less than the tolerance
+    for (kk=0, m=0; kk < n; kk++){
+      d1= fabs(*(c1+kk) - *(c0+kk));
+      if ( ! isfinite(d1)
+	   || d1 * *(rate+kk) / ( 1. - *(rate+kk) ) <= MODEL_TOL )
+	*(u0+*(idx+kk))= *(c1+kk);
+      else {
+	for (jj=0; jj < MODEL_NWORK; jj++)
+	  *(work+jj*ndata+m)= *(work+jj*ndata+kk);
+	*(idx+m++)= *(idx+kk);
+      }
+    }
+    n= m;
+    if ( n == 0 ) break;
+    modelRuleu0(n,work,work+ndata,work+2*ndata,work+3*ndata,work+4*ndata,
+		c1,c2,cmin,cmax,1,n,cdelta,nargs,actionAngleArgs);
+    for (kk=0, m=0; kk < n; kk++){
+      d1= fabs(*(c1+kk) - *(c0+kk));
+      d2= fabs(*(c2+kk) - *(c1+kk));
+      *(rate+kk)= d2 / ( d1 > 0. ? d1 : 1. );
+      if ( ! ( *(rate+kk) < 0.9 ) ) *(rate+kk)= 0.9;
+      den= *(c2+kk) - 2. * *(c1+kk) + *(c0+kk);
+      acc= *(c2+kk) - ( *(c2+kk) - *(c1+kk) ) * ( *(c2+kk) - *(c1+kk) ) / den;
+      acc= ( den != 0. && isfinite(acc) ) ? acc : *(c2+kk);
+      *(u0+*(idx+kk))= acc;
+      if ( isfinite(d2)
+	   && d2 * *(rate+kk) / ( 1. - *(rate+kk) ) > MODEL_TOL ){
+	*(c0+kk)= acc;
+	for (jj=0; jj < MODEL_NWORK; jj++)
+	  *(work+jj*ndata+m)= *(work+jj*ndata+kk);
+	*(idx+m++)= *(idx+kk);
+      }
+    }
+    n= m;
+  }
+  free(idx);
+  free(work);
 }
 /*
   MAIN FUNCTIONS
@@ -434,6 +629,8 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  if ( model >= 2 )
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -562,6 +759,8 @@ void actionAngleStaeckel_actions(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  if ( model >= 2 )
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -1030,6 +1229,8 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  if ( model >= 2 )
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
