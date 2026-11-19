@@ -19128,14 +19128,12 @@ def test_streamgapdf_sample():
     lbdt = sdf_sanders15.sample(1, lb=True, returndt=True)
     numpy.random.seed(1)
     lbdtnou = sdf_sanders15_nou.sample(1, lb=True, returndt=True)
-    assert (
-        numpy.fabs(lbdt[0].to(units.deg).value - lbdtnou[0])
-        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
-    ), "streamgapdf sample lbdt does not return a correct Quantity"
-    assert (
-        numpy.fabs(lbdt[1].to(units.deg).value - lbdtnou[1])
-        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-6
-    ), "streamgapdf sample lbdt does not return a correct Quantity"
+    assert numpy.fabs(lbdt[0].to(units.deg).value - lbdtnou[0]) < 1e-4, (
+        "streamgapdf sample lbdt does not return a correct Quantity"
+    )
+    assert numpy.fabs(lbdt[1].to(units.deg).value - lbdtnou[1]) < 1e-4, (
+        "streamgapdf sample lbdt does not return a correct Quantity"
+    )
     assert (
         numpy.fabs(lbdt[2].to(units.kpc).value - lbdtnou[2])
         < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-5
