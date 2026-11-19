@@ -10233,8 +10233,10 @@ def _obs_asnumpy(obs):
 # first, so that a process does not wait for an unreachable mirror's connection
 # timeout at every lookup
 _SIMBAD_SERVER = None
-# The mirrors when astroquery does not list any (astroquery <= 0.4.7)
-_SIMBAD_MIRRORS = ("simbad.cds.unistra.fr", "simbad.harvard.edu")
+# The SIMBAD mirrors (as CDS lists them on 2026-11-19), tried after those that
+# astroquery lists, which may lack some (astroquery <= 0.4.11 does not list the
+# IDIA one)
+_SIMBAD_MIRRORS = ("simbad.cds.unistra.fr", "simbad.harvard.edu", "simbad.idia.ac.za")
 
 
 def _simbad_servers():
@@ -10244,11 +10246,12 @@ def _simbad_servers():
     Returns
     -------
     list
-        The mirror that answered the last lookup, astroquery's configured mirror (astroquery.simbad.conf.server) and then the other mirrors that astroquery knows (astroquery.simbad.conf.servers_list), without repeats.
+        The mirror that answered the last lookup, astroquery's configured mirror (astroquery.simbad.conf.server), the other mirrors that astroquery knows (astroquery.simbad.conf.servers_list) and then those that galpy knows (_SIMBAD_MIRRORS), without repeats.
 
     Notes
     -----
     - 2026-10-28 - Written - Bovy (UofT)
+    - 2026-11-19 - Also the mirrors that astroquery does not list - Bovy (UofT)
 
     """
     from astroquery.simbad import conf
@@ -10256,7 +10259,8 @@ def _simbad_servers():
     servers = [
         _SIMBAD_SERVER,
         conf.server,
-        *getattr(conf, "servers_list", _SIMBAD_MIRRORS),
+        *getattr(conf, "servers_list", ()),
+        *_SIMBAD_MIRRORS,
     ]
     return [
         s for ii, s in enumerate(servers) if s is not None and s not in servers[:ii]
@@ -10360,6 +10364,37 @@ def _from_name_oneobject(name, obs):
     raise OSError(f"failed to connect to SIMBAD (tried {', '.join(servers)})")
 
 
+def _simbad_set_server(simbad, server):
+    """
+    Point a SIMBAD query at a mirror, also one that astroquery does not list.
+
+    Parameters
+    ----------
+    simbad : astroquery.simbad.SimbadClass
+        The SIMBAD query.
+    server : str
+        Host name of the SIMBAD mirror.
+
+    Notes
+    -----
+    - 2026-11-19 - Written - Bovy (UofT)
+
+    """
+    from astroquery.simbad import conf
+
+    # astroquery accepts only the mirrors in its list, so a mirror that it
+    # does not list is in the list while it is set, and only then
+    unlisted = server not in conf.servers_list
+    if unlisted:
+        conf.servers_list.append(server)
+    try:
+        simbad.server = server
+    finally:
+        if unlisted:
+            conf.servers_list.remove(server)
+    return None
+
+
 def _from_name_simbad(name, server):
     """
     Look up the phase-space coordinates of one object on one SIMBAD mirror.
@@ -10369,7 +10404,7 @@ def _from_name_simbad(name, server):
     name : str
         Name of the object.
     server : str
-        Host name of the SIMBAD mirror (one of astroquery.simbad.conf.servers_list).
+        Host name of the SIMBAD mirror.
 
     Returns
     -------
@@ -10386,6 +10421,7 @@ def _from_name_simbad(name, server):
     Notes
     -----
     - 2026-10-28 - Split off from _from_name_oneobject - Bovy (UofT)
+    - 2026-11-19 - Also a mirror that astroquery does not list - Bovy (UofT)
 
     """
     # setup a SIMBAD query with the appropriate fields
@@ -10394,7 +10430,7 @@ def _from_name_simbad(name, server):
     simbad.SIMBAD_URL = simbad.SIMBAD_URL.replace("http://", "https://")
     if _AQ_GT_47:
         if simbad.server != server:
-            simbad.server = server
+            _simbad_set_server(simbad, server)
     else:  # pragma: no cover
         simbad.SIMBAD_URL = f"https://{server}/simbad/sim-script"
     simbad.add_votable_fields(
