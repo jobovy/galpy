@@ -1220,10 +1220,7 @@ class actionAngleStaeckel(actionAngle):
         - 2013-08-28 - Written - Bovy (IAS)
         """
         loop_c = bool(self._c and kwargs.get("c", True))
-        if self._inverse is not None and self._inverse._delta_rule is not None:
-            # (the frequencies and angles of a focal length that follows the
-            # tori are implemented in Python)
-            kwargs["c"] = False
+        ddelta = None
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
@@ -1276,7 +1273,7 @@ class actionAngleStaeckel(actionAngle):
                 jr, jz, Omegar, Omegaphi, Omegaz, _, _, _, err = (
                     actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
                         self._pot, delta, R, vR, vT, z, vz, 0.0 * R,
-                        u0=u0, order=order, model=2,
+                        u0=u0, order=order, model=2, ddelta=ddelta,
                     )
                 )  # fmt: skip
             else:
@@ -1396,10 +1393,7 @@ class actionAngleStaeckel(actionAngle):
         - 2013-08-28 - Written - Bovy (IAS)
         """
         loop_c = bool(self._c and kwargs.get("c", True))
-        if self._inverse is not None and self._inverse._delta_rule is not None:
-            # (the frequencies and angles of a focal length that follows the
-            # tori are implemented in Python)
-            kwargs["c"] = False
+        ddelta = None
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
@@ -1470,6 +1464,7 @@ class actionAngleStaeckel(actionAngle):
                 u0=u0,
                 order=order,
                 model=2 * self._model,
+                ddelta=ddelta,
             )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
