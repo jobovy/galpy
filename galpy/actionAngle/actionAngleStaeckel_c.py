@@ -593,7 +593,7 @@ def actionAngleFreqAngleStaeckel_c(
 
 
 def actionAngleUminUmaxVminStaeckel_c(
-    pot, delta, R, vR, vT, z, vz, u0=None, model=False
+    pot, delta, R, vR, vT, z, vz, u0=None, model=False, dfit=None
 ):
     """
     Use C to calculate umin, umax, and vmin using the Staeckel approximation
@@ -665,6 +665,7 @@ def actionAngleUminUmaxVminStaeckel_c(
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
+        ctypes.c_void_p,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -708,6 +709,7 @@ def actionAngleUminUmaxVminStaeckel_c(
         ctypes.c_int(ndelta),
         delta,
         ctypes.c_int(model),
+        None if dfit is None else dfit.ctypes.data_as(ctypes.c_void_p),
         umin,
         umax,
         vmin,
