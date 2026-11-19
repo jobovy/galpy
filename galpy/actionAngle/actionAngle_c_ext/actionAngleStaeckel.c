@@ -2268,17 +2268,15 @@ void calcAnglesStaeckel(int ndata,
       if ( torus == 5 ){
 	// u0='shell': the level-set rule on d S_u / du = 0 at the shell
 	// orbit's u, S_u = E sinh^2 u - cosh^2 u Phi(delta sinh u,0) - L_z^2
-	// / (2 delta^2 sinh^2 u) (the second radial derivative of the
-	// potential that this requires by FINITE DIFFERENCES of the force)
+	// / (2 delta^2 sinh^2 u) (with the potential's second radial
+	// derivative, which the C potentials provide; an interpRZPotential
+	// only when it interpolates it)
 	double sh= sinh(*(u0+ii)), ch= cosh(*(u0+ii)), Rs= tdelta * sh;
 	double L2= *(Lz+ii) * *(Lz+ii) / tdelta / tdelta;
 	double PhiR= -calcRforce(Rs,0.,0.,0.,nargs,
 				 actionAngleArgs + tid * nargs);
-	double PhiRR= ( calcRforce(Rs * ( 1. - 1.e-5 ),0.,0.,0.,nargs,
-				   actionAngleArgs + tid * nargs)
-			- calcRforce(Rs * ( 1. + 1.e-5 ),0.,0.,0.,nargs,
-				     actionAngleArgs + tid * nargs) )
-	  / ( 2.e-5 * Rs );
+	double PhiRR= calcR2deriv(Rs,0.,0.,0.,nargs,
+				  actionAngleArgs + tid * nargs);
 	double Suu= 2. * cosh(2. * *(u0+ii))
 	  * ( *(E+ii) - evaluatePotentials(Rs,0.,nargs,
 					   actionAngleArgs + tid * nargs) )
