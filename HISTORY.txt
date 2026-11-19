@@ -155,6 +155,51 @@ at release.]
   Staeckel torus of each of its tori than a family with a single focal
   length; a single focal length gives the same results as before.
 
+- ExpTruncNFWPotential's hand-written jax radial force, which constantbetadf
+  differentiates, uses the potential's own exp(a/rc) and E_1(a/rc), as its
+  other forces do. Above the small-r series switch its closed form cancels
+  by ~(a/r)^2, which turned a last-bit difference between jax's and scipy's
+  E_1(a/rc) into ~1e-9 relative (jax 0.12.1 differs from scipy at more
+  arguments than earlier versions).
+
+- [slot 20]
+
+- [slot 21]
+
+- [slot 22]
+
+- [slot 23]
+
+- [slot 24]
+
+- [slot 25]
+
+- [slot 26]
+
+- [slot 27]
+
+- [slot 28]
+
+- [slot 29]
+
+- [slot 30]
+
+- [slot 31]
+
+- [slot 32]
+
+- [slot 33]
+
+- [slot 34]
+
+- [slot 35]
+
+- [slot 36]
+
+- [slot 37]
+
+- [slot 38]
+
 - SCFPotential (and DiskSCFPotential, whose expansion is one) evaluates arrays
   of points in one vectorized pass instead of a Python loop over the points
   (potential, density, forces and second derivatives; the Gegenbauer
