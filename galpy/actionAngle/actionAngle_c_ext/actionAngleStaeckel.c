@@ -153,7 +153,7 @@ void calcAnglesStaeckel(int,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
 			double *,int,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
-			int,struct potentialArg *,int,int,double *);
+			int,struct potentialArg *,int,int,double *,double *);
 void calcFreqsFromDerivsStaeckel(int,double *,double *,double *,
 				 double *,double *,double *,
 				 double *,double *,double *,double *);
@@ -320,8 +320,9 @@ static inline void calcEModel(int ndata,
 }
 // The reference curve of the Staeckel model of the torus through each
 // point, for a curve that follows the tori (actionAngleStaeckelInverse):
-// u0='torus', delta sinh(u0) = 2 / (1/R_- + 1/R_+) at the turning points
-// of the torus's u libration. The
+// rule 2, u0='torus', delta sinh(u0) = 2 / (1/R_- + 1/R_+) at the turning
+// points of the torus's u libration; rule 3, u0='planar', the same at those
+// of the planar orbit of the torus's energy and angular momentum. The
 // energy and the third integral of a point are those in its model, which
 // depend on u0: one application of the rule at the current u0. With warm,
 // the turning points are those handed in moved to the current model by
@@ -340,6 +341,7 @@ static void modelRuleu0(int ndata,
 			int warm,
 			int ndelta,
 			double * delta,
+			int rule,
 			int nargs,
 			struct potentialArg * actionAngleArgs){
   int ii, jj, kk, nfull= 0;
@@ -367,15 +369,20 @@ static void modelRuleu0(int ndata,
     *(sin2v0+ii)= 1.;
     *(potu0v0+ii)= evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
 					nargs,targs);
-    shux= sinh(*(ux+ii));
-    pux= tdelta * (*(vR+ii) * cosh(*(ux+ii)) * sin(*(vx+ii))
-		   + *(vz+ii) * shux * cos(*(vx+ii)));
-    *(I3U+ii)= *(E+ii) * shux * shux
-      - 0.5 * pux * pux / tdelta / tdelta
-      - Lz22delta / shux / shux
-      - ( shux * shux + 1. )
-      * evaluatePotentialsUV(*(ux+ii),0.5 * M_PI,tdelta,nargs,targs)
-      + ( *(sinh2u0+ii) + 1. ) * *(potu0v0+ii);
+    if ( rule == 3 )
+      // the planar orbit's third integral: p_v = 0 in the midplane
+      *(I3U+ii)= Lz22delta - *(E+ii);
+    else {
+      shux= sinh(*(ux+ii));
+      pux= tdelta * (*(vR+ii) * cosh(*(ux+ii)) * sin(*(vx+ii))
+		     + *(vz+ii) * shux * cos(*(vx+ii)));
+      *(I3U+ii)= *(E+ii) * shux * shux
+	- 0.5 * pux * pux / tdelta / tdelta
+	- Lz22delta / shux / shux
+	- ( shux * shux + 1. )
+	* evaluatePotentialsUV(*(ux+ii),0.5 * M_PI,tdelta,nargs,targs);
+    }
+    *(I3U+ii)+= ( *(sinh2u0+ii) + 1. ) * *(potu0v0+ii);
     *(full+ii)= 1 - warm;
     for (jj=0; jj < 2 && ! *(full+ii); jj++){
       x= jj == 0 ? *(umin+ii) : *(umax+ii);
@@ -445,6 +452,7 @@ static void calcModelu0(int ndata,
 			double *u0,
 			int ndelta,
 			double * delta,
+			int rule,
 			int nargs,
 			struct potentialArg * actionAngleArgs){
   int ii, jj, kk, iter, n= ndata, m;
@@ -468,7 +476,7 @@ static void calcModelu0(int ndata,
   }
   for (iter=0; iter < MODEL_MAXITER && n > 0; iter++){
     modelRuleu0(n,work,work+ndata,work+2*ndata,work+3*ndata,work+4*ndata,
-		c0,c1,cmin,cmax,iter > 0,n,cdelta,nargs,actionAngleArgs);
+		c0,c1,cmin,cmax,iter > 0,n,cdelta,rule,nargs,actionAngleArgs);
     // done where this step alone leaves less than the tolerance
     for (kk=0, m=0; kk < n; kk++){
       d1= fabs(*(c1+kk) - *(c0+kk));
@@ -484,7 +492,7 @@ static void calcModelu0(int ndata,
     n= m;
     if ( n == 0 ) break;
     modelRuleu0(n,work,work+ndata,work+2*ndata,work+3*ndata,work+4*ndata,
-		c1,c2,cmin,cmax,1,n,cdelta,nargs,actionAngleArgs);
+		c1,c2,cmin,cmax,1,n,cdelta,rule,nargs,actionAngleArgs);
     for (kk=0, m=0; kk < n; kk++){
       d1= fabs(*(c1+kk) - *(c0+kk));
       d2= fabs(*(c2+kk) - *(c1+kk));
@@ -630,7 +638,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
   if ( model >= 2 )
-    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,npot,actionAngleArgs);
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -760,7 +768,7 @@ void actionAngleStaeckel_actions(int ndata,
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
   if ( model >= 2 )
-    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,npot,actionAngleArgs);
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -1230,7 +1238,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
   if ( model >= 2 )
-    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,npot,actionAngleArgs);
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -1319,6 +1327,21 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *dI3dLz= (double *) malloc ( ndata * sizeof(double) );
   calcdI3dJFromDerivsStaeckel(ndata,dI3dJR,dI3dJz,dI3dLz,detA,
 			      dJRdE,dJzdE,dJRdLz,dJzdLz);
+  // u0='planar': the turning points of the planar orbit of each point's
+  // energy and angular momentum (third integral: p_v = 0 in the midplane),
+  // at which the rule and its partials are evaluated
+  double *uplanar= NULL;
+  if ( model == 3 ){
+    uplanar= (double *) malloc ( 3 * ndata * sizeof(double) );
+    for (ii=0; ii < ndata; ii++){
+      tdelta= *(delta+ii*delta_stride);
+      *(uplanar+2*ndata+ii)= 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta
+	- *(E+ii) + ( *(sinh2u0+ii) + *(sin2v0+ii) ) * *(potu0v0+ii);
+    }
+    calcUminUmax(ndata,uplanar,uplanar+ndata,ux,pux,E,Lz,uplanar+2*ndata,
+		 ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,
+		 actionAngleArgs);
+  }
   calcAnglesStaeckel(ndata,Angler,Anglephi,Anglez,
 		     Omegar,Omegaphi,Omegaz,dI3dJR,dI3dJz,dI3dLz,
 		     dJRdE,dJRdLz,dJRdI3,
@@ -1327,8 +1350,10 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 		     umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,
 		     potu0v0,
 		     vmin,I3V,cosh2u0,potupi2,
-		     npot,actionAngleArgs,order,model == 2,ddelta);
+		     npot,actionAngleArgs,order,model >= 2 ? model : 0,uplanar,
+		     ddelta);
   //Free
+  free(uplanar);
   free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
   free(actionAngleArgs);
   free(E);
@@ -1686,6 +1711,7 @@ void calcAnglesStaeckel(int ndata,
 			struct potentialArg * actionAngleArgs,
 			int order,
 			int torus,
+			double * uplanar,
 			double * ddelta){
   int ii, tid, nthreads;
   double Or1, Or2, I3r1, I3r2,phitmp;
@@ -1943,6 +1969,10 @@ void calcAnglesStaeckel(int ndata,
       double dJzdu0, K, dEdu0, norm, sh2, chain, Rm, Rp;
       double r[4]= {0.,0.,0.,0.}, du0[3];
       double uturn[2]= {*(umin+ii),*(umax+ii)};
+      if ( torus == 3 ){
+	uturn[0]= *(uplanar+ii);
+	uturn[1]= *(uplanar+ndata+ii);
+      }
       int jj;
       (paramsv+tid)->wu0= 1;
       mid= sqrt( 0.5 * (M_PI/2. - *(vmin+ii) ) );
@@ -1974,6 +2004,13 @@ void calcAnglesStaeckel(int ndata,
 			 * calcRforce(tdelta * sinh(uturn[jj]),0.,0.,0.,nargs,
 				      actionAngleArgs + tid * nargs)
 			 + *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / tdelta / sh2 );
+      }
+      if ( torus == 3 ){
+	// along the planar orbit's third integral, L_z^2 / (2 delta^2) - E
+	r[0]-= r[1];
+	r[2]+= r[1] * *(Lz+ii) / tdelta / tdelta;
+	r[3]-= r[1] * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / tdelta;
+	r[1]= 0.;
       }
       dEdu0= - *(Omegaz+ii) * dJzdu0;
       norm= 1. - r[0] * dEdu0 + r[1] * *(dI3dJz+ii) * dJzdu0;
