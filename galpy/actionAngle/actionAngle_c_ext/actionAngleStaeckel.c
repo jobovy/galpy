@@ -142,10 +142,11 @@ EXPORT void actionAngleStaeckel_actionsFreqsAngles(int,double *,double *,double 
 					    int,int *,double *,tfuncs_type_arr,
 					    int,double *,int,int,double *,double *,
 					    double *,double *,double *,
-					    double *,double *,double *,double *,int *);
+					    double *,double *,double *,double *,double *,
+					    int *);
 EXPORT void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,tfuncs_type_arr,
-				      int,double *,int,int,double *,double *,
+				      int,double *,int,double *,double *,
 				      double *,double *,double *,int *);
 void calcAnglesStaeckel(int,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
@@ -637,7 +638,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model >= 2 )
+  if ( model == 2 || model == 3 )
     calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
@@ -767,7 +768,7 @@ void actionAngleStaeckel_actions(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model >= 2 )
+  if ( model == 2 || model == 3 )
     calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
@@ -1031,7 +1032,6 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
               tfuncs_type_arr pot_tfuncs,
 				      int ndelta,
 				      double * delta,
-				      int model,
 				      int order,
 				      double *jr,
 				      double *jz,
@@ -1206,6 +1206,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 					    double *Anglephi,
 					    double *Anglez,
 					    double * ddelta,
+					    double * du0,
 					    int * err){
   int ii;
   double tdelta;
@@ -1237,7 +1238,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model >= 2 )
+  if ( model == 2 || model == 3 )
     calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
@@ -1350,8 +1351,8 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 		     umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,
 		     potu0v0,
 		     vmin,I3V,cosh2u0,potupi2,
-		     npot,actionAngleArgs,order,model >= 2 ? model : 0,uplanar,
-		     ddelta);
+		     npot,actionAngleArgs,order,model >= 2 ? model : 0,
+		     model == 4 ? du0 : uplanar,ddelta);
   //Free
   free(uplanar);
   free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
@@ -1990,7 +1991,9 @@ void calcAnglesStaeckel(int ndata,
       // two turning points
       Rm= tdelta * sinh(uturn[0]);
       Rp= tdelta * sinh(uturn[1]);
-      for (jj=0; jj < 2; jj++){
+      // (torus 4, a rule evaluated by the caller: its partials are handed in)
+      for (jj=0; jj < 4 && torus == 4; jj++) r[jj]= *(uplanar+jj*ndata+ii);
+      for (jj=0; jj < 2 && torus < 4; jj++){
 	sh2= sinh(uturn[jj]) * sinh(uturn[jj]);
 	chain= 2. * ( jj == 0 ? Rp * Rp : Rm * Rm ) / ( Rm + Rp ) / ( Rm + Rp )
 	  * cosh(uturn[jj]) / cosh(*(u0+ii))
