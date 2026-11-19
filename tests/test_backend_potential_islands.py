@@ -303,12 +303,14 @@ def test_irrgang13_halo_density_on_backend(backend):
     numpy.testing.assert_allclose(as_numpy(got), Irrgang13I_halo_dens(r), rtol=1e-11)
 
 
+# steps of 1e-6 (the default 1e-8 amplifies the moments' last bits, where a
+# backend's arithmetic differs from numpy's, by ~1e8 into the estimate)
 _QDF_ESTIMATES = [
-    ("estimate_hr", dict(z=0.0)),
-    ("estimate_hr", dict(z=None)),
-    ("estimate_hz", dict(z=0.1)),
-    ("estimate_hsr", dict(z=0.0)),
-    ("estimate_hsz", dict(z=0.0)),
+    ("estimate_hr", dict(z=0.0, dR=1e-6)),
+    ("estimate_hr", dict(z=None, dR=1e-6)),
+    ("estimate_hz", dict(z=0.1, dz=1e-6)),
+    ("estimate_hsr", dict(z=0.0, dR=1e-6)),
+    ("estimate_hsz", dict(z=0.0, dR=1e-6)),
 ]
 
 
