@@ -600,7 +600,7 @@ def test_lone_circular_torus_auxiliary(backend):
     aN = _explicit(labels=labels)
     with gb.use(backend, force=True):
         aB = _explicit(labels=labels)
-    rc = float(aN._delta * numpy.sinh(aN._samples[0]["uc"]))
+    rc = float(aN._delta * numpy.sinh(aN._ucs[0]))
     vc2 = float(as_numpy(vcirc(aN._staeckelwrap, rc, use_physical=False))) ** 2
     for aA in (aN, aB):
         GM, b = (float(as_numpy(t)) for t in (aA._GM, aA._b))
