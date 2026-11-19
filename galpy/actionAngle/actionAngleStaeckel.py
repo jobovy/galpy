@@ -759,6 +759,15 @@ class actionAngleStaeckel(actionAngle):
             kwargs.setdefault("vo", aAI._vo)
         return kwargs
 
+    def _check_model_c(self, kwargs):
+        """The Staeckel model of each point of inverse= is only implemented
+        in C"""
+        if self._model and not (self._c and kwargs.get("c", True)):
+            raise NotImplementedError(
+                "inverse= of an instance whose reference curve follows its "
+                "tori requires the C implementation"
+            )
+
     def _inverse_model(self, R, vR, vT, z, vz, needs):
         """The focal length and reference curve of the Staeckel model of
         the torus of inverse= through each phase-space point. A reference
@@ -829,6 +838,7 @@ class actionAngleStaeckel(actionAngle):
         - 2012-11-27 - Written - Bovy (IAS)
         - 2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
+        self._check_model_c(kwargs)
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if len(args) == 5:  # R,vR.vT, z, vz
@@ -871,12 +881,6 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
-            elif self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions")
-            elif self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "freqs")
-            elif self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "angles")
             elif self._inverse is not None:
                 delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions")
             else:
@@ -948,6 +952,7 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        self._check_model_c(kwargs)
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
@@ -990,6 +995,8 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "freqs")
             else:
                 u0 = None
             (
@@ -1115,6 +1122,7 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        self._check_model_c(kwargs)
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
@@ -1159,6 +1167,8 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "angles")
             else:
                 u0 = None
             (
@@ -1300,6 +1310,7 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2017-12-12 - Written - Bovy (UofT)
         """
+        self._check_model_c(kwargs)
         delta = kwargs.get("delta", self._delta)
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
         rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
@@ -1377,6 +1388,8 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions")
             else:
                 u0 = None
             (
