@@ -1015,6 +1015,71 @@ def test_in_domain_backend_family():
             aB(jr, Lz, jz, 0.3, 1.0, 2.0)
 
 
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_backend():
+    # tori set up from their actions on a backend: the integrals are solved
+    # on a host copy of the model, and the tori built on the backend equal
+    # numpy's; a differentiated parameter would not reach those integrals
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    J = dict(jrs=[0.05, 0.3], Lzs=[0.9, -0.6], jzs=[0.05, 0.2])
+
+    aN = actionAngleStaeckelInverse(pot=_pot(), mm_npt=48, progressbar=False, **J)
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(pot=_pot(), mm_npt=48, progressbar=False, **J)
+    assert aB._bk is not None
+    numpy.testing.assert_allclose(aB._Es, aN._Es, rtol=1e-13, atol=0.0)
+    numpy.testing.assert_allclose(aB._I3s, aN._I3s, rtol=1e-13, atol=1e-15)
+    for jr, Lz, jz in zip(J["jrs"], J["Lzs"], J["jzs"]):
+        numpy.testing.assert_allclose(
+            _flat(aB(jr, Lz, jz, _ANGLES[:3], 1.0, 2.0)),
+            _flat(aN(jr, Lz, jz, _ANGLES[:3], 1.0, 2.0)),
+            rtol=0.0,
+            atol=3e-12,
+        )
+    with pytest.raises(NotImplementedError, match="differentiated jax/torch"):
+        actionAngleStaeckelInverse(
+            pot=_pot(amp=torch.tensor(4.0, requires_grad=True)), **J
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_split_u_libration_explicit(backend):
+    # an explicit torus whose u libration is split in the Staeckel
+    # approximation of a cusped potential (p_u^2 has a second maximum close
+    # to the centre): the backend brackets its turning points from the
+    # barrier next to the shell u, as numpy does, and builds numpy's torus
+    # (from the shell u outward, the bracket steps over the barrier here and
+    # finds the libration across both wells)
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(
+        pot=MWPotential2014,
+        delta=0.3,
+        mm_npt=64,
+        progressbar=False,
+        Es=[-1.5],
+        Lzs=[0.004],
+        I3s=[3.3629344522623326],
+    )
+    aN = actionAngleStaeckelInverse(**kw)
+    with gb.use(backend, force=True):
+        aB = actionAngleStaeckelInverse(**kw)
+    numpy.testing.assert_allclose(aB._jrs, aN._jrs, rtol=1e-12, atol=0.0)
+    numpy.testing.assert_allclose(aB._jzs, aN._jzs, rtol=1e-12, atol=0.0)
+    # (this close to the axis the points agree to 1e-10)
+    J = (aN._jrs[0], 0.004, aN._jzs[0])
+    numpy.testing.assert_allclose(
+        _flat(aB(*J, _ANGLES[:3], 1.0, 2.0)),
+        _flat(aN(*J, _ANGLES[:3], 1.0, 2.0)),
+        rtol=0.0,
+        atol=3e-10,
+    )
+
+
 # ---------- the construction's contract and checks
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_construction_contract(backend):
