@@ -133,7 +133,19 @@ at release.]
   host, frozen (a gauge), and the tables equal numpy's (twins of main's
   #1915, #1916, #1917 and #1929, with #1953's rename).
 
-- [slot 15]
+- ``actionAngleStaeckelInverse`` (twins of main's #1920, #1921, #1922 and
+  #1924): in the Staeckel approximation of a cusped potential a torus's v
+  turning point is the first root below the midplane, and a grid that reaches
+  tori whose u or v libration is split raises an error that names the torus;
+  new method ``in_domain(jr, jphi, jz)``, and array evaluations with tori
+  outside a family raise one error that counts them; the inversion of the
+  family's action tables is a damped Newton iteration on a fixed schedule;
+  the angle solve's fallback always brackets its root; families store their
+  half-widths in variables that keep the inner turning points positive (no
+  points inside the centrifugal barrier at small ``|L_z|``; outputs between
+  nodes move at the 1e-5 level or below, and families pickled before have to
+  be rebuilt). The same on jax and PyTorch, whose families' tables equal
+  numpy's.
 
 - [slot 16]
 
