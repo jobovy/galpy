@@ -948,6 +948,45 @@ def test_rule_jax_jit_construction():
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_split_tori_family_backend():
+    # a family built on a backend whose grid reaches split librations
+    # raises numpy's errors: a v libration whose momentum function rises
+    # again beyond its turning point (a cusped halo near the axis) and a u
+    # libration whose momentum function has two maxima (MWPotential2014's
+    # cusped bulge at small |L_z|)
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014, NFWPotential
+
+    kw = dict(setup_interp=True, mm_npt=32, progressbar=False)
+    with gb.use("torch", force=True):
+        with pytest.raises(ValueError, match="does not fall monotonically"):
+            actionAngleStaeckelInverse(
+                pot=NFWPotential(normalize=1.0, a=1.0),
+                delta=0.31,
+                Rmin=0.05,
+                Rmax=3.0,
+                Rinf=8.0,
+                nE=6,
+                nLz=6,
+                nI3=6,
+                **kw,
+            )
+        with pytest.raises(ValueError, match="more than one maximum"):
+            actionAngleStaeckelInverse(
+                pot=MWPotential2014,
+                delta=0.3,
+                Rmin=0.04,
+                Rmax=2.0,
+                Rinf=5.0,
+                nE=16,
+                nLz=4,
+                nI3=4,
+                **kw,
+            )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_in_domain_backend_family():
     # in_domain and the counted error of an array evaluation for a family
     # built on a backend: the single tori (degenerate faces) are looked up
