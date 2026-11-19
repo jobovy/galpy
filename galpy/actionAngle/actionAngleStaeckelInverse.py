@@ -112,34 +112,31 @@ def _solve_increasing(f, fp, lo, hi):
 
 
 def _hermite_table(x, y, yp):
-    """A function tabulated with its slope at the uniform nodes x, as the
-    coefficients of its cubic Hermite interpolant on every interval: (first
-    node, spacing, coefficients (4, intervals) in the fraction of the
-    interval)"""
-    h = (x[-1] - x[0]) / (len(x) - 1)
-    y0, y1, d0, d1 = y[:-1], y[1:], h * yp[:-1], h * yp[1:]
-    return (
-        x[0],
-        h,
-        numpy.array(
-            [y0, d0, 3.0 * (y1 - y0) - 2.0 * d0 - d1, 2.0 * (y0 - y1) + d0 + d1]
-        ),
+    """A function tabulated with its slope at the nodes x, as its cubic
+    Hermite interpolant: the nodes and the coefficients (4, intervals) of
+    every interval's polynomial in the distance from its first node,
+    highest power first (scipy's PPoly layout)"""
+    h = numpy.diff(x)
+    y0, y1, d0, d1 = y[:-1], y[1:], yp[:-1], yp[1:]
+    slope = (y1 - y0) / h
+    return x, numpy.stack(
+        [(d0 + d1 - 2.0 * slope) / h**2, (3.0 * slope - 2.0 * d0 - d1) / h, d0, y0]
     )
 
 
-def _hermite_uniform(tab, x, deriv=False):
+def _hermite_eval(tab, x, deriv=False):
     """The value at x of the cubic Hermite interpolant of _hermite_table,
     and with deriv also its slope; x is held inside the table, and a NaN
     stays one"""
-    x0, h, coef = tab
-    s = numpy.clip((x - x0) / h, 0.0, coef.shape[1] - 1e-6)
-    i = numpy.where(s == s, s, 0.0).astype("int")
-    t = s - i
-    c0, c1, c2, c3 = coef[:, i]
-    val = c0 + t * (c1 + t * (c2 + t * c3))
+    xs, c = tab
+    x = numpy.clip(x, xs[0], xs[-1])
+    i = numpy.clip(numpy.searchsorted(xs, x, side="right") - 1, 0, c.shape[1] - 1)
+    dx = x - xs[i]
+    c0, c1, c2, c3 = c[:, i]
+    val = ((c0 * dx + c1) * dx + c2) * dx + c3
     if not deriv:
         return val
-    return val, (c1 + t * (2.0 * c2 + 3.0 * t * c3)) / h
+    return val, (c0 * 3.0 * dx + c1 * 2.0) * dx + c2
 
 
 def _multisect(f, lo, hi, bits):
@@ -1768,7 +1765,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             n = int(numpy.argmin(numpy.append(numpy.isfinite(Phi + dPhi), False)))
             tab = _hermite_table(lnR[:n], Phi[:n], dPhi[:n])
             scan = numpy.linspace(numpy.log(1e-6 * d), lnR[n - 1], 1000)
-            self._midplane_tab = (tab, (scan, *_hermite_uniform(tab, scan, deriv=True)))
+            self._midplane_tab = (tab, (scan, *_hermite_eval(tab, scan, deriv=True)))
         return self._midplane_tab
 
     def _W0(self, lnR, E, ell, deriv=False):
@@ -1781,10 +1778,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if not deriv:
             return (
                 2.0 * R2 * E
-                - 2.0 * (d2 + R2) * _hermite_uniform(self._midplane()[0], lnR)
+                - 2.0 * (d2 + R2) * _hermite_eval(self._midplane()[0], lnR)
                 - ell**2 * d2 / R2
             )
-        Phi, dPhi = _hermite_uniform(self._midplane()[0], lnR, deriv=True)
+        Phi, dPhi = _hermite_eval(self._midplane()[0], lnR, deriv=True)
         return 4.0 * R2 * (E - Phi) - 2.0 * (d2 + R2) * dPhi + 2.0 * ell**2 * d2 / R2
 
     def _wells(self, E, ell):
@@ -1873,7 +1870,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if self._Vref_tab is None:
                 vs = numpy.linspace(1e-10, 0.5 * numpy.pi, 4001)
                 self._Vref_tab = _hermite_table(vs, self._V(vs), self._dV(vs))
-            return _hermite_uniform(self._Vref_tab, v)
+            return _hermite_eval(self._Vref_tab, v)
         d = self._delta
         sh, ch = numpy.sinh(u0), numpy.cosh(u0)
         sn, cs = numpy.sin(v), numpy.cos(v)
@@ -1996,14 +1993,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             udeg = I3 >= Ish - tolI
             valid = (I3 <= Ish + tolI) & (I3 >= Ipl - tolI)
         # the inner and the outer turning point in one pass
-        tab, n = self._midplane()[0], len(E)
+        xs, n = self._midplane()[0][0], len(E)
         lo = numpy.concatenate(
-            [numpy.where(above & ~own, xb, tab[0] + tab[1]), numpy.where(own, xi, xo)]
+            [numpy.where(above & ~own, xb, xs[1]), numpy.where(own, xi, xo)]
         )
         hi = numpy.concatenate(
             [
                 numpy.where(split & ~(above & ~own), xi, xo),
-                numpy.where(own, xb, tab[0] + tab[1] * (tab[2].shape[1] - 1)),
+                numpy.where(own, xb, xs[-2]),
             ]
         )
         sgn = numpy.repeat([1.0, -1.0], n)
