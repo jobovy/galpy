@@ -129,20 +129,20 @@ EXPORT void calcu0(int,double *,double *,int,int *,double *,tfuncs_type_arr,
        int,double*,double *,int *);
 EXPORT void actionAngleStaeckel_uminUmaxVmin(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,tfuncs_type_arr,
-				      int,double *,double *,
+				      int,double *,int,double *,
 				      double *,double *,int *);
 EXPORT void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 				 double *,double *,int,int *,double *,tfuncs_type_arr,int,
-				 double *,int,double *,double *,int *);
+				 double *,int,int,double *,double *,int *);
 EXPORT void actionAngleStaeckel_actionsFreqsAngles(int,double *,double *,double *,
 					    double *,double *,double *,
 					    int,int *,double *,tfuncs_type_arr,
-					    int,double *,int,double *,double *,
+					    int,double *,int,int,double *,double *,
 					    double *,double *,double *,
 					    double *,double *,double *,int *);
 EXPORT void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,tfuncs_type_arr,
-				      int,double *,int,double *,double *,
+				      int,double *,int,int,double *,double *,
 				      double *,double *,double *,int *);
 void calcAnglesStaeckel(int,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
@@ -265,6 +265,46 @@ static inline void calcEL(int ndata,
     *(Lz+ii)= *(R+ii) * *(vT+ii);
   }
 }
+// The energy in the Staeckel model that the approximation with (delta, u0)
+// stands for, Phi = [U(u) - V(v)] / (sinh^2 u + sin^2 v) with U(u) =
+// cosh^2 u Phi(u,pi/2) and V(v) = cosh^2 u0 Phi(u0,pi/2) - (sinh^2 u0 +
+// sin^2 v) Phi(u0,v), in place of that in the potential itself: with it,
+// the actions, frequencies, and angles are those of this Staeckel model
+static inline void calcEModel(int ndata,
+			      double *vR,
+			      double *vT,
+			      double *vz,
+			      double *ux,
+			      double *vx,
+			      double *u0,
+			      int ndelta,
+			      double * delta,
+			      double *E,
+			      int nargs,
+			      struct potentialArg * actionAngleArgs){
+  int ii;
+  double tdelta, sinh2u, sin2v, sinh2u0;
+  int delta_stride= ndelta == 1 ? 0 : 1;
+  for (ii=0; ii < ndata; ii++){
+    tdelta= *(delta+ii*delta_stride);
+    sinh2u= sinh(*(ux+ii)) * sinh(*(ux+ii));
+    sin2v= sin(*(vx+ii)) * sin(*(vx+ii));
+    sinh2u0= sinh(*(u0+ii)) * sinh(*(u0+ii));
+    *(E+ii)= ( ( sinh2u + 1. )
+	       * evaluatePotentialsUV(*(ux+ii),0.5 * M_PI,tdelta,
+				      nargs,actionAngleArgs)
+	       - ( sinh2u0 + 1. )
+	       * evaluatePotentialsUV(*(u0+ii),0.5 * M_PI,tdelta,
+				      nargs,actionAngleArgs)
+	       + ( sinh2u0 + sin2v )
+	       * evaluatePotentialsUV(*(u0+ii),*(vx+ii),tdelta,
+				      nargs,actionAngleArgs) )
+      / ( sinh2u + sin2v )
+      + 0.5 * *(vR+ii) * *(vR+ii)
+      + 0.5 * *(vT+ii) * *(vT+ii)
+      + 0.5 * *(vz+ii) * *(vz+ii);
+  }
+}
 /*
   MAIN FUNCTIONS
  */
@@ -350,6 +390,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
               tfuncs_type_arr pot_tfuncs,
 				      int ndelta,
 				      double * delta,
+				      int model,
 				      double *umin,
 				      double *umax,
 				      double *vmin,
@@ -386,6 +427,8 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  if ( model )
+    calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
   double *sinhux= (double *) malloc ( ndata * sizeof(double) );
   double *sinvx= (double *) malloc ( ndata * sizeof(double) );
@@ -477,6 +520,7 @@ void actionAngleStaeckel_actions(int ndata,
          tfuncs_type_arr pot_tfuncs,
 				 int ndelta,
 				 double * delta,
+				 int model,
 				 int order,
 				 double *jr,
 				 double *jz,
@@ -511,6 +555,8 @@ void actionAngleStaeckel_actions(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  if ( model )
+    calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
   double *sinhux= (double *) malloc ( ndata * sizeof(double) );
   double *sinvx= (double *) malloc ( ndata * sizeof(double) );
@@ -771,6 +817,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
               tfuncs_type_arr pot_tfuncs,
 				      int ndelta,
 				      double * delta,
+				      int model,
 				      int order,
 				      double *jr,
 				      double *jz,
@@ -808,6 +855,8 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  if ( model )
+    calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
   double *sinhux= (double *) malloc ( ndata * sizeof(double) );
   double *sinvx= (double *) malloc ( ndata * sizeof(double) );
@@ -934,6 +983,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
               tfuncs_type_arr pot_tfuncs,
 					    int ndelta,
 					    double * delta,
+					    int model,
 					    int order,
 					    double *jr,
 					    double *jz,
@@ -974,6 +1024,8 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  if ( model )
+    calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
   double *sinhux= (double *) malloc ( ndata * sizeof(double) );
   double *sinvx= (double *) malloc ( ndata * sizeof(double) );
