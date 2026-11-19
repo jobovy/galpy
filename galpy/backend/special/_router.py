@@ -7,7 +7,7 @@ import importlib
 import numpy
 import scipy.special as _scipy_special
 
-from ...util._optional_deps import _TORCH_GE_215
+from ...util._optional_deps import _JAX_GE_0121, _TORCH_GE_215
 from .._namespaces import (
     is_backend_array,
     match_input_dtype,
@@ -22,8 +22,11 @@ from .._resolver import get_namespace
 # (hasattr on the backend's special module), so entries are removed as backends
 # add the native version. (numpy always has the full scipy.special.)
 _NATIVE_MISSING = {
-    # jax.scipy.special has i0/i1 and sici but no general-order iv.
-    "jax": frozenset(("ellipk", "ellipkm1", "ellipe", "k0", "k1", "kn", "iv")),
+    # jax.scipy.special has i0/i1 and sici; kn and iv only from jax 0.12.1.
+    "jax": frozenset(
+        ("ellipk", "ellipkm1", "ellipe", "k0", "k1")
+        + (() if _JAX_GE_0121 else ("kn", "iv"))
+    ),
     # torch.special lacks all of these. (Its modified_bessel_k0/k1 have no
     # autograd backward before torch 2.15, so k0/k1 use the fallback there; from
     # 2.15 they are native, see _NATIVE_ALIASES.) torch has no kn, no
@@ -62,8 +65,13 @@ _NATIVE_ALIASES = {
 _NATIVE_UNRELIABLE = {
     # jax.scipy.special.gammainc/gammaincc are accurate but iterate per element
     # in a while_loop: ~100x slower on CPU than the vectorized fallback (2.1 s vs
-    # 0.014 s for 1e6 points at a = 0.1), which is as accurate as scipy.
-    "jax": frozenset(("hyp2f1", "hyp1f1", "gammainc", "gammaincc")),
+    # 0.014 s for 1e6 points at a = 0.1), which is as accurate as scipy. Its kn
+    # and iv (jax >= 0.12.1) are 7x and 100x slower under jit than the
+    # recurrences, which agree with them to 3e-14 at galpy's order 2.
+    "jax": frozenset(
+        ("hyp2f1", "hyp1f1", "gammainc", "gammaincc")
+        + (("kn", "iv") if _JAX_GE_0121 else ())
+    ),
     # torch.special.gammainc/gammaincc exist but are unusable on two counts:
     # no derivative w.r.t. the ORDER ("the derivative for 'igamma: input' is
     # not implemented"), and a discrete algorithm switch at a ~ 20 costing ~6
@@ -252,7 +260,7 @@ def kn(n, x):
 
 def iv(n, x):
     # Integer-order modified Bessel I_n; only the array arg x carries the namespace.
-    # jax/torch expose only i0/i1, so the fallback recurs from native i0/i1.
+    # The fallback recurs from native i0/i1 (jax's own iv is much slower).
     return _dispatch("iv", (n, x), "bessel_i.iv_fallback", ns_args=(x,))
 
 
