@@ -114,7 +114,9 @@ def actions_staeckel(bk, x):
 
 def actions_spherical(bk, x):
     aA = actionAngleSpherical(pot=HernquistPotential(amp=x, a=1.5))
-    c = [_arr(bk, [v]) for v in (1.0, 0.1, 1.1, 0.05, 0.05)]
+    # a bound orbit (vT = 1.1 was unbound at amp=2: its actions were NaN,
+    # which the gradient check took as connected)
+    c = [_arr(bk, [v]) for v in (1.0, 0.1, 0.5, 0.05, 0.05)]
     jr, _, jz = aA(*c)
     return (jr + jz).sum()
 
