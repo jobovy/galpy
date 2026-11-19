@@ -1267,8 +1267,12 @@ def test_analytic_actions_backend_orbit_values(case, backend_name):
     vals = _afa(cast(_TP_IC), case, names)
     ref = _afa(numpy.array(_TP_IC), case, names)
     # spherical: fixed-order backend quadrature vs scipy quad, measured 9e-10;
-    # a GPU's arithmetic differs in the last digits (Staeckel delta: up to 6.1e-11)
+    # a GPU's arithmetic differs in the last digits (Staeckel delta: up to 6.1e-11);
+    # the python Staeckel path amplifies jax's own log (from 0.12.1, an ulp off
+    # glibc's) to 7e-12 in the angles
     rtol = 1e-8 if case == "spherical" else (2e-10 if _on_gpu(backend_name) else 1e-12)
+    if case == "staeckel-noc-delta" and not _on_gpu(backend_name):
+        rtol = 2e-11
     for n, v, r in zip(names, vals, ref):
         assert is_backend_array(v), f"{case} {n} left the {backend_name} backend"
         numpy.testing.assert_allclose(as_numpy(v), r, rtol=rtol, atol=1e-13)

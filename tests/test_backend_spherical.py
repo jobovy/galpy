@@ -776,7 +776,8 @@ def test_twopower_derivs_value_and_parameter_gradient(
         jda = float(jax.jit(jax.grad(f))(*args))
         # XLA fuses the long beta < 2 series differently: ~1e-15, a few ulp
         assert abs(jval - val) <= 3e-15 * abs(val), (jval, val)
-        assert abs(jda - da) <= 1e-13 * abs(dref) + datol, (jda, da)
+        # each is within datol of the true ~0 (dref = 0): their difference 2 datol
+        assert abs(jda - da) <= 1e-13 * abs(dref) + 2.0 * datol, (jda, da)
     else:
         a = torch.tensor(a0, dtype=torch.float64, requires_grad=True)
         amp = torch.tensor(amp0, dtype=torch.float64, requires_grad=True)

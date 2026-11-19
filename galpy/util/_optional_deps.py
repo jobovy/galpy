@@ -79,10 +79,16 @@ except ImportError:
 
 # jax
 _JAX_LOADED = True
+_JAX_GE_0121 = None
 try:
+    from jax import __version__ as _jax_version
     from jax import grad, vmap
 except ImportError:
     _JAX_LOADED = False
+else:
+    _JAX_GE_0121 = Version(parse_version(_jax_version).base_version) >= Version(
+        "0.12.1"
+    )
 
 # torch
 _TORCH_LOADED = True
