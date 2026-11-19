@@ -150,10 +150,13 @@ at release.]
   interpolated family: ``delta='fit'`` gives each torus the focal length
   that minimizes the spread of the potential's energy over it (fitted
   smoothly over the family; ``u0`` then defaults to ``'torus'``), and
-  ``delta`` can be a callable ``delta(E, Lz, y)``. Such a family is
-  exactly canonical and is typically two to three times closer to the best
-  Staeckel torus of each of its tori than a family with a single focal
-  length; a single focal length gives the same results as before.
+  ``delta`` can be a callable ``delta(E, Lz, f)``, with f the fraction of
+  the way of the third integral from the planar to the shell orbit's in
+  the torus's own model (also the variable of the fit and of the delta
+  method). Such a family is exactly canonical and is typically two to
+  three times closer to the best Staeckel torus of each of its tori than
+  a family with a single focal length; a single focal length gives the
+  same results as before.
 
 - ExpTruncNFWPotential's hand-written jax radial force, which constantbetadf
   differentiates, uses the potential's own exp(a/rc) and E_1(a/rc), as its
