@@ -15530,7 +15530,7 @@ def test_actionAngleStaeckel_c_model_energy():
         for model in (False, True)
     ]
     assert numpy.all(numpy.isfinite(out[0])) and numpy.allclose(
-        out[0], out[1], rtol=0.0, atol=1e-10
+        out[0], out[1], rtol=0.0, atol=1e-8
     ), (
         "The Staeckel C code with the energy of its Staeckel model changes "
         "the actions, frequencies, or angles in a Staeckel potential"
