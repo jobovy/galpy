@@ -2210,11 +2210,14 @@ def test_scf_arrays_equal_points():
                             "by point"
                         )
                         continue
-                    # a forced backend's batched path sums in another order
+                    # a forced backend's batched path sums in another order; on
+                    # the axis the pole nudge (sin theta ~ 4.5e-4) amplifies that
+                    # in R2deriv (measured 2e-11 with jax 0.12.1)
                     want = numpy.array([float(as_numpy(w)) for w in want])
                     scale = numpy.nanmax(numpy.fabs(want[numpy.isfinite(want)]))
+                    rtol = numpy.where(R == 0.0, 1e-10, 1e-12)
                     assert numpy.allclose(
-                        got, want, rtol=1e-12, atol=1e-12 * scale, equal_nan=True
+                        got, want, rtol=rtol, atol=rtol * scale, equal_nan=True
                     ), f"{f.__name__} at arrays of points differs from point by point"
     return None
 
