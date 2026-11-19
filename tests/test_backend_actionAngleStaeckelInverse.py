@@ -671,7 +671,7 @@ def test_degenerate_explicit_tori(backend):
 # ---------- the adaptive reference curve and the target box
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_adaptive_and_target():
-    # u0='fit' (natively, frozen), a callable u0 (on the host) and a target's
+    # u0='planar' (natively, frozen), a callable u0 (on the host) and a target's
     # box (its labels natively, frozen) give the numpy families on a backend;
     # the box's faces are a static choice that a traced construction cannot
     # make
@@ -688,7 +688,7 @@ def test_adaptive_and_target():
             dict(
                 pot=LogarithmicHaloPotential(normalize=1.0, q=0.9),
                 delta=0.8,
-                u0="fit",
+                u0="planar",
                 Rmin=0.5,
                 Rmax=2.0,
                 Rinf=6.0,
@@ -704,7 +704,12 @@ def test_adaptive_and_target():
             [(0.0385, 1.1025, 0.01266)],
         ),
         (
-            dict(target=o(ts), u0="fit", Rmin=0.75, Rmax=1.25, Rinf=3.0),
+            dict(target=o(ts), u0="planar", Rmin=0.75, Rmax=1.25, Rinf=3.0),
+            [(0.0385, 1.1025, 0.01266)],
+        ),
+        # a rule that uses each point's third integral to place its chart
+        (
+            dict(target=o(ts), u0="torus", Rmin=0.75, Rmax=1.25, Rinf=3.0),
             [(0.0385, 1.1025, 0.01266)],
         ),
     ]
@@ -778,6 +783,168 @@ def test_adaptive_and_target():
 
         with pytest.raises(NotImplementedError, match="static"):
             jax.jit(traced)(jnp.asarray(4.0))
+
+
+# ---------- rules for the reference curve: every torus in its own Staeckel model
+# two interior nodes of a 5^3 family in _rule_pot (Rmin=0.8, Rmax=1.3, Rinf=2.8;
+# the labels do not depend on the rule), the second at L_z < 0
+_RULE_LABELS = [(0.66369425438, 1.0198039027, 0.3498601593), (0.907152284, -1.1514100371, 0.2670275931)]  # fmt: skip
+
+
+def _rule_pot(amp=1.0):
+    # not of Staeckel form, so that the model varies along the rule
+    from galpy.potential import LogarithmicHaloPotential
+
+    return LogarithmicHaloPotential(amp=amp, q=0.8)
+
+
+def _rule_callable(E, Lz, I3):
+    return 1.0 + 0.1 * numpy.tanh(I3) + 0.05 * E
+
+
+def _rule_tori(u0, pot=None, **kw):
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    return actionAngleStaeckelInverse(
+        pot=_rule_pot() if pot is None else pot,
+        delta=0.8,
+        u0=u0,
+        Es=[l[0] for l in _RULE_LABELS],
+        Lzs=[l[1] for l in _RULE_LABELS],
+        I3s=[l[2] for l in _RULE_LABELS],
+        mm_npt=16,
+        progressbar=False,
+        **kw,
+    )
+
+
+@pytest.mark.parametrize(
+    "backend,rule",
+    # the rules' code is backend-agnostic: jax (eager, which compiles per
+    # shape) runs one of them, under jax.jit the next test
+    [
+        (b, r)
+        for b in BACKENDS
+        for r in (("torus",) if b == "jax" else ("torus", "shell", "callable"))
+    ],
+)
+def test_rules_for_the_reference_curve(backend, rule):
+    # u0='torus' and 'shell' natively, a callable of (E, L_z, I_3) on the
+    # host, all frozen (a gauge), with the model's variation along the rule
+    # in the tables: a family and explicit tori built on a backend equal
+    # numpy's
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    angler = numpy.linspace(0.05, 6.2, 7)
+    for u0 in (_rule_callable if rule == "callable" else rule,):
+        fkw = dict(
+            pot=_rule_pot(),
+            delta=0.8,
+            u0=u0,
+            setup_interp=True,
+            Rmin=0.8,
+            Rmax=1.3,
+            Rinf=2.8,
+            nE=5,
+            nLz=5,
+            nI3=5,
+            mm_npt=16,
+            progressbar=False,
+        )
+        aN = actionAngleStaeckelInverse(**fkw)
+        eN = _rule_tori(u0)
+        with gb.use(backend, force=True):
+            aB = actionAngleStaeckelInverse(**fkw)
+            eB = _rule_tori(u0)
+        for tab in ("A_tab", "U_tab", "V_tab"):
+            numpy.testing.assert_allclose(
+                getattr(aB, "_" + tab), getattr(aN, "_" + tab), rtol=0.0, atol=1e-12
+            )
+        # the circular orbit's frequencies, in its own chart
+        numpy.testing.assert_allclose(
+            _flat(aB.Freqs(0.0, 1.0, 0.0)), _flat(aN.Freqs(0.0, 1.0, 0.0)), atol=1e-12
+        )
+        tori = [(0.05, 1.0, 0.02), (0.1, 1.1, 0.05)]
+        for aA, a0 in ((aB, aN), (eB, eN)):
+            if aA is eB:
+                tori = [(eN._jrs[k], eN._Lzs[k], eN._jzs[k]) for k in range(2)]
+            for J in tori:
+                numpy.testing.assert_allclose(
+                    _flat(aA(*J, angler, 1.0, 2.0)),
+                    _flat(a0(*J, angler, 1.0, 2.0)),
+                    rtol=0.0,
+                    atol=3e-11,
+                )
+
+
+def _rule_out(aA):
+    # the first torus at its own (E, L_z, I_3), its actions moving with the
+    # parameter
+    xp = aA._bk["xp"]
+    J = (aA._bk["jrs"][0], _RULE_LABELS[0][1], aA._bk["jzs"][0])
+    a = [xp.asarray(v) for v in (_ANGLES[:4], _ANGLES[:4] + 0.2, 0.7 - _ANGLES[:4])]
+    return xp.concat([xp.reshape(o, (-1,)) for o in aA.xvFreqs(*J, *a)])
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_rule_derivatives_wrt_potential_parameters():
+    # Through the model's variation along the rule (J_z's, the v half-width's
+    # and both maps' along u0): explicit tori with a callable rule, whose u0
+    # and partials at the tori's fixed labels do not move with the parameter,
+    # against a 5-point finite difference of the backend construction
+    from galpy.potential import IsochronePotential
+
+    aux = IsochronePotential(amp=3.44, b=0.565)
+
+    def fam(p):
+        return _rule_tori(_rule_callable, pot=_rule_pot(amp=p), auxiliary=aux)
+
+    p0, h = 1.0, 3e-4
+    pt = torch.tensor(p0, requires_grad=True)
+    y = _rule_out(fam(pt))
+    g = numpy.array(
+        [
+            float(torch.autograd.grad(y[k], pt, retain_graph=True)[0])
+            for k in range(len(y))
+        ]
+    )
+    numpy.testing.assert_allclose(
+        g,
+        _fd(lambda p: as_numpy(_rule_out(fam(torch.tensor(p))).detach()), p0, h),
+        rtol=0.0,
+        atol=5e-9,
+    )
+
+
+@pytest.mark.skipif(jax is None or torch is None, reason="jax and torch needed")
+def test_rule_jax_jit_construction():
+    # u0='torus' natively under jax.jit (the rule's turning points and
+    # partials on the device): the traced construction of explicit tori and
+    # its jitted derivative equal torch's eager ones
+    def f(p):
+        return _rule_out(_rule_tori("torus", pot=_rule_pot(amp=p)))
+
+    pt = torch.tensor(1.0, requires_grad=True)
+    y = f(pt)
+    g = numpy.array(
+        [
+            float(torch.autograd.grad(y[k], pt, retain_graph=True)[0])
+            for k in range(len(y))
+        ]
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(f)(jnp.asarray(1.0))),
+        as_numpy(y.detach()),
+        rtol=0.0,
+        atol=1e-11,
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(jax.jit(jax.jacrev(f))(jnp.asarray(1.0))),
+        g,
+        rtol=0.0,
+        atol=5e-11,
+    )
 
 
 # ---------- the construction's contract and checks
