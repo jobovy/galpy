@@ -12634,7 +12634,7 @@ def test_actionAngleStaeckelInverse_perfect_ellipsoid_family():
 
 
 def test_actionAngleStaeckelInverse_u0_adaptive():
-    # An adaptive reference curve (a callable u0(E, L_z) or u0='fit') gives
+    # An adaptive reference curve (a callable u0(E, L_z) or u0='planar') gives
     # every (E, L_z) of a family its own Staeckel model. The curve is
     # construction-only gauge: on an exact Staeckel potential, whose
     # approximation is itself whatever the curve, the family reproduces the
@@ -12665,7 +12665,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
     base = actionAngleStaeckelInverse(pot=pot, **grid)
     angler = numpy.linspace(0.05, 6.2, 11)
     E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
-    for u0 in (lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E, "fit"):
+    for u0 in (lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E, "planar"):
         aAI = actionAngleStaeckelInverse(pot=pot, u0=u0, **grid)
         for jr, Lzq, jz in ((0.06, 0.93, 0.10), (0.15, 1.21, 0.03), (0.02, 0.8, 0.2)):
             x = numpy.array(aAI(jr, Lzq, jz, angler, 1.0, 2.0))
@@ -12686,7 +12686,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
         ), "The integrals entry point does not run in the local chart"
     # the charts of a wrapped potential wrap the raw one: the same family
     aAW = actionAngleStaeckelInverse(
-        pot=OblateStaeckelWrapperPotential(pot=pot, delta=1.3), u0="fit", **grid
+        pot=OblateStaeckelWrapperPotential(pot=pot, delta=1.3), u0="planar", **grid
     )
     assert (
         numpy.amax(
@@ -12712,7 +12712,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
         mm_npt=48,
         progressbar=False,
     )
-    aAF = actionAngleStaeckelInverse(pot=lp, delta=0.8, u0="fit", **wide)
+    aAF = actionAngleStaeckelInverse(pot=lp, delta=0.8, u0="planar", **wide)
     aAD = actionAngleStaeckelInverse(pot=lp, delta=0.8, **wide)
     xF = numpy.array(aAF(0.3, 1.9, 0.1, angler, 1.0, 2.0))
     xD = numpy.array(aAD(0.3, 1.9, 0.1, angler, 1.0, 2.0))
@@ -12736,6 +12736,16 @@ def test_actionAngleStaeckelInverse_u0_adaptive():
     # guard: the strings are the rules
     with pytest.raises(ValueError, match="string values u0= accepts"):
         actionAngleStaeckelInverse(pot=pot, u0="midplane", **grid)
+    # and a number is one reference curve, shared by all tori
+    with pytest.raises(TypeError, match="one reference curve shared by all tori"):
+        actionAngleStaeckelInverse(
+            pot=lp,
+            delta=0.8,
+            u0=[1.0, 1.2],
+            Es=[-0.5, -0.4],
+            Lzs=[0.5, 0.6],
+            I3s=[0.1, 0.1],
+        )
     return None
 
 
@@ -12808,7 +12818,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
     delta, Rinf = 0.8, 4.0
 
     def u0fit(E, Lz):
-        # the curve of u0='fit', independently: the harmonic mean of the
+        # the curve of u0='planar', independently: the harmonic mean of the
         # pericentre and apocentre of the planar orbit of (E, L_z)
         phieff = lambda R: evaluatePotentials(lp, R, 0.0) + Lz**2 / 2.0 / R**2
         Rc = rl(lp, Lz)
@@ -12863,7 +12873,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
     for n in (5, 9):
         fams.append(
             actionAngleStaeckelInverse(
-                pot=lp, delta=delta, u0="fit", nE=n, nLz=n, nI3=n, **wide
+                pot=lp, delta=delta, u0="planar", nE=n, nLz=n, nI3=n, **wide
             )
         )
         errs.append(
@@ -12880,11 +12890,11 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
     errs = numpy.array(errs)
     assert numpy.all(errs[1, :, 0] < errs[0, :, 0] / 5.0) and numpy.all(
         errs[1, :, 0] < 2e-6
-    ), "The actions of a family with u0='fit' do not converge between nodes"
+    ), "The actions of a family with u0='planar' do not converge between nodes"
     assert numpy.all(errs[1, :, 1] < errs[0, :, 1] / 5.0) and numpy.all(
         errs[1, :, 1] < 1e-4
     ), (
-        "The frequencies of a family with u0='fit' do not converge between "
+        "The frequencies of a family with u0='planar' do not converge between "
         "nodes to dE/dJ along the family of models"
     )
     # a callable that is the same curve gives the same family, its own
@@ -12903,7 +12913,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
                 )
             )
             < 1e-9
-        ), "A callable u0 that is the curve of u0='fit' changes the frequencies"
+        ), "A callable u0 that is the curve of u0='planar' changes the frequencies"
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -12912,7 +12922,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
                 )
             )
             < 1e-9
-        ), "A callable u0 that is the curve of u0='fit' changes the family"
+        ), "A callable u0 that is the curve of u0='planar' changes the family"
     # the family pickles and evaluates identically afterwards
     pts = [
         numpy.array([refs[0][0], refs[2][0]]),
@@ -12925,7 +12935,7 @@ def test_actionAngleStaeckelInverse_u0_adaptive_tables():
     again = pickle.loads(pickle.dumps(fams[0]))
     assert numpy.all(
         numpy.array(fams[0].xvFreqs(*pts)) == numpy.array(again.xvFreqs(*pts))
-    ), "A pickled family with u0='fit' does not evaluate identically"
+    ), "A pickled family with u0='planar' does not evaluate identically"
     return None
 
 
@@ -12933,7 +12943,7 @@ def test_actionAngleStaeckelInverse_u0_rules():
     # A rule for the reference curve that follows each torus along the third
     # integral: u0='torus' places it at the harmonic mean of the radii at
     # which the torus's own inner and outer turning spheroids cross the
-    # midplane ('fit' and 'shell' are that rule on the planar and on the
+    # midplane ('planar' and 'shell' are that rule on the planar and on the
     # shell orbit of the torus's (E, L_z)), and a callable may take I_3 as a
     # third argument. The u libration does not depend on the reference curve,
     # so the rule is explicit in a torus's labels
@@ -13134,7 +13144,12 @@ def test_actionAngleStaeckelInverse_u0_rules_explicit():
     E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
     one = actionAngleStaeckelInverse(pot=pot, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=48)
     jr, jz = one.JR(E, Lz, I3), one.Jz(E, Lz, I3)
-    for u0 in ("torus", "fit", "shell", lambda E, Lz, I3: 1.0 + 0.1 * numpy.tanh(I3)):
+    for u0 in (
+        "torus",
+        "planar",
+        "shell",
+        lambda E, Lz, I3: 1.0 + 0.1 * numpy.tanh(I3),
+    ):
         aAI = actionAngleStaeckelInverse(
             pot=pot, u0=u0, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=48
         )
@@ -13163,12 +13178,12 @@ def test_actionAngleStaeckelInverse_u0_rules_explicit():
         )
         return aAI, aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
 
-    # on the planar orbit 'torus' is 'fit'; for an inclined torus the three
+    # on the planar orbit 'torus' is 'planar'; for an inclined torus the three
     # built-in rules give three different models (the radial action is the
     # same in all: U(u) does not depend on the reference curve)
     E, Lz, I3 = _staeckel_inverse_general_labels(lp, delta, Rinf, 1.05, 0.45, 0.0)
     aT, jr, _ = explicit(E, Lz, I3)
-    aF = explicit(E, Lz, I3, u0="fit")[0]
+    aF = explicit(E, Lz, I3, u0="planar")[0]
     assert (
         numpy.amax(
             numpy.fabs(
@@ -13177,13 +13192,13 @@ def test_actionAngleStaeckelInverse_u0_rules_explicit():
             )
         )
         < 1e-12
-    ), "u0='torus' is not u0='fit' for a planar orbit"
+    ), "u0='torus' is not u0='planar' for a planar orbit"
     tests = [
         _staeckel_inverse_general_labels(lp, delta, Rinf, *q)
         for q in ((1.05, 0.45, 0.55), (0.9, 0.3, 0.8), (1.2, 0.6, 0.3))
     ]
     (_, jrT, jzT), (_, jrF, jzF), (_, jrS, jzS) = (
-        explicit(*tests[1], u0=u0) for u0 in ("torus", "fit", "shell")
+        explicit(*tests[1], u0=u0) for u0 in ("torus", "planar", "shell")
     )
     assert numpy.fabs(jrT - jrF) < 1e-13 and numpy.fabs(jrT - jrS) < 1e-13, (
         "The radial action depends on the reference curve"
@@ -13795,7 +13810,7 @@ def test_actionAngleStaeckelInverse_target():
     ):
         big(0.0, lz, 50.0, 0.3, 1.0, 2.0)
     # composes with an adaptive reference curve
-    fit = actionAngleStaeckelInverse(target=o(ts), u0="fit", **kw)
+    fit = actionAngleStaeckelInverse(target=o(ts), u0="planar", **kw)
     assert max(miss(fit, row, lab) for row, lab in zip(rows, labels)) < 1e-6, (
         "The localized family with an adaptive reference curve misses its target"
     )
@@ -15407,7 +15422,7 @@ def test_actionAngleStaeckelInverse_from_actions_many():
         {},
         {"mm_npt": 384},
         {"u0": "torus", "mm_npt": 48},
-        {"u0": "fit"},
+        {"u0": "planar"},
         {"u0": "shell"},
         {"u0": lambda E, Lz, I3: 1.0 + 0.1 * E + 0.01 * I3},
     ):
