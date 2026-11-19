@@ -855,8 +855,6 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model )
-    calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
   double *sinhux= (double *) malloc ( ndata * sizeof(double) );
   double *sinvx= (double *) malloc ( ndata * sizeof(double) );

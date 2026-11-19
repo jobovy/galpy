@@ -15502,6 +15502,42 @@ def test_actionAngleStaeckelInverse_from_actions_sheets():
     return None
 
 
+def test_actionAngleStaeckel_c_model_energy():
+    # The C code's switch to the energy of the Staeckel model that the
+    # approximation with (delta, u0) stands for: for a Staeckel potential
+    # with its own focal length, that model is the potential itself for any
+    # u0, so the actions, frequencies, and angles do not change (the switch
+    # is first used by actionAngleStaeckel itself for the actions alone)
+    from galpy.actionAngle import actionAngleStaeckel_c
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    pot = KuzminKutuzovStaeckelPotential(ac=5.0, Delta=1.0, normalize=True)
+    rng = numpy.random.default_rng(4)
+    x = (
+        rng.uniform(0.8, 1.2, 6),
+        rng.normal(0.0, 0.15, 6),
+        rng.uniform(0.8, 1.1, 6),
+        rng.normal(0.0, 0.2, 6),
+        rng.normal(0.0, 0.1, 6),
+        rng.uniform(0.0, 2.0 * numpy.pi, 6),
+    )
+    out = [
+        numpy.array(
+            actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
+                pot, 1.0, *x, u0=numpy.full(6, 0.8), order=20, model=model
+            )[:8]
+        )
+        for model in (False, True)
+    ]
+    assert numpy.all(numpy.isfinite(out[0])) and numpy.allclose(
+        out[0], out[1], rtol=0.0, atol=1e-10
+    ), (
+        "The Staeckel C code with the energy of its Staeckel model changes "
+        "the actions, frequencies, or angles in a Staeckel potential"
+    )
+    return None
+
+
 def test_actionAngleStaeckel_inverse_single_model():
     # actionAngleStaeckel(inverse=) of tori in a single Staeckel model is
     # the transformation of that model
