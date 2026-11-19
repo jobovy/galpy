@@ -3902,33 +3902,61 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _delta_edges(self, Lz):
         """The two apocentres between which the grid's energy variable of
-        each |L_z| runs (_energy_edges_array), for the focal lengths of
+        each |L_z| runs (_energy_edges_array) and the derivatives of their
+        logarithms with respect to |L_z|, for the focal lengths of
         _delta_of at many energies; nan outside the grid's range of |L_z|"""
         ell = numpy.fabs(Lz)
         ok = (ell >= self._Lzgrid[0]) & (ell <= self._Lzgrid[-1])
-        out = numpy.full((len(ell), 2), numpy.nan)
+        out = numpy.full((len(ell), 4), numpy.nan)
         if self._delta_fit is not None and numpy.any(ok):
-            out[ok] = numpy.array(self._energy_edges_array(ell[ok])[1:3]).T
+            Rc, R0c, R0m, _, dphi = self._energy_edges_array(ell[ok])
+            # (the edges' energies are the circular orbit's, with dE/dL =
+            # L / Rc^2, and that of the top of the grid)
+            out[ok] = numpy.array(
+                [
+                    R0c,
+                    R0m,
+                    ell[ok] / Rc**2 / (R0c * dphi(R0c)),
+                    ell[ok] / self._Rinf**2 / (R0m * dphi(R0m)),
+                ]
+            ).T
         return out
 
-    def _delta_of(self, E, Lz, f, edges):
+    def _delta_of(self, E, Lz, f, edges, deriv=False):
         """The focal lengths of the Staeckel models of the tori (E, L_z, f)
         from the family's rule itself, for arrays of tori (the delta method,
         vectorized, for the model of a phase-space point): the fitted
         polynomial's at the grid's energy variable (edges: _delta_edges of
         the tori), or the callable's; nan outside the grid's range of
         |L_z|, and None when the rule is a callable that was not kept (a
-        pickled family)"""
+        pickled family). With deriv, also its partials with respect to (E,
+        |L_z|, f): in closed form for the fitted polynomial, by central
+        differences for a callable (FINITE DIFFERENCES, of the user's
+        callable alone)"""
         ell = numpy.fabs(Lz)
         if self._delta_fit is None:
             if self._delta_callable is None:
                 return None
-            return (
-                conversion.parse_length(self._delta_callable(E, ell, f), ro=self._ro)
-                + 0.0 * E
-            )
+
+            def rule(E, ell, f):
+                return (
+                    conversion.parse_length(
+                        self._delta_callable(E, ell, f), ro=self._ro
+                    )
+                    + 0.0 * E
+                )
+
+            if not deriv:
+                return rule(E, ell, f)
+            hE, hL = 1e-6 * (1.0 + numpy.fabs(E)), 1e-6 * (1.0 + ell)
+            return rule(E, ell, f), [
+                (rule(E + hE, ell, f) - rule(E - hE, ell, f)) / (2.0 * hE),
+                (rule(E, ell + hL, f) - rule(E, ell - hL, f)) / (2.0 * hL),
+                (rule(E, ell, f + 1e-6) - rule(E, ell, f - 1e-6)) / 2e-6,
+            ]
         ok = numpy.isfinite(edges[:, 0]) & numpy.isfinite(E)
         out = numpy.full(len(E), numpy.nan)
+        grad = numpy.full((3, len(E)), numpy.nan)
         if numpy.any(ok):
             wrap, R0c, R0m = self._chart_pot, edges[ok, 0], edges[ok, 1]
             R = _solve_increasing(
@@ -3937,8 +3965,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 0.01 * R0c,
                 10.0 * R0m,
             )
-            x = numpy.log(R / R0c) / numpy.log(R0m / R0c)
-            out[ok] = self._delta_fitted(x, f[ok], ell[ok])[0]
+            span = numpy.log(R0m / R0c)
+            x = numpy.log(R / R0c) / span
+            out[ok], (dx, df, dL) = self._delta_fitted(x, f[ok], ell[ok])
+            # (x moves with the energy through the apocentre R, and with
+            # the angular momentum through the two edges)
+            grad[:, ok] = [
+                -dx / (R * evaluateRforces(wrap, R, 0.0, use_physical=False) * span),
+                dL - dx * (edges[ok, 2] * (1.0 - x) + edges[ok, 3] * x) / span,
+                df,
+            ]
+        if deriv:
+            return out, grad
         return out
 
     def _E_of_xL_array(self, x, Lz):

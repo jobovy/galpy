@@ -683,6 +683,36 @@ def _u0shell(s, umin, umax, pot, delta):
     )
 
 
+def _staeckel_fraction(s, ush, pot, delta, partials=False):
+    """The fraction f of the way of each point's third integral from the
+    planar orbit's (in the gauge V(pi/2) = 0: L_z^2 / (2 delta^2) - E) to
+    the shell orbit's (above the point's by p_u^2 / (2 delta^2) at the shell
+    orbit's u, ush) of its energy and angular momentum, in its Staeckel
+    model; a circular orbit has no fraction (1/2). With partials, also the
+    partials of f with respect to (E, I_3, L_z, delta): the range of the
+    third integral, E cosh^2 u - U(u) - L_z^2 coth^2 u / (2 delta^2) at
+    ush, is stationary in ush"""
+    E, Lz = s["E"], s["Lz"]
+    below = s["I3V"] - (Lz**2.0 / 2.0 / delta**2.0 - E)
+    tot = below + _JRStaeckelIntegrandSquared(ush, *_staeckel_jr_args(s, pot, delta))
+    ok = tot > 0.0
+    tot = numpy.where(ok, tot, 1.0)
+    f = numpy.clip(numpy.where(ok, below / tot, 0.5), 0.0, 1.0)
+    if not partials:
+        return f
+    coth2 = 1.0 / numpy.tanh(ush) ** 2.0
+    dbelow = (1.0, 1.0, -Lz / delta**2.0, Lz**2.0 / delta**3.0)
+    dtot = (
+        numpy.cosh(ush) ** 2.0,
+        0.0,
+        -Lz / delta**2.0 * coth2,
+        Lz**2.0 / delta**3.0 * coth2 - _dUddelta(ush, delta, pot),
+    )
+    return f, numpy.array(
+        [numpy.where(ok, (b - f * t) / tot, 0.0) for b, t in zip(dbelow, dtot)]
+    )
+
+
 def _u0shell_partials(s, ush, pot, delta, R2deriv):
     """The partials with respect to (E, I_3, L_z, delta) of the shell u, by
     the level-set rule on d S_u / du = 0, S_u = E sinh^2 u - U(u) - L_z^2 /
@@ -933,7 +963,29 @@ def _staeckel_angles(
             )
             dEdD = -(Omegar * djrdD + Omegaz * djzdD)
             dI3dD = -(dI3dJR * djrdD + dI3dJz * djzdD)
-            du0 = du0 + (rE * dEdD + rI * dI3dD + rD) * ddelta
+            feed = rE * dEdD + rI * dI3dD + rD
+            if len(ddelta) == 4:
+                # the partials of the focal length's rule with respect to
+                # (E, I_3, L_z, delta) instead: its derivatives in the
+                # actions are those of the fixed point of the two rules
+                # along the family, on which the energy and the third
+                # integral move with the actions and with both parameters
+                # of the model (a linear system in the derivatives of the
+                # focal length and the reference curve)
+                qE, qI, qL, qD = ddelta
+                mdu = qE * dEdu0 - qI * dI3dJz * djzdu0
+                ddelta = (
+                    norm
+                    * numpy.array(
+                        [
+                            qE * Omegar + qI * dI3dJR,
+                            qE * Omegaphi + qI * dI3dLz + qL,
+                            qE * Omegaz + qI * dI3dJz,
+                        ]
+                    )
+                    + mdu * du0
+                ) / (norm * (1.0 - qE * dEdD - qI * dI3dD - qD) - feed * mdu)
+            du0 = du0 + feed * ddelta
             dOm = dEdD * ddelta
             angler, anglephi, anglez = (
                 a + KD * d for a, d in zip((angler, anglephi, anglez), ddelta)
@@ -1258,19 +1310,28 @@ class actionAngleStaeckel(actionAngle):
         together, by the same iteration. For a family that does not have
         its rule (a pickled family with a callable delta=), the focal
         length is read from the family's table at the torus's actions
-        instead. Also returns the derivatives of the focal length with
-        respect to (J_R, L_z, J_z), from the family's table; nan for points
-        whose torus the family does not hold"""
+        instead. Also returns, for the frequencies and angles, the partials
+        of the focal length's rule with respect to (E, I_3, L_z, delta) at
+        each point's torus (the rule's own with respect to the energy,
+        the angular momentum, and f, and those of f in the model), or, for
+        a family without its rule, the derivatives of the focal length
+        with respect to (J_R, L_z, J_z) from the family's table (nan for
+        points whose torus the family does not hold)"""
         aAI = self._inverse
         Lz = R * vT
         pypot = _staeckel_pot(self._pot)
         edges = aAI._delta_edges(Lz)
         direct = aAI._delta_of(R[:0], R[:0], R[:0], edges[:0]) is not None
 
-        def step(idx, u0, delta):
+        def step(idx, u0, delta, partials=False):
             x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
             if direct:
-                if c and self._model != 4:
+                if turn is not None:
+                    # (at the fixed point that the C code found, with its
+                    # turning points)
+                    um, up = turn[0][idx], turn[1][idx]
+                    s = _staeckel_setup(*x, pypot, delta, u0=u0)
+                elif c and self._model != 4:
                     # (the C code moves u0 to the fixed point at this delta)
                     u0 = numpy.array(u0, dtype="float64", order="C")
                     um, up = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
@@ -1284,19 +1345,21 @@ class actionAngleStaeckel(actionAngle):
                 # the third integral above the planar orbit's (in the gauge
                 # V(pi/2) = 0) and below the shell orbit's (p_u^2 at the
                 # shell orbit's u); a circular orbit has no fraction
-                below = s["I3V"] - (Lz[idx] ** 2.0 / 2.0 / delta**2.0 - s["E"])
-                above = _JRStaeckelIntegrandSquared(
-                    _u0shell(s, um, up, pypot, delta),
-                    *_staeckel_jr_args(s, pypot, delta),
-                )
-                tot = below + above
-                f = numpy.clip(
-                    numpy.where(
-                        tot > 0.0, below / numpy.where(tot > 0.0, tot, 1.0), 0.5
-                    ),
-                    0.0,
-                    1.0,
-                )
+                ush = _u0shell(s, um, up, pypot, delta)
+                if partials:
+                    f, df = _staeckel_fraction(s, ush, pypot, delta, True)
+                    _, (dE, dL, dF) = aAI._delta_of(
+                        s["E"], Lz[idx], f, edges[idx], deriv=True
+                    )
+                    return numpy.array(
+                        [
+                            dE + dF * df[0],
+                            dF * df[1],
+                            numpy.sign(Lz[idx]) * dL + dF * df[2],
+                            dF * df[3],
+                        ]
+                    )
+                f = _staeckel_fraction(s, ush, pypot, delta)
                 return u0, aAI._delta_of(s["E"], Lz[idx], f, edges[idx]), None
             if c:
                 # (the C code moves u0 to the fixed point at this delta,
@@ -1324,6 +1387,7 @@ class actionAngleStaeckel(actionAngle):
         idx = numpy.arange(len(R))
         delta = numpy.full(len(R), self._delta * 1.0)
         ddelta = numpy.full((len(R), 3), numpy.nan)
+        turn = None
         if c and self._model != 4 and aAI._delta_fit is not None:
             # the fitted rule, with a reference curve that the C code
             # evaluates: the whole fixed point in C, which is handed the
@@ -1341,9 +1405,9 @@ class actionAngleStaeckel(actionAngle):
                 ]
             ).astype("float64")
             u0 = numpy.full(len(R), numpy.nan)
-            actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
+            turn = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
                 pot, delta, R, vR, vT, z, vz, u0=u0, model=self._model, dfit=dfit
-            )
+            )[:2]
             idx = idx[:0]
         else:
             u0, delta, _ = step(idx, numpy.arcsinh(R / delta), delta)
@@ -1367,13 +1431,13 @@ class actionAngleStaeckel(actionAngle):
             if not direct:
                 ddelta[idx] = dd
             idx = idx[left > _MODEL_TOL]
-        if direct and deriv and len(found) > 0:
-            # the derivatives of the focal length along the family, from
-            # its table at the actions of each point's torus
-            direct = False
-            ddelta[found] = step(found, u0[found], delta[found])[2]
         # (a point without a focal length has no model at all)
         u0 = numpy.where(numpy.isfinite(delta), u0, numpy.nan)
+        if direct:
+            ddelta = numpy.full((4, len(R)), numpy.nan)
+            if deriv and len(found) > 0:
+                ddelta[:, found] = step(found, u0[found], delta[found], True)
+            return delta, u0, ddelta
         # (the family's table is in (J_R, J_z, J_phi))
         return delta, u0, ddelta[:, [0, 2, 1]].T
 
