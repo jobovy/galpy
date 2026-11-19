@@ -15580,8 +15580,16 @@ def test_actionAngleStaeckel_inverse_u0torus():
     for meth in (aAS.actionsFreqs, aAS.actionsFreqsAngles):
         with pytest.raises(NotImplementedError, match="not yet available"):
             meth(*x)
-    for meth in (aAS, aAS.actionsFreqs, aAS.actionsFreqsAngles, aAS.EccZmaxRperiRap):
-        with pytest.raises(NotImplementedError, match="requires the C"):
+    # the pure-Python implementation is the same transformation
+    assert numpy.amax(numpy.fabs(numpy.array(aAS(*x, c=False)) - out)) < 1e-8, (
+        "actionAngleStaeckel(inverse=) in Python does not agree with C for "
+        "tori that each have their own Staeckel model"
+    )
+    assert numpy.allclose(
+        aAS.EccZmaxRperiRap(*x, c=False)[2:], (rperi, rap), rtol=1e-6, atol=0.0
+    )
+    for meth in (aAS.actionsFreqs, aAS.actionsFreqsAngles):
+        with pytest.raises(NotImplementedError, match="not yet available"):
             meth(*x, c=False)
     with pytest.raises(NotImplementedError, match="currently supports"):
         actionAngleStaeckel(
