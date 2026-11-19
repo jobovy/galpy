@@ -116,6 +116,10 @@ def _staeckel_pot(pot):
 
 # cap on the bisection halvings (a degenerate, zero-width bracket gets it)
 _BISECT_MAXITER = 100
+# the fixed point of the Staeckel model of a torus of inverse= through a
+# point: tolerance on the step of the reference curve, and cap on the cycles
+_MODEL_TOL = 1e-9
+_MODEL_MAXITER = 10
 
 
 def _iterate_bracket(step, x0, n):
@@ -670,6 +674,8 @@ class actionAngleStaeckel(actionAngle):
             be left out for a potential that supplies its own (an exact
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
+        inverse : actionAngleStaeckelInverse, optional
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error.
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
@@ -685,6 +691,11 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2012-11-27 - Started - Bovy (IAS).
         """
+        self._inverse = kwargs.get("inverse", None)
+        # whether the energy is that of the Staeckel model of (delta, u0)
+        self._model = False
+        if self._inverse is not None:
+            kwargs = self._setup_inverse(kwargs)
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleStaeckel")
@@ -722,6 +733,70 @@ class actionAngleStaeckel(actionAngle):
         # Check the units
         self._check_consistent_units()
         return None
+
+    def _setup_inverse(self, kwargs):
+        """The set-up that inverts the actionAngleStaeckelInverse instance
+        inverse=: its Staeckel model or, for tori that each have their own
+        model, the potential that those models approximate, with the
+        energy of every point evaluated in its own model"""
+        aAI = self._inverse
+        if "pot" in kwargs or "delta" in kwargs:
+            raise TypeError(
+                "pot= and delta= cannot be given with inverse=, which supplies them"
+            )
+        if aAI._delta_rule is not None or (aAI._adaptive and aAI._u0_rule != "torus"):
+            raise NotImplementedError(
+                "inverse= currently supports instances with a numerical delta= "
+                "and either a single reference curve or u0='torus'"
+            )
+        self._model = aAI._adaptive
+        kwargs = dict(kwargs)
+        kwargs["pot"] = aAI._chart_pot if aAI._adaptive else aAI._staeckelwrap
+        kwargs["delta"] = aAI._delta
+        if aAI._roSet:
+            kwargs.setdefault("ro", aAI._ro)
+        if aAI._voSet:
+            kwargs.setdefault("vo", aAI._vo)
+        return kwargs
+
+    def _inverse_model(self, R, vR, vT, z, vz, needs):
+        """The focal length and reference curve of the Staeckel model of
+        the torus of inverse= through each phase-space point. A reference
+        curve that follows the tori depends on the torus's energy and third
+        integral in its own model, which depend on the reference curve: a
+        fixed point, found by iterating the rule on the turning points in
+        the current model, with Aitken's acceleration"""
+        aAI = self._inverse
+        delta = aAI._delta
+        if not self._model:
+            return delta, numpy.full(len(R), aAI._staeckelwrap._u0)
+        if needs != "actions":
+            raise NotImplementedError(
+                "frequencies and angles with inverse= are not yet available "
+                "for an instance whose reference curve follows its tori"
+            )
+
+        def rule(idx, u0):
+            um, up, _, _ = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
+                self._pot, delta, R[idx], vR[idx], vT[idx], z[idx], vz[idx],
+                u0=u0, model=True,
+            )  # fmt: skip
+            sm, sp = numpy.sinh(um), numpy.sinh(up)
+            return numpy.arcsinh(2.0 * sm * sp / (sm + sp))
+
+        idx = numpy.arange(len(R))
+        u0 = rule(idx, numpy.arcsinh(R / delta))
+        for _ in range(_MODEL_MAXITER):
+            u1 = rule(idx, u0[idx])
+            u2 = rule(idx, u1)
+            den = u2 - 2.0 * u1 + u0[idx]
+            ok = den != 0.0
+            acc = u2 - (u2 - u1) ** 2 / numpy.where(ok, den, 1.0)
+            u0[idx] = numpy.where(ok & numpy.isfinite(acc), acc, u2)
+            idx = idx[numpy.fabs(u2 - u1) > _MODEL_TOL]
+            if len(idx) == 0:
+                break
+        return delta, u0
 
     def _evaluate(self, *args, **kwargs):
         """
@@ -796,10 +871,27 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions")
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "freqs")
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "angles")
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions")
             else:
                 u0 = None
             jr, jz, err = actionAngleStaeckel_c.actionAngleStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, u0=u0, order=order
+                self._pot,
+                delta,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                u0=u0,
+                order=order,
+                model=self._model,
             )
             if err == 0:
                 return (jr, Lz, jz)
@@ -908,7 +1000,16 @@ class actionAngleStaeckel(actionAngle):
                 Omegaz,
                 err,
             ) = actionAngleStaeckel_c.actionAngleFreqStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, u0=u0, order=order
+                self._pot,
+                delta,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                u0=u0,
+                order=order,
+                model=self._model,
             )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
@@ -1071,7 +1172,17 @@ class actionAngleStaeckel(actionAngle):
                 anglez,
                 err,
             ) = actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, phi, u0=u0, order=order
+                self._pot,
+                delta,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                phi,
+                u0=u0,
+                order=order,
+                model=self._model,
             )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
@@ -1274,7 +1385,7 @@ class actionAngleStaeckel(actionAngle):
                 vmin,
                 err,
             ) = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, u0=u0
+                self._pot, delta, R, vR, vT, z, vz, u0=u0, model=self._model
             )
             if err == 0:
                 return (umin, umax, vmin)
