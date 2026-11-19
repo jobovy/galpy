@@ -169,7 +169,8 @@ at release.]
   transformed in the Staeckel model of its own torus (the instance's focal
   length and reference curve), with the energy evaluated in that model, in
   C and in pure Python. Supports instances with a single reference curve
-  and, for the actions, ``u0='torus'``.
+  and with ``u0='torus'``, for which the frequencies and angles include
+  the terms from the change of the reference curve between tori.
 
 - actionAngleStaeckelInverse: the stored derivatives of the third integral
   of a family's nodes with respect to the grid coordinates are those at
