@@ -1083,9 +1083,9 @@ class actionAngleStaeckel(actionAngle):
                 "pot= and delta= cannot be given with inverse=, which supplies them"
             )
         # the rule of the reference curve, as the C code numbers them: 2,
-        # u0='torus', and 3, 'planar', which it evaluates itself; 4, 'shell'
-        # or a callable, evaluated here
-        rules = {"torus": 2, "planar": 3}
+        # u0='torus', 3, 'planar', and 5, 'shell', which it evaluates
+        # itself; 4, a callable, evaluated here
+        rules = {"torus": 2, "planar": 3, "shell": 5}
         self._model = aAI._adaptive * (
             rules.get(aAI._u0_rule, 4) if isinstance(aAI._u0_rule, str) else 4
         )
@@ -1185,7 +1185,7 @@ class actionAngleStaeckel(actionAngle):
 
         def rule(idx, u0, delta=delta):
             x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
-            if self._model == 4:
+            if self._model >= 4:
                 return self._inverse_rule(x, delta, u0)
             if self._model == 3:
                 um, up = _staeckel_planar(
@@ -1199,7 +1199,7 @@ class actionAngleStaeckel(actionAngle):
         idx = numpy.arange(len(R))
         if aAI._delta_rule is not None:
             return self._inverse_model_delta(rule, R, vR, vT, z, vz, pot, c, deriv)
-        if c and self._model < 4:
+        if c and self._model != 4:
             return delta, numpy.full(len(R), numpy.nan), None
         u0 = rule(idx, numpy.arcsinh(R / delta))
         for _ in range(_MODEL_MAXITER):
@@ -1238,10 +1238,11 @@ class actionAngleStaeckel(actionAngle):
         )
         return _u0shell_partials(s, ush, pot, delta, R2)
 
-    def _inverse_du0(self, R, vR, vT, z, vz, delta, u0):
+    def _inverse_du0(self, R, vR, vT, z, vz, delta, u0, c=False):
         """The partials of the reference curve of each point's torus for a
-        rule that is evaluated here (_inverse_rule), else None"""
-        if self._model != 4:
+        rule that is evaluated here (_inverse_rule: a callable, and
+        u0='shell' unless for the C code, which has that rule), else None"""
+        if self._model < 4 or (c and self._model == 5):
             return None
         x = numpy.broadcast_arrays(
             *(numpy.atleast_1d(a) * 1.0 for a in (R, vR, vT, z, vz))
@@ -1269,7 +1270,7 @@ class actionAngleStaeckel(actionAngle):
         def step(idx, u0, delta):
             x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
             if direct:
-                if c and self._model < 4:
+                if c and self._model != 4:
                     # (the C code moves u0 to the fixed point at this delta)
                     u0 = numpy.array(u0, dtype="float64", order="C")
                     um, up = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
@@ -1323,7 +1324,7 @@ class actionAngleStaeckel(actionAngle):
         idx = numpy.arange(len(R))
         delta = numpy.full(len(R), self._delta * 1.0)
         ddelta = numpy.full((len(R), 3), numpy.nan)
-        if c and self._model < 4 and aAI._delta_fit is not None:
+        if c and self._model != 4 and aAI._delta_fit is not None:
             # the fitted rule, with a reference curve that the C code
             # evaluates: the whole fixed point in C, which is handed the
             # rule (the fit's degrees, limits, and coefficients, the grid's
@@ -1589,7 +1590,7 @@ class actionAngleStaeckel(actionAngle):
                     actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
                         self._pot, delta, R, vR, vT, z, vz, 0.0 * R,
                         u0=u0, order=order, model=self._model, ddelta=ddelta,
-                        du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
+                        du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0, c=True),
                     )
                 )  # fmt: skip
             else:
@@ -1787,7 +1788,7 @@ class actionAngleStaeckel(actionAngle):
                 order=order,
                 model=self._model,
                 ddelta=ddelta,
-                du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
+                du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0, c=True),
             )
             if self._inverse is not None:
                 # (a point without a model has no actions)

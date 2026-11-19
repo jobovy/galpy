@@ -319,11 +319,51 @@ static inline void calcEModel(int ndata,
       + 0.5 * *(vz+ii) * *(vz+ii);
   }
 }
+// (the arguments of the functions whose roots the rules need)
+struct modelRootArg{
+  double E;
+  double Lz22delta;
+  double delta;
+  int nargs;
+  struct potentialArg * actionAngleArgs;
+};
+static double modelRootdSudu(double u,void * p){
+  struct modelRootArg * a= (struct modelRootArg *) p;
+  return dSuduStaeckel(u,a->E,a->Lz22delta,a->delta,0.5 * M_PI,1.,
+		       a->nargs,a->actionAngleArgs);
+}
+static double modelRootPhi(double R,void * p){
+  struct modelRootArg * a= (struct modelRootArg *) p;
+  return evaluatePotentials(R,0.,a->nargs,a->actionAngleArgs) - a->E;
+}
+// The root of f between a and b, where it changes sign (else their middle):
+// the false position with the Illinois modification
+static double modelRoot(double (*f)(double,void *),void * p,
+			double a,double b){
+  int it;
+  double fa= f(a,p), fb= f(b,p), c, fc;
+  if ( ! ( fa * fb < 0. ) ) return 0.5 * ( a + b );
+  for (it=0; it < 100; it++){
+    c= ( fa * b - fb * a ) / ( fa - fb );
+    fc= f(c,p);
+    if ( fc * fb < 0. ){
+      a= b;
+      fa= fb;
+    }
+    else fa*= 0.5;
+    b= c;
+    fb= fc;
+    if ( fc == 0. || fabs(b - a) <= 1.e-13 * fabs(b) ) break;
+  }
+  return b;
+}
 // The reference curve of the Staeckel model of the torus through each
 // point, for a curve that follows the tori (actionAngleStaeckelInverse):
 // rule 2, u0='torus', delta sinh(u0) = 2 / (1/R_- + 1/R_+) at the turning
 // points of the torus's u libration; rule 3, u0='planar', the same at those
-// of the planar orbit of the torus's energy and angular momentum. The
+// of the planar orbit of the torus's energy and angular momentum; rule 5,
+// u0='shell', the u of the shell orbit of that energy and angular momentum,
+// where p_u^2 is largest between the torus's turning points. The
 // energy and the third integral of a point are those in its model, which
 // depend on u0: one application of the rule at the current u0. With warm,
 // the turning points are those handed in moved to the current model by
@@ -429,7 +469,18 @@ static void modelRuleu0(int ndata,
     free(sub);
     free(smax);
   }
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii,sm,sp)
   for (ii=0; ii < ndata; ii++){
+    if ( rule == 5 ){
+      struct modelRootArg arg;
+      arg.E= *(E+ii);
+      arg.delta= *(delta+ii*delta_stride);
+      arg.Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / arg.delta / arg.delta;
+      arg.nargs= nargs;
+      arg.actionAngleArgs= AA_TARGS(actionAngleArgs,nargs);
+      *(u0new+ii)= modelRoot(&modelRootdSudu,&arg,*(umin+ii),*(umax+ii));
+      continue;
+    }
     sm= sinh(*(umin+ii));
     sp= sinh(*(umax+ii));
     *(u0new+ii)= asinh(2. * sm * sp / ( sm + sp ));
@@ -547,43 +598,6 @@ static void calcModelu0(int ndata,
 // |L_z|, the polynomial's coefficients, and for each point the two
 // apocentres R0c and R0m between which the grid's energy variable x runs
 // (nan outside the family's range of |L_z|: no model)
-struct modelRootArg{
-  double E;
-  double Lz22delta;
-  double delta;
-  int nargs;
-  struct potentialArg * actionAngleArgs;
-};
-static double modelRootdSudu(double u,void * p){
-  struct modelRootArg * a= (struct modelRootArg *) p;
-  return dSuduStaeckel(u,a->E,a->Lz22delta,a->delta,0.5 * M_PI,1.,
-		       a->nargs,a->actionAngleArgs);
-}
-static double modelRootPhi(double R,void * p){
-  struct modelRootArg * a= (struct modelRootArg *) p;
-  return evaluatePotentials(R,0.,a->nargs,a->actionAngleArgs) - a->E;
-}
-// The root of f between a and b, where it changes sign (else their middle):
-// the false position with the Illinois modification
-static double modelRoot(double (*f)(double,void *),void * p,
-			double a,double b){
-  int it;
-  double fa= f(a,p), fb= f(b,p), c, fc;
-  if ( ! ( fa * fb < 0. ) ) return 0.5 * ( a + b );
-  for (it=0; it < 100; it++){
-    c= ( fa * b - fb * a ) / ( fa - fb );
-    fc= f(c,p);
-    if ( fc * fb < 0. ){
-      a= b;
-      fa= fb;
-    }
-    else fa*= 0.5;
-    b= c;
-    fb= fc;
-    if ( fc == 0. || fabs(b - a) <= 1.e-13 * fabs(b) ) break;
-  }
-  return b;
-}
 // One application of the rule in the models (delta, u0) of the points: the
 // reference curve moves to its fixed point at these focal lengths
 // (calcModelu0), and the rule gives the new focal lengths
@@ -893,7 +907,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
     calcModelDelta(ndata,R,vR,vT,z,vz,u0,delta,dfit,model,npot,
 		   actionAngleArgs);
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model == 2 || model == 3 )
+  if ( model == 2 || model == 3 || model == 5 )
     calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs,
 		NULL,NULL,0);
   if ( model )
@@ -1024,7 +1038,7 @@ void actionAngleStaeckel_actions(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model == 2 || model == 3 )
+  if ( model == 2 || model == 3 || model == 5 )
     calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs,
 		NULL,NULL,0);
   if ( model )
@@ -1495,7 +1509,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model == 2 || model == 3 )
+  if ( model == 2 || model == 3 || model == 5 )
     calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs,
 		NULL,NULL,0);
   if ( model )
@@ -2251,6 +2265,32 @@ void calcAnglesStaeckel(int ndata,
       Rp= tdelta * sinh(uturn[1]);
       // (torus 4, a rule evaluated by the caller: its partials are handed in)
       for (jj=0; jj < 4 && torus == 4; jj++) r[jj]= *(uplanar+jj*ndata+ii);
+      if ( torus == 5 ){
+	// u0='shell': the level-set rule on d S_u / du = 0 at the shell
+	// orbit's u, S_u = E sinh^2 u - cosh^2 u Phi(delta sinh u,0) - L_z^2
+	// / (2 delta^2 sinh^2 u) (the second radial derivative of the
+	// potential that this requires by FINITE DIFFERENCES of the force)
+	double sh= sinh(*(u0+ii)), ch= cosh(*(u0+ii)), Rs= tdelta * sh;
+	double L2= *(Lz+ii) * *(Lz+ii) / tdelta / tdelta;
+	double PhiR= -calcRforce(Rs,0.,0.,0.,nargs,
+				 actionAngleArgs + tid * nargs);
+	double PhiRR= ( calcRforce(Rs * ( 1. - 1.e-5 ),0.,0.,0.,nargs,
+				   actionAngleArgs + tid * nargs)
+			- calcRforce(Rs * ( 1. + 1.e-5 ),0.,0.,0.,nargs,
+				     actionAngleArgs + tid * nargs) )
+	  / ( 2.e-5 * Rs );
+	double Suu= 2. * cosh(2. * *(u0+ii))
+	  * ( *(E+ii) - evaluatePotentials(Rs,0.,nargs,
+					   actionAngleArgs + tid * nargs) )
+	  - 5. * tdelta * sh * ch * ch * PhiR
+	  - tdelta * tdelta * ch * ch * ch * ch * PhiRR
+	  + L2 * ( sh * sh - 3. * ch * ch ) / sh / sh / sh / sh;
+	r[0]= -sinh(2. * *(u0+ii)) / Suu;
+	r[2]= -2. * *(Lz+ii) / tdelta / tdelta * ch / sh / sh / sh / Suu;
+	r[3]= ( ( 2. * sh * sh * ch + ch * ch * ch ) * PhiR
+		+ tdelta * ch * ch * ch * sh * PhiRR
+		+ 2. * L2 / tdelta * ch / sh / sh / sh ) / Suu;
+      }
       for (jj=0; jj < 2 && torus < 4; jj++){
 	sh2= sinh(uturn[jj]) * sinh(uturn[jj]);
 	chain= 2. * ( jj == 0 ? Rp * Rp : Rm * Rm ) / ( Rm + Rp ) / ( Rm + Rp )
