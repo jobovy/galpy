@@ -15716,25 +15716,21 @@ def test_actionAngleStaeckel_inverse_deltafit():
     # a single focal length does not give the family's frequencies
     own = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
     assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-3
-    # a point off the grid has the model of the rule's smooth extension, in
-    # which it has actions, frequencies, and angles like any other; a point
-    # outside the grid's range of L_z has no model (checked on the vertical
-    # action: the C code's radial action without a model is nan or zero
-    # depending on the platform)
+    # a point outside the grid's range of energy or of L_z is transformed
+    # like any other, with the focal length of the rule at the edge of that
+    # range, and with a warning (the first point is on the grid)
     one = numpy.ones(3)
     far = (one, 0.1 * one, numpy.array([1.0, 1.0, 1.6]), 0.1 * one)
-    far += (numpy.array([0.9, 0.01, 0.01]),)
-    out = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one))
-    assert numpy.all(numpy.isfinite(out[:3, :2])) and numpy.isnan(out[2, 2]), (
-        "actionAngleStaeckel(inverse=) does not return nan outside a family's L_z"
-    )
-    assert numpy.all(numpy.isfinite(out[3:, :2])) and numpy.allclose(
-        numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))[:, :2],
-        out[:, :2],
-        rtol=0.0,
-        atol=1e-7,
+    far += (numpy.array([0.01, 0.9, 0.01]),)
+    with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
+        out = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one))
+    with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
+        py = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))
+    assert numpy.all(numpy.isfinite(out)) and numpy.allclose(
+        py, out, rtol=0.0, atol=1e-7
     ), "actionAngleStaeckel(inverse=) does not transform a point off a family's grid"
-    assert numpy.allclose(numpy.array(aAS(*far))[:, :2], out[:3, :2], atol=1e-8)
+    with pytest.warns(galpyWarning, match="lie outside"):
+        assert numpy.allclose(numpy.array(aAS(*far)), out[:3], atol=1e-8)
     # a family with a callable rule: the rule itself where the family has
     # it, and the family's table of it for a pickled family, which does not
     import pickle
