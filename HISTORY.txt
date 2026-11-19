@@ -85,7 +85,12 @@ at release.]
 
 - [slot 06]
 
-- [slot 07]
+- ExpTruncNFWPotential's hand-written jax radial force, which constantbetadf
+  differentiates on the numpy path, uses the potential's own exp(a/rc) and
+  E_1(a/rc), as its other forces do. Above the small-r series switch its
+  closed form cancels by ~(a/r)^2, which turned a last-bit difference between
+  jax's and scipy's E_1(a/rc) into ~1e-9 relative (jax 0.12.1 differs from
+  scipy at more arguments than earlier versions).
 
 - SCFPotential (and DiskSCFPotential, whose expansion is one) evaluates arrays
   of points with numpy in one vectorized pass instead of a Python loop over

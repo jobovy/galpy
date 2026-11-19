@@ -500,15 +500,19 @@ class ExpTruncNFWPotential(SphericalPotential):
             raise ImportError(
                 "Making use of _rforce_jax function requires the google/jax library"
             )
+        # The constants exp(a/rc) and E_1(a/rc) are the potential's own (as in
+        # _F_closed): the closed form cancels by ~(a/r)^2 above the series
+        # switch, which an ulp's difference in them (jax's vs scipy's) shows.
         a, rc = self.a, self.rc
-        alpha = a / rc
         e1 = lambda x: -jspecial.expi(-x)
         F = branch_where(
             jnp,
             r < self._small_r_thresh,
             lambda: self._F_taylor(r),
             lambda: (
-                jnp.exp(alpha) * (1.0 + alpha) * (e1(alpha) - e1((a + r) / rc))
+                self._exp_alpha
+                * (1.0 + self._alpha)
+                * (self._E1_alpha - e1((a + r) / rc))
                 - 1.0
                 + a * jnp.exp(-r / rc) / (a + r)
             ),
