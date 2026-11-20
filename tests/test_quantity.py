@@ -14151,6 +14151,10 @@ def test_actionAngleStaeckelInverse_units():
         ), (
             "actionAngleStaeckelInverse method Freqs does not return the physical version of the internal-unit frequency"
         )
+    # the domain test parses Quantity actions
+    assert aASC.in_domain(jr * Jq, Lz * Jq, jz * Jq) and not aASC.in_domain(
+        1.5 * jr * Jq, Lz * Jq, jz * Jq
+    ), "actionAngleStaeckelInverse method in_domain does not parse Quantity actions"
     # Quantity radial anchors for the interpolation grid
     gkw = dict(setup_interp=True, nE=4, nLz=4, nI3=4, mm_nta=64, mm_npt=12)
     aASCg = actionAngleStaeckelInverse(

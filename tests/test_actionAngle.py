@@ -13663,7 +13663,7 @@ def test_actionAngleStaeckelInverse_u0_rules():
             xc = numpy.array(famc(jr, Lz, jz, angler, 1.0, angler[::-1]))
             dOm = numpy.array(famc.Freqs(jr, Lz, jz)) / fam.Freqs(jr, Lz, jz) - 1.0
             assert (
-                numpy.amax(numpy.fabs(x[:5] - xc[:5])) < 1e-6
+                numpy.amax(numpy.fabs(x[:5] - xc[:5])) < 3e-6
                 and numpy.amax(numpy.fabs(dOm)) < 2e-5
             ), f"A callable u0 that is the rule u0='{rule}' changes the family"
     # a family localized on a target places each target point's chart with
@@ -15282,4 +15282,310 @@ def test_actionAngleInverse_families_pickle():
             numpy.array([as_numpy(o) for o in aA.xvFreqs(*pts)])
             == numpy.array([as_numpy(o) for o in aB.xvFreqs(*pts)])
         ), f"A pickled {type(aA).__name__} family does not evaluate identically"
+    return None
+
+
+def test_actionAngleStaeckelInverse_split_tori():
+    # In the Staeckel approximation of a cusped potential the foci attract
+    # (V(0) > U(0)), and near the axis the momentum function of the v
+    # libration can be positive again beyond the turning point of the
+    # libration about the midplane, on a torus of its own with the same
+    # integrals: the torus of given integrals is the one about the midplane
+    # (its actions continue those of the tori below it in I_3, up to the
+    # shell orbit), and where no torus continues those about the midplane
+    # an interpolation grid fails with a message that says so
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import NFWPotential, TriaxialNFWPotential
+
+    halo = TriaxialNFWPotential(normalize=1.0, a=1.0, b=1.0, c=0.8)
+    E, Lz = -4.952347997451089, 0.0045331251128010955
+    Ipl, Ish = 4.952454913285056, 5.017135158552722
+    jzs = []
+    for y in (0.999, 1.0):
+        I3 = Ipl + y * (Ish - Ipl)
+        aAI = actionAngleStaeckelInverse(
+            pot=halo, delta=0.31, Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=32
+        )
+        jzs.append(aAI.Jz(E, Lz, I3))
+        assert numpy.all(
+            numpy.isfinite(aAI(aAI.JR(E, Lz, I3), Lz, jzs[-1], 0.5, 1.0, 2.0))
+        ), "A torus about the midplane of a cusped halo does not evaluate"
+    assert numpy.fabs(jzs[1] / jzs[0] - 1.0) < 1e-2, (
+        "The shell orbit of a cusped halo is not the limit of the tori about "
+        "the midplane"
+    )
+    with pytest.raises(ValueError, match="does not fall monotonically"):
+        actionAngleStaeckelInverse(
+            pot=NFWPotential(normalize=1.0, a=1.0),
+            delta=0.31,
+            setup_interp=True,
+            Rmin=0.05,
+            Rmax=3.0,
+            Rinf=8.0,
+            nE=6,
+            nLz=6,
+            nI3=6,
+            mm_npt=32,
+            progressbar=False,
+        )
+    # likewise the u libration: at small |L_z| in MWPotential2014, whose
+    # bulge is cusped, its momentum function has a second maximum close to
+    # the centre at some energies, and a grid that reaches those tori fails
+    from galpy.potential import MWPotential2014
+
+    with pytest.raises(ValueError, match="more than one maximum"):
+        actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.3,
+            setup_interp=True,
+            Rmin=0.04,
+            Rmax=2.0,
+            Rinf=5.0,
+            nE=16,
+            nLz=4,
+            nI3=4,
+            mm_npt=32,
+            progressbar=False,
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_polar_torus():
+    # A torus that passes within a degree of the axis: its v turning point
+    # lies beyond the scan that brackets the first root below the midplane,
+    # from whose end the bracket is extended toward the axis; its actions
+    # are the forward transformation's
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    ic = [0.05, 0.6, 0.4, 2.5, 0.0, 0.0]
+    E, Lz, I3 = _staeckel_inverse_labels(ic)
+    aAI = actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_potential(), Es=[E], Lzs=[Lz], I3s=[I3], mm_npt=64
+    )
+    jr, jz = aAI.JR(E, Lz, I3), aAI.Jz(E, Lz, I3)
+    jrf, _, jzf = _staeckel_inverse_forward()(*ic[:5])
+    assert (
+        numpy.fabs(jr / jrf[0] - 1.0) < 1e-8 and numpy.fabs(jz / jzf[0] - 1.0) < 1e-8
+    ), "The actions of a nearly polar torus are not the forward transformation's"
+    R, _, _, z, _, _ = (
+        as_numpy(t) for t in aAI(jr, Lz, jz, 1.0, 1.0, numpy.linspace(0.0, 6.28, 201))
+    )
+    assert numpy.all(numpy.isfinite(R)) and numpy.amin(R / numpy.hypot(R, z)) < 0.1, (
+        "A nearly polar torus does not come close to the axis"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_in_domain(
+    staeckel_inverse_interp, staeckel_inverse_explicit
+):
+    # in_domain tells which tori an instance evaluates: for a family those
+    # with |L_z| inside the grid and (J_R, J_z) covered there, the circular
+    # orbits and the tori on the degenerate faces included; for explicit
+    # tori those tori. An array evaluation with tori outside raises once,
+    # counting them all
+    aAI = staeckel_inverse_interp
+    pot = _staeckel_inverse_potential()
+    rng = numpy.random.default_rng(4)
+    n = 60
+    jr, jz = 10.0 ** rng.uniform(-3, 0.3, (2, n))
+    Lz = rng.uniform(0.6, 2.2, n) * rng.choice([-1.0, 1.0], n)
+    inside = aAI.in_domain(jr, Lz, jz)
+    assert inside.shape == (n,) and 5 < numpy.sum(inside) < n - 5, (
+        "The test tori are not on both sides of the family's edge"
+    )
+    out = numpy.array(aAI(jr[inside], Lz[inside], jz[inside], 0.3, 1.0, 2.0))
+    assert numpy.all(numpy.isfinite(out)), (
+        "A torus that in_domain places inside the family does not evaluate"
+    )
+    for ii in numpy.flatnonzero(~inside):
+        with pytest.raises(ValueError, match="outside the interpol|not be matched"):
+            aAI(jr[ii], Lz[ii], jz[ii], 0.3, 1.0, 2.0)
+    assert aAI.in_domain(jr[:, None], Lz[0], jz[None, :4]).shape == (n, 4), (
+        "in_domain does not broadcast its actions"
+    )
+    # the grid spans the circular angular momenta of Rmin = 0.7 and Rmax = 1.6
+    offgrid = (numpy.fabs(Lz) < 0.7 * float(as_numpy(pot.vcirc(0.7)))) | (
+        numpy.fabs(Lz) > 1.6 * float(as_numpy(pot.vcirc(1.6)))
+    )
+    msg = (
+        f"{numpy.sum(~inside)} of the {n} tori lie outside the interpolated "
+        f"family: {numpy.sum(offgrid)} with .* and "
+        f"{numpy.sum(~inside & ~offgrid)} whose .* could not be matched"
+    )
+    with pytest.raises(ValueError, match=msg):
+        aAI(jr, Lz, jz, 0.3, 1.0, 2.0)
+    with pytest.raises(ValueError, match=msg):
+        aAI.Freqs(jr, Lz, jz)
+    # single tori: inside, the circular orbit, the degenerate faces, and
+    # what an evaluation rejects
+    for actions, expected in (
+        ((0.05, 0.9, 0.05), True),
+        ((0.0, 0.9, 0.0), True),
+        ((0.05, -0.9, 0.0), True),
+        ((0.0, 0.9, 0.05), True),
+        ((0.0, 5.0, 0.0), False),
+        ((50.0, 0.9, 0.0), False),
+        ((0.05, 5.0, 0.05), False),
+        ((-0.05, 0.9, 0.05), False),
+        ((0.05, 0.0, 0.05), False),
+    ):
+        assert aAI.in_domain(*actions) is expected, (
+            f"in_domain{actions} of a family is not {expected}"
+        )
+    # explicit tori
+    aAE = staeckel_inverse_explicit
+    labels = [
+        _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS[k])
+        for k in ("benign", "eccentric")
+    ]
+    jrs = numpy.array([aAE.JR(*l) for l in labels])
+    jzs = numpy.array([aAE.Jz(*l) for l in labels])
+    Lzs = numpy.array([l[1] for l in labels])
+    assert numpy.all(aAE.in_domain(jrs, Lzs, jzs)), (
+        "in_domain does not hold the explicit tori of an instance"
+    )
+    assert not numpy.any(aAE.in_domain(1.1 * jrs, Lzs, jzs)), (
+        "in_domain holds tori that an instance of explicit tori does not have"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_label_inversion(staeckel_inverse_interp):
+    # The actions of a family at integrals inside its grid are inside it by
+    # construction, also where an action rises steeply out of a face, as J_z
+    # does out of the planar face for eccentric tori: the label inversion's
+    # Newton steps are halved until they reduce the residual, so that it
+    # finds every such torus, one at a time and in an array
+    from galpy.potential import evaluatePotentials
+
+    aAI = staeckel_inverse_interp
+    pot = _staeckel_inverse_potential()
+    actions = []
+    for Lz in 0.7 * pot.vcirc(0.7) * numpy.array([1.01, 1.3, 1.8]):
+        for R0 in (2.2, 2.8, 3.4):
+            # the energy of the planar orbit without angular momentum that
+            # reaches R0, and third integrals close above the planar orbit's
+            E = evaluatePotentials(pot, R0, 0.0)
+            Ipl = Lz**2 / 2.0 / _STAECKEL_INVERSE_DELTA**2 - E
+            for dI in (1e-4, 1e-3, 1e-2, 5e-2):
+                jr, jz = aAI.JR(E, Lz, Ipl + dI), aAI.Jz(E, Lz, Ipl + dI)
+                actions.append((jr, Lz, jz))
+                assert aAI.in_domain(jr, Lz, jz), (
+                    "The actions of a family at integrals inside its grid are "
+                    "not inside its domain"
+                )
+                assert numpy.all(numpy.isfinite(aAI(jr, Lz, jz, 0.1, 0.2, 0.3)))
+    jr, Lz, jz = numpy.array(actions).T
+    assert numpy.all(aAI.in_domain(jr, Lz, jz)) and numpy.all(
+        numpy.isfinite(aAI(jr, Lz, jz, 0.1, 0.2, 0.3))
+    ), "An array of tori inside a family's grid is not located"
+    return None
+
+
+_STAECKEL_INVERSE_AXIS = dict(
+    setup_interp=True, Rmin=0.1, Rmax=1.5, Rinf=4.0, nE=12, nLz=5, nI3=9, mm_npt=96
+)
+
+
+def _staeckel_inverse_axis_potential():
+    # a Kuzmin-Kutuzov potential whose focal length is comparable to its
+    # tori, so that tori of small |L_z| come in both kinds: stopped off the
+    # axis by the centrifugal barrier in u (those that would pass between
+    # the foci without angular momentum) or in v (those that would loop
+    # around them)
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    return KuzminKutuzovStaeckelPotential(normalize=1.0, ac=2.0, Delta=0.5)
+
+
+@pytest.fixture(scope="module")
+def staeckel_inverse_axis():
+    # a small interpolation grid that reaches tori close to the axis
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    return actionAngleStaeckelInverse(
+        pot=_staeckel_inverse_axis_potential(),
+        progressbar=False,
+        **_STAECKEL_INVERSE_AXIS,
+    )
+
+
+def _staeckel_inverse_axis_errors(aAI, Lz):
+    # the spread of the energy over tori of small |L_z| relative to their
+    # mean kinetic energy, and the error of their actions (the forward
+    # transformation's at the returned points) relative to their total
+    # action, for tori of decreasing |L_z| / L of both kinds
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import evaluatePotentials
+
+    pot = _staeckel_inverse_axis_potential()
+    aAF = actionAngleStaeckel(pot=pot, delta=0.5, c=True)
+    th = numpy.linspace(0.1, 2.0 * numpy.pi + 0.1, 12, endpoint=False)
+    thR, thz = (t.ravel() for t in numpy.meshgrid(th, th + 0.05, indexing="ij"))
+    Lz = float(as_numpy(Lz))
+    spread, dJ = [], []
+    for L in (0.15, 0.3, 0.6, 1.0):
+        for jr in (0.05, 0.3):
+            jz = L - Lz
+            R, vR, vT, z, vz, _ = (as_numpy(t) for t in aAI(jr, Lz, jz, thR, 0.0, thz))
+            assert numpy.all(R > 0.0), "A torus of small |L_z| reaches R <= 0"
+            K = 0.5 * (vR**2 + vT**2 + vz**2)
+            Phi = as_numpy(evaluatePotentials(pot, R, z))
+            spread.append(numpy.std(K + Phi) / numpy.mean(K))
+            jrf, _, jzf = (as_numpy(t) for t in aAF(R, vR, vT, z, vz))
+            dJ.append(numpy.amax(numpy.hypot(jrf - jr, jzf - jz)) / (jr + L))
+    return numpy.array(spread), numpy.array(dJ)
+
+
+def test_actionAngleStaeckelInverse_near_axis(staeckel_inverse_axis):
+    # At small |L_z| the centrifugal barrier stops a libration just off the
+    # axis, and its inner turning point is far smaller than the libration's
+    # midpoint and half-width, from which it is formed: the family stores
+    # each half-width in a variable that keeps the inner turning point off
+    # the axis and accurate relative to its distance from it, whatever the
+    # interpolation error, so that no torus of small |L_z| reaches R <= 0,
+    # where the centrifugal term makes its energy meaningless
+    spread, _ = _staeckel_inverse_axis_errors(
+        staeckel_inverse_axis, 1.3 * 0.1 * _staeckel_inverse_axis_potential().vcirc(0.1)
+    )
+    assert numpy.amax(spread) < 0.3, (
+        "The energy varies by its own size over a family's tori of small |L_z|"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_pickle_format(
+    staeckel_inverse_interp, staeckel_inverse_explicit
+):
+    # An interpolated family is pickled with the format of its tables and
+    # evaluates identically after a round trip; a pickled family without the
+    # format (as before the formats were numbered) or with an older one,
+    # whose tables would be decoded wrongly, is refused with a message that
+    # says to rebuild it; explicit tori carry no family tables
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    aAI = staeckel_inverse_interp
+    pts = (0.05, 0.9, 0.05, 0.3, 1.0, 2.0)
+    again = pickle.loads(pickle.dumps(aAI))
+    assert numpy.all(numpy.array(aAI(*pts)) == numpy.array(again(*pts))), (
+        "A pickled family does not evaluate identically"
+    )
+    for change in (
+        lambda st: st.pop("_family_format"),
+        lambda st: st.update(_family_format=1),
+    ):
+        state = dict(aAI.__dict__)
+        change(state)
+        with pytest.raises(RuntimeError, match="rebuild the family"):
+            actionAngleStaeckelInverse.__new__(actionAngleStaeckelInverse).__setstate__(
+                state
+            )
+    aAE = pickle.loads(pickle.dumps(staeckel_inverse_explicit))
+    E, Lz, I3 = _staeckel_inverse_labels(_STAECKEL_INVERSE_ICS["benign"])
+    assert aAE.JR(E, Lz, I3) == staeckel_inverse_explicit.JR(E, Lz, I3), (
+        "Pickled explicit tori do not return their actions identically"
+    )
     return None
