@@ -1080,6 +1080,38 @@ def test_split_u_libration_explicit(backend):
     )
 
 
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_sheets_backend():
+    # tori set up from their actions on each sheet of a split u libration:
+    # the backend builds each torus on the libration that the solve for its
+    # integrals found it on (about the outer maximum where the inner one is
+    # the higher, across both wells, about the inner maximum), and under the
+    # 'shell' rule takes the rule's partials at the shell orbit's u
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    J = dict(
+        jrs=[0.015098, 0.322184, 0.009532],
+        Lzs=[0.002183, 0.009836, 0.008259],
+        jzs=[0.232254, 0.110735, 0.182493],
+    )
+    for rule in ({}, {"u0": "shell"}):
+        kw = dict(pot=MWPotential2014, delta=0.3, mm_npt=64, progressbar=False)
+        aN = actionAngleStaeckelInverse(**J, **kw, **rule)
+        with gb.use("torch", force=True):
+            aB = actionAngleStaeckelInverse(**J, **kw, **rule)
+        numpy.testing.assert_allclose(aB._Es, aN._Es, rtol=1e-13, atol=0.0)
+        numpy.testing.assert_allclose(aB._I3s, aN._I3s, rtol=1e-13, atol=0.0)
+        for jr, Lz, jz in zip(*J.values()):
+            numpy.testing.assert_allclose(
+                _flat(aB(jr, Lz, jz, _ANGLES[:3], 1.0, 2.0)),
+                _flat(aN(jr, Lz, jz, _ANGLES[:3], 1.0, 2.0)),
+                rtol=0.0,
+                atol=3e-10,
+            )
+
+
 # ---------- the construction's contract and checks
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_construction_contract(backend):

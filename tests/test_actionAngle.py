@@ -15754,6 +15754,24 @@ def test_actionAngleStaeckelInverse_from_actions():
         "The torus around the shell orbit of a split u libration reaches inside "
         "the barrier"
     )
+    # and likewise when the torus is set up from its integrals
+    E, Lz, I3 = -1.36267, 0.00614, 3.37947
+    ints = actionAngleStaeckelInverse(Es=[E], Lzs=[Lz], I3s=[I3], **kw)
+    R, _, _, z, _, _ = (
+        as_numpy(o)
+        for o in ints(
+            ints.JR(E, Lz, I3),
+            Lz,
+            ints.Jz(E, Lz, I3),
+            numpy.linspace(0.0, 6.0, 13),
+            1.0,
+            2.0,
+        )
+    )
+    assert numpy.all(numpy.isfinite(R)) and numpy.amin(numpy.hypot(R, z)) > 0.09, (
+        "The torus around the shell orbit of a split u libration, set up from "
+        "its integrals, reaches inside the barrier"
+    )
     return None
 
 
@@ -15793,5 +15811,108 @@ def test_actionAngleStaeckelInverse_setup_not_kept():
         assert sizes[1] < 2**16 + ntori * 2**14, (
             "A pickled actionAngleStaeckelInverse instance holds more than "
             "about ten kB per torus"
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_from_actions_many():
+    # The solve for the integrals of tori from their actions is vectorized
+    # over the tori: many tori at once have the requested actions, on the
+    # anomaly grid of the solve and on a finer one of their own, and
+    # whatever the rule for the reference curve (in a Staeckel potential
+    # every rule gives the same model, so the forward transformation checks
+    # the built-in rules, which are vectorized, and a callable, which is
+    # evaluated torus by torus); the tori without a solution are counted in
+    # one error
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    pot = _staeckel_inverse_potential()
+    aAF = _staeckel_inverse_forward()
+    rng = numpy.random.default_rng(4)
+    n = 12
+    jr, jz = rng.uniform(0.01, 0.5, n), rng.uniform(0.01, 0.3, n)
+    Lz = rng.uniform(0.3, 1.2, n) * rng.choice([-1.0, 1.0], n)
+    for kw in (
+        {},
+        {"mm_npt": 384},
+        {"u0": "torus", "mm_npt": 48},
+        {"u0": "planar"},
+        {"u0": "shell"},
+        {"u0": lambda E, Lz, I3: 1.0 + 0.1 * E + 0.01 * I3},
+    ):
+        aAI = actionAngleStaeckelInverse(pot=pot, jrs=jr, Lzs=Lz, jzs=jz, **kw)
+        R, vR, vT, z, vz, _ = (as_numpy(o) for o in aAI(jr, Lz, jz, 1.0, 2.0, 3.0))
+        jrf, Lzf, jzf = (as_numpy(o) for o in aAF(R, vR, vT, z, vz))
+        assert (
+            numpy.amax(numpy.fabs(jrf - jr)) < 1e-8
+            and numpy.amax(numpy.fabs(jzf - jz)) < 1e-8
+            and numpy.amax(numpy.fabs(Lzf - Lz)) < 1e-10
+        ), f"Tori set up together from their actions do not have them ({kw})"
+        # what the solve tabulates is not kept: a pickle holds the tori's
+        # tables, a few kB per torus
+        assert kw or len(pickle.dumps(aAI)) < 2**16 + n * 2**13
+    with pytest.raises(ValueError, match="of 2 of the 3 tori"):
+        actionAngleStaeckelInverse(
+            pot=pot, jrs=[1e9, 0.1, 2e9], Lzs=[0.9, 0.9, 0.9], jzs=[0.1, 0.1, 0.1]
+        )
+    with pytest.raises(ValueError, match="of 1 of the 1 tori"):
+        actionAngleStaeckelInverse(pot=pot, jrs=[1e9], Lzs=[0.9], jzs=[0.1], mm_npt=48)
+    # the circular orbit, with a rule for the reference curve
+    circ = actionAngleStaeckelInverse(
+        pot=pot, u0="torus", jrs=[0.0], Lzs=[0.8], jzs=[0.0]
+    )
+    assert circ.in_domain(0.0, 0.8, 0.0)
+    return None
+
+
+def test_actionAngleStaeckelInverse_from_actions_sheets():
+    # In the Staeckel approximation of a cusped potential the momentum
+    # function of the u libration has two maxima at small |L_z|, and the
+    # tori form three sheets: one libration across both wells below the
+    # level of the barrier between them, and above it the libration about
+    # the outer maximum and that about the inner one, with the actions
+    # jumping across the barrier's level. A torus is found on whichever
+    # sheet has its actions (about the outer maximum also where the inner
+    # one is the higher of the two), and the tori whose actions lie in a
+    # jump are counted in one error
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.3, mm_npt=64)
+    th = numpy.linspace(0.0, 2.0 * numpy.pi, 12, endpoint=False)
+    thR, thz = (t.ravel() for t in numpy.meshgrid(th, th))
+
+    def reach(jr, Lz, jz):
+        aAI = actionAngleStaeckelInverse(jrs=[jr], Lzs=[Lz], jzs=[jz], **kw)
+        R, _, _, z, _, _ = (as_numpy(o) for o in aAI(jr, Lz, jz, thR, 0.0, thz))
+        assert numpy.all(numpy.isfinite(R)) and numpy.all(R > 0.0)
+        return numpy.amin(numpy.hypot(R, z)), numpy.amax(R)
+
+    # about the outer maximum, at an energy at which the inner one is higher
+    assert reach(0.015098, 0.002183, 0.232254)[0] > 0.15, (
+        "The torus about the outer maximum of a split u libration reaches "
+        "inside the barrier"
+    )
+    # across both wells
+    assert reach(0.322184, 0.009836, 0.110735)[0] < 0.02, (
+        "The torus across both wells of a split u libration does not reach "
+        "the inner one"
+    )
+    # only the libration about the inner maximum has these actions
+    assert reach(0.009532, 0.008259, 0.182493)[1] < 0.12, (
+        "The torus about the inner maximum of a split u libration reaches "
+        "beyond the barrier"
+    )
+    # in the jump of J_R across the barrier's level, and in the jump of J_z
+    # where the v libration merges with the lobes of its momentum function
+    # next to the axis
+    with pytest.raises(ValueError, match="of 2 of the 3 tori"):
+        actionAngleStaeckelInverse(
+            jrs=[0.041499, 0.3, 0.00131],
+            Lzs=[0.001016, 0.5, 0.00212],
+            jzs=[0.225525, 0.2, 0.114926],
+            **kw,
         )
     return None
