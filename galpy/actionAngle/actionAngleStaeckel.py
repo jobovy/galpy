@@ -1323,9 +1323,31 @@ class actionAngleStaeckel(actionAngle):
         idx = numpy.arange(len(R))
         delta = numpy.full(len(R), self._delta * 1.0)
         ddelta = numpy.full((len(R), 3), numpy.nan)
-        u0, delta, _ = step(idx, numpy.arcsinh(R / delta), delta)
-        idx = idx[numpy.isfinite(delta)]
-        found = idx
+        if c and self._model < 4 and aAI._delta_fit is not None:
+            # the fitted rule, with a reference curve that the C code
+            # evaluates: the whole fixed point in C, which is handed the
+            # rule (the fit's degrees, limits, and coefficients, the grid's
+            # range in ln L_z, and each point's two energy edges)
+            coef, b0, b1, m = aAI._delta_fit
+            L0, L1 = aAI._Lzgrid[0], aAI._Lzgrid[-1]
+            dfit = numpy.concatenate(
+                [
+                    aAI._delta_deg,
+                    [b0, b1, m, numpy.log(L0), numpy.log(L1 / L0)],
+                    coef,
+                    edges[:, 0],
+                    edges[:, 1],
+                ]
+            ).astype("float64")
+            u0 = numpy.full(len(R), numpy.nan)
+            actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
+                pot, delta, R, vR, vT, z, vz, u0=u0, model=self._model, dfit=dfit
+            )
+            idx = idx[:0]
+        else:
+            u0, delta, _ = step(idx, numpy.arcsinh(R / delta), delta)
+            idx = idx[numpy.isfinite(delta)]
+        found = numpy.flatnonzero(numpy.isfinite(delta))
         for _ in range(_MODEL_MAXITER):
             if len(idx) == 0:
                 break
