@@ -14166,9 +14166,10 @@ def test_from_name_simbad_mirror_fallback(monkeypatch):
     assert tried[0] == unreachable, (
         "from_name did not try the remembered SIMBAD mirror first"
     )
-    assert tried[-1] == Orbits._SIMBAD_SERVER and tried[-1] in conf.servers_list[1:], (
-        "from_name did not remember the SIMBAD mirror that answered"
-    )
+    assert tried[-1] == Orbits._SIMBAD_SERVER and tried[-1] in (
+        *conf.servers_list[1:],
+        *Orbits._SIMBAD_MIRRORS,
+    ), "from_name did not remember the SIMBAD mirror that answered"
     assert not any(
         issubclass(w.category, galpyWarning) and "SIMBAD" in str(w.message)
         for w in caught
@@ -14187,26 +14188,80 @@ def test_from_name_simbad_mirror_fallback(monkeypatch):
         "PMRA of Lacaille 8760 does not match SIMBAD value"
     )
     # A mirror that answers is remembered also when the object is not in
-    # SIMBAD (Codex review of #1770; the configured mirror is the one that
-    # answered, so no other mirror is contacted)
+    # SIMBAD (Codex review of #1770; only the unreachable mirror and the one
+    # that answered are tried, so that no other mirror is contacted)
     answering = Orbits._SIMBAD_SERVER
+    servers = Orbits._simbad_servers
+    monkeypatch.setattr(
+        Orbits,
+        "_simbad_servers",
+        lambda: [s for s in servers() if s in (unreachable, answering)],
+    )
     monkeypatch.setattr(Orbits, "_SIMBAD_SERVER", unreachable)
-    with conf.set_temp("server", answering):
-        del tried[:]
-        with pytest.raises(ValueError, match="failed to find abc123 in SIMBAD"):
-            Orbit.from_name("abc123")
-        assert tried == [unreachable, answering], (
-            "from_name did not fall back on the next SIMBAD mirror for a missing object"
-        )
-        assert Orbits._SIMBAD_SERVER == answering, (
-            "from_name did not remember the SIMBAD mirror that answered for a missing object"
-        )
-        del tried[:]
-        with pytest.raises(ValueError, match="failed to find abc123 in SIMBAD"):
-            Orbit.from_name("abc123")
-        assert tried == [answering], (
-            "from_name did not go straight to the SIMBAD mirror that answered before"
-        )
+    del tried[:]
+    with pytest.raises(ValueError, match="failed to find abc123 in SIMBAD"):
+        Orbit.from_name("abc123")
+    assert tried == [unreachable, answering], (
+        "from_name did not fall back on the next SIMBAD mirror for a missing object"
+    )
+    assert Orbits._SIMBAD_SERVER == answering, (
+        "from_name did not remember the SIMBAD mirror that answered for a missing object"
+    )
+    del tried[:]
+    with pytest.raises(ValueError, match="failed to find abc123 in SIMBAD"):
+        Orbit.from_name("abc123")
+    assert tried == [answering], (
+        "from_name did not go straight to the SIMBAD mirror that answered before"
+    )
+    return None
+
+
+def test_from_name_simbad_unlisted_mirror(monkeypatch):
+    # from_name also tries the SIMBAD mirrors that astroquery does not list
+    # (astroquery <= 0.4.11 does not list the IDIA one), after those that it
+    # does; it looks objects up on them through astroquery, which keeps its
+    # own list
+    from astroquery.simbad import conf
+
+    import galpy.orbit.Orbits as Orbits
+    from galpy.orbit import Orbit
+
+    # Find a mirror that answers; astroquery then lists none of them
+    Orbit.from_name("Vega")
+    answering = Orbits._SIMBAD_SERVER
+    unreachable = "127.0.0.1:1"
+    monkeypatch.setattr(conf, "servers_list", [unreachable])
+    monkeypatch.setattr(Orbits, "_SIMBAD_SERVER", None)
+    assert Orbits._simbad_servers() == [
+        conf.server,
+        unreachable,
+        *[s for s in Orbits._SIMBAD_MIRRORS if s != conf.server],
+    ], "from_name does not try galpy's SIMBAD mirrors after astroquery's"
+    # A lookup on the mirror that answered, which astroquery is not configured
+    # for either
+    monkeypatch.setattr(Orbits, "_SIMBAD_SERVER", answering)
+    set_server = Orbits._simbad_set_server
+    used = []
+
+    def recording_set_server(simbad, server):
+        set_server(simbad, server)
+        used.append(simbad.server)
+
+    monkeypatch.setattr(Orbits, "_simbad_set_server", recording_set_server)
+    other = next(
+        s for s in ("simbad.cds.unistra.fr", "simbad.harvard.edu") if s != answering
+    )
+    with conf.set_temp("server", other):
+        o = Orbit.from_name("Lacaille 8760")
+    assert used == [answering], (
+        "from_name did not look the object up on the SIMBAD mirror that astroquery does not list"
+    )
+    assert conf.servers_list == [unreachable], (
+        "from_name left a SIMBAD mirror in astroquery's list"
+    )
+    assert numpy.isclose(o.pmra(), -3258.996), (
+        "PMRA of Lacaille 8760 does not match SIMBAD value"
+    )
     return None
 
 

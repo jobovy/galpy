@@ -128,7 +128,10 @@ at release.]
 
 - [slot 18]
 
-- [slot 19]
+- ``Orbit.from_name`` also falls back on the SIMBAD mirror at IDIA (South
+  Africa), which astroquery <= 0.4.11 does not list, after the mirrors that
+  astroquery knows (during CDS's outage of November 2026, the Harvard mirror
+  could not be reached either).
 
 - [slot 20]
 
