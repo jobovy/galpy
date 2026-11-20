@@ -630,6 +630,34 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             self._pot, R0z[0], R0z[1]
         )
 
+    def _dVdu0(self, v):
+        """The derivative of V(v) with respect to the reference u0 along
+        which it is built, from the wrapped potential and its forces on the
+        reference spheroid and where that crosses the midplane (exact
+        evaluations, whatever ntab is); it vanishes identically for a
+        potential of Staeckel form in these coordinates"""
+        u0, d = self._u0, self._delta
+        xp = get_namespace(v, u0)
+        sh, ch = xp.sinh(u0), xp.cosh(u0)
+        R0z = coords.uv_to_Rz(u0, v, delta=d)
+        R0 = d * sh
+        return (
+            2.0
+            * sh
+            * ch
+            * (
+                _evaluatePotentials(self._pot, R0, 0.0 * R0)
+                - _evaluatePotentials(self._pot, R0z[0], R0z[1])
+            )
+            - ch**3 * d * _evaluateRforces(self._pot, R0, 0.0 * R0)
+            + _staeckel_prefactor(u0, v)
+            * d
+            * (
+                _evaluateRforces(self._pot, R0z[0], R0z[1]) * ch * xp.sin(v)
+                + _evaluatezforces(self._pot, R0z[0], R0z[1]) * sh * xp.cos(v)
+            )
+        )
+
     def _dVdv(self, v):
         xp = get_namespace(v)
         if self._splines is not None:

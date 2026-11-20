@@ -135,7 +135,20 @@ at release.]
   unbound orbit in a batch no longer makes the reverse-mode gradient of the
   whole batch NaN (its actions, frequencies and angles are still NaN).
 
-- [slot 14]
+- ``actionAngleStaeckelInverse``: rules for the reference curve of the
+  Staeckel approximation that give every torus its own Staeckel model, for
+  interpolated families and explicit tori alike: ``u0='torus'`` (the
+  harmonic mean of the radii at which the torus's inner and outer turning
+  spheroids cross the midplane; the recommended rule), ``u0='planar'`` (that
+  rule on the planar orbit of (E, Lz); it replaces ``u0='fit'``),
+  ``u0='shell'`` (the spheroid of the shell orbit of (E, Lz)), and callables
+  ``u0(E, Lz)`` or ``u0(E, Lz, I3)``. The variation of the Staeckel model
+  from torus to torus is part of the tables, so that a family converges
+  between its nodes at the interpolation's order, with the frequencies of
+  the family of models; a numeric ``u0=`` is one number. On jax and
+  PyTorch the built-in rules are evaluated natively and a callable on the
+  host, frozen (a gauge), and the tables equal numpy's (twins of main's
+  #1915, #1916, #1917 and #1929, with #1953's rename).
 
 - [slot 15]
 
