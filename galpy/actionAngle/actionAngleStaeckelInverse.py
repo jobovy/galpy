@@ -1413,6 +1413,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     for _ in range(2):
                         step = float(self._Wv(vmin, E, Lz, I3)) / dW
                         vmin -= step
+                    # (the slope at the turning point itself, for its partials)
+                    dW = float(self._dWv(vmin, E, Lz))
                 if not (0.0 < vmin < 0.5 * numpy.pi and numpy.fabs(step) < 1e-10):
                     vmin = self._v_turning(E, Lz, I3)
                     dW = float(self._dWv(vmin, E, Lz))
@@ -1491,9 +1493,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         (E, L_z), with (dI_3/dE, dI_3/dy, dI_3/dL_z) at fixed grid
         coordinates: the inverse of _y_of_I3, by Newton steps kept inside
         a bracket, from a first guess of I_3 when one is given; a residual
-        below 1e-4 is removed by its Newton step without another
-        evaluation (what is left is of second order, below 1e-7 of the
-        variable's range, far within the family's interpolation error). For a node of the
+        below 1e-4 is removed by its Newton step (what is left is of second
+        order, below 1e-7 of the variable's range, far within the family's
+        interpolation error), after which the partials are evaluated at
+        the returned I_3, so that they are its own. For a node of the
         grid, the u turning points at the returned I_3 are remembered for
         the torus's sampling: those of the last evaluation, moved to the
         returned I_3 along their slopes (and by a Newton step on the
@@ -1527,6 +1530,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 umin -= float(self._Wu(umin, E, Lz, I3) / self._dWu(umin, E, Lz))
                 umax -= float(self._Wu(umax, E, Lz, I3) / self._dWu(umax, E, Lz))
             self._u_turning_memo[(E, Lz, I3)] = (umin, umax, ush, udeg)
+        if f != fe:
+            # the partials are those at the returned I_3 itself
+            dy = self._y_of_I3(E, Lz, I3)[1]
         return I3, numpy.insert(-numpy.delete(dy, 1), 1, 1.0) / dy[1]
 
     def _I3_starts(self, E, Lz, ys):

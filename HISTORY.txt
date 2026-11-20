@@ -164,7 +164,12 @@ at release.]
 
 - [slot 20]
 
-- [slot 21]
+- actionAngleStaeckelInverse: the stored derivatives of the third integral
+  of a family's nodes with respect to the grid coordinates are those at
+  the nodes themselves, to round-off (they were evaluated one Newton step
+  before the node, and with the slope of the vertical momentum function
+  at an estimate of the turning point, off by up to ~1e-5 relative; these
+  derivatives enter the family's derivative tables).
 
 - ``Orbit.from_name`` also falls back on the SIMBAD mirror at IDIA (South
   Africa), which astroquery <= 0.4.11 does not list, after the mirrors that
