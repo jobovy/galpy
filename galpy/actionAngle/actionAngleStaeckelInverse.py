@@ -4401,6 +4401,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         yf, dy = self._bk_y_of_I3(xp, f64, cols, faces, E, Lz, I3s)
         dstep = xp.where(face, 0.0, -(yf - y) / dy[:, 1])
         I3 = I3s + dstep - sg(dstep)
+        # the partials at the node, whose derivatives follow it
+        _, dy = self._bk_y_of_I3(xp, f64, cols, faces, E, Lz, I3)
         dI = (
             xp.stack([-dy[:, 0], 1.0 + 0.0 * dy[:, 1], -dy[:, 2]], axis=-1) / dy[:, 1:2]
         )
