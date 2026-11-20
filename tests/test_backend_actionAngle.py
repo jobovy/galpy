@@ -194,6 +194,57 @@ def test_isochrone_unbound_grad_not_nan(backend, freqs):
     numpy.testing.assert_allclose(g, fd, rtol=1e-9)
 
 
+# The same for actionAngleSpherical: an unbound orbit (no apocentre) reached the
+# turning-point integrals as NaN, which NaN-poisoned the whole batch's
+# reverse-mode gradient however it was masked afterwards
+_SPH_UNBOUND_VR = numpy.array([0.1, 0.3, 2.5, -0.2])  # the third unbound
+
+
+def _sph_unbound(a, vR, which):
+    aAS = actionAngleSpherical(pot=HernquistPotential(normalize=1.0, a=a))
+    args = (1.1 + 0.0 * vR, vR, 0.9 + 0.0 * vR, 0.05 + 0.0 * vR, 0.02 + 0.0 * vR)
+    if which == "EccZmaxRperiRap":
+        return aAS._EccZmaxRperiRap(*args)
+    if which == "actionsFreqsAngles":
+        return aAS._actionsFreqsAngles(*args, 0.3 + 0.0 * vR)
+    return getattr(aAS, f"_{which}")(*args)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "which", ["evaluate", "actionsFreqs", "actionsFreqsAngles", "EccZmaxRperiRap"]
+)
+def test_spherical_unbound_grad_not_nan(backend, which):
+    out = [
+        as_numpy(o) for o in _sph_unbound(0.6, _arr(backend, _SPH_UNBOUND_VR), which)
+    ]
+    # NaN at the unbound orbit in what its apocentre enters, finite elsewhere
+    nan = [i for i, o in enumerate(out) if numpy.isnan(o[2])]
+    assert nan and all(numpy.all(numpy.isfinite(o[[0, 1, 3]])) for o in out)
+
+    def grad(vR, keep):
+        # those outputs summed over the bound orbits, d/d(scale radius)
+        def f(a):
+            out = _sph_unbound(a, _arr(backend, vR), which)
+            return sum(out[i][keep].sum() for i in nan)
+
+        if backend == "jax":
+            return float(jax.grad(f)(0.6))
+        a = torch.tensor(0.6, requires_grad=True)
+        (g,) = torch.autograd.grad(f(a), a)
+        return float(g)
+
+    g = grad(_SPH_UNBOUND_VR, _arr(backend, numpy.array([0, 1, 3])))
+    assert numpy.isfinite(g), "the unbound orbit NaN-poisons the batch's gradient"
+    # the same as without the unbound orbit in the batch: to 1e-12 with jax;
+    # torch's root finder iterates for the whole batch, so the unbound orbit
+    # moves the bound ones' frequencies by 6e-12 and their gradient by 1.4e-10
+    # (as it did before the fix)
+    numpy.testing.assert_allclose(
+        g, grad(_SPH_UNBOUND_VR[[0, 1, 3]], slice(None)), rtol=1e-9
+    )
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("b", [0.8, 1.5])  # b=0 EccZmaxRperiRap only approximate
 def test_isochrone_ecczmaxrperirap_parity(backend, b):
