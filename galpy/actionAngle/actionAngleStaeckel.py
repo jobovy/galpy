@@ -783,7 +783,9 @@ class actionAngleStaeckel(actionAngle):
         )
         Lz = R * vT
         guess = numpy.array(
-            self._actionsFreqsAngles(R, vR, vT, z, vz, phi, _model=True, **kwargs)
+            self._actionsFreqsAngles(
+                R, vR, vT, z, vz, phi, _model=True, **{**kwargs, "order": 5}
+            )
         )
         # a point without one of the two librations has no angle of it (nor,
         # in C, of the other): the guess of a point slightly off it
@@ -798,7 +800,7 @@ class actionAngleStaeckel(actionAngle):
                 vz[flat] + kick,
                 phi[flat],
                 _model=True,
-                **kwargs,
+                **{**kwargs, "order": 5},
             )[6:]
         x = (R, vR, vT, z, vz, phi)
         if aAI._interp:
