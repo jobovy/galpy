@@ -1058,7 +1058,7 @@ class actionAngleStaeckel(actionAngle):
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
         inverse : actionAngleStaeckelInverse, optional
-            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error.
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning.
         polish : bool, optional
             With inverse= a family (setup_interp=True): make the transformation the exact inverse of the family's interpolated map, by Newton's method on that map from the actions and angles of the family's tori; points that no torus of the family passes through return nan with a warning. Default is False: the actions and angles of the family's tori, to which the interpolated map agrees to its interpolation error.
         useu0 : bool, optional
@@ -1433,6 +1433,22 @@ class actionAngleStaeckel(actionAngle):
             idx = idx[left > _MODEL_TOL]
         # (a point without a focal length has no model at all)
         u0 = numpy.where(numpy.isfinite(delta), u0, numpy.nan)
+        if aAI._delta_fit is not None:
+            # points beyond the tori that the rule was fitted to
+            E = _staeckel_setup(R, vR, vT, z, vz, pypot, delta, u0=u0)["E"]
+            off = numpy.fabs(Lz) != numpy.clip(
+                numpy.fabs(Lz), aAI._Lzgrid[0], aAI._Lzgrid[-1]
+            )
+            for edge, sign in zip(edges.T[:2], (-1.0, 1.0)):
+                off |= sign * (E - _evaluatePotentials(pypot, edge, 0.0 * edge)) > 0.0
+            if numpy.any(off):
+                warnings.warn(
+                    f"{numpy.sum(off)} of the {len(R)} points lie outside the "
+                    "range of energy or angular momentum of the grid of "
+                    "inverse=: their focal lengths are those of the family's "
+                    "rule at the edge of that range",
+                    galpyWarning,
+                )
         if direct:
             ddelta = numpy.full((4, len(R)), numpy.nan)
             if deriv and len(found) > 0:

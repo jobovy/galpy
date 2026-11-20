@@ -597,7 +597,7 @@ static void calcModelu0(int ndata,
 // ln of the smallest |L_z| of the family's grid and the grid's span in ln
 // |L_z|, the polynomial's coefficients, and for each point the two
 // apocentres R0c and R0m between which the grid's energy variable x runs
-// (nan outside the family's range of |L_z|: no model)
+// (those of the nearest |L_z| of the grid outside its range)
 // One application of the rule in the models (delta, u0) of the points: the
 // reference curve moves to its fixed point at these focal lengths
 // (calcModelu0), and the rule gives the new focal lengths
@@ -677,6 +677,10 @@ static void modelRuleDelta(int ndata,
     x= log(modelRoot(&modelRootPhi,&arg,0.01 * *(R0c+ii),10. * *(R0m+ii))
 	   / *(R0c+ii)) / log(*(R0m+ii) / *(R0c+ii));
     lam= ( log(fabs(*(work+ndata+ii))) - *(dfit+6) ) / *(dfit+7);
+    // (beyond the grid's range of energy or of |L_z|, the rule is held at
+    // its value at the edge of the range)
+    x= x < 0. ? 0. : ( x > 1. ? 1. : x );
+    lam= lam < 0. ? 0. : ( lam > 1. ? 1. : lam );
     for (i1=n1, P=0.; i1 >= 0; i1--){
       for (i2=n2, Pj=0.; i2 >= 0; i2--){
 	for (i3=n3, Pk=0.; i3 >= 0; i3--)

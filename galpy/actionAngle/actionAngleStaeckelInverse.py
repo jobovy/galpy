@@ -3904,20 +3904,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """The two apocentres between which the grid's energy variable of
         each |L_z| runs (_energy_edges_array) and the derivatives of their
         logarithms with respect to |L_z|, for the focal lengths of
-        _delta_of at many energies; nan outside the grid's range of |L_z|"""
-        ell = numpy.fabs(Lz)
-        ok = (ell >= self._Lzgrid[0]) & (ell <= self._Lzgrid[-1])
+        _delta_of at many energies; outside the grid's range of |L_z|,
+        those of the nearest |L_z| of the grid (nan without a fitted rule)"""
+        ell = numpy.clip(numpy.fabs(Lz), self._Lzgrid[0], self._Lzgrid[-1])
+        inside = ell == numpy.fabs(Lz)
         out = numpy.full((len(ell), 4), numpy.nan)
-        if self._delta_fit is not None and numpy.any(ok):
-            Rc, R0c, R0m, _, dphi = self._energy_edges_array(ell[ok])
+        if self._delta_fit is not None and len(ell) > 0:
+            Rc, R0c, R0m, _, dphi = self._energy_edges_array(ell)
             # (the edges' energies are the circular orbit's, with dE/dL =
             # L / Rc^2, and that of the top of the grid)
-            out[ok] = numpy.array(
+            out = numpy.array(
                 [
                     R0c,
                     R0m,
-                    ell[ok] / Rc**2 / (R0c * dphi(R0c)),
-                    ell[ok] / self._Rinf**2 / (R0m * dphi(R0m)),
+                    inside * ell / Rc**2 / (R0c * dphi(R0c)),
+                    inside * ell / self._Rinf**2 / (R0m * dphi(R0m)),
                 ]
             ).T
         return out
@@ -3927,9 +3928,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         from the family's rule itself, for arrays of tori (the delta method,
         vectorized, for the model of a phase-space point): the fitted
         polynomial's at the grid's energy variable (edges: _delta_edges of
-        the tori), or the callable's; nan outside the grid's range of
-        |L_z|, and None when the rule is a callable that was not kept (a
-        pickled family). With deriv, also its partials with respect to (E,
+        the tori), or the callable's; outside the grid's range of energy or
+        of |L_z|, the fitted polynomial is held at its value at the edge of
+        the range (the polynomial is not to be trusted beyond the tori that
+        it was fitted to); None when the rule is a callable that was not
+        kept (a pickled family). With deriv, also its partials with respect to (E,
         |L_z|, f): in closed form for the fitted polynomial, by central
         differences for a callable (FINITE DIFFERENCES, of the user's
         callable alone)"""
@@ -3954,25 +3957,35 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 (rule(E, ell + hL, f) - rule(E, ell - hL, f)) / (2.0 * hL),
                 (rule(E, ell, f + 1e-6) - rule(E, ell, f - 1e-6)) / 2e-6,
             ]
-        ok = numpy.isfinite(edges[:, 0]) & numpy.isfinite(E)
+        ok = numpy.isfinite(E)
         out = numpy.full(len(E), numpy.nan)
         grad = numpy.full((3, len(E)), numpy.nan)
         if numpy.any(ok):
             wrap, R0c, R0m = self._chart_pot, edges[ok, 0], edges[ok, 1]
+
+            def phi(R):
+                return evaluatePotentials(wrap, R, 0.0, use_physical=False)
+
+            Ein = numpy.clip(E[ok], phi(R0c), phi(R0m))
+            Efree = Ein == E[ok]
             R = _solve_increasing(
-                lambda R: evaluatePotentials(wrap, R, 0.0, use_physical=False) - E[ok],
+                lambda R: phi(R) - Ein,
                 lambda R: -evaluateRforces(wrap, R, 0.0, use_physical=False),
-                0.01 * R0c,
-                10.0 * R0m,
+                0.5 * R0c,
+                2.0 * R0m,
             )
             span = numpy.log(R0m / R0c)
-            x = numpy.log(R / R0c) / span
-            out[ok], (dx, df, dL) = self._delta_fitted(x, f[ok], ell[ok])
+            x = numpy.clip(numpy.log(R / R0c) / span, 0.0, 1.0)
+            Lin = numpy.clip(ell[ok], self._Lzgrid[0], self._Lzgrid[-1])
+            out[ok], (dx, df, dL) = self._delta_fitted(x, f[ok], Lin)
             # (x moves with the energy through the apocentre R, and with
-            # the angular momentum through the two edges)
+            # the angular momentum through the two edges; not beyond the
+            # grid's range, where the rule is held at its value at the edge)
+            dx = Efree * dx
             grad[:, ok] = [
                 -dx / (R * evaluateRforces(wrap, R, 0.0, use_physical=False) * span),
-                dL - dx * (edges[ok, 2] * (1.0 - x) + edges[ok, 3] * x) / span,
+                (Lin == ell[ok]) * dL
+                - dx * (edges[ok, 2] * (1.0 - x) + edges[ok, 3] * x) / span,
                 df,
             ]
         if deriv:
