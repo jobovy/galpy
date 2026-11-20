@@ -174,7 +174,17 @@ at release.]
   the same relation, solved natively and differentiably, and the families'
   tables equal numpy's.
 
-- [slot 17]
+- ``actionAngleStaeckelInverse``: explicit tori can be set up from their
+  actions (``jrs=``, ``Lzs=``, ``jzs=``), for a fixed reference curve or any
+  rule, including the planar, shell, and circular orbits; the second-order
+  tables of explicit tori are computed only when asked for on numpy (on jax
+  and PyTorch with the tori, as before); and the u turning points of a torus
+  whose radial libration is split in the Staeckel approximation of a cusped
+  potential are those of the libration around the shell orbit (twin of
+  main's #1927). On jax and PyTorch the integrals of tori set up from their
+  actions are solved on a host copy of the model, not for differentiated
+  parameters (set such tori up from their integrals); evaluations accept
+  lists as numpy does.
 
 - [slot 18]
 
