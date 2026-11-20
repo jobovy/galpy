@@ -162,7 +162,14 @@ at release.]
   E_1(a/rc) into ~1e-9 relative (jax 0.12.1 differs from scipy at more
   arguments than earlier versions).
 
-- [slot 20]
+- Added the ``inverse=`` keyword of actionAngleStaeckel: set up from an
+  actionAngleStaeckelInverse instance, actionAngleStaeckel computes the
+  actions, frequencies, and angles of the instance's torus through each
+  phase-space point, such that it inverts that instance. Each point is
+  transformed in the Staeckel model of its own torus (the instance's focal
+  length and reference curve), with the energy evaluated in that model, in
+  C and in pure Python. Supports instances with a single reference curve
+  and, for the actions, ``u0='torus'``.
 
 - actionAngleStaeckelInverse: the stored derivatives of the third integral
   of a family's nodes with respect to the grid coordinates are those at

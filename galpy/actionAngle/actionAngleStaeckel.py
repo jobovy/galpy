@@ -116,6 +116,10 @@ def _staeckel_pot(pot):
 
 # cap on the bisection halvings (a degenerate, zero-width bracket gets it)
 _BISECT_MAXITER = 100
+# the fixed point of the Staeckel model of a torus of inverse= through a
+# point: tolerance on the step of the reference curve, and cap on the cycles
+_MODEL_TOL = 1e-9
+_MODEL_MAXITER = 10
 
 
 def _iterate_bracket(step, x0, n):
@@ -147,15 +151,33 @@ def _bisect_root(f, a, b, xtol, maxiter):
     return 0.5 * (lo + hi)
 
 
-def _staeckel_setup(R, vR, vT, z, vz, pot, delta):
-    """The setup quantities of every phase-space point"""
+def _staeckel_setup(R, vR, vT, z, vz, pot, delta, u0=None):
+    """The setup quantities of every phase-space point; with u0, for the
+    Staeckel model of (delta, u0): its reference curve and the energy in
+    it, Phi = [U(u) - V(v)] / (sinh^2 u + sin^2 v) in place of the
+    potential itself"""
     ux, vx = coords.Rz_to_uv(R, z, delta=delta)
     sinvx, cosvx = numpy.sin(vx), numpy.cos(vx)
     coshux, sinhux = numpy.cosh(ux), numpy.sinh(ux)
     pux = delta * (vR * coshux * sinvx + vz * sinhux * cosvx)
     pvx = delta * (vR * sinhux * cosvx - vz * coshux * sinvx)
     E, Lz = calcELStaeckel(R, vR, vT, z, vz, pot)
-    u0 = ux  # u0 does not matter for a single action evaluation
+    if u0 is None:
+        u0 = ux  # u0 does not matter for a single action evaluation
+    else:
+        E = (
+            (
+                coshux**2.0 * potentialStaeckel(ux, numpy.pi / 2.0, pot, delta)
+                - numpy.cosh(u0) ** 2.0
+                * potentialStaeckel(u0, numpy.pi / 2.0, pot, delta)
+                + (numpy.sinh(u0) ** 2.0 + sinvx**2.0)
+                * potentialStaeckel(u0, vx, pot, delta)
+            )
+            / (sinhux**2.0 + sinvx**2.0)
+            + vR**2.0 / 2.0
+            + vT**2.0 / 2.0
+            + vz**2.0 / 2.0
+        )
     sinh2u0 = numpy.sinh(u0) ** 2.0
     v0u = numpy.pi / 2.0
     sin2v0u = numpy.sin(v0u) ** 2.0
@@ -370,10 +392,10 @@ def _staeckel_chi_quads(
     return action, sqQ, q, wts
 
 
-def _staeckel_prep(R, vR, vT, z, vz, pot, delta):
+def _staeckel_prep(R, vR, vT, z, vz, pot, delta, u0=None):
     """Setup quantities and turning points, shared by the actions,
     frequencies, and angles: (setup, umin, umax, vmin)"""
-    s = _staeckel_setup(R, vR, vT, z, vz, pot, delta)
+    s = _staeckel_setup(R, vR, vT, z, vz, pot, delta, u0=u0)
     umin, umax, unbound = _staeckel_uminumax(s, pot, delta)
     if numpy.any(unbound):
         raise UnboundError("Orbit seems to be unbound")
@@ -424,9 +446,9 @@ def _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order):
     return jr, jz
 
 
-def _staeckel_actions(R, vR, vT, z, vz, pot, delta, order):
+def _staeckel_actions(R, vR, vT, z, vz, pot, delta, order, u0=None):
     """(jr, Lz, jz)"""
-    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta)
+    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta, u0=u0)
     jr, jz = _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order)
     return jr, s["Lz"], jz
 
@@ -518,10 +540,10 @@ def _staeckel_freqs(umin, umax, vmin, jac):
     return Omegar, Omegaphi, Omegaz
 
 
-def _staeckel_actions_freqs(R, vR, vT, z, vz, pot, delta, order):
+def _staeckel_actions_freqs(R, vR, vT, z, vz, pot, delta, order, u0=None):
     """(jr, Lz, jz, Omegar, Omegaphi, Omegaz); the frequencies are NaN for
     circular orbits (see _staeckel_freqs)"""
-    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta)
+    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta, u0=u0)
     jr, jz = _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order)
     jac = _staeckel_jacobian(s, umin, umax, vmin, pot, delta, order)
     Omegar, Omegaphi, Omegaz = _staeckel_freqs(umin, umax, vmin, jac)
@@ -640,10 +662,10 @@ def _staeckel_angles(s, umin, umax, vmin, pot, delta, order, jac):
     return angler, anglephi, anglez
 
 
-def _staeckel_actions_freqs_angles(R, vR, vT, z, vz, phi, pot, delta, order):
+def _staeckel_actions_freqs_angles(R, vR, vT, z, vz, phi, pot, delta, order, u0=None):
     """(jr, Lz, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez), the
     azimuth folded into anglephi"""
-    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta)
+    s, umin, umax, vmin = _staeckel_prep(R, vR, vT, z, vz, pot, delta, u0=u0)
     jr, jz = _staeckel_jr_jz(s, umin, umax, vmin, pot, delta, order)
     jac = _staeckel_jacobian(s, umin, umax, vmin, pot, delta, order)
     Omegar, Omegaphi, Omegaz = _staeckel_freqs(umin, umax, vmin, jac)
@@ -670,6 +692,8 @@ class actionAngleStaeckel(actionAngle):
             be left out for a potential that supplies its own (an exact
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
+        inverse : actionAngleStaeckelInverse, optional
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error.
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
@@ -685,6 +709,11 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2012-11-27 - Started - Bovy (IAS).
         """
+        self._inverse = kwargs.get("inverse", None)
+        # whether the energy is that of the Staeckel model of (delta, u0)
+        self._model = False
+        if self._inverse is not None:
+            kwargs = self._setup_inverse(kwargs)
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleStaeckel")
@@ -722,6 +751,82 @@ class actionAngleStaeckel(actionAngle):
         # Check the units
         self._check_consistent_units()
         return None
+
+    def _setup_inverse(self, kwargs):
+        """The set-up that inverts the actionAngleStaeckelInverse instance
+        inverse=: its Staeckel model or, for tori that each have their own
+        model, the potential that those models approximate, with the
+        energy of every point evaluated in its own model"""
+        aAI = self._inverse
+        if "pot" in kwargs or "delta" in kwargs:
+            raise TypeError(
+                "pot= and delta= cannot be given with inverse=, which supplies them"
+            )
+        if aAI._delta_rule is not None or (aAI._adaptive and aAI._u0_rule != "torus"):
+            raise NotImplementedError(
+                "inverse= currently supports instances with a numerical delta= "
+                "and either a single reference curve or u0='torus'"
+            )
+        self._model = aAI._adaptive
+        kwargs = dict(kwargs)
+        kwargs["pot"] = aAI._chart_pot if aAI._adaptive else aAI._staeckelwrap
+        kwargs["delta"] = aAI._delta
+        if aAI._roSet:
+            kwargs.setdefault("ro", aAI._ro)
+        if aAI._voSet:
+            kwargs.setdefault("vo", aAI._vo)
+        return kwargs
+
+    def _inverse_model(self, R, vR, vT, z, vz, needs, c=True):
+        """The focal length and reference curve of the Staeckel model of
+        the torus of inverse= through each phase-space point. A reference
+        curve that follows the tori depends on the torus's energy and third
+        integral in its own model, which depend on the reference curve: a
+        fixed point, found by iterating the rule on the turning points in
+        the current model (in C or, with c False, in Python), with Aitken's
+        acceleration"""
+        aAI = self._inverse
+        delta = aAI._delta
+        if not self._model:
+            return delta, numpy.full(numpy.shape(R), aAI._staeckelwrap._u0)
+        if needs != "actions":
+            raise NotImplementedError(
+                "frequencies and angles with inverse= are not yet available "
+                "for an instance whose reference curve follows its tori"
+            )
+
+        R, vR, vT, z, vz = (
+            a.copy()
+            for a in numpy.broadcast_arrays(
+                *(numpy.atleast_1d(a) * 1.0 for a in (R, vR, vT, z, vz))
+            )
+        )
+        pot = self._pot if c else _staeckel_pot(self._pot)
+
+        def rule(idx, u0):
+            x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
+            if c:
+                um, up = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
+                    pot, delta, *x, u0=u0, model=True
+                )[:2]
+            else:
+                um, up = _staeckel_prep(*x, pot, delta, u0=u0)[1:3]
+            sm, sp = numpy.sinh(um), numpy.sinh(up)
+            return numpy.arcsinh(2.0 * sm * sp / (sm + sp))
+
+        idx = numpy.arange(len(R))
+        u0 = rule(idx, numpy.arcsinh(R / delta))
+        for _ in range(_MODEL_MAXITER):
+            u1 = rule(idx, u0[idx])
+            u2 = rule(idx, u1)
+            den = u2 - 2.0 * u1 + u0[idx]
+            ok = den != 0.0
+            acc = u2 - (u2 - u1) ** 2 / numpy.where(ok, den, 1.0)
+            u0[idx] = numpy.where(ok & numpy.isfinite(acc), acc, u2)
+            idx = idx[numpy.fabs(u2 - u1) > _MODEL_TOL]
+            if len(idx) == 0:
+                break
+        return delta, u0
 
     def _evaluate(self, *args, **kwargs):
         """
@@ -796,10 +901,21 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions")
             else:
                 u0 = None
             jr, jz, err = actionAngleStaeckel_c.actionAngleStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, u0=u0, order=order
+                self._pot,
+                delta,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                u0=u0,
+                order=order,
+                model=self._model,
             )
             if err == 0:
                 return (jr, Lz, jz)
@@ -814,6 +930,9 @@ class actionAngleStaeckel(actionAngle):
                     galpyWarning,
                 )
             kwargs.pop("c", None)
+            u0 = None
+            if self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions", c=False)
             jr, Lz, jz = _staeckel_actions(
                 R,
                 vR,
@@ -823,6 +942,7 @@ class actionAngleStaeckel(actionAngle):
                 _staeckel_pot(self._pot),
                 _coerce_delta_arraylike(delta),
                 order,
+                u0=u0,
             )
             return (numpy.atleast_1d(jr), numpy.atleast_1d(Lz), numpy.atleast_1d(jz))
 
@@ -898,6 +1018,8 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "freqs")
             else:
                 u0 = None
             (
@@ -908,7 +1030,16 @@ class actionAngleStaeckel(actionAngle):
                 Omegaz,
                 err,
             ) = actionAngleStaeckel_c.actionAngleFreqStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, u0=u0, order=order
+                self._pot,
+                delta,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                u0=u0,
+                order=order,
+                model=self._model,
             )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
@@ -957,6 +1088,9 @@ class actionAngleStaeckel(actionAngle):
             kwargs.pop("u0", None)
             # the u0 reference of useu0 does not change the actions and
             # frequencies, so it is not needed here
+            u0 = None
+            if self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "freqs", c=False)
             jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
                 R,
                 vR,
@@ -966,6 +1100,7 @@ class actionAngleStaeckel(actionAngle):
                 _staeckel_pot(self._pot),
                 _coerce_delta_arraylike(delta),
                 order,
+                u0=u0,
             )
             # Close-to-circular orbits: the frequencies are NaN (det(A)=0);
             # substitute epifreq/omegac/verticalfreq (as the C wrapper does)
@@ -1058,6 +1193,8 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "angles")
             else:
                 u0 = None
             (
@@ -1071,7 +1208,17 @@ class actionAngleStaeckel(actionAngle):
                 anglez,
                 err,
             ) = actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, phi, u0=u0, order=order
+                self._pot,
+                delta,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                phi,
+                u0=u0,
+                order=order,
+                model=self._model,
             )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
@@ -1122,6 +1269,9 @@ class actionAngleStaeckel(actionAngle):
             kwargs.pop("u0", None)
             # the u0 reference of useu0 does not change the actions,
             # frequencies, and angles, so it is not needed here
+            u0 = None
+            if self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "angles", c=False)
             (
                 jr,
                 Lz,
@@ -1142,6 +1292,7 @@ class actionAngleStaeckel(actionAngle):
                 _staeckel_pot(self._pot),
                 _coerce_delta_arraylike(delta),
                 order,
+                u0=u0,
             )
             # Close-to-circular orbits: the frequencies are NaN (det(A)=0);
             # substitute epifreq/omegac/verticalfreq (as the C wrapper does; the
@@ -1266,6 +1417,8 @@ class actionAngleStaeckel(actionAngle):
                         E, Lz, self._pot, delta
                     )[0]
                 kwargs.pop("u0", None)
+            elif self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions")
             else:
                 u0 = None
             (
@@ -1274,7 +1427,7 @@ class actionAngleStaeckel(actionAngle):
                 vmin,
                 err,
             ) = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
-                self._pot, delta, R, vR, vT, z, vz, u0=u0
+                self._pot, delta, R, vR, vT, z, vz, u0=u0, model=self._model
             )
             if err == 0:
                 return (umin, umax, vmin)
@@ -1289,8 +1442,11 @@ class actionAngleStaeckel(actionAngle):
                     galpyWarning,
                 )
             kwargs.pop("c", None)
+            u0 = None
+            if self._inverse is not None:
+                delta, u0 = self._inverse_model(R, vR, vT, z, vz, "actions", c=False)
             _, umin, umax, vmin = _staeckel_prep(
-                R, vR, vT, z, vz, _staeckel_pot(self._pot), delta
+                R, vR, vT, z, vz, _staeckel_pot(self._pot), delta, u0=u0
             )
             return (umin, umax, vmin)
 

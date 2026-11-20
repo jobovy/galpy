@@ -15500,3 +15500,135 @@ def test_actionAngleStaeckelInverse_from_actions_sheets():
             **kw,
         )
     return None
+
+
+def test_actionAngleStaeckel_c_model_energy():
+    # The C code's switch to the energy of the Staeckel model that the
+    # approximation with (delta, u0) stands for: for a Staeckel potential
+    # with its own focal length, that model is the potential itself for any
+    # u0, so the actions, frequencies, and angles do not change (the switch
+    # is first used by actionAngleStaeckel itself for the actions alone)
+    from galpy.actionAngle import actionAngleStaeckel_c
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    pot = KuzminKutuzovStaeckelPotential(ac=5.0, Delta=1.0, normalize=True)
+    rng = numpy.random.default_rng(4)
+    x = (
+        rng.uniform(0.8, 1.2, 6),
+        rng.normal(0.0, 0.15, 6),
+        rng.uniform(0.8, 1.1, 6),
+        rng.normal(0.0, 0.2, 6),
+        rng.normal(0.0, 0.1, 6),
+        rng.uniform(0.0, 2.0 * numpy.pi, 6),
+    )
+    out = [
+        numpy.array(
+            actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
+                pot, 1.0, *x, u0=numpy.full(6, 0.8), order=20, model=model
+            )[:8]
+        )
+        for model in (False, True)
+    ]
+    assert numpy.all(numpy.isfinite(out[0])) and numpy.allclose(
+        out[0], out[1], rtol=0.0, atol=1e-8
+    ), (
+        "The Staeckel C code with the energy of its Staeckel model changes "
+        "the actions, frequencies, or angles in a Staeckel potential"
+    )
+    return None
+
+
+def test_actionAngleStaeckel_inverse_single_model():
+    # actionAngleStaeckel(inverse=) of tori in a single Staeckel model is
+    # the transformation of that model
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    jr, Lz, jz = (
+        numpy.array([0.08, 0.02, 0.2]),
+        numpy.array([0.9, 1.2, -0.7]),
+        numpy.array([0.06, 0.15, 0.02]),
+    )
+    kw = dict(pot=MWPotential2014, jrs=jr, Lzs=Lz, jzs=jz, mm_npt=128)
+    aAI = actionAngleStaeckelInverse(delta=0.45, u0=1.2, progressbar=False, **kw)
+    angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(jr)))
+    for c in (True, False):
+        aAS = actionAngleStaeckel(inverse=aAI, c=c, order=20)
+        out = numpy.array(aAS.actionsFreqsAngles(*aAI(jr, Lz, jz, *angs)))
+        dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-8, (
+            f"actionAngleStaeckel(inverse=) does not return the actions of tori "
+            f"in a single Staeckel model (c={c})"
+        )
+        assert (
+            numpy.amax(numpy.fabs(out[3:6] - numpy.array(aAI.Freqs(jr, Lz, jz)))) < 1e-7
+        ), (
+            f"actionAngleStaeckel(inverse=) does not return the frequencies of "
+            f"tori in a single Staeckel model (c={c})"
+        )
+        assert numpy.amax(numpy.fabs(dang)) < 1e-6, (
+            f"actionAngleStaeckel(inverse=) does not return the angles of tori "
+            f"in a single Staeckel model (c={c})"
+        )
+    # the units of the inverse carry over
+    phys = actionAngleStaeckelInverse(delta=0.45, ro=8.0, vo=220.0, **kw)
+    fwd = actionAngleStaeckel(inverse=phys)
+    assert fwd._roSet and fwd._voSet and fwd._ro == 8.0 and fwd._vo == 220.0, (
+        "actionAngleStaeckel(inverse=) does not take over the inverse's units"
+    )
+    with pytest.raises(TypeError, match="cannot be given with inverse="):
+        actionAngleStaeckel(inverse=aAI, delta=0.4)
+    return None
+
+
+def test_actionAngleStaeckel_inverse_u0torus():
+    # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
+    # model (u0='torus'): every point is transformed in the model of the
+    # torus through it, with the energy of that model
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    jr, Lz, jz = (
+        numpy.array([0.08, 0.2, 0.02, 0.05, 0.3]),
+        numpy.array([0.9, -0.7, 1.1, 1.3, 0.6]),
+        numpy.array([0.06, 0.02, 0.1, 0.004, 0.3]),
+    )
+    kw = dict(pot=MWPotential2014, jrs=jr, Lzs=Lz, jzs=jz, mm_npt=256)
+    aAI = actionAngleStaeckelInverse(delta=0.45, u0="torus", progressbar=False, **kw)
+    aAS = actionAngleStaeckel(inverse=aAI, order=20)
+    sel = numpy.tile(numpy.arange(len(jr)), 8)
+    angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(sel)))
+    x = aAI(jr[sel], Lz[sel], jz[sel], *angs)
+    out = numpy.array(aAS(*x))
+    assert (
+        numpy.amax(numpy.fabs(out - numpy.array([jr[sel], Lz[sel], jz[sel]]))) < 1e-9
+    ), (
+        "actionAngleStaeckel(inverse=) does not return the actions of tori "
+        "that each have their own Staeckel model"
+    )
+    # the Staeckel approximation in the potential itself does not
+    rough = numpy.array(actionAngleStaeckel(pot=MWPotential2014, delta=0.45)(*x))
+    assert numpy.amax(numpy.fabs(rough[0] - jr[sel])) > 1e-4
+    # the turning points are those of the same model
+    rperi, rap = aAS.EccZmaxRperiRap(*x)[2:]
+    assert numpy.all((rperi < rap) & (rperi > 0.0))
+    # what is not available yet
+    for meth in (aAS.actionsFreqs, aAS.actionsFreqsAngles):
+        with pytest.raises(NotImplementedError, match="not yet available"):
+            meth(*x)
+    # the pure-Python implementation is the same transformation
+    assert numpy.amax(numpy.fabs(numpy.array(aAS(*x, c=False)) - out)) < 1e-8, (
+        "actionAngleStaeckel(inverse=) in Python does not agree with C for "
+        "tori that each have their own Staeckel model"
+    )
+    assert numpy.allclose(
+        aAS.EccZmaxRperiRap(*x, c=False)[2:], (rperi, rap), rtol=1e-6, atol=0.0
+    )
+    for meth in (aAS.actionsFreqs, aAS.actionsFreqsAngles):
+        with pytest.raises(NotImplementedError, match="not yet available"):
+            meth(*x, c=False)
+    with pytest.raises(NotImplementedError, match="currently supports"):
+        actionAngleStaeckel(
+            inverse=actionAngleStaeckelInverse(delta=0.45, u0="planar", **kw)
+        )
+    return None
