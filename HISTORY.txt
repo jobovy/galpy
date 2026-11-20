@@ -186,7 +186,13 @@ at release.]
   parameters (set such tori up from their integrals); evaluations accept
   lists as numpy does.
 
-- [slot 18]
+- ``actionAngleStaeckelInverse`` no longer keeps the samples and lifts of
+  every torus after its set-up, which reduces the memory of an
+  interpolated family about fourfold (from 1.1 GB to 0.26 GB for 17^3
+  tori) and the size of a pickled family about eightfold; the error for a
+  too small Rinf names target_pad when a padded target sets the grid
+  (twins of main's #1930, #1931, #1948). Families built on jax and PyTorch
+  never kept them; their Rinf error names target_pad as well.
 
 - ``Orbit.from_name`` also falls back on the SIMBAD mirror at IDIA (South
   Africa), which astroquery <= 0.4.11 does not list, after the mirrors that

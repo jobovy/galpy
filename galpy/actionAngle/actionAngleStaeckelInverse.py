@@ -172,6 +172,25 @@ def _listed_to_numpy(*args):
     )
 
 
+def _rinf_error(Lzmax, target, target_pad):
+    """The error for a grid whose largest |L_z|, Lzmax, has its circular
+    orbit's energy above Phi(Rinf, 0) (_setup_grid and its backend twin)"""
+    return ValueError(
+        "Rinf is too small: the planar orbit without angular momentum at "
+        "the circular orbit's energy of the grid's largest |L_z| reaches "
+        "beyond Rinf; increase Rinf"
+        + (
+            ""
+            if target is None
+            else " or reduce target_pad: the grid's largest |L_z|, "
+            f"{Lzmax:g}, is the target's, "
+            f"{numpy.amax(target[0] * numpy.fabs(target[2])):g}, "
+            f"padded by target_pad = {target_pad:g} times the "
+            "target's range of |L_z|"
+        )
+    )
+
+
 def _split_u_error(E, Lz):
     """The error for the (E, L_z) of a family whose p_u^2 has more than one
     maximum above the planar orbit's (_ushell and its backend twin)"""
@@ -390,7 +409,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def __setstate__(self, state):
         """Restore a pickled instance; an interpolated family whose tables
         were stored in another format (or without a format, as before the
-        formats were numbered) would be decoded wrongly, and is refused"""
+        formats were numbered) would be decoded wrongly, and is refused;
+        a family is pickled with its interpolants, so that it loads without
+        rebuilding them"""
         if (
             state.get("_interp", False)
             and state.get("_family_format", 1) != self._FAMILY_FORMAT
@@ -766,15 +787,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 nI3,
                 Lzspacing=Lzspacing,
             )
-        # sample every torus once (exact placement), then fix the frozen
-        # auxiliary and lift every torus onto it, libration by libration
-        # (all torus-dependence beyond the auxiliary lives in the two
-        # momentum-matched maps, whose compensation is closed-form), then
-        # compute the tables
-        self._sample_all()
+        # find every torus's turning points, fix the frozen auxiliary over
+        # the radii that they span, then, torus by torus, sample the torus
+        # (exact placement), lift it onto the auxiliary, libration by
+        # libration (all torus-dependence beyond the auxiliary lives in the
+        # two momentum-matched maps, whose compensation is closed-form), and
+        # compute its tables: the samples and the lifts of a torus, which
+        # are far larger than its tables, are dropped once those are computed
+        self._setup_turning_points()
         self._setup_auxiliary(auxiliary)
         self._setup_tori()
-        # the turning points remembered during the set-up are not kept
+        # the turning points found and remembered during the set-up are
+        # not kept, except those of explicit tori, whose second-order
+        # tables are computed when they are first asked for
+        if self._interp:
+            del self._tps
         self._u_turning_memo, self._memo_keep, self._reach_v = {}, False, (None, None)
         self._check_consistent_units()
         return None
@@ -1545,14 +1572,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
     # ---------- node construction: exact tori by quadrature
-    def _sample_torus(self, E, Lz, I3):
-        """Exact phase-space samples along both librations, each
+    def _sample_torus(self, E, Lz, I3, tp=None):
+        """Exact phase-space samples along both librations of the
+        (E, L_z, I_3) torus, between its turning points (tp, as
+        _turning_points returns them, when they are known), each
         parametrized by its tau anomaly on the offset grid tau_k =
         2 pi (k + 1/2)/N, which keeps every sample off the turning points;
         placement is exact by construction (the momenta from the separated
         Hamilton-Jacobi equation, not from a fit). A degenerate libration
         (a shell orbit's in u, a planar orbit's in v) has no samples."""
-        uc, wu, wv, ush, udeg, vdeg = self._turning_points(E, Lz, I3)
+        uc, wu, wv, ush, udeg, vdeg = (
+            self._turning_points(E, Lz, I3) if tp is None else tp
+        )
         tau = 2.0 * numpy.pi * (numpy.arange(self._ntau) + 0.5) / self._ntau
         sgn = numpy.where(tau < numpy.pi, 1.0, -1.0)
         smp = {
@@ -1727,11 +1758,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
         return found
 
-    def _sample_all(self):
-        self._samples = []
+    def _setup_turning_points(self):
+        """The turning points of every torus, each in its own Staeckel
+        model: what the auxiliary's fit and the samples of the tori need;
+        kept only during the set-up by a family (the second-order tables of
+        explicit tori, computed when first asked for, sample the tori again)"""
+        self._tps = []
         for E, Lz, I3 in zip(self._Es, self._Lzs, self._I3s):
             with self._in_chart(E, Lz, I3):
-                self._samples.append(self._sample_torus(E, Lz, I3))
+                self._tps.append(self._turning_points(E, Lz, I3))
         return None
 
     # ---------- the auxiliary: one isochrone for the whole family
@@ -1799,17 +1834,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return A, A_L, A_c, 0.0 * A, A_c / L, A_cc
 
     def _setup_auxiliary(self, auxiliary):
-        """Fix the frozen isochrone auxiliary of the whole family and lift
-        every torus onto it, libration by libration.
+        """Fix the frozen isochrone auxiliary of the whole family.
 
         The momentum-matched maps lift every torus onto its equal-action
-        auxiliary torus, so the auxiliary's only job is to be a
+        auxiliary torus (_lift), so the auxiliary's only job is to be a
         well-conditioned global surrogate of the target. Unless one is
         given, its rotation curve is fitted to the target's over the
-        sampled radial range. Every torus's truncated u-lift is then
-        required to clear escape by a fraction of its own auxiliary torus's
-        binding energy, which fails only when the stored anomaly map is
-        under-resolved."""
+        radial range of the tori."""
         if auxiliary is not None:
             if not isinstance(auxiliary, IsochronePotential):
                 raise TypeError("auxiliary= has to be an IsochronePotential")
@@ -1826,58 +1857,56 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # the isochrone inverse supplies the closed forms of the auxiliary's
         # tori that the lifts, the tables and the evaluation use
         self._aAIinv = actionAngleIsochroneInverse(ip=self.auxiliary)
-        self._lifts = []
-        for ii in _progress(
-            range(len(self._samples)), "lifting tori", self._progressbar
-        ):
-            smp = self._samples[ii]
-            L = smp["jz"] + numpy.fabs(smp["Lz"])
-            lift_u = lift_v = None
-            if smp["u"] is not None:
-                lift_u = self._lift_u(smp, smp["jr"], L)
-                rA, pA = lift_u["rA"], lift_u["pA"]
-                EAs = numpy.max(
-                    0.5 * (pA**2 + L**2 / rA**2)
-                    - self._GM / (self._b + numpy.sqrt(self._b**2 + rA**2))
-                )
-                if EAs >= _BOUND_MARGIN * self._aAIinv._torus_E(smp["jr"], L):
-                    Rinner = self._delta * numpy.sinh(smp["uc"] - smp["wu"])
-                    Router = self._delta * numpy.sinh(smp["uc"] + smp["wu"])
-                    raise RuntimeError(
-                        "The momentum-matched lift of the (E, L_z, I_3) = "
-                        f"({smp['E']:g}, {smp['Lz']:g}, {smp['I3']:g}) torus is "
-                        "not bound in the fitted auxiliary: the u anomaly map is "
-                        "under-resolved for it. Its u libration spans the "
-                        f"radii {Rinner:g} to {Router:g} in the plane, a ratio of "
-                        f"{Router / Rinner:.0f}, and the number of harmonics "
-                        "that the map needs grows with that ratio, to at most "
-                        "about six times its square root (about "
-                        f"{6.0 * numpy.sqrt(Router / Rinner):.0f}), against the "
-                        f"mm_npt = {self._npt} given; the most eccentric torus "
-                        "of a grid is the one at its smallest angular momentum "
-                        "(Rmin) and highest energy (Rinf). Raise mm_npt (and, "
-                        "with it, mm_nta), or raise Rmin or lower Rinf"
-                    )
-            if smp["v"] is not None:
-                lift_v = self._lift_v(
-                    smp, L, smp["jz"] * (smp["jz"] + 2.0 * numpy.fabs(smp["Lz"])) / L**2
-                )
-            self._lifts.append((lift_u, lift_v))
         return None
+
+    def _lift(self, smp):
+        """The lifts of a sampled torus onto the auxiliary, libration by
+        libration (None for a degenerate libration). The truncated u-lift
+        is required to clear escape by a fraction of its own auxiliary
+        torus's binding energy, which fails only when the stored anomaly
+        map is under-resolved."""
+        L = smp["jz"] + numpy.fabs(smp["Lz"])
+        lift_u = lift_v = None
+        if smp["u"] is not None:
+            lift_u = self._lift_u(smp, smp["jr"], L)
+            rA, pA = lift_u["rA"], lift_u["pA"]
+            EAs = numpy.max(
+                0.5 * (pA**2 + L**2 / rA**2)
+                - self._GM / (self._b + numpy.sqrt(self._b**2 + rA**2))
+            )
+            if EAs >= _BOUND_MARGIN * self._aAIinv._torus_E(smp["jr"], L):
+                Rinner = self._delta * numpy.sinh(smp["uc"] - smp["wu"])
+                Router = self._delta * numpy.sinh(smp["uc"] + smp["wu"])
+                raise RuntimeError(
+                    "The momentum-matched lift of the (E, L_z, I_3) = "
+                    f"({smp['E']:g}, {smp['Lz']:g}, {smp['I3']:g}) torus is "
+                    "not bound in the fitted auxiliary: the u anomaly map is "
+                    "under-resolved for it. Its u libration spans the "
+                    f"radii {Rinner:g} to {Router:g} in the plane, a ratio of "
+                    f"{Router / Rinner:.0f}, and the number of harmonics "
+                    "that the map needs grows with that ratio, to at most "
+                    "about six times its square root (about "
+                    f"{6.0 * numpy.sqrt(Router / Rinner):.0f}), against the "
+                    f"mm_npt = {self._npt} given; the most eccentric torus "
+                    "of a grid is the one at its smallest angular momentum "
+                    "(Rmin) and highest energy (Rinf). Raise mm_npt (and, "
+                    "with it, mm_nta), or raise Rmin or lower Rinf"
+                )
+        if smp["v"] is not None:
+            lift_v = self._lift_v(
+                smp, L, smp["jz"] * (smp["jz"] + 2.0 * numpy.fabs(smp["Lz"])) / L**2
+            )
+        return lift_u, lift_v
 
     def _fit_auxiliary(self):
         """Fit the isochrone's (GM, b) to the potential's rotation curve
-        over the sampled radial range (zero-point free, log residuals on
-        geometrically spaced radii)"""
-        rlo = min(
-            self._delta * numpy.sinh(smp["uc"] - smp["wu"]) for smp in self._samples
-        )
+        over the radial range of the tori (zero-point free, log residuals
+        on geometrically spaced radii)"""
+        rlo = min(self._delta * numpy.sinh(tp[0] - tp[1]) for tp in self._tps)
         rhi = max(
             self._delta
-            * numpy.sqrt(
-                numpy.sinh(smp["uc"] + smp["wu"]) ** 2 + numpy.sin(smp["wv"]) ** 2
-            )
-            for smp in self._samples
+            * numpy.sqrt(numpy.sinh(tp[0] + tp[1]) ** 2 + numpy.sin(tp[2]) ** 2)
+            for tp in self._tps
         )
         rlo = max(rlo, 1e-3 * rhi)
         rf = numpy.geomspace(rlo, rhi, 25)
@@ -2071,8 +2100,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         (E, I_3, L_z) from the torus alone, and the variation of the
         auxiliary's actions along the lifted librations (the maps'
         truncation, which should be at round-off). A degenerate libration
-        contributes its harmonic limit."""
-        smp = self._samples[ii]
+        contributes its harmonic limit. The torus's samples and lifts, which
+        the second-order tables use as well, are returned with the tables
+        and not kept."""
+        smp = self._sample_torus(
+            self._Es[ii], self._Lzs[ii], self._I3s[ii], tp=self._tps[ii]
+        )
         tau, E, Lz, I3 = smp["tau"], smp["E"], smp["Lz"], smp["I3"]
         uc, wu, wv, ush = smp["uc"], smp["wu"], smp["wv"], smp["ush"]
         d2 = self._delta**2
@@ -2122,7 +2155,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         L = jz + numpy.fabs(Lz)
         c = jz * (jz + 2.0 * numpy.fabs(Lz)) / L**2
         dJr, dL = M[0], M[1] + numpy.array([0.0, 0.0, numpy.sign(Lz)])
-        lift_u, lift_v = self._lifts[ii]
+        lift_u, lift_v = self._lift(smp)
         dVu = Ju = None
         if self._adaptive and not vdeg:
             # along the reference u0 of a rule at fixed integrals V(v)
@@ -2154,6 +2187,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "dDmv": None,
             "perr_u": 0.0,
             "perr_v": 0.0,
+            "smp": smp,
+            "lifts": (lift_u, lift_v),
         }
         if not udeg:
             # the truncated map's lift is not exactly the equal-action
@@ -2239,10 +2274,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         vanish there to second order in tau while p vanishes to first.
         Returns None for a torus with a degenerate libration, whose tables
         stay zero. The chain to the actions is _quadratic_node."""
-        smp = self._samples[ii]
+        smp = node["smp"]
         if smp["u"] is None or smp["v"] is None:
             return None
-        lift_u, lift_v = self._lifts[ii]
+        lift_u, lift_v = node["lifts"]
         tau, E, Lz = smp["tau"], smp["E"], smp["Lz"]
         jr, jz, M, dsup = smp["jr"], smp["jz"], node["M"], node["dsup"]
         L = jz + numpy.fabs(Lz)
@@ -2680,11 +2715,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # to lie inside Rinf for every L_z of the grid: Phi(Rinf, 0) must
         # exceed the circular energy of the grid's largest |L_z|
         if self._Phiinf <= self._circular(self._Lzgrid[-1])["Ec"]:
-            raise ValueError(
-                "Rinf is too small: the planar orbit without angular momentum at "
-                "the circular orbit's energy of the grid's largest |L_z| reaches "
-                "beyond Rinf; increase Rinf"
-            )
+            raise _rinf_error(self._Lzgrid[-1], self._target, self._target_pad)
         self._wEs = numpy.linspace(box[1][0], box[1][1], nE)
         self._wIs = numpy.linspace(box[2][0], box[2][1], nI3)
         self._ys = numpy.sin(0.5 * numpy.pi * self._wIs) ** 2
@@ -4995,8 +5026,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _init_backend(
         self, xp, Rmin, Rmax, Rinf, nE, nLz, nI3, auxiliary, Lzspacing="linear"
     ):
-        """The construction (as _setup_grid, _sample_all, _setup_auxiliary and
-        _setup_tori do it) natively in xp, every torus at once"""
+        """The construction (as _setup_grid, _setup_turning_points,
+        _setup_auxiliary and _setup_tori do it) natively in xp, every torus
+        at once"""
         from ..backend._input import _grad_param
 
         par = _grad_param(self._staeckelwrap)
@@ -5608,11 +5640,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Ec = self._bk_Phi(Rc) + Lzgrid**2 / (2.0 * Rc**2)
         # as _setup_grid (the backend bracket would not raise)
         if concrete and concretely_true(Phiinf <= Ec[-1]):
-            raise ValueError(
-                "Rinf is too small: the planar orbit without angular momentum at "
-                "the circular orbit's energy of the grid's largest |L_z| reaches "
-                "beyond Rinf; increase Rinf"
-            )
+            raise _rinf_error(float(Lzgrid[-1]), self._target, self._target_pad)
         Emax = Phiinf + Lzgrid**2 / (2.0 * Rinf**2)
         R0c = _backend_brentq(
             lambda R, EE: self._bk_Phi(R) - EE,
