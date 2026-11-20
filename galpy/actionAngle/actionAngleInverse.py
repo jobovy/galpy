@@ -154,15 +154,17 @@ class actionAngleInverse(actionAngle):
         anglez): L_z = R v_T is exact and phi is linear in theta_phi, so
         the unknowns are the two libration planes' sqrt(2 J) (cos theta,
         sin theta) (regular at a vanishing action) and the equations are
-        (R, v_R, z, v_z); the Jacobian by central differences, kept while
-        the steps contract the residual twentyfold and renewed otherwise;
+        (R, v_R, z, v_z); the Jacobian by forward differences (the displaced
+        points of all points in one evaluation), then updated with each
+        step taken (Broyden) and renewed when a step does not halve the
+        residual;
         a step is halved until it lowers the residual without leaving the
         domain. With fixed, the actions are held at (jr, jz) and the unknowns
         are the two angles alone (the least-squares step of the four
         equations). Returns (J_R, J_z, theta_R, theta_phi, theta_z), nan for
         the points whose residual does not reach tol (outside the domain,
         or with a guess too far)"""
-        n, h = len(R), 1e-6
+        n, h = len(R), 1e-7
         Lz = R * vT
         x = numpy.array([R, vR, z, vz])
         if fixed:
@@ -216,17 +218,14 @@ class actionAngleInverse(actionAngle):
                 idx = numpy.flatnonzero(active)
                 if len(idx) == 0:
                     break
-                new = idx[rate[idx] > 0.05]
-                for k in range(nq):
-                    dq = numpy.zeros((nq, 1))
-                    dq[k] = h
-                    jac[new, :, k] = (
-                        (
-                            point(q[:, new] + dq, new)[:4]
-                            - point(q[:, new] - dq, new)[:4]
-                        )
-                        / (2.0 * h)
-                    ).T
+                new = idx[rate[idx] > 0.5]
+                if len(new) > 0:
+                    # (the nq displaced points of each point in one evaluation)
+                    dq = h * numpy.repeat(numpy.eye(nq), len(new), axis=1)
+                    fd = point(numpy.tile(q[:, new], nq) + dq, numpy.tile(new, nq))
+                    jac[new] = (
+                        (fd[:4].reshape((4, nq, len(new))) - f[:4, None, new]) / h
+                    ).transpose(2, 0, 1)
                 # (a Jacobian that reaches outside the domain: no step)
                 lost = ~numpy.all(numpy.isfinite(jac[idx]), axis=(1, 2))
                 jac[idx] *= ~frozen[:, idx].T[:, None, :]
@@ -245,6 +244,14 @@ class actionAngleInverse(actionAngle):
                     better = en < err[sub]
                     acc = sub[better]
                     rate[acc] = en[better] / err[acc]
+                    # Broyden's update of the Jacobian with the step taken
+                    ds = t * step[:, todo[better]]
+                    dy = fn[:4, better] - f[:4, acc]
+                    dy -= numpy.einsum("nij,jn->in", jac[acc], ds)
+                    jac[acc] += (
+                        numpy.einsum("in,jn->nij", dy, ds)
+                        / numpy.sum(ds**2, axis=0)[:, None, None]
+                    )
                     q[:, acc], f[:, acc], err[acc] = (
                         qn[:, better],
                         fn[:, better],
