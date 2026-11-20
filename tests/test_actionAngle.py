@@ -15612,10 +15612,26 @@ def test_actionAngleStaeckel_inverse_u0torus():
     # the turning points are those of the same model
     rperi, rap = aAS.EccZmaxRperiRap(*x)[2:]
     assert numpy.all((rperi < rap) & (rperi > 0.0))
-    # what is not available yet
-    for meth in (aAS.actionsFreqs, aAS.actionsFreqsAngles):
-        with pytest.raises(NotImplementedError, match="not yet available"):
-            meth(*x)
+    # the frequencies and angles are the family's: the model's, corrected
+    # for the dependence of the reference curve on the torus
+    freqs = numpy.array(aAI.Freqs(jr, Lz, jz))[:, sel]
+    for c in (True, False):
+        full = numpy.array(aAS.actionsFreqsAngles(*x, c=c))
+        dang = (full[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.amax(numpy.fabs(full[3:6] - freqs)) < 1e-7, (
+            f"actionAngleStaeckel(inverse=) does not return the frequencies of "
+            f"tori that each have their own Staeckel model (c={c})"
+        )
+        assert numpy.amax(numpy.fabs(dang)) < 1e-6, (
+            f"actionAngleStaeckel(inverse=) does not return the angles of tori "
+            f"that each have their own Staeckel model (c={c})"
+        )
+        assert numpy.allclose(
+            numpy.array(aAS.actionsFreqs(*x, c=c)), full[:6], rtol=0.0, atol=1e-12
+        )
+    # the model's own frequencies are not the family's
+    own = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-4
     # the pure-Python implementation is the same transformation
     assert numpy.amax(numpy.fabs(numpy.array(aAS(*x, c=False)) - out)) < 1e-8, (
         "actionAngleStaeckel(inverse=) in Python does not agree with C for "
@@ -15624,9 +15640,6 @@ def test_actionAngleStaeckel_inverse_u0torus():
     assert numpy.allclose(
         aAS.EccZmaxRperiRap(*x, c=False)[2:], (rperi, rap), rtol=1e-6, atol=0.0
     )
-    for meth in (aAS.actionsFreqs, aAS.actionsFreqsAngles):
-        with pytest.raises(NotImplementedError, match="not yet available"):
-            meth(*x, c=False)
     with pytest.raises(NotImplementedError, match="currently supports"):
         actionAngleStaeckel(
             inverse=actionAngleStaeckelInverse(delta=0.45, u0="planar", **kw)
