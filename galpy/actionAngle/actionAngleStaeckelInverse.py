@@ -5523,12 +5523,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _bk_chart(self, E, ell):
         """The Staeckel model of the (E, |L_z|) tori on a backend: the family's
-        wrapper or, with an adaptive reference curve, the wrapper at that
-        (E, |L_z|)'s own u0 (a gauge: no derivative flows through it)"""
+        wrapper or, with an adaptive reference curve, the wrapper at each
+        (E, |L_z|)'s own u0 (an array of them for arrays of tori; a gauge: no
+        derivative flows through it)"""
         if not self._adaptive:
             return self._staeckelwrap
-        xp = get_namespace(E, ell)
-        u0 = self._bk_u0(xp.reshape(E, (1,)), xp.reshape(ell, (1,)))[0]
+        u0 = self._bk_u0(E, ell)  # one per torus (an array for many tori)
         return OblateStaeckelWrapperPotential(
             pot=self._chart_pot, delta=self._delta, u0=u0
         )
@@ -6903,11 +6903,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         torus); tori on a degenerate face, circular orbits, a single distinct
         torus, and points whose solve does not converge through the one-torus
         path torus(actions, angles); traced actions in one pass that selects
-        faces and circular orbits by where() (one torus at a time for an
-        adaptive family, whose reference curve is per torus)"""
+        faces and circular orbits by where() (an adaptive family's rows each
+        with their own chart)"""
         if under_trace(*actions):
-            if self._adaptive:
-                return self._bk_per_torus(xp, actions, angles, torus)
             return rows_fn(actions, None, None, True)[0]
         n = actions[0].shape[0]
         dev = device_of(actions[0])
