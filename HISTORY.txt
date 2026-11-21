@@ -164,7 +164,15 @@ at release.]
   be rebuilt). The same on jax and PyTorch, whose families' tables equal
   numpy's.
 
-- [slot 16]
+- ``actionAngleStaeckelInverse`` families place their third-integral nodes
+  in a variable that resolves the tori that come close to the symmetry
+  axis (new keyword ``axis_weight``; 0 gives the previous grid), which makes
+  families accurate for nearly polar tori; the nodes of every family move
+  slightly, and the stored derivatives of the nodes' third integral with
+  respect to the grid coordinates are those at the nodes themselves (twins
+  of main's #1925 and #1971). On jax and PyTorch the nodes are placed by
+  the same relation, solved natively and differentiably, and the families'
+  tables equal numpy's.
 
 - [slot 17]
 

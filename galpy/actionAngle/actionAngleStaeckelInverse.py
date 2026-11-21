@@ -18,6 +18,7 @@ import warnings
 from contextlib import contextmanager
 
 import numpy
+from scipy.interpolate import CubicSpline
 from scipy.optimize import brentq
 
 from ..backend import (
@@ -237,6 +238,60 @@ def _u0_callable_grad(rule, three, d2, E, ell, I3, Ec, Omc, *shell):
     return gE - gI * dI_dE, gI, gL - gI * dI_dL
 
 
+def _bk_mom_u(xp, d2, u, E, L, I, Uu):
+    """p_u^2 = W_u(u) of the separated Hamilton-Jacobi equation, given U(u)"""
+    sh2 = xp.sinh(u) ** 2
+    return 2.0 * d2 * (E * sh2 - Uu - I) - L**2 / sh2
+
+
+def _bk_mom_v(xp, d2, v, E, L, I, Vv):
+    """p_v^2 = W_v(v), given V(v)"""
+    sn2 = xp.sin(v) ** 2
+    return 2.0 * d2 * (E * sn2 + Vv + I) - L**2 / sn2
+
+
+def _bk_dmom_u(xp, d2, u, E, L, U1):
+    """dW_u/du, given U'(u)"""
+    return (
+        2.0 * d2 * (E * xp.sinh(2.0 * u) - U1)
+        + 2.0 * L**2 * xp.cosh(u) / xp.sinh(u) ** 3
+    )
+
+
+def _bk_dmom_v(xp, d2, v, E, L, V1):
+    """dW_v/dv, given V'(v)"""
+    return (
+        2.0 * d2 * (E * xp.sin(2.0 * v) + V1) + 2.0 * L**2 * xp.cos(v) / xp.sin(v) ** 3
+    )
+
+
+def _bk_d2mom_u(xp, d2, u, E, L, U2):
+    """d^2W_u/du^2, given U''(u)"""
+    sh2 = xp.sinh(u) ** 2
+    return (
+        2.0 * d2 * (2.0 * E * xp.cosh(2.0 * u) - U2) - L**2 * (6.0 + 4.0 * sh2) / sh2**2
+    )
+
+
+def _bk_d2mom_v(xp, d2, v, E, L, V2):
+    """d^2W_v/dv^2, given V''(v)"""
+    sn2 = xp.sin(v) ** 2
+    return (
+        2.0 * d2 * (2.0 * E * xp.cos(2.0 * v) + V2)
+        - 2.0 * L**2 * (3.0 - 2.0 * sn2) / sn2**2
+    )
+
+
+def _bk_tp_u(xp, d2, u, E, L, U1):
+    """The partials of a u turning point in (E, I_3, L_z), by the level-set
+    rule on W_u (n tori, shape (n, 3))"""
+    s2 = xp.sinh(u) ** 2
+    return (
+        -xp.stack([2.0 * d2 * s2, -2.0 * d2 + 0.0 * s2, -2.0 * L / s2], axis=-1)
+        / (_bk_dmom_u(xp, d2, u, E, L, U1)[:, None])
+    )
+
+
 def _parse_target(target):
     """The phase-space rows (R, vR, vT, z, vz) of a target: an Orbit
     (possibly an array of orbits, or one evaluated at an array of times) or
@@ -338,6 +393,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         nLz=9,
         Lzspacing="log",
         nI3=9,
+        axis_weight=0.25,
         mm_npt=32,
         mm_nta=None,
         auxiliary=None,
@@ -408,6 +464,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             spans a factor of a few in L_z.
         nI3 : int, optional
             Number of third integrals of the interpolation grid.
+        axis_weight : float, optional
+            Weight of the tori's approach to the axis in the variable along
+            which the grid's third integrals are spaced: that variable is
+            the fraction of the way from the planar to the shell orbit's
+            third integral plus this weight times a measure of how closely
+            the two librations come to the axis, logarithmic in the
+            distance of each libration's inner turning point from it. At
+            small |L_z| the centrifugal barrier holds either the u or the v
+            libration just off the axis, on either side of the third
+            integral of the L_z = 0 orbits through the foci, and every
+            table of a torus changes around that third integral over a
+            range proportional to |L_z|, which nodes spaced in the third
+            integral itself do not resolve however many they are; in the
+            blended variable the tables are smooth uniformly in |L_z|, and
+            the nodes that a family needs along it grow only with the
+            logarithm of its smallest |L_z|. The tori that stay away from
+            the axis (those of a disc) are spaced as with a weight of
+            zero, which spaces every torus in the third integral alone.
         mm_npt : int, optional
             Highest harmonic of the two momentum-matched anomaly maps (the
             v map's odd harmonics vanish by the symmetry of its libration
@@ -563,6 +637,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
+        self._reach_cache = {}
+        self._axisw = axis_weight
         # A forced backend, or a Staeckel model with jax/torch parameters (the
         # potential's, or a delta= it is wrapped at), builds the family
         # natively, differentiable in those parameters
@@ -620,6 +696,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._sample_all()
         self._setup_auxiliary(auxiliary)
         self._setup_tori()
+        # the turning points remembered during the set-up are not kept
+        self._u_turning_memo, self._memo_keep, self._reach_v = {}, False, (None, None)
         self._check_consistent_units()
         return None
 
@@ -662,6 +740,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._u0_third = u0 == "torus" or self._u0_nargs == 3
         self._chart_cache = {}
         self._circRE_cache = {}
+        self._u_turning_memo, self._memo_keep, self._reach_v = {}, True, (None, None)
         if self._adaptive:
             # the reference wrapper keeps the default reference curve
             u0 = None
@@ -1032,11 +1111,255 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sh2 = numpy.sinh(ush) ** 2
         return E * sh2 - float(self._U(ush)) - Lz**2 / (2.0 * self._delta**2 * sh2)
 
+    # ---------- the grid's third-integral variable
+    def _axis_reach(self, E, Lz, I3):
+        """How closely the two librations of the (E, L_z, I_3) torus
+        approach the axis, as one number that increases with I_3, and its
+        partials with respect to (E, I_3, L_z): Lambda = Q_u + Q_v with
+        Q_v = -2 ln sin v_min, which grows as the v libration reaches for
+        the axis, and Q_u = 1 - sqrt(1 + rho^2), rho = 2 ln[tanh u_+ /
+        tanh u_-], which falls as the inner u turning point does. At small
+        |L_z| either the u libration is stopped just off the axis by the
+        centrifugal barrier (I_3 below -U(0): sinh u_- ~ |L_z|, v_min
+        finite) or the v libration is (I_3 above -V(0)), and between the
+        two, around the L_z = 0 orbits through the foci, the turning
+        points and with them every table of a torus change over a range of
+        I_3 proportional to |L_z|; there Lambda is linear in I_3 / |L_z|
+        and on either side logarithmic in the distance to it, so the
+        tables are smooth functions of Lambda, uniformly in |L_z|. Both
+        parts are smooth through the faces on which their libration is
+        degenerate (Q_u is a function of rho^2, which is linear in I_3 at
+        the shell face; Q_v is linear in I_3 at the planar face), where the
+        partials are the harmonic limits, and both vanish toward the
+        circular orbit. The v turning point is that of the Staeckel model
+        of the planar orbit of (E, L_z) (the torus's own model, unless its
+        reference curve follows the torus along I_3): within one model I_3
+        only shifts the momentum function, so that Lambda increases with
+        I_3 whatever the rule. Not for the circular orbit."""
+        d2 = self._delta**2
+        umin, umax, ush, udeg = self._u_turning(E, Lz, I3)
+        self._reach_u = (umin, umax, ush, udeg, 0.0, 0.0)
+        if udeg:
+            sh2 = numpy.sinh(ush) ** 2
+            K = (
+                64.0
+                * d2
+                / (-0.5 * float(self._d2Wu(ush, E, Lz)) * numpy.sinh(2.0 * ush) ** 2)
+            )
+            Qu, dQu = 0.0, K * numpy.array([-sh2, 1.0, Lz / (d2 * sh2)])
+        else:
+            rho = 2.0 * numpy.log(numpy.tanh(umax) / numpy.tanh(umin))
+            dumin, dumax = (self._tp_derivs_u(u, E, Lz) for u in (umin, umax))
+            drho = 4.0 * (
+                dumax / numpy.sinh(2.0 * umax) - dumin / numpy.sinh(2.0 * umin)
+            )
+            self._reach_u = (umin, umax, ush, udeg, dumin[1], dumax[1])
+            root = numpy.sqrt(1.0 + rho**2)
+            Qu, dQu = -(rho**2) / (1.0 + root), -rho / root * drho
+        with self._in_chart(E, Lz):
+            Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
+            if I3 <= Ipl + 1e-12 * (1.0 + numpy.fabs(Ipl) + numpy.fabs(Ish)):
+                K = 2.0 * d2 / (-0.5 * float(self._d2Wv(0.5 * numpy.pi, E, Lz)))
+                Qv, dQv = 0.0, K * numpy.array([1.0, 1.0, -Lz / d2])
+            else:
+                # while a column's nodes are placed, from its table and two
+                # chord steps on p_v^2 (the second one negligible), else by
+                # the bracketed solve
+                vmin, dW, step = 0.0, 1.0, 1.0
+                if self._reach_v[0] == (E, Lz):
+                    vmin = float(self._reach_v[1](numpy.sqrt(max(I3 - Ipl, 0.0))))
+                    dW = float(self._dWv(vmin, E, Lz))
+                    for _ in range(2):
+                        step = float(self._Wv(vmin, E, Lz, I3)) / dW
+                        vmin -= step
+                    # (the slope at the turning point itself, for its partials)
+                    dW = float(self._dWv(vmin, E, Lz))
+                if not (0.0 < vmin < 0.5 * numpy.pi and numpy.fabs(step) < 1e-10):
+                    vmin = self._v_turning(E, Lz, I3)
+                    dW = float(self._dWv(vmin, E, Lz))
+                Qv = -2.0 * numpy.log(numpy.sin(vmin))
+                # the level-set rule on the turning point (_tp_derivs_v)
+                sn2 = numpy.sin(vmin) ** 2
+                dvmin = -numpy.array([2.0 * d2 * sn2, 2.0 * d2, -2.0 * Lz / sn2]) / dW
+                if self._adaptive:
+                    # the model of the planar orbit changes with (E, L_z)
+                    # along its reference curve, and the turning point with it
+                    g = self._u0_grad(E, numpy.fabs(Lz), Ipl)
+                    dvmin = dvmin - 2.0 * d2 * float(
+                        self._staeckelwrap._dVdu0(vmin)
+                    ) / dW * numpy.array(
+                        [
+                            g[0] - g[1],
+                            0.0,
+                            (g[2] + g[1] * numpy.fabs(Lz) / d2) * numpy.sign(Lz),
+                        ]
+                    )
+                dQv = -2.0 / numpy.tan(vmin) * dvmin
+        return Qu + Qv, dQu + dQv
+
+    def _axis_reach_faces(self, E, Lz):
+        """The I_3 of the planar and shell orbits of (E, L_z), with their
+        derivatives with respect to (E, L_z), and the axis reach on each
+        face with its derivatives along the face; cached"""
+        key = (E, Lz)
+        if key not in self._reach_cache:
+            d2 = self._delta**2
+            ush = self._ushell(E, Lz)
+            sh2 = numpy.sinh(ush) ** 2
+            Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
+            dIpl = numpy.array([-1.0, Lz / d2])
+            dIsh = numpy.array([sh2, -Lz / (d2 * sh2)])
+            faces = []
+            for I, dI in ((Ipl, dIpl), (Ish, dIsh)):
+                lam, dlam = self._axis_reach(E, Lz, I)
+                faces += [lam, dlam[[0, 2]] + dlam[1] * dI]
+            self._reach_cache[key] = (Ipl, dIpl, Ish, dIsh, *faces)
+        return self._reach_cache[key]
+
+    def _y_of_I3(self, E, Lz, I3):
+        """The grid's third-integral variable y of the (E, L_z, I_3) torus
+        and its partials with respect to (E, I_3, L_z): the fraction f =
+        (I_3 - I_pl) / (I_sh - I_pl) of the way from the planar to the
+        shell orbit blended with the axis reach (_axis_reach),
+
+            y = [f + a (Lambda - Lambda_pl)] / [1 + a (Lambda_sh - Lambda_pl)]
+
+        with the weight a = axis_weight: zero on the planar face, one on
+        the shell face, increasing with I_3 and linear in it at both
+        faces. For the tori that stay away from the axis (those of a
+        disc) y is close to f; at small |L_z| it spends its nodes evenly
+        in the logarithm of the turning points' distances to the axis,
+        which is what resolves the tables there."""
+        Ipl, dIpl, Ish, dIsh, lpl, dlpl, lsh, dlsh = self._axis_reach_faces(E, Lz)
+        a, DI = self._axisw, Ish - Ipl
+        f = (I3 - Ipl) / DI
+        df = (
+            numpy.array(
+                [
+                    -(dIpl[0] + f * (dIsh[0] - dIpl[0])),
+                    1.0,
+                    -(dIpl[1] + f * (dIsh[1] - dIpl[1])),
+                ]
+            )
+            / DI
+        )
+        lam, dlam = self._axis_reach(E, Lz, I3)
+        D = 1.0 + a * (lsh - lpl)
+        y = (f + a * (lam - lpl)) / D
+        dN = df + a * (dlam - numpy.array([dlpl[0], 0.0, dlpl[1]]))
+        dD = a * numpy.array([dlsh[0] - dlpl[0], 0.0, dlsh[1] - dlpl[1]])
+        return y, (dN - y * dD) / D
+
+    def _I3_of_y(self, E, Lz, y, start=None, node=False):
+        """The I_3 of the torus at the grid's third-integral variable y at
+        (E, L_z), with (dI_3/dE, dI_3/dy, dI_3/dL_z) at fixed grid
+        coordinates: the inverse of _y_of_I3, by Newton steps kept inside
+        a bracket, from a first guess of I_3 when one is given; a residual
+        below 1e-4 is removed by its Newton step (what is left is of second
+        order, below 1e-7 of the variable's range, far within the family's
+        interpolation error), after which the partials are evaluated at
+        the returned I_3, so that they are its own. For a node of the
+        grid, the u turning points at the returned I_3 are remembered for
+        the torus's sampling: those of the last evaluation, moved to the
+        returned I_3 along their slopes (and by a Newton step on the
+        momentum function, unless the move is negligible)."""
+        Ipl, _, Ish, _ = self._axis_reach_faces(E, Lz)[:4]
+        lo, hi = 0.0, 1.0
+        f = min(max(y if start is None else (start - Ipl) / (Ish - Ipl), lo), hi)
+        if y <= 0.0 or y >= 1.0:
+            # a face is the face exactly
+            f = min(max(y, 0.0), 1.0)
+        for _ in range(100):
+            fe = f
+            yf, dy = self._y_of_I3(E, Lz, Ipl + f * (Ish - Ipl))
+            if numpy.fabs(yf - y) < 1e-13 or hi - lo < 4e-16:
+                break
+            lo, hi = (f, hi) if yf < y else (lo, f)
+            fn = f - (yf - y) / (dy[1] * (Ish - Ipl))
+            f = fn if lo < fn < hi else 0.5 * (lo + hi)
+            if f == fn and numpy.fabs(yf - y) < 1e-4:
+                break
+        I3 = Ipl + f * (Ish - Ipl)
+        umin, umax, ush, udeg, dumin, dumax = self._reach_u
+        if node and f != fe and not udeg:
+            # along the turning points' own slopes, and by a Newton step
+            # where the residual was not already negligible
+            umin, umax = (
+                umin + dumin * (f - fe) * (Ish - Ipl),
+                umax + dumax * (f - fe) * (Ish - Ipl),
+            )
+            for _ in range(int(numpy.fabs(yf - y) > 1e-9)):
+                umin -= float(self._Wu(umin, E, Lz, I3) / self._dWu(umin, E, Lz))
+                umax -= float(self._Wu(umax, E, Lz, I3) / self._dWu(umax, E, Lz))
+            self._u_turning_memo[(E, Lz, I3)] = (umin, umax, ush, udeg)
+        if f != fe:
+            # the partials are those at the returned I_3 itself
+            dy = self._y_of_I3(E, Lz, I3)[1]
+        return I3, numpy.array([-dy[0], 1.0, -dy[2]]) / dy[1]
+
+    def _I3_starts(self, E, Lz, ys):
+        """First guesses of the I_3 at the third-integral variable's values
+        ys at (E, L_z), from the two momentum functions tabulated once: I_3
+        only shifts them, so the u at which p_u^2 vanishes on the way in
+        from the shell u gives I_3 in closed form, and the outer u turning
+        point and the v turning point at that I_3 are read from the other
+        two branches, each interpolated in the square root of the distance
+        to the face on which it degenerates (in the Staeckel model that is
+        current: that of the planar orbit of (E, L_z), as for _axis_reach)"""
+        Ipl, _, Ish, _, lpl, _, lsh, _ = self._axis_reach_faces(E, Lz)
+        ush, d2 = self._ushell(E, Lz), 2.0 * self._delta**2
+        umin, umax, _, _ = self._u_turning(E, Lz, Ipl)
+        vsh = self._v_turning(E, Lz, Ish)
+
+        def increasing(x):
+            # strictly, whatever the round-off of the potential
+            x = numpy.maximum.accumulate(x)
+            return x + 1e-15 * (1.0 + x[-1]) * numpy.arange(len(x))
+
+        n = 64
+        ui = numpy.geomspace(umin, ush, n)[1:-1]
+        I3 = increasing(self._Wu(ui, E, Lz, 0.0) / d2)
+        uo = numpy.geomspace(ush, umax, n)
+        qo = numpy.sqrt(numpy.clip(Ish - self._Wu(uo, E, Lz, 0.0) / d2, 0.0, None))
+        # (each read inside its table, whatever the round-off)
+        up = CubicSpline(increasing(qo), uo)(
+            numpy.clip(numpy.sqrt(numpy.clip(Ish - I3, 0.0, None)), 0.0, qo[-1])
+        )
+        vs = numpy.geomspace(0.5 * numpy.pi, vsh, n)
+        pv = numpy.sqrt(numpy.clip(-self._Wv(vs, E, Lz, 0.0) / d2 - Ipl, 0.0, None))
+        # (the v branch is kept for the exact evaluations of this column:
+        # _axis_reach)
+        self._reach_v = ((E, Lz), CubicSpline(increasing(pv), vs))
+        vmin = self._reach_v[1](
+            numpy.clip(numpy.sqrt(numpy.clip(I3 - Ipl, 0.0, None)), 0.0, pv[-1])
+        )
+        rho = 2.0 * numpy.log(numpy.tanh(up) / numpy.tanh(ui))
+        lam = 1.0 - numpy.sqrt(1.0 + rho**2) - 2.0 * numpy.log(numpy.sin(vmin))
+        yk = ((I3 - Ipl) / (Ish - Ipl) + self._axisw * (lam - lpl)) / (
+            1.0 + self._axisw * (lsh - lpl)
+        )
+        return CubicSpline(
+            increasing(numpy.concatenate(([0.0], yk, [1.0]))),
+            numpy.concatenate(([Ipl], I3, [Ish])),
+        )(ys)
+
     def _u_turning(self, E, Lz, I3):
         """The inner and outer turning points of the u libration of the
         (E, L_z, I_3) torus, the shell u, and whether the libration is
         degenerate; none of them depends on the reference curve, because
-        U(u) does not. Raises for labels that do not define a torus"""
+        U(u) does not. Raises for labels that do not define a torus. They
+        are remembered, for every torus while an instance is set up and for
+        the last one afterwards: a rule for the reference curve, the
+        turning points, the sampling and the rule's derivatives ask for
+        the same torus's in turn"""
+        key = (E, Lz, I3)
+        if key not in self._u_turning_memo:
+            if not self._memo_keep:
+                self._u_turning_memo.clear()
+            self._u_turning_memo[key] = self._u_turning_solve(E, Lz, I3)
+        return self._u_turning_memo[key]
+
+    def _u_turning_solve(self, E, Lz, I3):
         ell = numpy.fabs(Lz)
         _, Ec, uc = self._circular_RE(ell)
         tolE = 1e-12 * (1.0 + numpy.fabs(Ec))
@@ -1077,6 +1400,35 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             False,
         )
 
+    def _v_turning(self, E, Lz, I3):
+        """The turning point of the v libration about the midplane of the
+        (E, L_z, I_3) torus (not a planar orbit) in the current Staeckel
+        model"""
+        Wv = lambda v: float(self._Wv(v, E, Lz, I3))
+        # the libration about the midplane ends at the first root below
+        # pi/2, bracketed by the first change of sign on a scan down
+        # from the midplane. In a Staeckel potential p_v^2 falls
+        # monotonically from the midplane to that root; in a Staeckel
+        # approximation whose foci attract (V(0) > U(0), as near the
+        # centre of a cusped potential) it can rise again toward the
+        # axis, where a second torus shares the integrals, until I_3
+        # lifts the barrier between the two above zero and they merge
+        # into one, across which the tori are not a continuous family:
+        # no grid can hold them
+        vs = 0.5 * numpy.pi * (1.0 - numpy.linspace(0.0, 1.0, 49)[:-1])
+        Ws = self._Wv(vs, E, Lz, I3)
+        neg = numpy.flatnonzero(Ws <= 0.0)
+        npos = neg[0] if len(neg) > 0 else len(vs)
+        if self._interp and numpy.any(numpy.diff(Ws[:npos]) > 1e-10 * Ws[0]):
+            raise _split_v_error(E, Lz, I3)
+        if len(neg) > 0:
+            vlo, vhi = vs[npos], vs[npos - 1]
+        else:
+            vlo = vhi = vs[-1]
+            while Wv(vlo) > 0.0:
+                vlo *= 0.7
+        return brentq(Wv, vlo, vhi, xtol=1e-14)
+
     def _turning_points(self, E, Lz, I3):
         """The turning points of the (E, L_z, I_3) torus as the midpoint and
         half-width of the u libration and the half-width of the v libration
@@ -1093,30 +1445,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if vdeg:
             vmin = 0.5 * numpy.pi
         else:
-            Wv = lambda v: float(self._Wv(v, E, Lz, I3))
-            # the libration about the midplane ends at the first root below
-            # pi/2, bracketed by the first change of sign on a scan down
-            # from the midplane. In a Staeckel potential p_v^2 falls
-            # monotonically from the midplane to that root; in a Staeckel
-            # approximation whose foci attract (V(0) > U(0), as near the
-            # centre of a cusped potential) it can rise again toward the
-            # axis, where a second torus shares the integrals, until I_3
-            # lifts the barrier between the two above zero and they merge
-            # into one, across which the tori are not a continuous family:
-            # no grid can hold them
-            vs = 0.5 * numpy.pi * (1.0 - numpy.linspace(0.0, 1.0, 49)[:-1])
-            Ws = self._Wv(vs, E, Lz, I3)
-            neg = numpy.flatnonzero(Ws <= 0.0)
-            npos = neg[0] if len(neg) > 0 else len(vs)
-            if self._interp and numpy.any(numpy.diff(Ws[:npos]) > 1e-10 * Ws[0]):
-                raise _split_v_error(E, Lz, I3)
-            if len(neg) > 0:
-                vlo, vhi = vs[npos], vs[npos - 1]
-            else:
-                vlo = vhi = vs[-1]
-                while Wv(vlo) > 0.0:
-                    vlo *= 0.7
-            vmin = brentq(Wv, vlo, vhi, xtol=1e-14)
+            vmin = self._v_turning(E, Lz, I3)
         return (
             0.5 * (umin + umax),
             0.5 * (umax - umin),
@@ -2065,12 +2394,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         top in a potential with an escape energy, where every apocentre
         diverges, so that the tables stay smooth in x up to the top row
         (for a logarithmic potential it is E = E_c + [E_max - E_c] x);
-        I_3 = I_pl + (I_sh - I_pl) sin^2(pi w_I / 2)
-        with w_I uniform in [0, 1] between the planar orbit (J_z = 0) and
-        the shell orbit (J_R = 0), the two faces on which one libration
-        degenerates -- quadratic spacing at every degenerate edge, where
-        the actions behave as the square of the distance to it and the
-        half-widths as the distance itself"""
+        the third integrals at y = sin^2(pi w_I / 2) of the third-integral
+        variable y (_y_of_I3), with w_I uniform in [0, 1] between the
+        planar orbit (J_z = 0) and the shell orbit (J_R = 0), the two faces
+        on which one libration degenerates -- quadratic spacing at every
+        degenerate edge, where the actions behave as the square of the
+        distance to it and the half-widths as the distance itself"""
         if nE < 4 or nLz < 4 or nI3 < 4:
             raise ValueError("setup_interp=True requires nE, nLz, and nI3 >= 4")
         if Rinf <= Rmax:
@@ -2110,6 +2439,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._Ipl_tab = numpy.empty((nE, nLz))
         self._Ish_tab = numpy.empty((nE, nLz))
         I3s = numpy.empty((nE, nI3, nLz))
+        self._dI_tab = numpy.zeros((nE, nI3, nLz, 3))
         for iL, Lz in enumerate(self._Lzgrid):
             circ = self._circular(Lz)
             Ec = circ["Ec"]
@@ -2118,14 +2448,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 if wE == 0.0:
                     ush = circ["uc"]
                     Ipl = Ish = self._I3_planar(Ec, Lz)
+                    I3s[iE, :, iL] = Ipl
                 else:
                     with self._in_chart(E, Lz):
                         ush = self._ushell(E, Lz)
                         Ipl, Ish = self._I3_planar(E, Lz), self._I3_shell(E, Lz, ush)
+                        starts = self._I3_starts(E, Lz, self._ys)
+                        for iI, y in enumerate(self._ys):
+                            I3s[iE, iI, iL], self._dI_tab[iE, iI, iL] = self._I3_of_y(
+                                E, Lz, y, starts[iI], node=True
+                            )
                 self._E_tab[iE, iL] = E
                 self._ush_tab[iE, iL] = ush
                 self._Ipl_tab[iE, iL], self._Ish_tab[iE, iL] = Ipl, Ish
-                I3s[iE, :, iL] = Ipl + self._ys * (Ish - Ipl)
         # the tori in (iE, iI, iL) order
         self._Es = numpy.repeat(self._E_tab[:, None, :], nI3, axis=1).flatten()
         self._Lzs = numpy.tile(self._Lzgrid, nE * nI3)
@@ -2183,8 +2518,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
                 Ipl = self._I3_planar(E, Lz)
                 Ish = self._I3_shell(E, Lz, self._ushell(E, Lz))
-                y = min(max((I3 - Ipl) / (Ish - Ipl), 0.0), 1.0)
-                wIs[i] = 2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(y))
+                y = self._y_of_I3(E, Lz, min(max(I3, Ipl), Ish))[0]
+                wIs[i] = (
+                    2.0 / numpy.pi * numpy.arcsin(numpy.sqrt(min(max(y, 0.0), 1.0)))
+                )
 
         Lzbox = self._pad_box(Lzs, Lmin, Lmax, False)
         if rl(self._staeckelwrap, Lzbox[1], use_physical=False) >= self._Rinf:
@@ -2424,10 +2761,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                             numpy.sqrt(2.0 * d2 * ch2 * dE_dx) / sqbv * sv
                         )
                         continue
-                    sh2 = numpy.sinh(ush) ** 2
-                    dI_dE = y * (1.0 + sh2) - 1.0
-                    dI_dy = Ish - Ipl
-                    dI_dL = Lz / d2 * (1.0 - y * (1.0 + 1.0 / sh2))
+                    dI_dE, dI_dy, dI_dL = self._dI_tab[iE, iI, iL]
 
                     def chain(q):
                         # (dq/dE, dq/dI_3, dq/dL_z) -> (dq/dx, dq/dy, dq/dL_z)
@@ -3352,13 +3686,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         with self._in_chart(E, ell):
             ush = self._ushell(E, ell)
             Ipl, Ish = self._I3_planar(E, ell), self._I3_shell(E, ell, ush)
-        y = (I3 - Ipl) / (Ish - Ipl)
-        if y < ylo - 1e-10 or y > yhi + 1e-10:
-            raise ValueError(
-                f"I_3 = {I3} outside the interpolation grid at (E, |L_z|) = "
-                f"({E}, {ell}): [{Ipl + ylo * (Ish - Ipl)}, {Ipl + yhi * (Ish - Ipl)}]"
-                + self._target_hint
+            tolI = 1e-10 * (Ish - Ipl)
+            y = (
+                self._y_of_I3(E, ell, min(max(I3, Ipl), Ish))[0]
+                if Ipl - tolI <= I3 <= Ish + tolI
+                else numpy.inf
             )
+            if y < ylo - 1e-10 or y > yhi + 1e-10:
+                raise ValueError(
+                    f"I_3 = {I3} outside the interpolation grid at (E, |L_z|) = "
+                    f"({E}, {ell}): [{self._I3_of_y(E, ell, ylo)[0]}, "
+                    f"{self._I3_of_y(E, ell, yhi)[0]}]" + self._target_hint
+                )
         A = self._A_ip(min(max(x, xlo), xhi), min(max(y, ylo), yhi), ell)[0, 0]
         return A[0], A[1]
 
@@ -3850,8 +4189,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         d2 = self._delta**2
 
         def Wu(u, EE, LL, II):
-            sh2 = xp.sinh(u) ** 2
-            return 2.0 * d2 * (EE * sh2 - self._bk_U(u) - II) - LL**2 / sh2
+            return _bk_mom_u(xp, d2, u, EE, LL, II, self._bk_U(u))
 
         ulo = iterate_bracket(
             lambda u: xp.where(Wu(u, E, Lz, I3) > 0.0, 0.7 * u, u), ush, 200
@@ -3862,6 +4200,254 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         umin = _backend_brentq(Wu, ulo, ush, args=(E, Lz, I3), xtol=1e-14)
         umax = _backend_brentq(Wu, ush, uhi, args=(E, Lz, I3), xtol=1e-14)
         return umin, umax
+
+    def _bk_u0_grad_at(self, xp, f64, E, Lz, I3):
+        """_u0_grad at the (E, L_z, I_3) of n tori (none circular), with
+        signed L_z, from their own turning points (_bk_u0_grad)"""
+        d2, U = self._delta**2, self._bk_U
+        ell = xp.abs(Lz)
+        Rc = stop_gradient(rl(self._bk_plane_pot(), ell, use_physical=False))
+        Ec = self._bk_Phi(Rc) + ell**2 / (2.0 * Rc**2)
+        ush, _ = self._bk_ushell(xp, f64, False, E, Lz)
+        sh2 = xp.sinh(ush) ** 2
+        Ipl = Lz**2 / (2.0 * d2) - E
+        Ish = E * sh2 - U(ush) - Lz**2 / (2.0 * d2 * sh2)
+        udeg = I3 >= Ish - 1e-12 * (1.0 + xp.abs(Ipl) + xp.abs(Ish))
+        umin, umax = self._bk_u_turning(
+            xp, E, Lz, xp.where(udeg, 0.5 * (Ipl + Ish), I3), ush
+        )
+
+        def tp(uu, EE, U1):
+            return _bk_tp_u(xp, d2, uu, EE, Lz, U1)
+
+        d2Wush = _bk_d2mom_u(xp, d2, ush, E, Lz, U(ush, 2))
+        dush = xp.stack(
+            [
+                -2.0 * d2 * xp.sinh(2.0 * ush) / d2Wush,
+                0.0 * ush,
+                -4.0 * Lz * xp.cosh(ush) / xp.sinh(ush) ** 3 / d2Wush,
+            ],
+            axis=-1,
+        )
+        return self._bk_u0_grad(
+            xp, f64, E, E, Lz, I3, Ec, Rc, ush, ush, udeg, umin, umax,
+            tp(umin, E, U(umin, 1)), tp(umax, E, U(umax, 1)), dush, d2Wush, tp,
+            lambda u, EE, L, U2: _bk_d2mom_u(xp, d2, u, EE, L, U2),
+        )  # fmt: skip
+
+    def _bk_reach_columns(self, xp, f64, E, Lz):
+        """What the axis reach of the n tori at (E, L_z) (none circular)
+        shares whatever their I_3 (_axis_reach, _axis_reach_faces): the
+        shell u, the faces' I_3 and their derivatives in (E, L_z), and the
+        Staeckel model of the planar orbit of (E, L_z), with, for a rule,
+        the planar orbit's u0 partials folded as _axis_reach folds them"""
+        d2, U = self._delta**2, self._bk_U
+        ush, _ = self._bk_ushell(xp, f64, False, E, Lz)
+        sh2 = xp.sinh(ush) ** 2
+        Ipl = Lz**2 / (2.0 * d2) - E
+        Ish = E * sh2 - U(ush) - Lz**2 / (2.0 * d2 * sh2)
+        cols = {
+            "ush": ush,
+            "sh2": sh2,
+            "Ipl": Ipl,
+            "Ish": Ish,
+            "dIpl": xp.stack([-1.0 + 0.0 * E, Lz / d2], axis=-1),
+            "dIsh": xp.stack([sh2, -Lz / (d2 * sh2)], axis=-1),
+            "d2Wush": _bk_d2mom_u(xp, d2, ush, E, Lz, U(ush, 2)),
+            "V": self._bk_Vfun(self._bk_u0(E, xp.abs(Lz)) if self._adaptive else None),
+            "g": None,
+        }
+        if self._adaptive:
+            g = stop_gradient(self._bk_u0_grad_at(xp, f64, E, Lz, Ipl))
+            cols["g"] = xp.stack(
+                [g[:, 0] - g[:, 1], 0.0 * g[:, 1], g[:, 2] + g[:, 1] * Lz / d2], axis=-1
+            )
+        return cols
+
+    def _bk_axis_reach(self, xp, f64, cols, E, Lz, I3):
+        """_axis_reach for n tori (none circular), given their columns'
+        _bk_reach_columns: Lambda = Q_u + Q_v and its partials in (E, I_3,
+        L_z), the v part in the model of the planar orbit of (E, L_z)"""
+        d2, U, V = self._delta**2, self._bk_U, cols["V"]
+        ush, sh2, Ipl, Ish = (cols[k] for k in ("ush", "sh2", "Ipl", "Ish"))
+        tol = 1e-12 * (1.0 + xp.abs(Ipl) + xp.abs(Ish))
+        udeg, vdeg = I3 >= Ish - tol, I3 <= Ipl + tol
+        mid = 0.5 * (Ipl + Ish)
+        # the u libration: Q_u = 1 - sqrt(1 + rho^2), rho = 2 ln[tanh u_+ /
+        # tanh u_-]; on the shell face its harmonic limit
+        umin, umax = self._bk_u_turning(xp, E, Lz, xp.where(udeg, mid, I3), ush)
+        dumin = _bk_tp_u(xp, d2, umin, E, Lz, U(umin, 1))
+        dumax = _bk_tp_u(xp, d2, umax, E, Lz, U(umax, 1))
+        rho = 2.0 * xp.log(xp.tanh(umax) / xp.tanh(umin))
+        drho = 4.0 * (
+            dumax / xp.sinh(2.0 * umax)[:, None] - dumin / xp.sinh(2.0 * umin)[:, None]
+        )
+        root = xp.sqrt(1.0 + rho**2)
+        K = 64.0 * d2 / (-0.5 * cols["d2Wush"] * xp.sinh(2.0 * ush) ** 2)
+        dQu_face = K[:, None] * xp.stack(
+            [-sh2, 1.0 + 0.0 * sh2, Lz / (d2 * sh2)], axis=-1
+        )
+        Qu = xp.where(udeg, 0.0, -(rho**2) / (1.0 + root))
+        dQu = xp.where(udeg[:, None], dQu_face, -(rho / root)[:, None] * drho)
+        # the v libration: Q_v = -2 ln sin v_min; on the planar face its
+        # harmonic limit
+        vmin = self._bk_v_turning(xp, f64, E, Lz, xp.where(vdeg, mid, I3), V)
+        dW = _bk_dmom_v(xp, d2, vmin, E, Lz, V(vmin, 1))
+        sn2 = xp.sin(vmin) ** 2
+        dvmin = -xp.stack(
+            [2.0 * d2 * sn2, 2.0 * d2 + 0.0 * sn2, -2.0 * Lz / sn2], axis=-1
+        )
+        dvmin = dvmin / dW[:, None]
+        if cols["g"] is not None:
+            # the planar orbit's model moves with (E, L_z) along its curve
+            dvmin = dvmin - (2.0 * d2 * V(vmin, 3) / dW)[:, None] * cols["g"]
+        Kv = (
+            2.0
+            * d2
+            / (
+                -0.5
+                * _bk_d2mom_v(
+                    xp,
+                    d2,
+                    0.5 * numpy.pi + 0.0 * E,
+                    E,
+                    Lz,
+                    V(0.5 * numpy.pi + 0.0 * E, 2),
+                )
+            )
+        )
+        dQv_face = Kv[:, None] * xp.stack(
+            [1.0 + 0.0 * Kv, 1.0 + 0.0 * Kv, -Lz / d2], axis=-1
+        )
+        Qv = xp.where(vdeg, 0.0, -2.0 * xp.log(xp.sin(vmin)))
+        dQv = xp.where(vdeg[:, None], dQv_face, -(2.0 / xp.tan(vmin))[:, None] * dvmin)
+        return Qu + Qv, dQu + dQv
+
+    def _bk_reach_faces(self, xp, f64, cols, E, Lz):
+        """_axis_reach_faces for n tori: the axis reach on the planar and
+        the shell face and its derivatives along each face in (E, L_z)"""
+        out = {}
+        for k, I in (("pl", cols["Ipl"]), ("sh", cols["Ish"])):
+            lam, dlam = self._bk_axis_reach(xp, f64, cols, E, Lz, I)
+            out["l" + k] = lam
+            out["dl" + k] = dlam[:, [0, 2]] + dlam[:, 1:2] * cols["dI" + k]
+        return out
+
+    def _bk_y_of_I3(self, xp, f64, cols, faces, E, Lz, I3):
+        """_y_of_I3 for n tori: the grid's third-integral variable and its
+        partials in (E, I_3, L_z)"""
+        a = self._axisw
+        Ipl, Ish, dIpl, dIsh = (cols[k] for k in ("Ipl", "Ish", "dIpl", "dIsh"))
+        DI = Ish - Ipl
+        f = (I3 - Ipl) / DI
+        df = (
+            xp.stack(
+                [
+                    -(dIpl[:, 0] + f * (dIsh[:, 0] - dIpl[:, 0])),
+                    1.0 + 0.0 * f,
+                    -(dIpl[:, 1] + f * (dIsh[:, 1] - dIpl[:, 1])),
+                ],
+                axis=-1,
+            )
+            / DI[:, None]
+        )
+        lam, dlam = self._bk_axis_reach(xp, f64, cols, E, Lz, I3)
+        lpl, dlpl, lsh, dlsh = (faces[k] for k in ("lpl", "dlpl", "lsh", "dlsh"))
+        D = 1.0 + a * (lsh - lpl)
+        y = (f + a * (lam - lpl)) / D
+        zero = 0.0 * D
+        dN = df + a * (dlam - xp.stack([dlpl[:, 0], zero, dlpl[:, 1]], axis=-1))
+        dD = a * xp.stack(
+            [dlsh[:, 0] - dlpl[:, 0], zero, dlsh[:, 1] - dlpl[:, 1]], axis=-1
+        )
+        return y, (dN - y[:, None] * dD) / D[:, None]
+
+    def _bk_I3_of_y(self, xp, f64, E, Lz, y):
+        """_I3_of_y for n tori (none circular): the I_3 at the third-integral
+        variable y and (dI_3/dE, dI_3/dy, dI_3/dL_z) at the node, by a
+        bracketed Newton iteration solved to round-off on frozen values,
+        then one Newton step that carries the implicit-function derivative
+        (the faces, y = 0 and 1, exactly)"""
+        sg = stop_gradient
+        cols = self._bk_reach_columns(xp, f64, E, Lz)
+        faces = self._bk_reach_faces(xp, f64, cols, E, Lz)
+        cols_sg = {k: (v if k == "V" or v is None else sg(v)) for k, v in cols.items()}
+        faces_sg = {k: sg(v) for k, v in faces.items()}
+        E_sg, Lz_sg, y_sg = sg(E), sg(Lz), sg(y)
+        DI_sg = cols_sg["Ish"] - cols_sg["Ipl"]
+        face = (y_sg <= 0.0) | (y_sg >= 1.0)
+
+        def step(state):
+            f, lo, hi = state[0], state[1], state[2]
+            yf, dy = self._bk_y_of_I3(
+                xp, f64, cols_sg, faces_sg, E_sg, Lz_sg, cols_sg["Ipl"] + f * DI_sg
+            )
+            yf, dy = sg(yf), sg(dy)
+            done = face | (xp.abs(yf - y_sg) < 1e-14) | (hi - lo < 4e-16)
+            lo2 = xp.where(yf < y_sg, f, lo)
+            hi2 = xp.where(yf < y_sg, hi, f)
+            fn = f - (yf - y_sg) / (dy[:, 1] * DI_sg)
+            f2 = xp.where((lo2 < fn) & (fn < hi2), fn, 0.5 * (lo2 + hi2))
+            return xp.where(done[None, :], state, xp.stack([f2, lo2, hi2]))
+
+        f0 = xp.clip(y_sg, 0.0, 1.0)
+        state = iterate_to_fixed_point(
+            step, xp.stack([f0, 0.0 * f0, 1.0 + 0.0 * f0]), 100
+        )
+        fs = sg(state[0])
+        # the derivative: one Newton step on the traced relation, whose value
+        # is the converged one's (none at the faces)
+        I3s = cols["Ipl"] + fs * (cols["Ish"] - cols["Ipl"])
+        yf, dy = self._bk_y_of_I3(xp, f64, cols, faces, E, Lz, I3s)
+        dstep = xp.where(face, 0.0, -(yf - y) / dy[:, 1])
+        I3 = I3s + dstep - sg(dstep)
+        # the partials at the node, whose derivatives follow it
+        _, dy = self._bk_y_of_I3(xp, f64, cols, faces, E, Lz, I3)
+        dI = (
+            xp.stack([-dy[:, 0], 1.0 + 0.0 * dy[:, 1], -dy[:, 2]], axis=-1) / dy[:, 1:2]
+        )
+        return I3, dI
+
+    def _bk_v_turning(self, xp, f64, E, Lz, I3, V, check=None):
+        """The v turning point of n tori (as _v_turning) in the model whose
+        V is V (_bk_Vfun): the first root below pi/2, bracketed by the first
+        change of sign on a scan down from the midplane; a scan without one
+        falls back to an outward bracket from its last point. With check =
+        (mask, labels), a family raises where p_v^2 does not fall
+        monotonically to that root (split tori) among the masked tori,
+        naming the first by its labels"""
+        d2 = self._delta**2
+
+        def Wv(v, EE, LL, II):
+            return _bk_mom_v(xp, d2, v, EE, LL, II, V(v))
+
+        vs = f64(0.5 * numpy.pi * (1.0 - numpy.linspace(0.0, 1.0, 49)[:-1]))
+        Ws = Wv(vs[None, :], E[:, None], Lz[:, None], I3[:, None])
+        neg = Ws <= 0.0
+        has = xp.any(neg, axis=-1)
+        npos = xp.where(has, xp.argmax(xp.astype(neg, xp.int64), axis=-1), 48)
+        if check is not None:
+            idx = _const(xp, numpy.arange(47), Ws)
+            rising = xp.any(
+                (Ws[:, 1:] - Ws[:, :-1] > 1e-10 * Ws[:, :1])
+                & (idx[None, :] < (npos - 1)[:, None])
+                & check[0][:, None],
+                axis=-1,
+            )
+            if concretely_true(xp.any(rising)):
+                i = int(numpy.flatnonzero(as_numpy(stop_gradient(rising)))[0])
+                raise _split_v_error(
+                    *(float(as_numpy(stop_gradient(t[i]))) for t in check[1])
+                )
+        vlo_out = iterate_bracket(
+            lambda v: xp.where(Wv(v, E, Lz, I3) > 0.0, 0.7 * v, v),
+            vs[-1] + 0.0 * E,
+            200,
+        )
+        k = xp.clip(npos, 1, 47)
+        vlo = xp.where(has, xp.take(vs, k), vlo_out)
+        vhi = xp.where(has, xp.take(vs, k - 1), vs[-1] + 0.0 * E)
+        return _backend_brentq(Wv, vlo, vhi, args=(E, Lz, I3), xtol=1e-14)
 
     def _bk_u0(self, E, ell, I3=None):
         """The reference u0 that the rule gives the (E, |L_z|, I_3) tori on
@@ -4167,41 +4753,25 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         n = Es.shape[0]
 
         def Wu(u, E, L, I):
-            sh2 = xp.sinh(u) ** 2
-            return 2.0 * d2 * (E * sh2 - U(u) - I) - L**2 / sh2
+            return _bk_mom_u(xp, d2, u, E, L, I, U(u))
 
         def Wv(v, E, L, I):
-            sn2 = xp.sin(v) ** 2
-            return 2.0 * d2 * (E * sn2 + V(v) + I) - L**2 / sn2
+            return _bk_mom_v(xp, d2, v, E, L, I, V(v))
 
         # the momenta's slopes and curvatures, given U', U'' (V', V'') at the
         # point: those are evaluated once below for every point the tables
         # use (a reverse-mode trace differentiates each evaluation)
         def dWu(u, E, L, U1):
-            return (
-                2.0 * d2 * (E * xp.sinh(2.0 * u) - U1)
-                + 2.0 * L**2 * xp.cosh(u) / xp.sinh(u) ** 3
-            )
+            return _bk_dmom_u(xp, d2, u, E, L, U1)
 
         def dWv(v, E, L, V1):
-            return (
-                2.0 * d2 * (E * xp.sin(2.0 * v) + V1)
-                + 2.0 * L**2 * xp.cos(v) / xp.sin(v) ** 3
-            )
+            return _bk_dmom_v(xp, d2, v, E, L, V1)
 
         def d2Wu(u, E, L, U2):
-            sh2 = xp.sinh(u) ** 2
-            return (
-                2.0 * d2 * (2.0 * E * xp.cosh(2.0 * u) - U2)
-                - L**2 * (6.0 + 4.0 * sh2) / sh2**2
-            )
+            return _bk_d2mom_u(xp, d2, u, E, L, U2)
 
         def d2Wv(v, E, L, V2):
-            sn2 = xp.sin(v) ** 2
-            return (
-                2.0 * d2 * (2.0 * E * xp.cos(2.0 * v) + V2)
-                - 2.0 * L**2 * (3.0 - 2.0 * sn2) / sn2**2
-            )
+            return _bk_d2mom_v(xp, d2, v, E, L, V2)
 
         # ----- the turning points (as _turning_points), on the stand-ins
         Es_s = xp.where(circ, Ec + 0.02 * (ell / Rc) ** 2, Es)
@@ -4243,36 +4813,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         elif self._adaptive:
             u0s = self._bk_u0(Es, ell, I3s)
         V = self._bk_Vfun(u0s)
-        # the v turning point: the first root below pi/2, bracketed by the
-        # first change of sign on a scan down from the midplane (as
-        # _turning_points; a scan without one falls back to an outward
-        # bracket from its last point). A family raises where p_v^2 does not
-        # fall monotonically to that root (split tori)
-        vs_np = 0.5 * numpy.pi * (1.0 - numpy.linspace(0.0, 1.0, 49)[:-1])
-        vs = f64(vs_np)
-        Ws = Wv(vs[None, :], Es_s[:, None], Lzs[:, None], I3v[:, None])
-        neg = Ws <= 0.0
-        has = xp.any(neg, axis=-1)
-        npos = xp.where(has, xp.argmax(xp.astype(neg, xp.int64), axis=-1), 48)
-        if self._interp and concrete:
-            idx = _const(xp, numpy.arange(47), Ws)
-            rising = (
-                (Ws[:, 1:] - Ws[:, :-1] > 1e-10 * Ws[:, :1])
-                & (idx[None, :] < (npos - 1)[:, None])
-                & (~vdeg)[:, None]
-            )
-            if concretely_true(xp.any(rising)):
-                i = first(xp.any(rising, axis=-1))
-                raise _split_v_error(*(float(tonp(t[i])) for t in (Es, Lzs, I3s)))
-        vlo_out = iterate_bracket(
-            lambda v: xp.where(Wv(v, Es_s, Lzs, I3v) > 0.0, 0.7 * v, v),
-            vs[-1] + 0.0 * Es,
-            200,
+        # the v turning point; a family raises for split tori
+        vmin = self._bk_v_turning(
+            xp,
+            f64,
+            Es_s,
+            Lzs,
+            I3v,
+            V,
+            check=(~vdeg, (Es, Lzs, I3s)) if (self._interp and concrete) else None,
         )
-        k = xp.clip(npos, 1, 47)
-        vlo = xp.where(has, xp.take(vs, k), vlo_out)
-        vhi = xp.where(has, xp.take(vs, k - 1), vs[-1] + 0.0 * Es)
-        vmin = _backend_brentq(Wv, vlo, vhi, args=(Es_s, Lzs, I3v), xtol=1e-14)
         uc_s, wu_s = 0.5 * (umin + umax), 0.5 * (umax - umin)
         wv_s = 0.5 * numpy.pi - vmin
         uc = xp.where(udeg, ush, uc_s)
@@ -4414,10 +4964,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         M1 = xp.where(col(vdeg), M1_h, M1_s)
 
         def tp_u(uu, E, U1):
-            s2 = xp.sinh(uu) ** 2
-            return -xp.stack(
-                [2.0 * d2 * s2, -2.0 * d2 + 0.0 * s2, -2.0 * Lzs / s2], axis=-1
-            ) / col(dWu(uu, E, Lzs, U1))
+            return _bk_tp_u(xp, d2, uu, E, Lzs, U1)
 
         def tp_v(vv, E, V1):
             s2 = xp.sin(vv) ** 2
@@ -4819,8 +5366,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Ish = xp.where(
             row0, Ipl, Etab * sh2 - self._bk_U(ush) - Lg**2 / (2.0 * d2 * sh2)
         )
-        I3g = Ipl[:, None, :] + f64(ys)[None, :, None] * (Ish - Ipl)[:, None, :]
+        # the third integrals at the nodes' third-integral variable, with
+        # their partials at fixed grid coordinates (as _setup_grid, by
+        # _I3_of_y); the circular row's at the circular orbit (inverted on
+        # its stand-in energies, whose values are discarded)
         shp = (nE, nI3, nLz)
+        yg = f64(ys)[None, :, None] + 0.0 * Esg[:, None, :]
+        I3n, dIn = self._bk_I3_of_y(
+            xp,
+            f64,
+            xp.reshape(Esg[:, None, :] + 0.0 * yg, (-1,)),
+            xp.reshape(Lg[:, None, :] + 0.0 * yg, (-1,)),
+            xp.reshape(yg, (-1,)),
+        )
+        I3g = xp.where(
+            row0[:, None, :], Ipl[:, None, :] + 0.0 * yg, xp.reshape(I3n, shp)
+        )
+        dIg = xp.where(row0[:, None, :, None], 0.0, xp.reshape(dIn, shp + (3,)))
 
         def per_torus(t):  # an (nE, nLz) table to the tori
             return xp.reshape(t[:, None, :] + 0.0 * I3g, (-1,))
@@ -4849,6 +5411,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "ush": ush,
             "Ipl": Ipl,
             "Ish": Ish,
+            "dI": dIg,
         }
         if concrete:
             tonp = lambda t: numpy.array(as_numpy(stop_gradient(t)))  # noqa: E731
@@ -4939,12 +5502,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sh = xp.sinh(u)
         pu = self._delta * (vR * xp.cosh(u) * xp.sin(v) + vz * sh * xp.cos(v))
         I3 = E * sh**2 - self._bk_U(u) - (pu**2 + Lz**2 / sh**2) / (2.0 * d2)
-        ush, _ = self._bk_ushell(xp, f64, concrete, Es, Lz)
-        sh2 = xp.sinh(ush) ** 2
-        Ipl = Lz**2 / (2.0 * d2) - E
-        Ish = E * sh2 - self._bk_U(ush) - Lz**2 / (2.0 * d2 * sh2)
-        y = xp.clip((I3 - Ipl) / xp.where(circ, 1.0, Ish - Ipl), 0.0, 1.0)
-        wI = xp.where(circ, 0.5, 2.0 / numpy.pi * xp.asin(xp.sqrt(y)))
+        # (an unbound point raises)
+        self._bk_ushell(xp, f64, concrete, Es, Lz)
+        # its grid variable (_y_of_I3; the circular points' on their
+        # stand-in energies, discarded)
+        cols = self._bk_reach_columns(xp, f64, Es, Lz)
+        Ipls, Ishs = cols["Ipl"], cols["Ish"]
+        y, _ = self._bk_y_of_I3(
+            xp,
+            f64,
+            cols,
+            self._bk_reach_faces(xp, f64, cols, Es, Lz),
+            Es,
+            Lz,
+            xp.where(circ, 0.5 * (Ipls + Ishs), xp.clip(I3, Ipls, Ishs)),
+        )
+        wI = xp.where(
+            circ, 0.5, 2.0 / numpy.pi * xp.asin(xp.sqrt(xp.clip(y, 0.0, 1.0)))
+        )
         Lzs, wEs, wIs = (numpy.array(as_numpy(stop_gradient(t))) for t in (Lz, wE, wI))
         Lmin, Lmax = (float(as_numpy(stop_gradient(t))) for t in (LL[0], LL[1]))
         Lzbox = self._pad_box(Lzs, Lmin, Lmax, False)
@@ -4984,10 +5559,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         wE = f64(wEs)[:, None, None]
         dEx, dEL = grid["dE_dx"][:, None, :], grid["dE_dL"][:, None, :]
         Lzg = grid["Lzgrid"][None, None, :]
-        sh2 = xp.sinh(grid["ush"][:, None, :]) ** 2
-        dI_dE = y * (1.0 + sh2) - 1.0
-        dI_dy = (grid["Ish"] - grid["Ipl"])[:, None, :] + 0.0 * y
-        dI_dL = Lzg / d2 * (1.0 - y * (1.0 + 1.0 / sh2))
+        # the nodes' I_3 partials at fixed grid coordinates (_bk_I3_of_y)
+        dI_dE, dI_dy, dI_dL = (grid["dI"][..., k] for k in range(3))
 
         def chain(q):
             # (dq/dE, dq/dI_3, dq/dL_z) -> (dq/dx, dq/dy, dq/dL_z) at fixed grid
@@ -7038,23 +7611,32 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 + self._target_hint
             )
         dev = device_of(E)
-        ush, _ = self._bk_ushell(
+
+        def f64(a):
+            return asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev)
+
+        E1, ell1 = xp.reshape(Es, (1,)), xp.reshape(ell, (1,))
+        # (an unbound torus raises)
+        self._bk_ushell(xp, f64, concrete, E1, ell1)
+        # the grid variable of I_3 (_y_of_I3), infinite outside the faces
+        cols = self._bk_reach_columns(xp, f64, E1, ell1)
+        Ipl, Ish = cols["Ipl"][0], cols["Ish"][0]
+        tolI = 1e-10 * (Ish - Ipl)
+        yI = self._bk_y_of_I3(
             xp,
-            lambda a: asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev),
-            concrete,
-            xp.reshape(Es, (1,)),
-            xp.reshape(ell, (1,)),
-        )
-        ush = ush[0]
-        d2 = self._delta**2
-        sh2 = xp.sinh(ush) ** 2
-        Ipl = ell**2 / (2.0 * d2) - Es
-        Ish = Es * sh2 - self._bk_U(ush) - ell**2 / (2.0 * d2 * sh2)
-        y = (I3 - Ipl) / (Ish - Ipl)
+            f64,
+            cols,
+            self._bk_reach_faces(xp, f64, cols, E1, ell1),
+            E1,
+            ell1,
+            xp.reshape(xp.clip(I3, Ipl, Ish), (1,)),
+        )[0][0]
+        y = xp.where((I3 >= Ipl - tolI) & (I3 <= Ish + tolI), yI, numpy.inf)
         if concrete and concretely_true((y < ylo - 1e-10) | (y > yhi + 1e-10)):
-            If, Ef, ellf, lo, hi = floats(
-                I3, E, ell, Ipl + ylo * (Ish - Ipl), Ipl + yhi * (Ish - Ipl)
-            )
+            lohi = self._bk_I3_of_y(
+                xp, f64, E1 + f64([0.0, 0.0]), ell1 + f64([0.0, 0.0]), f64([ylo, yhi])
+            )[0]
+            If, Ef, ellf, lo, hi = floats(I3, E, ell, lohi[0], lohi[1])
             raise ValueError(
                 f"I_3 = {If} outside the interpolation grid at (E, |L_z|) = "
                 f"({Ef}, {ellf}): [{lo}, {hi}]" + self._target_hint
