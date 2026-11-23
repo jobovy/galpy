@@ -36,6 +36,7 @@ from ..backend._namespaces import (
     has_concrete_truth_value,
     namespace_for_name,
     namespace_from_arrays,
+    pad_edge,
     untraceable_setup,
 )
 from ..backend.interpolate import Spline1D, interp_bilinear
@@ -2805,18 +2806,8 @@ class quasiisothermaldf(df):
         n = length if n is None else n
         nb0 = bucket_size(length)
 
-        def _pad(a):
-            k = nb0 - a.shape[0]
-            if k == 0:
-                return a
-            if is_backend_array(a):
-                return xp.concat([a, xp.broadcast_to(a[-1:], (k,))])
-            return numpy.pad(numpy.asarray(a), (0, k), mode="edge")
-
         Rb, zb, mvT = at_least_float64(
-            xp.asarray(_pad(R)) * 1.0,
-            xp.asarray(_pad(z)) * 1.0,
-            xp.asarray(_pad(maxVT)) * 1.0,
+            *(xp.asarray(a) * 1.0 for a in pad_edge(xp, nb0, R, z, maxVT))
         )
         zero = xp.zeros_like(Rb)
         logmaxVD = self(Rb, zero, mvT, zb, zero, log=True, use_physical=False)

@@ -17,6 +17,7 @@ import numpy
 
 from ..backend import (
     asarray_on_device,
+    bucket_size,
     coerce_coords,
     concretely_true,
     device_of,
@@ -31,7 +32,9 @@ from ..backend import (
 from ..backend._namespaces import (
     as_numpy,
     has_concrete_truth_value,
+    pad_edge,
     stop_gradient,
+    under_jax_trace,
 )
 from ..backend.optimize import (
     bisect_root,
@@ -1786,14 +1789,25 @@ class actionAngleStaeckel(actionAngle):
         frequencies at the polished actions; nan (with the same warning) for
         the points that no torus of the family passes through"""
         aAI = self._inverse
+        n = R.shape[0]
+        if n < 16 and not under_jax_trace(R, vR, vT, z, vz, phi):
+            if "jax" in name_of_namespace(xp):
+                # eager jax compiles every op per new number of points: a few
+                # points are padded to 16 (copies of the last), dropped below
+                R, vR, vT, z, vz, phi = pad_edge(
+                    xp, bucket_size(n), R, vR, vT, z, vz, phi
+                )
         # (the start carries no derivative)
         out = self._actionsFreqsAngles(
-            *(stop_gradient(a) for a in (R, vR, vT, z, vz, phi)), _direct=True, **kwargs
+            *(stop_gradient(a) for a in (R, vR, vT, z, vz, phi)),
+            _direct=True,
+            _npts=n,
+            **kwargs,
         )
         Lz = R * vT
         sol = aAI._bk_invert_family(xp, R, vR, vT, z, vz, phi, out[0], out[2])
         bad = xp.isnan(sol[0])
-        nbad = xp.sum(xp.astype(bad, xp.int64))
+        nbad = xp.sum(xp.astype(bad[:n], xp.int64))
         concrete = has_concrete_truth_value(nbad)
         if concrete and int(nbad) > 0:
             warnings.warn(
@@ -1802,8 +1816,8 @@ class actionAngleStaeckel(actionAngle):
                 galpyWarning,
             )
         # the family's frequencies at the polished actions (a solved point's
-        # stand-in for the others)
-        if concrete and int(nbad) == R.shape[0]:
+        # stand-in for the others; the padding copies the last point)
+        if concrete and int(nbad) == n:
             Om = (sol[0],) * 3
         else:
             jr, jz, L = sol[0], sol[1], Lz
@@ -1811,9 +1825,12 @@ class actionAngleStaeckel(actionAngle):
                 i = int(numpy.flatnonzero(~as_numpy(bad))[0])
                 jr, jz, L = (xp.where(bad, t[i], t) for t in (jr, jz, L))
             Om = tuple(xp.where(bad, numpy.nan, o) for o in aAI._Freqs(jr, L, jz))
-        return (sol[0], Lz, sol[1], *Om, sol[2], sol[3], sol[4])
+        out = (sol[0], Lz, sol[1], *Om, sol[2], sol[3], sol[4])
+        return tuple(o[:n] for o in out)
 
-    def _inverse_model(self, R, vR, vT, z, vz, c=True, deriv=True, flag_unbound=False):
+    def _inverse_model(
+        self, R, vR, vT, z, vz, c=True, deriv=True, flag_unbound=False, npts=None
+    ):
         """The focal length and reference curve of the Staeckel model of
         the torus of inverse= through each phase-space point. A reference
         curve that follows the tori depends on the torus's energy and third
@@ -1822,7 +1839,8 @@ class actionAngleStaeckel(actionAngle):
         the current model with Aitken's acceleration: by the C code itself
         (which is then handed nan to start from the point's own u) or, with
         c False, here; on jax/torch by _bk_inverse_model (where
-        flag_unbound models unbound points as C does, on a bound stand-in)"""
+        flag_unbound models unbound points as C does, on a bound stand-in,
+        and only the first npts points count in its warning)"""
         aAI = self._inverse
         delta = aAI._delta
         xp = get_namespace(R, vR, vT, z, vz)
@@ -1832,7 +1850,7 @@ class actionAngleStaeckel(actionAngle):
             return delta, numpy.full(numpy.shape(R), aAI._staeckelwrap._u0), None
         if xp is not numpy:
             return self._bk_inverse_model(
-                xp, R, vR, vT, z, vz, delta, deriv, flag_unbound
+                xp, R, vR, vT, z, vz, delta, deriv, flag_unbound, npts
             )
         R, vR, vT, z, vz = (
             a.copy()
@@ -2073,7 +2091,7 @@ class actionAngleStaeckel(actionAngle):
         return delta, u0, ddelta[:, [0, 2, 1]].T
 
     def _bk_inverse_model(
-        self, xp, R, vR, vT, z, vz, delta, deriv=True, flag_unbound=False
+        self, xp, R, vR, vT, z, vz, delta, deriv=True, flag_unbound=False, npts=None
     ):
         """_inverse_model's fixed point on jax/torch: the same Aitken schedule
         at fixed shape on derivative-free inputs (a point is frozen once its
@@ -2099,7 +2117,7 @@ class actionAngleStaeckel(actionAngle):
 
         xs = tuple(stop_gradient(a) for a in x)
         if self._inverse._delta_rule is not None:
-            return self._bk_inverse_model_delta(xp, x, xs, rule, pot, deriv)
+            return self._bk_inverse_model_delta(xp, x, xs, rule, pot, deriv, npts)
         u0 = rule(xp.asinh(xs[0] / delta), *xs)
         live = xp.ones_like(u0) > 0.0
         for _ in range(_MODEL_MAXITER):
@@ -2116,7 +2134,7 @@ class actionAngleStaeckel(actionAngle):
                 break
         return delta, fixed_point_implicit_step(rule, stop_gradient(u0), x), None
 
-    def _bk_inverse_model_delta(self, xp, x, xs, rule, pot, deriv):
+    def _bk_inverse_model_delta(self, xp, x, xs, rule, pot, deriv, npts=None):
         """_inverse_model_delta on jax/torch: main's iteration in the focal
         length and the reference curve together, at fixed shape on the
         derivative-free inputs xs, then the implicit-function step of the
@@ -2230,6 +2248,7 @@ class actionAngleStaeckel(actionAngle):
                         sign * (E - _evaluatePotentials(self._pot, edge, 0.0 * edge))
                         > 0.0
                     )
+                off = off[:npts]  # (not _bk_polished's padding)
             if numpy.any(off):
                 warnings.warn(
                     f"{numpy.sum(off)} of the {len(off)} points lie outside the "
@@ -2684,6 +2703,8 @@ class actionAngleStaeckel(actionAngle):
         """
         if self._polish and not kwargs.pop("_direct", False):
             return self._polished(*args, **kwargs)
+        # (the number of points that are not _bk_polished's padding)
+        npts = kwargs.pop("_npts", None)
         loop_c = bool(self._c and kwargs.get("c", True))
         ddelta = None
         delta = kwargs.pop("delta", self._delta)
@@ -2726,6 +2747,7 @@ class actionAngleStaeckel(actionAngle):
                         c=False,
                         _direct=True,
                         _routed=True,
+                        _npts=npts,
                     )
                 # jax/torch: differentiable actions, frequencies AND angles via the
                 # fused C-native Jacobian (#131 PR-B); phi enters analytically
@@ -2869,7 +2891,7 @@ class actionAngleStaeckel(actionAngle):
             u0 = ddelta = None
             if self._inverse is not None:
                 delta, u0, ddelta = self._inverse_model(
-                    R, vR, vT, z, vz, c=loop_c, flag_unbound=routed
+                    R, vR, vT, z, vz, c=loop_c, flag_unbound=routed, npts=npts
                 )
             (
                 jr,
