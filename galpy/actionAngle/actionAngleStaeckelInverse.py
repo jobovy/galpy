@@ -602,9 +602,10 @@ def _focal_fit(pot, E, Lz, f, Rm, Rp, rule="torus", nscan=12):
 
 
 _DELTA_RULE_NUMPY_ONLY = (
-    "a focal length that follows the tori (delta='fit' or a callable) is not "
-    "yet available on the jax and PyTorch backends: build and evaluate the "
-    "family with numpy (without a forced backend or jax/torch parameters)"
+    "a family whose focal length follows its tori (delta='fit' or a "
+    "callable) is not yet built on the jax and PyTorch backends: build it "
+    "with numpy (without a forced backend or jax/torch parameters); it "
+    "evaluates with jax and torch inputs"
 )
 
 
@@ -7856,8 +7857,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # a trace both branches run, the dead one on a stand-in torus.
     def _namespace(self, xp):
         """A family built on a backend evaluates there whatever the inputs"""
-        if xp is not numpy and self._delta_rule is not None:
-            raise NotImplementedError(_DELTA_RULE_NUMPY_ONLY)
         bk = getattr(self, "_bk", None)
         return xp if bk is None else bk["xp"]
 
@@ -8242,6 +8241,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "udeg": udeg,
             "vdeg": vdeg,
         }
+        if self._delta_rule is not None:
+            # the torus's own focal length, a fourth table (as _interp_tables)
+            tab["delta"] = A[3]
+            tab["ddelta"] = Ax[3] * N[0] + Ay[3] * N[1] + AL[3] * N[2]
         wE = xp.sqrt(x)
         dev = device_of(det)
         for flag, ip, sv, fs, key, npt in (
@@ -8520,6 +8523,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             zeta, dzeta = sel(tv, ze), sel(ones, dze)
             v, pv = sel(0.5 * numpy.pi * ones, vv), sel(0.0 * tv, pvv)
             comps_v = [sel(0.0 * tv, c) for c in cmv]
+        comps = [cu_ + cv_ for cu_, cv_ in zip(comps_u, comps_v)]
+        if "dlnD" in aux:
+            # a focal length that follows the tori (_dilate): the coordinates
+            # dilate with it, which adds -(R p_R + z p_z) dln(delta)/dJ to
+            # each chain's angle and couples the two librations
+            rp = (0.5 * xp.sinh(2.0 * u) * pu - 0.5 * xp.sin(2.0 * v) * pv) / (
+                xp.sinh(u) ** 2 + xp.sin(v) ** 2
+            )
+            comps = [c - rp * aux["dlnD"][k] for k, c in enumerate(comps)]
         return {
             "thetaAr": thetaAr,
             "dthetaAr": dthetaAr,
@@ -8532,7 +8544,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "pu": pu,
             "v": v,
             "pv": pv,
-            "comps": [cu_ + cv_ for cu_, cv_ in zip(comps_u, comps_v)],
+            "comps": comps,
             "comps_u": comps_u,
             "comps_v": comps_v,
         }
@@ -8876,6 +8888,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             return circular()
         tab = self._bk_tables(xp, jr, jz, Lz)
         aux, chains_u, chains_v = self._bk_aux(xp, jr, jz, Lz, tab)
+        if "delta" in tab:
+            aux["delta"], aux["dlnD"] = tab["delta"], tab["ddelta"] / tab["delta"]
         aux_sg = {
             k: (stop_gradient(v) if is_backend_array(v) else v) for k, v in aux.items()
         }
@@ -8884,14 +8898,20 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         T = self._bk_torus_at(xp, tu, tv, aux, chains_u, chains_v)
         Om = tab["Om"]
-        res = (*self._bk_point(xp, T, Lz, aux["L"], anglephi), Om[0], Om[2], Om[1])
+        res = (
+            *self._bk_point(xp, T, Lz, aux["L"], anglephi, aux.get("delta")),
+            Om[0],
+            Om[2],
+            Om[1],
+        )
         if not concrete:  # a traced circular orbit
             on_c = (jr == 0.0) & (jz == 0.0)
             res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
         return res
 
-    def _bk_point(self, xp, T, Lz, L, anglephi):
+    def _bk_point(self, xp, T, Lz, L, anglephi, delta=None):
         """_point in jax/torch"""
+        delta = self._delta if delta is None else delta
         zeta = T["zeta"]
         phi = (
             anglephi
@@ -8902,13 +8922,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         u, pu, v, pv = T["u"], T["pu"], T["v"], T["pv"]
         sh, ch = xp.sinh(u), xp.cosh(u)
         sn, cs = xp.sin(v), xp.cos(v)
-        den = self._delta * (sh**2 + sn**2)
-        R = self._delta * sh * sn
+        den = delta * (sh**2 + sn**2)
+        R = delta * sh * sn
         return (
             R,
             (pu * ch * sn + pv * sh * cs) / den,
             Lz / R,
-            self._delta * ch * cs,
+            delta * ch * cs,
             (pu * sh * cs - pv * ch * sn) / den,
             xp.remainder(phi, 2.0 * numpy.pi),
         )
@@ -9321,6 +9341,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         path torus(actions, angles); traced actions in one pass that selects
         faces and circular orbits by where() (one torus at a time for an
         adaptive family, whose reference curve is per torus)"""
+        if self._delta_rule is not None:
+            # (each torus in the coordinates of its own focal length)
+            return self._bk_per_torus(xp, actions, angles, torus)
         if under_trace(*actions):
             if self._adaptive:
                 return self._bk_per_torus(xp, actions, angles, torus)
@@ -9386,6 +9409,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         def floats(*ts):
             return (float(as_numpy(stop_gradient(0.0 * E + t))) for t in ts)
 
+        if self._delta_rule is not None:
+            raise NotImplementedError(
+                "(E, L_z, I_3) do not label the tori of a family whose focal "
+                "length follows them: I_3 is that of each torus's own model"
+            )
         if not self._interp:
             tabs = self._bk_node_tables(xp, device_of(E))
             dev = (
