@@ -41,6 +41,7 @@ from ..backend._namespaces import (
     as_numpy_constant,
     host_copy,
     namespace_from_arrays,
+    picklable_state,
     requires_backend_grad,
     stop_gradient,
     under_jax_trace,
@@ -614,8 +615,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     _MODEL_STATE = "_delta _ush_cache _reach_cache _u_turning_memo _reach_v".split()
 
     def __getstate__(self):
-        # (a callable delta= is not part of the family: see __init__)
-        return {k: v for k, v in self.__dict__.items() if k != "_delta_callable"}
+        # (a callable delta= is not part of the family: see __init__; a
+        # backend family's namespace and device go by reference)
+        return picklable_state(self, drop=("_delta_callable",))
 
     def __setstate__(self, state):
         """Restore a pickled instance; an interpolated family whose tables
