@@ -1633,6 +1633,8 @@ class actionAngleStaeckel(actionAngle):
             OblateStaeckelWrapperPotential), whose focal length is then used.
         inverse : actionAngleStaeckelInverse, optional
             Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning. With jax/torch inputs, the transformation runs in the backend (c=False) implementation, with derivatives through each point's model.
+        polish : bool, optional
+            With inverse= a family (setup_interp=True): make the transformation the exact inverse of the family's interpolated map, by Newton's method on that map from the actions and angles of the family's tori; points that no torus of the family passes through return nan with a warning. Default is False: the actions and angles of the family's tori, to which the interpolated map agrees to its interpolation error.
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
@@ -1651,6 +1653,11 @@ class actionAngleStaeckel(actionAngle):
         self._inverse = kwargs.get("inverse", None)
         # whether the energy is that of the Staeckel model of (delta, u0)
         self._model = False
+        self._polish = kwargs.get("polish", False)
+        if self._polish and not (self._inverse is not None and self._inverse._interp):
+            raise ValueError(
+                "polish= requires inverse= to be a family (setup_interp=True)"
+            )
         if self._inverse is not None:
             kwargs = self._setup_inverse(kwargs)
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
@@ -1719,6 +1726,50 @@ class actionAngleStaeckel(actionAngle):
         if aAI._voSet:
             kwargs.setdefault("vo", aAI._vo)
         return kwargs
+
+    def _polished(self, *args, **kwargs):
+        """(J_R, L_z, J_z, Omega_R, Omega_phi, Omega_z, theta_R, theta_phi,
+        theta_z) such that the family inverse= maps the actions and angles
+        to the points exactly: Newton's method on the family's interpolated
+        map, from those of its tori, with the family's frequencies"""
+        aAI = self._inverse
+        if len(args) == 5 or len(args) == 6:
+            R, vR, vT, z, vz = args[:5]
+            phi = args[5] if len(args) == 6 else 0.0
+        else:
+            self._eval_phi = 0.0
+            self._parse_eval_args(*args)
+            R, vR, vT = self._eval_R, self._eval_vR, self._eval_vT
+            z, vz, phi = self._eval_z, self._eval_vz, self._eval_phi
+        R, vR, vT, z, vz, phi = (
+            a.copy()
+            for a in numpy.broadcast_arrays(
+                *(numpy.atleast_1d(a) * 1.0 for a in (R, vR, vT, z, vz, phi))
+            )
+        )
+        out = numpy.array(
+            self._actionsFreqsAngles(R, vR, vT, z, vz, phi, _direct=True, **kwargs)
+        )
+        out[1] = R * vT
+        ok = numpy.all(numpy.isfinite(out[[0, 2]]), axis=0)
+        sol = numpy.full((5, len(R)), numpy.nan)
+        if numpy.any(ok):
+            sol[:, ok] = aAI._invert_family(
+                R[ok], vR[ok], vT[ok], z[ok], vz[ok], phi[ok], *out[[0, 2]][:, ok]
+            )
+        out[[0, 2, 6, 7, 8]] = sol
+        bad = numpy.isnan(sol[0])
+        if numpy.any(bad):
+            warnings.warn(
+                f"{numpy.sum(bad)} points are not on a torus of inverse=: their "
+                "actions, frequencies and angles are nan",
+                galpyWarning,
+            )
+        good = ~bad
+        out[3:6, bad] = numpy.nan
+        if numpy.any(good):
+            out[3:6, good] = aAI._Freqs(*out[:3][:, good])
+        return tuple(out)
 
     def _inverse_model(self, R, vR, vT, z, vz, c=True, deriv=True):
         """The focal length and reference curve of the Staeckel model of
@@ -1896,7 +1947,10 @@ class actionAngleStaeckel(actionAngle):
                 jr, _, jz = _staeckel_actions(numpy, *x, pot, delta, self._order, u0=u0)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", galpyWarning)
-                lab = aAI._label_tori(jr, jz, Lz[idx])
+                # (the labels are not defined on the faces of vanishing action)
+                lab = aAI._label_tori(
+                    numpy.maximum(jr, 1e-10), numpy.maximum(jz, 1e-10), Lz[idx]
+                )
             new = numpy.where(lab[-1], lab[6], numpy.nan)
             return u0, new, numpy.where(lab[-1][:, None], lab[7], numpy.nan)
 
@@ -2190,6 +2244,8 @@ class actionAngleStaeckel(actionAngle):
         - 2012-11-27 - Written - Bovy (IAS)
         - 2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
+        if self._polish and not kwargs.pop("_direct", False):
+            return self._polished(*args, **kwargs)[:3]
         loop_c = bool(self._c and kwargs.get("c", True))
         ddelta = None
         delta = kwargs.pop("delta", self._delta)
@@ -2353,6 +2409,8 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        if self._polish and not kwargs.pop("_direct", False):
+            return self._polished(*args, **kwargs)[:6]
         loop_c = bool(self._c and kwargs.get("c", True))
         ddelta = None
         delta = kwargs.pop("delta", self._delta)
@@ -2551,6 +2609,8 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        if self._polish and not kwargs.pop("_direct", False):
+            return self._polished(*args, **kwargs)
         loop_c = bool(self._c and kwargs.get("c", True))
         ddelta = None
         delta = kwargs.pop("delta", self._delta)
