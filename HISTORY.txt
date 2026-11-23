@@ -191,7 +191,11 @@ at release.]
   astroquery knows (during CDS's outage of November 2026, the Harvard mirror
   could not be reached either).
 
-- [slot 23]
+- Added explicit tori whose focal lengths follow a rule to
+  actionAngleStaeckelInverse: delta= a callable or the delta method of a
+  family (delta=family.delta) with Es=, Lzs=, I3s= or jrs=, Lzs=, jzs= sets
+  up the tori of the rule's family at those actions, with the family's
+  angles and frequencies, also where the family's grid does not reach.
 
 - [slot 24]
 
