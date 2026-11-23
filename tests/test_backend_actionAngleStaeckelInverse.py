@@ -1551,3 +1551,31 @@ def test_array_actions_fallbacks(interp):
         interp(
             torch.tensor([0.05, 0.06]), torch.tensor([0.93, 5.0]), 0.05, 1.0, 1.0, 1.0
         )
+
+
+# ---------- a focal length that follows the tori (numpy only for now)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_delta_rule_numpy_only(backend):
+    # a family whose focal length follows its tori (delta='fit' or a
+    # callable) is built and evaluated on numpy: a forced backend or backend
+    # inputs raise instead of evaluating it in another model; its delta
+    # method reads backend inputs on the host
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+
+    grid = dict(setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=3.5, progressbar=False)
+    grid.update(nE=4, nLz=4, nI3=4, mm_npt=32)
+
+    def rule(E, Lz, y):
+        return 1.3 + 0.0 * E
+
+    with use(backend, force=True):
+        with pytest.raises(NotImplementedError, match="not yet available"):
+            actionAngleStaeckelInverse(pot=_pot(), delta=rule, **grid)
+    with use("numpy", force=True):
+        aA = actionAngleStaeckelInverse(pot=_pot(), delta=rule, **grid)
+    jr, Lz, jz = (_arr(backend, x) for x in (0.06, 0.93, 0.10))
+    with pytest.raises(NotImplementedError, match="not yet available"):
+        aA.Freqs(jr, Lz, jz)
+    E, y = _arr(backend, -1.6), _arr(backend, 0.5)
+    assert aA.delta(E, Lz, y) == aA.delta(-1.6, 0.93, 0.5)
