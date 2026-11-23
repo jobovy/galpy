@@ -257,8 +257,9 @@ class actionAngleAdiabaticApprox(actionAngle):
         orb = Orbit([R, vR, vT, z, vz, phi])
         orb.integrate(self._npoints_ts, self._pot, method=self._integrate_method)
         orb.integrate(-self._npoints_ts, self._pot, method=self._integrate_method)
+        # Times in increasing order, the order that self._vanderA assumes
         os_for_actions = orb(
-            numpy.concatenate((-self._npoints_ts, self._npoints_ts[1:]))
+            numpy.concatenate((-self._npoints_ts[:0:-1], self._npoints_ts))
         )
         os_for_actions.integrate(
             self._tsJ,
