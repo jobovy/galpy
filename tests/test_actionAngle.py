@@ -13706,30 +13706,47 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     # where the family's grid does not reach (small |L_z|, of either sign),
     # the forward transformation in the rule's models returns the actions,
     # the frequencies and the angles of the explicit tori (the first torus
-    # lies on the grid); a pickled instance evaluates identically
+    # lies on the grid): that of the family, and that of the explicit tori
+    # themselves, with the rule of a family or a callable, in C and in
+    # Python (whose fixed point in the model is that accurate for the
+    # tori on the grid); a pickled instance evaluates identically, and is
+    # not inverted without its rule
     J = numpy.array([(0.08, 1.05, 0.06), (0.2, 0.3, 0.6), (0.05, -0.3, 0.8)])
-    aAI = explicit(fit, fit.delta, J)
-    aAF = actionAngleStaeckel(inverse=fit)
+    aAI, aAU = explicit(fit, fit.delta, J), explicit(vary, rule, J)
     again = pickle.loads(pickle.dumps(aAI))
-    for jr, Lz, jz in J:
-        pts = points(aAI, (jr, Lz, jz))
-        assert numpy.all(points(again, (jr, Lz, jz)) == pts), (
-            "A pickled set of explicit tori with a rule does not evaluate identically"
-        )
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", galpyWarning)
-            out = numpy.array(aAF.actionsFreqsAngles(*pts[:6]))
-        dev = numpy.fabs(
-            out - numpy.array([jr, Lz, jz, *pts[6:, 0], 0.0, 0.0, 0.0])[:, None]
-        )
-        dev[6:] = numpy.fabs(wrap(out[6:] - angs))
-        assert numpy.amax(dev) < 1e-8, (
-            "The forward transformation in a family's models does not return "
-            "the actions and angles of an explicit torus of its rule: %g"
-            % numpy.amax(dev)
-        )
+    for aA, inverse, c, n, tol in (
+        (aAI, fit, True, 3, 1e-8),
+        (aAI, aAI, True, 3, 1e-8),
+        (aAI, aAI, False, 1, 1e-9),
+        (aAU, aAU, True, 3, 1e-6),
+        (aAU, aAU, False, 1, 1e-9),
+    ):
+        aAF = actionAngleStaeckel(inverse=inverse, c=c)
+        for jr, Lz, jz in J[:n]:
+            pts = points(aA, (jr, Lz, jz))
+            assert numpy.all(points(again, (jr, Lz, jz)) == pts) or aA is aAU, (
+                "A pickled set of explicit tori with a rule does not evaluate "
+                "identically"
+            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", galpyWarning)
+                out = numpy.array(aAF.actionsFreqsAngles(*pts[:6]))
+                assert numpy.allclose(
+                    numpy.array(aAF.actionsFreqs(*pts[:5])), out[:6], atol=1e-10
+                ) and numpy.allclose(numpy.array(aAF(*pts[:5])), out[:3], atol=1e-10)
+            dev = numpy.fabs(
+                out - numpy.array([jr, Lz, jz, *pts[6:, 0], 0.0, 0.0, 0.0])[:, None]
+            )
+            dev[6:] = numpy.fabs(wrap(out[6:] - angs))
+            assert numpy.amax(dev) < tol, (
+                "The forward transformation in the rule's models does not return "
+                "the actions and angles of an explicit torus of the rule (c=%s): %g"
+                % (c, numpy.amax(dev))
+            )
     with pytest.raises(RuntimeError, match="was not pickled"):
         again.delta(0.5, 1.0, 0.5)
+    with pytest.raises(RuntimeError, match="was not pickled with them"):
+        actionAngleStaeckel(inverse=again)
 
     # the map of the explicit tori of a rule is canonical (to the central
     # differences across neighbouring tori); it is not without the terms of
@@ -13758,8 +13775,28 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     assert numpy.fabs(aAC(0.0, 0.9, 0.0, 1.0, 2.0, 3.0)[0] - lp.rl(0.9)) < 1e-10, (
         "The circular orbit set up with a rule is not at the circular radius"
     )
-    with pytest.raises(ValueError, match="No torus with the actions"):
-        explicit(fit, lambda E, L, f: 0.7 + 0.1 * f, (0.05, 0.15, 0.8))
+    # actions for which the model of the focal length that the iteration
+    # starts from has no torus (at this small |L_z| the u libration splits
+    # for delta > 0.6 and the actions jump over these), while that of the
+    # rule's own focal length at the torus does: found from the rule at the
+    # shell orbit, and from a focal length between the rule's extremes;
+    # none when no start has a torus
+    near = (0.05, 0.15, 0.8)
+    for own in (
+        lambda E, L, f: 0.9 - 0.42 * f + 0.0 * E,
+        lambda E, L, f: 0.9 - 0.45 * numpy.exp(-(((f - 0.85) / 0.15) ** 2)) + 0.0 * E,
+    ):
+        aAN = explicit(fit, own, near)
+        assert (
+            numpy.fabs(aAN.JR(aAN._Es[0], 0.15, aAN._I3s[0]) - 0.05) < 1e-10
+            and numpy.fabs(aAN.Jz(aAN._Es[0], 0.15, aAN._I3s[0]) - 0.8) < 1e-10
+            and aAN.delta(0.0, 0.15, 0.5) > 0.65
+            and aAN._deltas[0] < 0.6
+        ), "A torus that only the rule's own model holds is not set up"
+    with pytest.raises(ValueError, match="No torus with the actions .* rule delta="):
+        explicit(fit, lambda E, L, f: 0.7 + 0.0 * f, near)
+    with pytest.raises(ValueError, match="positive focal lengths"):
+        explicit(fit, lambda E, L, f: 0.5 - f, near)
     with pytest.raises(RuntimeError, match="did not converge"):
         explicit(
             fit,
@@ -15827,6 +15864,42 @@ def test_actionAngleStaeckel_inverse_deltafit():
     ), "actionAngleStaeckel(inverse=) does not transform a point off a family's grid"
     with pytest.warns(galpyWarning, match="lie outside"):
         assert numpy.allclose(numpy.array(aAS(*far)), out[:3], atol=1e-8)
+    # the family's delta method is that rule: held at the edge of the range
+    # beyond it, so that another family and explicit tori that are given
+    # it have the models of the forward transformation off the grid
+    Lmin, top = aAI._Lzgrid[0], aAI.delta(5.0, 1.0, 0.3)
+    assert (
+        aAI.delta(-1.0, 0.5 * Lmin, 0.3) == aAI.delta(-1.0, Lmin, 0.3)
+        and aAI.delta(50.0, 1.0, 0.3) == top
+        and numpy.fabs(aAI.delta(-1.19, 1.0, 0.3) - top) > 1e-3
+    ), "The delta method of a fitted family is not held beyond the grid's range"
+    wider = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta=aAI.delta, setup_interp=True, progressbar=False
+    )
+    two = numpy.array(
+        actionAngleStaeckel(inverse=wider, order=20).actionsFreqsAngles(*far, 0.0 * one)
+    )
+    assert numpy.allclose(two, out, rtol=0.0, atol=1e-7), (
+        "actionAngleStaeckel(inverse=) of a family that was given another's delta "
+        "method does not agree with that of the other off its grid"
+    )
+    tori = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta=aAI.delta,
+        jrs=out[0],
+        Lzs=out[1],
+        jzs=out[2],
+        mm_npt=128,
+        progressbar=False,
+    )
+    back = numpy.array(tori(*out[:3], *out[6:]))[:5]
+    # (the second point, far above the grid's energies, to the accuracy of
+    # the forward transformation there)
+    dev = numpy.amax(numpy.fabs(back - numpy.array(far)), axis=0)
+    assert numpy.all(dev < [1e-8, 2e-6, 1e-8]), (
+        "Explicit tori that were given a family's delta method do not return "
+        "the points off its grid that actionAngleStaeckel(inverse=) transforms"
+    )
     # a family with a callable rule: the rule itself where the family has
     # it, and the family's table of it for a pickled family, which does not
     import pickle
