@@ -15716,14 +15716,39 @@ def test_actionAngleStaeckel_inverse_deltafit():
     # a single focal length does not give the family's frequencies
     own = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
     assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-3
-    # points whose torus the family does not hold have no model (checked on
-    # the vertical action: the C code's radial action without a model is nan
-    # or zero depending on the platform)
-    one = numpy.ones(2)
-    far = numpy.array(aAS(one, 0.1 * one, one, 0.1 * one, numpy.array([0.9, 0.01])))
-    assert numpy.isnan(far[2, 0]) and numpy.all(numpy.isfinite(far[:, 1])), (
-        "actionAngleStaeckel(inverse=) does not return nan off a family"
+    # a point off the grid has the model of the rule's smooth extension, but
+    # none of the family's derivatives of the focal length; a point outside
+    # the grid's range of L_z has no model (checked on the vertical action:
+    # the C code's radial action without a model is nan or zero depending on
+    # the platform)
+    one = numpy.ones(3)
+    far = (one, 0.1 * one, numpy.array([1.0, 1.0, 1.6]), 0.1 * one)
+    far += (numpy.array([0.9, 0.01, 0.01]),)
+    out = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one))
+    assert numpy.all(numpy.isfinite(out[:3, :2])) and numpy.isnan(out[2, 2]), (
+        "actionAngleStaeckel(inverse=) does not return nan outside a family's L_z"
     )
+    assert not numpy.all(numpy.isfinite(out[3:, 0])) and numpy.all(
+        numpy.isfinite(out[3:, 1])
+    ), "actionAngleStaeckel(inverse=) does not return nan frequencies off a family"
+    assert numpy.allclose(numpy.array(aAS(*far))[:, :2], out[:3, :2], atol=1e-8)
+    # a family with a callable rule: the rule itself where the family has
+    # it, and the family's table of it for a pickled family, which does not
+    import pickle
+
+    kw = dict(pot=MWPotential2014, setup_interp=True, Rmin=0.85, Rmax=1.15, Rinf=2.5)
+    kw.update(nE=4, nLz=4, nI3=4, mm_npt=128, progressbar=False)
+    cbI = actionAngleStaeckelInverse(
+        delta=lambda E, Lz, f: 0.45 * (1.0 + 0.1 * (f - 0.5) + 0.05 * Lz), **kw
+    )
+    jr, jz = numpy.array([cbI._A_tab[n][:2] for n in nodes]).T
+    x = cbI(jr, Lz, jz, *angs)
+    for fam in (cbI, pickle.loads(pickle.dumps(cbI))):
+        out = numpy.array(actionAngleStaeckel(inverse=fam, order=20)(*x[:5]))
+        assert numpy.amax(numpy.fabs(out - numpy.array([jr, Lz, jz]))) < 1e-7, (
+            "actionAngleStaeckel(inverse=) does not return the actions of a "
+            "family with a callable delta="
+        )
     return None
 
 
