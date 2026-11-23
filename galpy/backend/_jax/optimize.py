@@ -162,12 +162,14 @@ def implicit_fixed_point_step(func, p, args, xp):
     dx*/dtheta = (dg/dtheta) / (1 - dg/dx) through g = func(p, *args)"""
     import jax
 
-    from .._namespaces import is_backend_array
+    from .._namespaces import is_backend_array, under_jax_trace
     from ..optimize import nonzero_slope
 
     sg = jax.lax.stop_gradient
     dargs = tuple(sg(a) if is_backend_array(a) else a for a in args)
     p = sg(p)
     g = func(p, *args)
+    if not under_jax_trace(g):  # no derivative to carry (as torch's)
+        return p
     _, slope = jax.jvp(lambda x: func(x, *dargs), (p,), (xp.ones_like(p),))
     return p + (g - sg(g)) / nonzero_slope(1.0 - slope, xp)
