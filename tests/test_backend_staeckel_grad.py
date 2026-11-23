@@ -506,18 +506,36 @@ def _inverse_model_grad_check(backend, aAI, x0):
         )
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
-def test_staeckel_inverse_torus_model_grad(backend):
+def _u0_rule_ELzI3(E, Lz, I3):
+    return numpy.arcsinh((0.5 + 0.5 * Lz + 0.1 * E) / 0.45) + 0.02 * numpy.tanh(I3)
+
+
+# every rule on torch; on jax the rule C evaluates and a callable (whose value
+# jax gets from the host, linearized in the integrals)
+_INVERSE_RULES = [
+    (bk, u0)
+    for bk in BACKENDS
+    for u0 in (
+        ("torus", "planar", "shell", _u0_rule_ELzI3)
+        if bk == "torch"
+        else ("torus", _u0_rule_ELzI3)
+    )
+]
+
+
+@pytest.mark.parametrize("backend,u0", _INVERSE_RULES)
+def test_staeckel_inverse_torus_model_grad(backend, u0):
     # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
-    # model (u0='torus') on a backend: the backend (c=False) code in each
-    # point's model, equal to numpy's, and differentiable in the phase-space
-    # point through the model's fixed point (its implicit-function step)
+    # model (a rule for the reference curve) on a backend: the backend
+    # (c=False) code in each point's model, equal to numpy's, and
+    # differentiable in the phase-space point through the model's fixed point
+    # (its implicit-function step)
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
 
     jr, Lz, jz = numpy.array([0.08]), numpy.array([0.9]), numpy.array([0.06])
     aAI = actionAngleStaeckelInverse(
-        pot=MWPotential2014, delta=0.45, u0="torus", jrs=jr, Lzs=Lz, jzs=jz,
+        pot=MWPotential2014, delta=0.45, u0=u0, jrs=jr, Lzs=Lz, jzs=jz,
         mm_npt=64, progressbar=False,
     )  # fmt: skip
     x0 = numpy.array([q[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:5]])
