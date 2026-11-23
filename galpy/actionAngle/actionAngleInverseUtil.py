@@ -248,6 +248,31 @@ def _safeguarded_newton(f, lo, hi, rtol, maxiter=100, x0=None, args=()):
     return x.reshape(shape)
 
 
+def _newton_system(fjac, x0, tol, maxiter=8):
+    """Solutions of independent systems of m equations in m unknowns, one
+    per column of x0 (m, n), by Newton's method with the Jacobian in closed
+    form: fjac(x, idx) returns, for the iterates x (m, k) of the systems
+    idx, the residuals target - function (m, k), the Jacobians of the
+    function (k, m, m), and which of the iterates are valid (k booleans; an
+    invalid system is given up). A system leaves the iteration, and is no
+    longer evaluated, once its largest residual is below tol, so that fjac
+    is last called for a solved system at its solution. Returns the
+    iterates and which of the systems are solved"""
+    x = numpy.array(x0, dtype="float")
+    solved = numpy.zeros(x.shape[1], dtype="bool")
+    active = numpy.flatnonzero(numpy.all(numpy.isfinite(x), axis=0))
+    for _ in range(maxiter + 1):
+        if active.size == 0:
+            break
+        res, jac, valid = fjac(x[:, active], active)
+        conv = valid & (numpy.amax(numpy.fabs(res), axis=0) < tol)
+        solved[active[conv]] = True
+        go = valid & ~conv
+        active = active[go]
+        x[:, active] += numpy.linalg.solve(jac[go], res.T[go][:, :, None])[:, :, 0].T
+    return x, solved
+
+
 def _sine_series(N, Dm, ms):
     """The sine series sum_m D_m sin(m tau_k) over the harmonics ms and its
     derivative sum_m m D_m cos(m tau_k) on the regular offset grid tau_k =
