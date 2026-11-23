@@ -965,7 +965,8 @@ class actionAngleStaeckel(actionAngle):
                 "inverse= currently supports instances with either a single "
                 "reference curve or u0='torus'"
             )
-        self._model = aAI._adaptive
+        # (the rule of the reference curve, as the C code numbers them)
+        self._model = 2 * aAI._adaptive
         kwargs = dict(kwargs)
         kwargs["pot"] = aAI._chart_pot if aAI._adaptive else aAI._staeckelwrap
         kwargs["delta"] = aAI._delta
@@ -1045,8 +1046,9 @@ class actionAngleStaeckel(actionAngle):
         curve that follows the tori depends on the torus's energy and third
         integral in its own model, which depend on the reference curve: a
         fixed point, found by iterating the rule on the turning points in
-        the current model (in C or, with c False, in Python), with Aitken's
-        acceleration"""
+        the current model with Aitken's acceleration: by the C code itself
+        (which is then handed nan to start from the point's own u) or, with
+        c False, here"""
         aAI = self._inverse
         delta = aAI._delta
         if not self._model:
@@ -1061,18 +1063,15 @@ class actionAngleStaeckel(actionAngle):
 
         def rule(idx, u0, delta=delta):
             x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
-            if c:
-                um, up = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
-                    pot, delta, *x, u0=u0, model=True
-                )[:2]
-            else:
-                um, up = _staeckel_prep(*x, pot, delta, u0=u0)[1:3]
+            um, up = _staeckel_prep(*x, pot, delta, u0=u0)[1:3]
             sm, sp = numpy.sinh(um), numpy.sinh(up)
             return numpy.arcsinh(2.0 * sm * sp / (sm + sp))
 
         idx = numpy.arange(len(R))
         if aAI._delta_rule is not None:
             return self._inverse_model_delta(rule, R, vR, vT, z, vz, pot, c)
+        if c:
+            return delta, numpy.full(len(R), numpy.nan), None
         u0 = rule(idx, numpy.arcsinh(R / delta))
         for _ in range(_MODEL_MAXITER):
             u1 = rule(idx, u0[idx])
@@ -1100,12 +1099,14 @@ class actionAngleStaeckel(actionAngle):
 
         def step(idx, u0, delta):
             x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
-            u0 = rule(idx, u0, delta)
             if c:
+                # (the C code moves u0 to the fixed point at this delta)
+                u0 = numpy.array(u0, dtype="float64", order="C")
                 jr, jz = actionAngleStaeckel_c.actionAngleStaeckel_c(
-                    pot, delta, *x, u0=u0, order=self._order, model=True
+                    pot, delta, *x, u0=u0, order=self._order, model=self._model
                 )[:2]
             else:
+                u0 = rule(idx, u0, delta)
                 jr, _, jz = _staeckel_actions(*x, pot, delta, self._order, u0=u0)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", galpyWarning)
@@ -1348,7 +1349,7 @@ class actionAngleStaeckel(actionAngle):
                 jr, jz, Omegar, Omegaphi, Omegaz, _, _, _, err = (
                     actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
                         self._pot, delta, R, vR, vT, z, vz, 0.0 * R,
-                        u0=u0, order=order, model=2, ddelta=ddelta,
+                        u0=u0, order=order, model=self._model, ddelta=ddelta,
                     )
                 )  # fmt: skip
             else:
@@ -1540,7 +1541,7 @@ class actionAngleStaeckel(actionAngle):
                 phi,
                 u0=u0,
                 order=order,
-                model=2 * self._model,
+                model=self._model,
                 ddelta=ddelta,
             )
             # Adjustments for close-to-circular orbits
