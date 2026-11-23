@@ -142,7 +142,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAngles(int,double *,double *,double 
 					    int,int *,double *,tfuncs_type_arr,
 					    int,double *,int,int,double *,double *,
 					    double *,double *,double *,
-					    double *,double *,double *,double *,double *,
+					    double *,double *,double *,double *,int,double *,
 					    int *);
 EXPORT void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,tfuncs_type_arr,
@@ -154,7 +154,7 @@ void calcAnglesStaeckel(int,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
 			double *,int,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
-			int,struct potentialArg *,int,int,double *,double *);
+			int,struct potentialArg *,int,int,double *,double *,int);
 void calcFreqsFromDerivsStaeckel(int,double *,double *,double *,
 				 double *,double *,double *,
 				 double *,double *,double *,double *);
@@ -1477,6 +1477,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 					    double *Anglephi,
 					    double *Anglez,
 					    double * ddelta,
+					    int nddelta,
 					    double * du0,
 					    int * err){
   int ii;
@@ -1624,7 +1625,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 		     potu0v0,
 		     vmin,I3V,cosh2u0,potupi2,
 		     npot,actionAngleArgs,order,model >= 2 ? model : 0,
-		     model == 4 ? du0 : uplanar,ddelta);
+		     model == 4 ? du0 : uplanar,ddelta,nddelta);
   //Free
   free(uplanar);
   free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
@@ -1985,7 +1986,8 @@ void calcAnglesStaeckel(int ndata,
 			int order,
 			int torus,
 			double * uplanar,
-			double * ddelta){
+			double * ddelta,
+			int nddelta){
   int ii, tid, nthreads;
   double Or1, Or2, I3r1, I3r2,phitmp;
   double mid, midpoint;
@@ -2354,6 +2356,22 @@ void calcAnglesStaeckel(int ndata,
 	dEdD= - ( *(Omegar+ii) * dJRdD + *(Omegaz+ii) * dJzdD );
 	dI3dD= - ( *(dI3dJR+ii) * dJRdD + *(dI3dJz+ii) * dJzdD );
 	feed= r[0] * dEdD + r[1] * dI3dD + r[3];
+	if ( nddelta == 4 ) {
+	  // ddelta holds the partials of the focal length's rule with respect
+	  // to (E, I_3, L_z, delta) instead: its derivatives in the actions
+	  // are those of the fixed point of the two rules along the family,
+	  // on which the energy and the third integral move with the actions
+	  // and with both parameters of the model (a linear system in the
+	  // derivatives of the focal length and the reference curve)
+	  double mdu= dD[0] * dEdu0 - dD[1] * *(dI3dJz+ii) * dJzdu0;
+	  double det= norm * ( 1. - dD[0] * dEdD - dD[1] * dI3dD
+			       - *(ddelta+3*ndata+ii) ) - feed * mdu;
+	  double adl[3]= {dD[0] * *(Omegar+ii) + dD[1] * *(dI3dJR+ii),
+			  dD[0] * *(Omegaphi+ii) + dD[1] * *(dI3dLz+ii) + dD[2],
+			  dD[0] * *(Omegaz+ii) + dD[1] * *(dI3dJz+ii)};
+	  for (jj=0; jj < 3; jj++)
+	    dD[jj]= ( norm * adl[jj] + mdu * du0[jj] ) / det;
+	}
 	for (jj=0; jj < 3; jj++) du0[jj]+= feed * dD[jj];
 	*(Angler+ii)+= KD * dD[0];
 	*(Anglephi+ii)+= KD * dD[1];

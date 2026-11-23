@@ -15716,11 +15716,11 @@ def test_actionAngleStaeckel_inverse_deltafit():
     # a single focal length does not give the family's frequencies
     own = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
     assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-3
-    # a point off the grid has the model of the rule's smooth extension, but
-    # none of the family's derivatives of the focal length; a point outside
-    # the grid's range of L_z has no model (checked on the vertical action:
-    # the C code's radial action without a model is nan or zero depending on
-    # the platform)
+    # a point off the grid has the model of the rule's smooth extension, in
+    # which it has actions, frequencies, and angles like any other; a point
+    # outside the grid's range of L_z has no model (checked on the vertical
+    # action: the C code's radial action without a model is nan or zero
+    # depending on the platform)
     one = numpy.ones(3)
     far = (one, 0.1 * one, numpy.array([1.0, 1.0, 1.6]), 0.1 * one)
     far += (numpy.array([0.9, 0.01, 0.01]),)
@@ -15728,9 +15728,12 @@ def test_actionAngleStaeckel_inverse_deltafit():
     assert numpy.all(numpy.isfinite(out[:3, :2])) and numpy.isnan(out[2, 2]), (
         "actionAngleStaeckel(inverse=) does not return nan outside a family's L_z"
     )
-    assert not numpy.all(numpy.isfinite(out[3:, 0])) and numpy.all(
-        numpy.isfinite(out[3:, 1])
-    ), "actionAngleStaeckel(inverse=) does not return nan frequencies off a family"
+    assert numpy.all(numpy.isfinite(out[3:, :2])) and numpy.allclose(
+        numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))[:, :2],
+        out[:, :2],
+        rtol=0.0,
+        atol=1e-7,
+    ), "actionAngleStaeckel(inverse=) does not transform a point off a family's grid"
     assert numpy.allclose(numpy.array(aAS(*far))[:, :2], out[:3, :2], atol=1e-8)
     # a family with a callable rule: the rule itself where the family has
     # it, and the family's table of it for a pickled family, which does not
@@ -15743,11 +15746,31 @@ def test_actionAngleStaeckel_inverse_deltafit():
     )
     jr, jz = numpy.array([cbI._A_tab[n][:2] for n in nodes]).T
     x = cbI(jr, Lz, jz, *angs)
+    freqs = numpy.array(cbI.Freqs(jr, Lz, jz))
     for fam in (cbI, pickle.loads(pickle.dumps(cbI))):
-        out = numpy.array(actionAngleStaeckel(inverse=fam, order=20)(*x[:5]))
-        assert numpy.amax(numpy.fabs(out - numpy.array([jr, Lz, jz]))) < 1e-7, (
+        out = numpy.array(
+            actionAngleStaeckel(inverse=fam, order=20).actionsFreqsAngles(*x)
+        )
+        dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-7, (
             "actionAngleStaeckel(inverse=) does not return the actions of a "
             "family with a callable delta="
+        )
+        assert (
+            numpy.amax(numpy.fabs(out[3:6] - freqs)) < 1e-7
+            and numpy.amax(numpy.fabs(dang)) < 1e-7
+        ), (
+            "actionAngleStaeckel(inverse=) does not return the frequencies and "
+            "angles of a family with a callable delta="
+        )
+        assert numpy.allclose(
+            numpy.array(actionAngleStaeckel(inverse=fam, order=20)(*x[:5], c=False)),
+            out[:3],
+            rtol=0.0,
+            atol=1e-8,
+        ), (
+            "actionAngleStaeckel(inverse=) in Python does not return the actions "
+            "of the C code for a family with a callable delta="
         )
     return None
 
