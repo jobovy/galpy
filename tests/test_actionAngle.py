@@ -12725,6 +12725,7 @@ def test_actionAngleStaeckelInverse_nonfinite_tables():
     # and its set-up says which tori: here the potential's forces are not
     # finite above |z| = 1.2, which the most inclined tori of the grid reach
     from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import get_namespace
     from galpy.potential import LogarithmicHaloPotential, Potential
 
     class Holed(Potential):
@@ -12733,7 +12734,10 @@ def test_actionAngleStaeckelInverse_nonfinite_tables():
             self._lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
 
         def _hole(self, z):
-            return numpy.where(numpy.fabs(z) > 1.2, numpy.nan, 1.0)
+            # (in the namespace of z: the family is built on a forced backend)
+            xp = get_namespace(z)
+            z = xp.asarray(z)
+            return xp.where(xp.abs(z) > 1.2, numpy.nan, 1.0)
 
         def _evaluate(self, R, z, phi=0.0, t=0.0):
             return self._lp(R, z, use_physical=False)

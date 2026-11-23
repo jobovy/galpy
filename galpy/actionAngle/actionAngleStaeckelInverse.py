@@ -4377,15 +4377,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._V_tab, self._V_dwE, self._V_dsv, self._V_dL = V_tab, V_dwE, V_dsv, V_dL
         self._warn_unresolved(perr_u.flatten(), self._Es, self._Lzs, self._I3s, "u")
         self._warn_unresolved(perr_v.flatten(), self._Es, self._Lzs, self._I3s, "v")
-        # a torus whose tables are not finite (its maps so far from
-        # converged, or the potential's forces so ill-behaved along it,
-        # that its slopes are not) cannot be interpolated: say which
+        self._check_finite_tables(
+            (A_tab, A_dx, A_dy, A_dL, U_tab, U_dwE, U_dsu, U_dL)
+            + (V_tab, V_dwE, V_dsv, V_dL),
+            self._Es,
+            self._Lzs,
+            self._I3s,
+        )
+        self._rebuild_interp()
+        return None
+
+    @staticmethod
+    def _check_finite_tables(tabs, Es, Lzs, I3s):
+        """A torus whose tables are not finite (its maps so far from
+        converged, or the potential's forces so ill-behaved along it, that
+        its slopes are not) cannot be interpolated: say which (tables with
+        the tori's axes first, in the order of Es, Lzs and I3s)"""
         bad = ~numpy.all(
-            [
-                numpy.isfinite(t).reshape(len(self._Es), -1).all(axis=1)
-                for t in (A_tab, A_dx, A_dy, A_dL, U_tab, U_dwE, U_dsu, U_dL)
-                + (V_tab, V_dwE, V_dsv, V_dL)
-            ],
+            [numpy.isfinite(t).reshape(len(Es), -1).all(axis=1) for t in tabs],
             axis=0,
         )
         if numpy.any(bad):
@@ -4397,14 +4406,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 "them; or keep the grid away from them".format(
                     ", ".join(
                         f"({E:g}, {Lz:g}, {I3:g})"
-                        for E, Lz, I3 in zip(
-                            self._Es[bad], self._Lzs[bad], self._I3s[bad]
-                        )
+                        for E, Lz, I3 in zip(Es[bad], Lzs[bad], I3s[bad])
                     )
                 )
             )
-        self._rebuild_interp()
-        return None
 
     def _rebuild_interp(self):
         """(Re)build the interpolants from the stored tables: Hermite
@@ -7086,6 +7091,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Esn, Lzn, I3n = tonp(Es), tonp(Lzs), tonp(I3s)
             self._warn_unresolved(perr_u, Esn, Lzn, I3n, "u")
             self._warn_unresolved(perr_v, Esn, Lzn, I3n, "v")
+            if self._interp:
+                self._check_finite_tables(
+                    (self._A_tab, self._A_dx, self._A_dy, self._A_dL)
+                    + (self._U_tab, self._U_dwE, self._U_dsu, self._U_dL)
+                    + (self._V_tab, self._V_dwE, self._V_dsv, self._V_dL),
+                    Esn,
+                    Lzn,
+                    I3n,
+                )
             self._Es, self._Lzs, self._I3s = Esn, Lzn, I3n
             self._perr_u_tab = perr_u.reshape(grid["shape"])
             self._perr_v_tab = perr_v.reshape(grid["shape"])
