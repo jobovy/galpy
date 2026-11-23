@@ -37,6 +37,7 @@ from ..backend import (
     use,
 )
 from ..backend._namespaces import (
+    as_numpy_constant,
     host_copy,
     namespace_from_arrays,
     requires_backend_grad,
@@ -4628,29 +4629,39 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         - For an interpolating instance (setup_interp=True), the tori with |L_z| inside the angular-momentum grid whose (J_R, J_z) the family covers at that |L_z|; for an instance set up with explicit tori, those tori. An array evaluation raises when any of its tori lies outside, so use this to select the tori of a sample beforehand.
         - 2026-11-16 - Written - Bovy (UofT)
         """
+        # (decided on the host: the actions' values, whatever their backend)
         jr, Lz, jz = numpy.broadcast_arrays(
-            *(numpy.asarray(t, dtype="float") for t in (jr, jphi, jz))
+            *(
+                numpy.asarray(as_numpy_constant(t), dtype="float")
+                for t in (jr, jphi, jz)
+            )
         )
         shape = jr.shape
         jr, Lz, jz = jr.ravel(), Lz.ravel(), jz.ravel()
         out = numpy.zeros(len(jr), dtype="bool")
         valid = (jr >= 0.0) & (jz >= 0.0) & (Lz != 0.0)
         # the tori with both librations of a family are located in one
-        # vectorized pass, the others one by one
+        # vectorized pass, the others one by one; a numpy family on numpy,
+        # whatever backend is forced
         many = valid & (jr > 0.0) & (jz > 0.0) & self._interp
         if numpy.any(many):
-            out[many] = self._locate_tori(jr[many], jz[many], Lz[many])[3]
+            with use("numpy", force=True):
+                out[many] = self._locate_tori(jr[many], jz[many], Lz[many])[3]
         for ii in numpy.flatnonzero(valid & ~many):
             try:
-                if jr[ii] == 0.0 and jz[ii] == 0.0 and self._interp:
-                    self._check_Lz(numpy.fabs(Lz[ii]))
-                    self._check_circular()
-                elif self._bk is not None:
+                if self._bk is not None and not (
+                    jr[ii] == 0.0 and jz[ii] == 0.0 and self._interp
+                ):
                     # a family built on a backend looks its tori up there
                     xp = self._bk["xp"]
                     self._bk_tables(xp, *self._bk_inputs(xp, jr[ii], jz[ii], Lz[ii])[1])
                 else:
-                    self._tables(jr[ii], jz[ii], Lz[ii])
+                    with use("numpy", force=True):
+                        if jr[ii] == 0.0 and jz[ii] == 0.0 and self._interp:
+                            self._check_Lz(numpy.fabs(Lz[ii]))
+                            self._check_circular()
+                        else:
+                            self._tables(jr[ii], jz[ii], Lz[ii])
                 out[ii] = True
             except ValueError:
                 pass
