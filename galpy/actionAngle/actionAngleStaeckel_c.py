@@ -958,6 +958,7 @@ def actionAngleFreqAngleStaeckel_c(
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_void_p,
+        ctypes.c_int,
         ctypes.c_void_p,
         ctypes.POINTER(ctypes.c_int),
     ]
@@ -990,12 +991,13 @@ def actionAngleFreqAngleStaeckel_c(
 
     if ddelta is not None:
         # the derivatives of each point's focal length with respect to
-        # (J_R, L_z, J_z), for the frequencies and angles of a family whose
-        # focal length follows its tori (model == 2)
+        # (J_R, L_z, J_z), or (four rows) the partials of its rule with
+        # respect to (E, I_3, L_z, delta), for the frequencies and angles
+        # of a family whose focal length follows its tori
         ddelta = numpy.require(ddelta, dtype=numpy.float64, requirements=["C"])
     if du0 is not None:
         # the partials of each point's reference curve with respect to
-        # (E, I_3, L_z, delta), for a rule that the caller evaluates
+        # (E, I_3, L_z, delta), for a callable rule, which the caller evaluates
         # (model == 4)
         du0 = numpy.require(du0, dtype=numpy.float64, requirements=["C"])
 
@@ -1025,6 +1027,7 @@ def actionAngleFreqAngleStaeckel_c(
         Anglephi,
         Anglez,
         None if ddelta is None else ddelta.ctypes.data_as(ctypes.c_void_p),
+        ctypes.c_int(0 if ddelta is None else len(ddelta)),
         None if du0 is None else du0.ctypes.data_as(ctypes.c_void_p),
         ctypes.byref(err),
     )
@@ -1055,7 +1058,7 @@ def actionAngleFreqAngleStaeckel_c(
 
 
 def actionAngleUminUmaxVminStaeckel_c(
-    pot, delta, R, vR, vT, z, vz, u0=None, model=False
+    pot, delta, R, vR, vT, z, vz, u0=None, model=False, dfit=None
 ):
     """
     Use C to calculate umin, umax, and vmin using the Staeckel approximation
@@ -1131,6 +1134,7 @@ def actionAngleUminUmaxVminStaeckel_c(
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
+        ctypes.c_void_p,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -1174,6 +1178,7 @@ def actionAngleUminUmaxVminStaeckel_c(
         ctypes.c_int(ndelta),
         delta,
         ctypes.c_int(model),
+        None if dfit is None else dfit.ctypes.data_as(ctypes.c_void_p),
         umin,
         umax,
         vmin,

@@ -146,7 +146,7 @@ EXPORT void calcu0(int,double *,double *,int,int *,double *,tfuncs_type_arr,
        int,double*,double *,int *);
 EXPORT void actionAngleStaeckel_uminUmaxVmin(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,tfuncs_type_arr,
-				      int,double *,int,double *,
+				      int,double *,int,double *,double *,
 				      double *,double *,int *);
 EXPORT void actionAngleStaeckel_actions(int,double *,double *,double *,double *,
 				 double *,double *,int,int *,double *,tfuncs_type_arr,int,
@@ -156,7 +156,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAngles(int,double *,double *,double 
 					    int,int *,double *,tfuncs_type_arr,
 					    int,double *,int,int,double *,double *,
 					    double *,double *,double *,
-					    double *,double *,double *,double *,double *,
+					    double *,double *,double *,double *,int,double *,
 					    int *);
 EXPORT void actionAngleStaeckel_actionsFreqs(int,double *,double *,double *,double *,
 				      double *,double *,int,int *,double *,tfuncs_type_arr,
@@ -174,7 +174,7 @@ void calcAnglesStaeckel(int,double *,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
 			double *,int,double *,double *,double *,double *,
 			double *,double *,double *,double *,double *,double *,
-			int,struct potentialArg *,int,int,double *,double *);
+			int,struct potentialArg *,int,int,double *,double *,int);
 void calcFreqsFromDerivsStaeckel(int,double *,double *,double *,
 				 double *,double *,double *,
 				 double *,double *,double *,double *);
@@ -366,11 +366,51 @@ static inline void calcEModel(int ndata,
       + 0.5 * *(vz+ii) * *(vz+ii);
   }
 }
+// (the arguments of the functions whose roots the rules need)
+struct modelRootArg{
+  double E;
+  double Lz22delta;
+  double delta;
+  int nargs;
+  struct potentialArg * actionAngleArgs;
+};
+static double modelRootdSudu(double u,void * p){
+  struct modelRootArg * a= (struct modelRootArg *) p;
+  return dSuduStaeckel(u,a->E,a->Lz22delta,a->delta,0.5 * M_PI,1.,
+		       a->nargs,a->actionAngleArgs);
+}
+static double modelRootPhi(double R,void * p){
+  struct modelRootArg * a= (struct modelRootArg *) p;
+  return evaluatePotentials(R,0.,a->nargs,a->actionAngleArgs) - a->E;
+}
+// The root of f between a and b, where it changes sign (else their middle):
+// the false position with the Illinois modification
+static double modelRoot(double (*f)(double,void *),void * p,
+			double a,double b){
+  int it;
+  double fa= f(a,p), fb= f(b,p), c, fc;
+  if ( ! ( fa * fb < 0. ) ) return 0.5 * ( a + b );
+  for (it=0; it < 100; it++){
+    c= ( fa * b - fb * a ) / ( fa - fb );
+    fc= f(c,p);
+    if ( fc * fb < 0. ){
+      a= b;
+      fa= fb;
+    }
+    else fa*= 0.5;
+    b= c;
+    fb= fc;
+    if ( fc == 0. || fabs(b - a) <= 1.e-13 * fabs(b) ) break;
+  }
+  return b;
+}
 // The reference curve of the Staeckel model of the torus through each
 // point, for a curve that follows the tori (actionAngleStaeckelInverse):
 // rule 2, u0='torus', delta sinh(u0) = 2 / (1/R_- + 1/R_+) at the turning
 // points of the torus's u libration; rule 3, u0='planar', the same at those
-// of the planar orbit of the torus's energy and angular momentum. The
+// of the planar orbit of the torus's energy and angular momentum; rule 5,
+// u0='shell', the u of the shell orbit of that energy and angular momentum,
+// where p_u^2 is largest between the torus's turning points. The
 // energy and the third integral of a point are those in its model, which
 // depend on u0: one application of the rule at the current u0. With warm,
 // the turning points are those handed in moved to the current model by
@@ -391,7 +431,8 @@ static void modelRuleu0(int ndata,
 			double * delta,
 			int rule,
 			int nargs,
-			struct potentialArg * actionAngleArgs){
+			struct potentialArg * actionAngleArgs,
+			double ** keep){
   int ii, jj, kk, nfull= 0;
   double tdelta, shux, pux, sm, sp, x, dx, Lz22delta;
   int delta_stride= ndelta == 1 ? 0 : 1;
@@ -473,22 +514,37 @@ static void modelRuleu0(int ndata,
     free(sub);
     free(smax);
   }
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii,sm,sp)
   for (ii=0; ii < ndata; ii++){
+    if ( rule == 5 ){
+      struct modelRootArg arg;
+      arg.E= *(E+ii);
+      arg.delta= *(delta+ii*delta_stride);
+      arg.Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / arg.delta / arg.delta;
+      arg.nargs= nargs;
+      arg.actionAngleArgs= AA_TARGS(actionAngleArgs,nargs);
+      *(u0new+ii)= modelRoot(&modelRootdSudu,&arg,*(umin+ii),*(umax+ii));
+      continue;
+    }
     sm= sinh(*(umin+ii));
     sp= sinh(*(umax+ii));
     *(u0new+ii)= asinh(2. * sm * sp / ( sm + sp ));
   }
-  free(work);
+  // (kept for the caller, who frees it: E, L_z, u, v, I3U, sinh^2 u0, ...)
+  if ( keep ) *keep= work;
+  else free(work);
   free(full);
 }
 // The fixed point of that rule for each point, by iterating it with
 // Aitken's acceleration until the distance left (that of the geometric
 // series of the remaining steps, at the rate of the last two) is below
 // MODEL_TOL: from the u0 handed in where that is finite, else from the
-// point's own u
+// point's own u. With tmin and tmax, the turning points of the last
+// application are handed back in them, and with warm those handed in are
+// where the first application starts from
 #define MODEL_TOL 1.e-9
 #define MODEL_MAXITER 10
-#define MODEL_NWORK 12
+#define MODEL_NWORK 14
 static void calcModelu0(int ndata,
 			double *R,
 			double *vR,
@@ -500,7 +556,10 @@ static void calcModelu0(int ndata,
 			double * delta,
 			int rule,
 			int nargs,
-			struct potentialArg * actionAngleArgs){
+			struct potentialArg * actionAngleArgs,
+			double *tmin,
+			double *tmax,
+			int warm){
   int ii, jj, kk, iter, n= ndata, m;
   double d1, d2, den, acc;
   int delta_stride= ndelta == 1 ? 0 : 1;
@@ -519,12 +578,21 @@ static void calcModelu0(int ndata,
     *(c0+ii)= isfinite(*(u0+ii)) ? *(u0+ii)
       : asinh(*(R+ii) / *(cdelta+ii));
     *(rate+ii)= 0.9;
+    if ( tmin ){
+      *(cmin+ii)= *(tmin+ii);
+      *(cmax+ii)= *(tmax+ii);
+    }
   }
   for (iter=0; iter < MODEL_MAXITER && n > 0; iter++){
     modelRuleu0(n,work,work+ndata,work+2*ndata,work+3*ndata,work+4*ndata,
-		c0,c1,cmin,cmax,iter > 0,n,cdelta,rule,nargs,actionAngleArgs);
+		c0,c1,cmin,cmax,iter > 0 || warm,n,cdelta,rule,nargs,
+		actionAngleArgs,NULL);
     // done where this step alone leaves less than the tolerance
     for (kk=0, m=0; kk < n; kk++){
+      if ( tmin ){
+	*(tmin+*(idx+kk))= *(cmin+kk);
+	*(tmax+*(idx+kk))= *(cmax+kk);
+      }
       d1= fabs(*(c1+kk) - *(c0+kk));
       if ( ! isfinite(d1)
 	   || d1 * *(rate+kk) / ( 1. - *(rate+kk) ) <= MODEL_TOL )
@@ -538,8 +606,12 @@ static void calcModelu0(int ndata,
     n= m;
     if ( n == 0 ) break;
     modelRuleu0(n,work,work+ndata,work+2*ndata,work+3*ndata,work+4*ndata,
-		c1,c2,cmin,cmax,1,n,cdelta,rule,nargs,actionAngleArgs);
+		c1,c2,cmin,cmax,1,n,cdelta,rule,nargs,actionAngleArgs,NULL);
     for (kk=0, m=0; kk < n; kk++){
+      if ( tmin ){
+	*(tmin+*(idx+kk))= *(cmin+kk);
+	*(tmax+*(idx+kk))= *(cmax+kk);
+      }
       d1= fabs(*(c1+kk) - *(c0+kk));
       d2= fabs(*(c2+kk) - *(c1+kk));
       *(rate+kk)= d2 / ( d1 > 0. ? d1 : 1. );
@@ -554,6 +626,202 @@ static void calcModelu0(int ndata,
 	for (jj=0; jj < MODEL_NWORK; jj++)
 	  *(work+jj*ndata+m)= *(work+jj*ndata+kk);
 	*(idx+m++)= *(idx+kk);
+      }
+    }
+    n= m;
+  }
+  free(idx);
+  free(work);
+}
+// For a family whose focal length follows its tori by the fitted rule
+// (delta='fit' of actionAngleStaeckelInverse): the focal length of the torus
+// through each point is that rule at the torus's energy, angular momentum,
+// and fraction f of the way of its third integral from the planar to the
+// shell orbit's, all in its own model. dfit holds the rule: the degrees of
+// its tensor polynomial in (x, f, lam), the limits b0, b1 and their width m,
+// ln of the smallest |L_z| of the family's grid and the grid's span in ln
+// |L_z|, the polynomial's coefficients, and for each point the two
+// apocentres R0c and R0m between which the grid's energy variable x runs
+// (those of the nearest |L_z| of the grid outside its range)
+// One application of the rule in the models (delta, u0) of the points: the
+// reference curve moves to its fixed point at these focal lengths
+// (calcModelu0), and the rule gives the new focal lengths
+static void modelRuleDelta(int ndata,
+			   double *R,
+			   double *vR,
+			   double *vT,
+			   double *z,
+			   double *vz,
+			   double *u0,
+			   double *delta,
+			   double *dnew,
+			   double *R0c,
+			   double *R0m,
+			   double *tmin,
+			   double *tmax,
+			   int warm,
+			   double *dfit,
+			   int rule,
+			   int nargs,
+			   struct potentialArg * actionAngleArgs){
+  int ii, i1, i2, i3;
+  int n1= (int) *dfit, n2= (int) *(dfit+1), n3= (int) *(dfit+2);
+  double b0= *(dfit+3), b1= *(dfit+4), m= *(dfit+5);
+  double *coef= dfit + 8;
+  double td, E, Lz22, shux, snvx, pux, pvx, I3U, ush, above, below, f, x, lam;
+  double P, Pj, Pk, t;
+  double *work;
+  double *unew= (double *) malloc ( ndata * sizeof(double) );
+  // (tmin and tmax: the turning points of the previous application, from
+  // which those of this one are found when warm)
+  calcModelu0(ndata,R,vR,vT,z,vz,u0,ndata,delta,rule,nargs,actionAngleArgs,
+	      tmin,tmax,warm);
+  // (the energies, the coordinates, and turning points that bracket the
+  // shell orbit's u: the torus's own or its planar orbit's)
+  modelRuleu0(ndata,R,vR,vT,z,vz,u0,unew,tmin,tmax,1,ndata,delta,
+	      rule,nargs,actionAngleArgs,&work);
+#ifdef _OPENMP
+  int nthreads= ndata < omp_get_max_threads() ? ndata : omp_get_max_threads();
+#endif
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for num_threads(nthreads) schedule(static,chunk) private(ii,i1,i2,i3,td,E,Lz22,shux,snvx,pux,pvx,I3U,ush,above,below,f,x,lam,P,Pj,Pk,t)
+  for (ii=0; ii < ndata; ii++){
+    struct potentialArg * targs= AA_TARGS(actionAngleArgs,nargs);
+    struct modelRootArg arg;
+    double ux= *(work+2*ndata+ii), vx= *(work+3*ndata+ii);
+    double sinh2u0= *(work+5*ndata+ii), potu0v0= *(work+8*ndata+ii);
+    td= *(delta+ii);
+    E= *(work+ii);
+    Lz22= 0.5 * *(work+ndata+ii) * *(work+ndata+ii) / td / td;
+    shux= sinh(ux);
+    snvx= sin(vx);
+    pux= td * ( *(vR+ii) * cosh(ux) * snvx + *(vz+ii) * shux * cos(vx) );
+    pvx= td * ( *(vR+ii) * shux * cos(vx) - *(vz+ii) * cosh(ux) * snvx );
+    // the torus's own third integral: below the shell orbit's by p_u^2 at
+    // the shell orbit's u, and above the planar orbit's (gauge V(pi/2) = 0)
+    I3U= E * shux * shux - 0.5 * pux * pux / td / td - Lz22 / shux / shux
+      - ( shux * shux + 1. )
+      * evaluatePotentialsUV(ux,0.5 * M_PI,td,nargs,targs)
+      + ( sinh2u0 + 1. ) * potu0v0;
+    arg.E= E;
+    arg.Lz22delta= Lz22;
+    arg.delta= td;
+    arg.nargs= nargs;
+    arg.actionAngleArgs= targs;
+    ush= modelRoot(&modelRootdSudu,&arg,*(tmin+ii),*(tmax+ii));
+    above= SuTermsStaeckel(ush,E,I3U,Lz22,td,0.5 * M_PI,1.,sinh2u0,potu0v0,
+			   nargs,targs);
+    below= - E * snvx * snvx + 0.5 * pvx * pvx / td / td + Lz22 / snvx / snvx
+      - ( sinh2u0 + 1. ) * potu0v0
+      + ( sinh2u0 + snvx * snvx )
+      * evaluatePotentialsUV(*(u0+ii),vx,td,nargs,targs)
+      - Lz22 + E;
+    // (a circular orbit has no fraction)
+    f= below + above > 0. ? below / ( below + above ) : 0.5;
+    f= f < 0. ? 0. : ( f > 1. ? 1. : f );
+    x= log(modelRoot(&modelRootPhi,&arg,0.01 * *(R0c+ii),10. * *(R0m+ii))
+	   / *(R0c+ii)) / log(*(R0m+ii) / *(R0c+ii));
+    lam= ( log(fabs(*(work+ndata+ii))) - *(dfit+6) ) / *(dfit+7);
+    // (beyond the grid's range of energy or of |L_z|, the rule is held at
+    // its value at the edge of the range)
+    x= x < 0. ? 0. : ( x > 1. ? 1. : x );
+    lam= lam < 0. ? 0. : ( lam > 1. ? 1. : lam );
+    for (i1=n1, P=0.; i1 >= 0; i1--){
+      for (i2=n2, Pj=0.; i2 >= 0; i2--){
+	for (i3=n3, Pk=0.; i3 >= 0; i3--)
+	  Pk= Pk * lam + *(coef + ( i1 * ( n2 + 1 ) + i2 ) * ( n3 + 1 ) + i3);
+	Pj= Pj * f + Pk;
+      }
+      P= P * x + Pj;
+    }
+    // limited softly to [b0, b1]
+    t= ( P - b1 ) / m;
+    lam= ( b0 - P ) / m;
+    P+= m * ( ( lam > 30. ? lam : log1p(exp(lam)) )
+	      - ( t > 30. ? t : log1p(exp(t)) ) );
+    *(dnew+ii)= exp(P);
+  }
+  free(work);
+  free(unew);
+}
+// The fixed point of that rule for each point, as calcModelu0 finds that of
+// the reference curve: the focal lengths and reference curves are written
+// to delta and u0 (nan for points without a model)
+#define MODEL_DSTEP(a,b,w) modelRuleDelta(n,work,work+ndata,work+2*ndata,\
+  work+3*ndata,work+4*ndata,cu0,a,b,work+5*ndata,work+6*ndata,tmin,tmax,w,\
+  dfit,rule,nargs,actionAngleArgs)
+// (a point leaves with the focal length d; keep moves a kept one down)
+#define MODEL_DOUT(d) *(delta+*(idx+kk))= d;\
+  *(u0+*(idx+kk))= isfinite(d) ? *(cu0+kk) : d
+#define MODEL_DKEEP for (jj=0; jj < MODEL_NWORK; jj++)\
+    *(work+jj*ndata+m)= *(work+jj*ndata+kk);\
+  *(idx+m++)= *(idx+kk)
+static void calcModelDelta(int ndata,
+			   double *R,
+			   double *vR,
+			   double *vT,
+			   double *z,
+			   double *vz,
+			   double *u0,
+			   double *delta,
+			   double *dfit,
+			   int rule,
+			   int nargs,
+			   struct potentialArg * actionAngleArgs){
+  int ii, jj, kk, iter, n= ndata, m;
+  double e1, e2, den, acc;
+  int nc= ( (int) *dfit + 1 ) * ( (int) *(dfit+1) + 1 ) * ( (int) *(dfit+2) + 1 );
+  double *edges= dfit + 8 + nc;
+  int *idx= (int *) malloc ( ndata * sizeof(int) );
+  // the points still iterated, compressed: (R,vR,vT,z,vz), the two
+  // apocentres, the reference curve, three iterates, the turning points,
+  // and the rate of convergence
+  double *work= (double *) malloc ( MODEL_NWORK * ndata * sizeof(double) );
+  double *in[7]= {R,vR,vT,z,vz,edges,edges+ndata};
+  double *cu0= work+7*ndata, *d0= work+8*ndata, *d1= work+9*ndata;
+  double *d2= work+10*ndata, *tmin= work+11*ndata, *tmax= work+12*ndata;
+  double *rate= work+13*ndata;
+  for (ii=0; ii < ndata; ii++){
+    *(idx+ii)= ii;
+    for (jj=0; jj < 7; jj++) *(work+jj*ndata+ii)= *(in[jj]+ii);
+    *(cu0+ii)= *(u0+ii);
+    *(d1+ii)= *(delta+ii);
+    *(rate+ii)= 0.9;
+  }
+  // (the first application, from the focal length handed in)
+  MODEL_DSTEP(d1,d0,0);
+  for (kk=0, m=0; kk < n; kk++){
+    MODEL_DOUT(*(d0+kk));
+    if ( isfinite(*(d0+kk)) ){ MODEL_DKEEP; }
+  }
+  n= m;
+  for (iter=0; iter < MODEL_MAXITER && n > 0; iter++){
+    MODEL_DSTEP(d0,d1,1);
+    // done where this step alone leaves less than the tolerance
+    for (kk=0, m=0; kk < n; kk++){
+      e1= fabs(*(d1+kk) - *(d0+kk));
+      if ( ! isfinite(e1) ) continue;
+      MODEL_DOUT(*(d1+kk));
+      if ( e1 * *(rate+kk) / ( 1. - *(rate+kk) ) > MODEL_TOL * *(d1+kk) ){
+	MODEL_DKEEP;
+      }
+    }
+    n= m;
+    if ( n == 0 ) break;
+    MODEL_DSTEP(d1,d2,1);
+    for (kk=0, m=0; kk < n; kk++){
+      e1= fabs(*(d1+kk) - *(d0+kk));
+      e2= fabs(*(d2+kk) - *(d1+kk));
+      if ( ! isfinite(e2) ) continue;
+      *(rate+kk)= e2 / e1;
+      if ( ! ( *(rate+kk) < 0.9 ) ) *(rate+kk)= 0.9;
+      den= *(d2+kk) - 2. * *(d1+kk) + *(d0+kk);
+      acc= *(d2+kk) - ( *(d2+kk) - *(d1+kk) ) * ( *(d2+kk) - *(d1+kk) ) / den;
+      acc= ( den != 0. && isfinite(acc) ) ? acc : *(d2+kk);
+      MODEL_DOUT(acc);
+      if ( e2 * *(rate+kk) / ( 1. - *(rate+kk) ) > MODEL_TOL * *(d1+kk) ){
+	*(d0+kk)= acc;
+	MODEL_DKEEP;
       }
     }
     n= m;
@@ -647,6 +915,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
 				      int ndelta,
 				      double * delta,
 				      int model,
+				      double *dfit,
 				      double *umin,
 				      double *umax,
 				      double *vmin,
@@ -682,9 +951,14 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   //Calculate all necessary parameters
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
+  // (the focal length of each point's torus from the fitted rule)
+  if ( dfit )
+    calcModelDelta(ndata,R,vR,vT,z,vz,u0,delta,dfit,model,npot,
+		   actionAngleArgs);
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model == 2 || model == 3 )
-    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
+  if ( model == 2 || model == 3 || model == 5 )
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs,
+		NULL,NULL,0);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -813,8 +1087,9 @@ void actionAngleStaeckel_actions(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model == 2 || model == 3 )
-    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
+  if ( model == 2 || model == 3 || model == 5 )
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs,
+		NULL,NULL,0);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -1741,7 +2016,7 @@ EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
   calcAnglesStaeckel(ndata,Angler,Anglephi,Anglez,Or,Op,Oz,dI3dJR,dI3dJz,dI3dLz,
 		     djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3,ux,vx,pux,pvx,
 		     umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
-		     vmin,I3V,cosh2u0,potupi2,npot,aaArgs,order,0,NULL,NULL);
+		     vmin,I3V,cosh2u0,potupi2,npot,aaArgs,order,0,NULL,NULL,0);
   gsl_integration_glfixed_table * Tang= gsl_integration_glfixed_table_alloc(order);
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for num_threads(aa_nthreads) schedule(static,chunk) \
@@ -2250,6 +2525,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 					    double *Anglephi,
 					    double *Anglez,
 					    double * ddelta,
+					    int nddelta,
 					    double * du0,
 					    int * err){
   int ii;
@@ -2282,8 +2558,9 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double *ux= (double *) malloc ( ndata * sizeof(double) );
   double *vx= (double *) malloc ( ndata * sizeof(double) );
   Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
-  if ( model == 2 || model == 3 )
-    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs);
+  if ( model == 2 || model == 3 || model == 5 )
+    calcModelu0(ndata,R,vR,vT,z,vz,u0,ndelta,delta,model,npot,actionAngleArgs,
+		NULL,NULL,0);
   if ( model )
     calcEModel(ndata,vR,vT,vz,ux,vx,u0,ndelta,delta,E,npot,actionAngleArgs);
   double *coshux= (double *) malloc ( ndata * sizeof(double) );
@@ -2396,7 +2673,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 		     potu0v0,
 		     vmin,I3V,cosh2u0,potupi2,
 		     npot,actionAngleArgs,order,model >= 2 ? model : 0,
-		     model == 4 ? du0 : uplanar,ddelta);
+		     model == 4 ? du0 : uplanar,ddelta,nddelta);
   //Free
   free(uplanar);
   free_potentialArgs(aa_nthreads*npot,actionAngleArgs);
@@ -3061,7 +3338,8 @@ void calcAnglesStaeckel(int ndata,
 			int order,
 			int torus,
 			double * uplanar,
-			double * ddelta){
+			double * ddelta,
+			int nddelta){
   int ii, tid, nthreads;
   double Or1, Or2, I3r1, I3r2,phitmp;
   double mid, midpoint;
@@ -3341,6 +3619,30 @@ void calcAnglesStaeckel(int ndata,
       Rp= tdelta * sinh(uturn[1]);
       // (torus 4, a rule evaluated by the caller: its partials are handed in)
       for (jj=0; jj < 4 && torus == 4; jj++) r[jj]= *(uplanar+jj*ndata+ii);
+      if ( torus == 5 ){
+	// u0='shell': the level-set rule on d S_u / du = 0 at the shell
+	// orbit's u, S_u = E sinh^2 u - cosh^2 u Phi(delta sinh u,0) - L_z^2
+	// / (2 delta^2 sinh^2 u) (with the potential's second radial
+	// derivative, which the C potentials provide; an interpRZPotential
+	// only when it interpolates it)
+	double sh= sinh(*(u0+ii)), ch= cosh(*(u0+ii)), Rs= tdelta * sh;
+	double L2= *(Lz+ii) * *(Lz+ii) / tdelta / tdelta;
+	double PhiR= -calcRforce(Rs,0.,0.,0.,nargs,
+				 actionAngleArgs + tid * nargs);
+	double PhiRR= calcR2deriv(Rs,0.,0.,0.,nargs,
+				  actionAngleArgs + tid * nargs);
+	double Suu= 2. * cosh(2. * *(u0+ii))
+	  * ( *(E+ii) - evaluatePotentials(Rs,0.,nargs,
+					   actionAngleArgs + tid * nargs) )
+	  - 5. * tdelta * sh * ch * ch * PhiR
+	  - tdelta * tdelta * ch * ch * ch * ch * PhiRR
+	  + L2 * ( sh * sh - 3. * ch * ch ) / sh / sh / sh / sh;
+	r[0]= -sinh(2. * *(u0+ii)) / Suu;
+	r[2]= -2. * *(Lz+ii) / tdelta / tdelta * ch / sh / sh / sh / Suu;
+	r[3]= ( ( 2. * sh * sh * ch + ch * ch * ch ) * PhiR
+		+ tdelta * ch * ch * ch * sh * PhiRR
+		+ 2. * L2 / tdelta * ch / sh / sh / sh ) / Suu;
+      }
       for (jj=0; jj < 2 && torus < 4; jj++){
 	sh2= sinh(uturn[jj]) * sinh(uturn[jj]);
 	chain= 2. * ( jj == 0 ? Rp * Rp : Rm * Rm ) / ( Rm + Rp ) / ( Rm + Rp )
@@ -3406,6 +3708,22 @@ void calcAnglesStaeckel(int ndata,
 	dEdD= - ( *(Omegar+ii) * dJRdD + *(Omegaz+ii) * dJzdD );
 	dI3dD= - ( *(dI3dJR+ii) * dJRdD + *(dI3dJz+ii) * dJzdD );
 	feed= r[0] * dEdD + r[1] * dI3dD + r[3];
+	if ( nddelta == 4 ) {
+	  // ddelta holds the partials of the focal length's rule with respect
+	  // to (E, I_3, L_z, delta) instead: its derivatives in the actions
+	  // are those of the fixed point of the two rules along the family,
+	  // on which the energy and the third integral move with the actions
+	  // and with both parameters of the model (a linear system in the
+	  // derivatives of the focal length and the reference curve)
+	  double mdu= dD[0] * dEdu0 - dD[1] * *(dI3dJz+ii) * dJzdu0;
+	  double det= norm * ( 1. - dD[0] * dEdD - dD[1] * dI3dD
+			       - *(ddelta+3*ndata+ii) ) - feed * mdu;
+	  double adl[3]= {dD[0] * *(Omegar+ii) + dD[1] * *(dI3dJR+ii),
+			  dD[0] * *(Omegaphi+ii) + dD[1] * *(dI3dLz+ii) + dD[2],
+			  dD[0] * *(Omegaz+ii) + dD[1] * *(dI3dJz+ii)};
+	  for (jj=0; jj < 3; jj++)
+	    dD[jj]= ( norm * adl[jj] + mdu * du0[jj] ) / det;
+	}
 	for (jj=0; jj < 3; jj++) du0[jj]+= feed * dD[jj];
 	*(Angler+ii)+= KD * dD[0];
 	*(Anglephi+ii)+= KD * dD[1];
