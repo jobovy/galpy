@@ -16528,7 +16528,7 @@ def test_actionAngleStaeckel_inverse_deltafit():
     # actions; at the family's grid nodes, where its map is not interpolated,
     # the actions, frequencies, and angles are those of its tori
     from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
-    from galpy.backend import use
+    from galpy.backend import name_of_namespace, resolve_namespace, use
     from galpy.potential import MWPotential2014
 
     # (built on numpy, as such families are; evaluated under the backend)
@@ -16556,7 +16556,9 @@ def test_actionAngleStaeckel_inverse_deltafit():
     angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(jr)))
     x = aAI(jr, Lz, jz, *angs)
     freqs = numpy.array(aAI.Freqs(jr, Lz, jz))
-    for c in (True, False):
+    # (on a backend, c=True runs the backend code that c=False runs)
+    on_numpy = name_of_namespace(resolve_namespace()) == "numpy"
+    for c in (True, False) if on_numpy else (True,):
         out = numpy.array(aAS.actionsFreqsAngles(*x, c=c))
         dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-7, (
