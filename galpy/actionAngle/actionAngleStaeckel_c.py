@@ -533,7 +533,7 @@ def actionAngleFreqAngleStaeckel_c(
         ddelta = numpy.require(ddelta, dtype=numpy.float64, requirements=["C"])
     if du0 is not None:
         # the partials of each point's reference curve with respect to
-        # (E, I_3, L_z, delta), for a rule that the caller evaluates
+        # (E, I_3, L_z, delta), for a callable rule, which the caller evaluates
         # (model == 4)
         du0 = numpy.require(du0, dtype=numpy.float64, requirements=["C"])
 
