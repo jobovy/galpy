@@ -199,7 +199,51 @@ at release.]
   astroquery knows (during CDS's outage of November 2026, the Harvard mirror
   could not be reached either).
 
-- [slot 20]
+- ``actionAngleStaeckelInverse.in_domain`` works under a forced PyTorch
+  backend on a GPU. It reads the actions' values on the host and, for a
+  family built on numpy, decides on numpy whatever backend is forced
+  (before, it raised for CUDA tensors and, on the CPU, ran its numpy checks
+  on forced-backend arrays).
+
+- [slot 21]
+
+- [slot 22]
+
+- [slot 23]
+
+- [slot 24]
+
+- [slot 25]
+
+- [slot 26]
+
+- [slot 27]
+
+- [slot 28]
+
+- [slot 29]
+
+- [slot 30]
+
+- [slot 31]
+
+- [slot 32]
+
+- [slot 33]
+
+- [slot 34]
+
+- [slot 35]
+
+- [slot 36]
+
+- [slot 37]
+
+- [slot 38]
+
+- [slot 39]
+
+- [slot 40]
 
 - On the jax and PyTorch backends, the construction of an
   ``actionAngleSphericalInverse`` or ``actionAngleStaeckelInverse`` family no
