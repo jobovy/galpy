@@ -157,9 +157,10 @@ def fixed_point_backend(func, x0, args, xp, *, xtol, maxiter):
     return implicit_fixed_point_step(func, p, args, xp)
 
 
-def implicit_fixed_point_step(func, p, args, xp):
+def implicit_fixed_point_step(func, p, args, xp, vector=False):
     """jax half of optimize.fixed_point_implicit_step: the value at p, with
-    dx*/dtheta = (dg/dtheta) / (1 - dg/dx) through g = func(p, *args)"""
+    dx*/dtheta = (dg/dtheta) / (1 - dg/dx) through g = func(p, *args) (with
+    vector, (I - dg/dx)^-1 dg/dtheta for each column's k x k dg/dx)"""
     import jax
 
     from .._namespaces import is_backend_array, under_jax_trace
@@ -171,5 +172,15 @@ def implicit_fixed_point_step(func, p, args, xp):
     g = func(p, *args)
     if not under_jax_trace(g):  # no derivative to carry (as torch's)
         return p
-    _, slope = jax.jvp(lambda x: func(x, *dargs), (p,), (xp.ones_like(p),))
-    return p + (g - sg(g)) / nonzero_slope(1.0 - slope, xp)
+    f = lambda x: func(x, *dargs)  # noqa: E731
+    if not vector:
+        _, slope = jax.jvp(f, (p,), (xp.ones_like(p),))
+        return p + (g - sg(g)) / nonzero_slope(1.0 - slope, xp)
+    k = p.shape[0]
+    eye = jax.numpy.eye(k, dtype=p.dtype)
+    # column i of each torus's dg/dx: the tangent of x_i, the same for all
+    cols = [jax.jvp(f, (p,), (eye[:, i, None] + 0.0 * p,))[1] for i in range(k)]
+    J = jax.numpy.moveaxis(jax.numpy.stack(cols, axis=-1), 1, 0)  # (n, k, k)
+    rhs = jax.numpy.moveaxis(g - sg(g), 0, 1)[..., None]  # (n, k, 1)
+    step = jax.numpy.linalg.solve(eye - J, rhs)[..., 0]
+    return p + jax.numpy.moveaxis(step, 1, 0)

@@ -146,10 +146,11 @@ def fixed_point_backend(func, x0, args, xp, *, xtol, maxiter):
     return implicit_fixed_point_step(func, p, args, xp)
 
 
-def implicit_fixed_point_step(func, p, args, xp):
+def implicit_fixed_point_step(func, p, args, xp, vector=False):
     """torch half of optimize.fixed_point_implicit_step: the value at p, with
     dx*/dtheta = (dg/dtheta) / (1 - dg/dx) through g = func(p, *args) when a
-    parameter needs grad"""
+    parameter needs grad (with vector, (I - dg/dx)^-1 dg/dtheta for each
+    column's k x k dg/dx)"""
     import torch
 
     from ..optimize import nonzero_slope
@@ -162,5 +163,17 @@ def implicit_fixed_point_step(func, p, args, xp):
     with torch.enable_grad():
         xr = p.clone().requires_grad_(True)
         fx = func(xr, *dargs)
-        (slope,) = torch.autograd.grad(fx, xr, grad_outputs=torch.ones_like(fx))
-    return p + (g - g.detach()) / nonzero_slope(1.0 - slope, xp)
+        if not vector:
+            (slope,) = torch.autograd.grad(fx, xr, grad_outputs=torch.ones_like(fx))
+            return p + (g - g.detach()) / nonzero_slope(1.0 - slope, xp)
+        # row i of each torus's dg/dx (the tori are independent)
+        rows = [
+            torch.autograd.grad(
+                fx[i], xr, grad_outputs=torch.ones_like(fx[i]), retain_graph=True
+            )[0]
+            for i in range(p.shape[0])
+        ]
+    J = torch.stack(rows).permute(2, 0, 1)  # (n, k, k)
+    eye = torch.eye(p.shape[0], dtype=p.dtype, device=p.device)
+    rhs = (g - g.detach()).T[..., None]  # (n, k, 1)
+    return p + torch.linalg.solve(eye - J, rhs)[..., 0].T

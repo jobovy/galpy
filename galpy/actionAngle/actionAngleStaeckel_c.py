@@ -855,7 +855,7 @@ def actionAngleFreqStaeckel_c(
 
 
 def actionAngleFreqAngleStaeckel_c(
-    pot, delta, R, vR, vT, z, vz, phi, u0=None, order=10, model=False
+    pot, delta, R, vR, vT, z, vz, phi, u0=None, order=10, model=False, ddelta=None
 ):
     """
     Use C to calculate actions, frequencies, and angles using the Staeckel approximation
@@ -949,6 +949,7 @@ def actionAngleFreqAngleStaeckel_c(
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_void_p,
         ctypes.POINTER(ctypes.c_int),
     ]
 
@@ -978,6 +979,12 @@ def actionAngleFreqAngleStaeckel_c(
     Anglephi = numpy.require(Anglephi, dtype=numpy.float64, requirements=["C", "W"])
     Anglez = numpy.require(Anglez, dtype=numpy.float64, requirements=["C", "W"])
 
+    if ddelta is not None:
+        # the derivatives of each point's focal length with respect to
+        # (J_R, L_z, J_z), for the frequencies and angles of a family whose
+        # focal length follows its tori (model == 2)
+        ddelta = numpy.require(ddelta, dtype=numpy.float64, requirements=["C"])
+
     # Run the C code
     actionAngleStaeckel_actionsFunc(
         len(R),
@@ -1003,6 +1010,7 @@ def actionAngleFreqAngleStaeckel_c(
         Angler,
         Anglephi,
         Anglez,
+        None if ddelta is None else ddelta.ctypes.data_as(ctypes.c_void_p),
         ctypes.byref(err),
     )
 
