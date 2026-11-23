@@ -201,7 +201,14 @@ at release.]
   up the tori of the rule's family at those actions, with the family's
   angles and frequencies, also where the family's grid does not reach.
 
-- [slot 26]
+- actionAngleStaeckel(inverse=) also inverts explicit
+  actionAngleStaeckelInverse tori whose focal lengths follow a rule; the
+  delta method of a family with delta='fit' returns the fitted focal length
+  held at the edge of the grid's range of energy and angular momentum beyond
+  it (what actionAngleStaeckel(inverse=) uses, so that families and explicit
+  tori that are given it agree with it); and the solve of explicit tori from
+  their actions with a rule for the focal length starts again from other
+  focal lengths when the model of the first has no torus with those actions.
 
 - [slot 27]
 
