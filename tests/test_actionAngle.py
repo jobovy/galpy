@@ -15581,11 +15581,22 @@ def test_actionAngleStaeckel_inverse_single_model():
     return None
 
 
-@pytest.mark.parametrize("u0", ["torus", "planar"])
+def _inverse_u0_of_ELz(E, Lz):
+    return numpy.arcsinh((0.5 + 0.5 * Lz + 0.1 * E) / 0.45)
+
+
+def _inverse_u0_of_ELzI3(E, Lz, I3):
+    return _inverse_u0_of_ELz(E, Lz) + 0.02 * numpy.tanh(I3)
+
+
+@pytest.mark.parametrize(
+    "u0", ["torus", "planar", "shell", _inverse_u0_of_ELz, _inverse_u0_of_ELzI3]
+)
 def test_actionAngleStaeckel_inverse_u0torus(u0):
     # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
-    # model (u0='torus' or 'planar'): every point is transformed in the model
-    # of the torus through it, with the energy of that model
+    # model (every rule for the reference curve: the built-in ones and
+    # callables of two and of three integrals): every point is transformed in
+    # the model of the torus through it, with the energy of that model
     from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
 
@@ -15601,8 +15612,10 @@ def test_actionAngleStaeckel_inverse_u0torus(u0):
     angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(sel)))
     x = aAI(jr[sel], Lz[sel], jz[sel], *angs)
     out = numpy.array(aAS(*x))
-    assert (
-        numpy.amax(numpy.fabs(out - numpy.array([jr[sel], Lz[sel], jz[sel]]))) < 1e-9
+    # (the most eccentric and inclined torus with the shell orbit's curve,
+    # far from it, is itself resolved to a few 1e-9 at this mm_npt)
+    assert numpy.amax(numpy.fabs(out - numpy.array([jr[sel], Lz[sel], jz[sel]]))) < (
+        1e-8 if u0 == "shell" else 1e-9
     ), (
         "actionAngleStaeckel(inverse=) does not return the actions of tori "
         "that each have their own Staeckel model"
@@ -15641,10 +15654,6 @@ def test_actionAngleStaeckel_inverse_u0torus(u0):
     assert numpy.allclose(
         aAS.EccZmaxRperiRap(*x, c=False)[2:], (rperi, rap), rtol=1e-6, atol=0.0
     )
-    with pytest.raises(NotImplementedError, match="currently supports"):
-        actionAngleStaeckel(
-            inverse=actionAngleStaeckelInverse(delta=0.45, u0="shell", **kw)
-        )
     return None
 
 
