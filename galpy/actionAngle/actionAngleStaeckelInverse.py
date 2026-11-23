@@ -585,7 +585,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             method of a family returns its focal lengths and is itself such
             a rule (delta=family.delta gives another family of the same
             potential the same focal lengths without fitting them again,
-            for instance the localized families of many targets). Explicit
+            for instance the localized families of many targets; beyond
+            the range of energy and |L_z| of the fitted family's grid it
+            is that family's focal length at the edge of the range, as for
+            actionAngleStaeckel(inverse=family), and its partials are the
+            fitted polynomial's own). Explicit
             tori (from Es, Lzs and I3s, the third integral being that of
             each torus's own model, or from jrs, Lzs and jzs) take a
             callable rule as well, also delta=family.delta: they are then
@@ -726,9 +730,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._midplane_tab, self._Vref_tab = None, None
         self._axisw = axis_weight
         varies = self._delta_rule is not None
-        if not setup_interp:
-            # (the rule of explicit tori's focal lengths: _rule_of)
+        if callable(self._delta_rule):
+            # (kept for the delta method and for the rule's own partials:
+            # _rule_family; it is not pickled, so that the instance pickles
+            # whatever the callable)
             self._delta_callable = self._delta_rule
+        if not setup_interp:
             self._Lzs = conversion._parse_grid_quantity(
                 Lzs, conversion.parse_angmom, ro=self._ro, vo=self._vo
             ).astype("float")
@@ -782,6 +789,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         "(close to the axis the tori of a Staeckel approximation "
                         "are not one continuous family, and the actions jump "
                         "where two of them merge) or the torus is unbound"
+                        + " (or no focal length is the rule delta='s own at it)"
+                        * varies
                     )
             # (the derivatives of the focal lengths with respect to the
             # actions along the rule: _setup_tori)
@@ -3462,17 +3471,29 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         closed form (the family's _delta_of); for any other callable, by
         central differences (_delta_of: FINITE DIFFERENCES, of the user's
         callable alone)"""
-        fam = getattr(self._delta_rule, "__self__", None)
+        fam = self._rule_family
         args = [numpy.atleast_1d(numpy.float64(t)) for t in (E, ell, f)]
-        if (
+        out = fam._delta_of(*args, fam._delta_edges(args[1]), deriv=deriv)
+        D, dD = (out[0][0], numpy.array(out[1])[:, 0]) if deriv else (out[0], None)
+        if not D > 0.0:
+            raise ValueError("the callable delta= has to return positive focal lengths")
+        return (D, dD) if deriv else D
+
+    @property
+    def _rule_family(self):
+        """The instance whose _delta_of and _delta_edges are the rule for
+        the focal lengths of this one: for a family or explicit tori that
+        were given the delta method of a family with delta='fit', that
+        family (the fitted polynomial with its closed-form partials, which
+        central differences would not give at the edges of its grid,
+        where it is held); else the instance itself"""
+        fam = getattr(self._delta_callable, "__self__", None)
+        fitted = (
             isinstance(fam, actionAngleStaeckelInverse)
             and fam._delta_fit is not None
-            and self._delta_rule.__func__ is actionAngleStaeckelInverse.delta
-        ):
-            out = fam._delta_of(*args, fam._delta_edges(args[1]), deriv=deriv)
-        else:
-            out = self._delta_of(*args, None, deriv=deriv)
-        return (out[0][0], numpy.array(out[1])[:, 0]) if deriv else out[0]
+            and self._delta_callable.__func__ is actionAngleStaeckelInverse.delta
+        )
+        return fam if fitted else self
 
     def _rule_fraction(self, E, ell, I3):
         """The fraction f of the way of I_3 from the planar to the shell
@@ -3507,7 +3528,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         found in the model of a focal length and what goes with that torus,
         from the focal length d, by the secant method on their difference
         (a plain step where the secant leaves the neighbourhood of the last
-        two); returns the focal length and what goes with its torus"""
+        two); returns the focal length and what goes with its torus, None
+        when the iteration does not converge"""
         dold, hold = d, numpy.inf
         for _ in range(40):
             new, out = step(d)
@@ -3518,11 +3540,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 sec = d - h * (d - dold) / (h - hold)
             near = (sec > 0.5 * min(d, new)) & (sec < 2.0 * max(d, new))
             dold, hold, d = d, h, sec if near else new
-        raise RuntimeError(
-            "The focal length of an explicit torus did not converge to that of "
-            "the rule delta= at the torus itself: the rule has to be smooth and "
-            "to vary slowly with the fraction of the third integral"
-        )
+        return d, None
 
     def _rule_delta(self, E, ell, I3):
         """The focal length of the explicit torus (E, |L_z|, I_3) under the
@@ -3531,16 +3549,33 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         def step(d):
             with self._in_chart(E, ell, False, d):
                 f = self._rule_fraction(E, ell, I3)[0]
-            return self._rule_of(E, ell, f, deriv=False), None
+            return self._rule_of(E, ell, f, deriv=False), True
 
-        return self._rule_fixed_point(step, self._rule_of(E, ell, 0.5, deriv=False))[0]
+        d, out = self._rule_fixed_point(step, self._rule_of(E, ell, 0.5, deriv=False))
+        if out is None:
+            raise RuntimeError(
+                "The focal length of an explicit torus did not converge to that of "
+                "the rule delta= at the torus itself: the rule has to be smooth and "
+                "to vary slowly with the fraction of the third integral"
+            )
+        return d
 
     def _integrals_rule(self, jr, ell, jz):
         """_integrals_many for explicit tori whose focal lengths follow a
         rule: torus by torus, the fixed point in the focal length of the
         solve for the integrals in the model of a focal length and the
-        rule at the torus found, started at the epicycle energy; sets the
-        tori's focal lengths"""
+        rule at the torus found; sets the tori's focal lengths. The
+        iteration starts from the rule's focal length at the epicycle
+        energy and the middle of the third-integral range. The model of
+        that focal length need not have a torus with these actions when
+        that of the fixed point does (close to the axis the actions jump
+        where two librations merge, at integrals that move with the focal
+        length), and the iteration can leave the tori or not converge: it
+        then starts again from the rule at the planar and at the shell
+        orbit, and from focal lengths spaced geometrically between the
+        smallest and the largest that the rule gives along the third
+        integral there (not from one within 1e-3 of one already tried),
+        until one of them ends on a torus"""
         out = numpy.full((4, len(jr)), numpy.nan)
         Ec, kappa, nu = self._circular_many(ell)
         for ii in range(len(jr)):
@@ -3551,14 +3586,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                         *(t[ii : ii + 1] for t in (jr, ell, jz))
                     )
                     if not found[0]:
-                        return d, (numpy.nan, numpy.nan, 0.0)
+                        return d, None
                     f = self._rule_fraction(E[0], ell[ii], I3[0])[0]
                 return self._rule_of(E[0], ell[ii], f, deriv=False), (E[0], I3[0], 1.0)
 
             E0 = Ec[ii] + kappa[ii] * jr[ii] + nu[ii] * jz[ii]
-            out[0, ii], out[1:, ii] = self._rule_fixed_point(
-                step, self._rule_of(E0, ell[ii], 0.5, deriv=False)
-            )
+
+            def starts(ii=ii, E0=E0):
+                yield from (
+                    self._rule_of(E0, ell[ii], f, deriv=False) for f in (0.5, 0.0, 1.0)
+                )
+                ds = [
+                    self._rule_of(E0, ell[ii], f, deriv=False)
+                    for f in numpy.linspace(0.0, 1.0, 9)
+                ]
+                yield from numpy.geomspace(min(ds), max(ds), 5)[1:-1]
+
+            tried = []
+            for d0 in starts():
+                if any(numpy.fabs(d0 - t) <= 1e-3 * t for t in tried):
+                    continue
+                tried.append(d0)
+                d, torus = self._rule_fixed_point(step, d0)
+                if torus is not None:
+                    out[:, ii] = d, *torus
+                    break
         self._delta_tab = out[0]
         return out[1], out[2], out[3] == 1.0
 
@@ -3588,6 +3640,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             Dx, Df, DL = (d.reshape(E.shape) for d in (Dx, Df, DL))
             # (from fixed x to fixed E)
             return D.reshape(E.shape), Dx / dE[1], Df, DL - Dx * dE[2] / dE[1]
+        fam = self._rule_family
+        if fam is not self:
+            # (the delta method of a fitted family: its closed forms)
+            flat = [1.0 * t.ravel() for t in (E, L, f)]
+            D, (DE, DL, Df) = fam._delta_of(
+                *flat, fam._delta_edges(flat[1]), deriv=True
+            )
+            return tuple(t.reshape(E.shape) for t in (D, DE, Df, DL))
 
         def rule(*a):
             return conversion.parse_length(self._delta_rule(*a), ro=self._ro) + 0.0 * E
@@ -4059,10 +4119,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         logarithms with respect to |L_z|, for the focal lengths of
         _delta_of at many energies; outside the grid's range of |L_z|,
         those of the nearest |L_z| of the grid (nan without a fitted rule)"""
-        ell = numpy.clip(numpy.fabs(Lz), self._Lzgrid[0], self._Lzgrid[-1])
-        inside = ell == numpy.fabs(Lz)
-        out = numpy.full((len(ell), 4), numpy.nan)
-        if self._delta_fit is not None and len(ell) > 0:
+        out = numpy.full((len(Lz), 4), numpy.nan)
+        if self._delta_fit is not None and len(Lz) > 0:
+            ell = numpy.clip(numpy.fabs(Lz), self._Lzgrid[0], self._Lzgrid[-1])
+            inside = ell == numpy.fabs(Lz)
             Rc, R0c, R0m, _, dphi = self._energy_edges_array(ell)
             # (the edges' energies are the circular orbit's, with dE/dL =
             # L / Rc^2, and that of the top of the grid)
@@ -4120,7 +4180,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 return evaluatePotentials(wrap, R, 0.0, use_physical=False)
 
             Ein = numpy.clip(E[ok], phi(R0c), phi(R0m))
-            Efree = Ein == E[ok]
+            # (an energy at the edge, to round-off, is within the range)
+            Efree = numpy.fabs(Ein - E[ok]) <= 1e-12 * (1.0 + numpy.fabs(Ein))
             R = _solve_increasing(
                 lambda R: phi(R) - Ein,
                 lambda R: -evaluateRforces(wrap, R, 0.0, use_physical=False),
@@ -5421,12 +5482,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         -----
         - The single focal length of a family or of explicit tori; for a
           family whose focal length follows its tori, the fitted polynomial
-          (delta='fit', also beyond the grid, where it extends smoothly,
-          limited softly to a little beyond the range of the fitted
-          optima) or the callable delta= itself.
+          (delta='fit'; beyond the grid's range of energy or of |L_z| it is
+          held at its value at the edge of that range: the polynomial is
+          not to be trusted beyond the tori that it was fitted to) or the
+          callable delta= itself.
         - The method is itself a rule: delta=family.delta gives another
-          family of the same potential the same focal lengths without
-          fitting them again.
+          family of the same potential, or explicit tori, the same focal
+          lengths without fitting them again, which are also those of
+          actionAngleStaeckel(inverse=family).
         - 2026-11-17 - Written - Bovy (UofT)
         """
         E = conversion.parse_energy(E, vo=self._vo)
@@ -5434,6 +5497,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         E, ell, f = numpy.broadcast_arrays(
             *(numpy.asarray(t, dtype="float") for t in (E, numpy.fabs(Lz), f))
         )
+        shape = E.shape
         if self._delta_rule is None:
             return (self._delta + 0.0 * E)[()]
         if self._delta_fit is None:
@@ -5447,13 +5511,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 conversion.parse_length(self._delta_callable(E, ell, f), ro=self._ro)
                 + 0.0 * E
             )[()]
-        x = numpy.empty(E.size)
-        for k, (e, l) in enumerate(zip(E.ravel(), ell.ravel())):
-            R0c, _, R0m, _ = self._R0_edges(l)
-            x[k] = numpy.log(self._R0(e, 0.5 * R0c, 2.0 * R0m) / R0c) / numpy.log(
-                R0m / R0c
-            )
-        return self._delta_fitted(x, f.ravel(), ell.ravel())[0].reshape(E.shape)[()]
+        E, ell, f = (1.0 * t.ravel() for t in (E, ell, f))
+        return self._delta_of(E, ell, f, self._delta_edges(ell)).reshape(shape)[()]
 
     @conversion.physical_conversion("action", pop=True)
     def JR(self, E, Lz, I3, **kwargs):
