@@ -5704,7 +5704,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         in the two anomalies, in which the point of a torus is explicit (no
         solve of the angle relations): each iteration reads the tables of
         each point's current torus once. The unknowns are sqrt(2 J) (cos,
-        sin) of each libration's anomaly, measured from where the guess's
+        sin) of each libration's anomaly, which starts where the guess's
         torus has the point's (u, v) on the branch of the signs of (p_u,
         p_v): the map is regular in these at a vanishing action, so a torus
         without one or both of the librations is solved like any other
@@ -5716,81 +5716,49 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         (no convergence, or iterates that leave the domain)"""
         n, Lz, tiny = len(R), R * vT, 1e-10
         target = numpy.array([z, R, vz, vR])
-        tau0 = numpy.full((2, n), numpy.nan)
-        out = numpy.full((5, n), numpy.nan)
 
-        def fjac(q, idx):
-            J = 0.5 * (q[::2] ** 2 + q[1::2] ** 2)
-            low = J < tiny
-            X, Y, Je = q[::2].copy(), q[1::2].copy(), numpy.maximum(J, tiny)
-            res = numpy.full((4, len(idx)), numpy.nan)
-            jac = numpy.full((len(idx), 4, 4), numpy.nan)
+        def tables(J, idx):
+            # the tables of the tori (J_R, J_z) of the points idx, group by
+            # group of the family's interpolation, and which are inside it
             *labels, group, inside = _chunked(
-                self._label_tori, len(idx), Je[0], Je[1], Lz[idx]
+                self._label_tori, len(idx), J[0], J[1], Lz[idx]
             )
+            read = []
             for g in numpy.unique(group[inside]):
                 sel = numpy.flatnonzero(inside & (group == g))
-                pts = idx[sel]
-                tab, aux, chains_u, chains_v = self._rows_tables(
-                    Je[0, sel],
-                    Lz[pts],
-                    Je[1, sel],
-                    [t[sel] for t in labels],
-                    divmod(g, self._nptv + 1),
-                    numpy.arange(len(pts)),
-                )
-                delta = aux.get("delta", self._delta)
-                if numpy.isnan(tau0[0, pts[0]]):
-                    u, v = coords.Rz_to_uv(R[pts], z[pts], delta=delta)
-                    sh, ch, sn, cs = (
-                        numpy.sinh(u),
-                        numpy.cosh(u),
-                        numpy.sin(v),
-                        numpy.cos(v),
+                read.append(
+                    (
+                        sel,
+                        idx[sel],
+                        *self._rows_tables(
+                            J[0, sel],
+                            Lz[idx[sel]],
+                            J[1, sel],
+                            [t[sel] for t in labels],
+                            divmod(g, self._nptv + 1),
+                            numpy.arange(len(sel)),
+                        )[1:],
                     )
-                    for i, lib, c, w, p in (
-                        (
-                            0,
-                            aux["uc"],
-                            u,
-                            aux["wu"],
-                            vR[pts] * ch * sn + vz[pts] * sh * cs,
-                        ),
-                        (
-                            1,
-                            0.5 * numpy.pi,
-                            v,
-                            aux["wv"],
-                            vR[pts] * sh * cs - vz[pts] * ch * sn,
-                        ),
-                    ):
-                        with numpy.errstate(divide="ignore", invalid="ignore"):
-                            t0 = numpy.arccos(numpy.clip((lib - c) / w, -1.0, 1.0))
-                        t0 = numpy.where(numpy.isfinite(t0), t0, 0.0)
-                        tau0[i, pts] = numpy.where(p >= 0.0, t0, 2.0 * numpy.pi - t0)
-                # (a libration below tiny: expanded about the anomaly pi / 4)
-                lows = low[:, sel]
-                X[:, sel] = numpy.where(
-                    lows,
-                    numpy.sqrt(2.0 * tiny) * numpy.cos(0.25 * numpy.pi - tau0[:, pts]),
-                    X[:, sel],
                 )
-                Y[:, sel] = numpy.where(
-                    lows,
-                    numpy.sqrt(2.0 * tiny) * numpy.sin(0.25 * numpy.pi - tau0[:, pts]),
-                    Y[:, sel],
-                )
-                tu, tv = tau0[:, pts] + numpy.arctan2(Y[:, sel], X[:, sel])
+            return read, inside
+
+        def fjac(q, idx=None):
+            idx = numpy.arange(n) if idx is None else idx
+            J = 0.5 * (q[::2] ** 2 + q[1::2] ** 2)
+            # (a libration below tiny: expanded about the anomaly pi / 4)
+            low, Je = J < tiny, numpy.maximum(J, tiny)
+            X = numpy.where(low, numpy.sqrt(tiny), q[::2])
+            Y = numpy.where(low, numpy.sqrt(tiny), q[1::2])
+            dq = numpy.empty_like(q)
+            dq[::2], dq[1::2] = q[::2] - X, q[1::2] - Y
+            res = numpy.full((4, len(idx)), numpy.nan)
+            jac = numpy.full((len(idx), 4, 4), numpy.nan)
+            more = numpy.full((5, len(idx)), numpy.nan)
+            read, inside = tables(Je, idx)
+            for sel, pts, aux, chains_u, chains_v in read:
+                tu, tv = numpy.arctan2(Y[:, sel], X[:, sel])
                 T = self._torus_at(tu, tv, aux, chains_u, chains_v, jac=True)
                 x = self._point(T, Lz[pts], aux["L"], 0.0, aux.get("delta"))
-                res[:, sel] = target[:, pts] - numpy.array([x[3], x[0], x[4], x[1]])
-                out[:, pts] = (
-                    J[0, sel],
-                    J[1, sel],
-                    (T["thetaAr"] + T["comps"][0]) % (2.0 * numpy.pi),
-                    (phi[pts] - x[5]) % (2.0 * numpy.pi),
-                    (T["thetaAz"] + T["comps"][1]) % (2.0 * numpy.pi),
-                )
                 # d(J_R, J_z, tau_u, tau_v) / d(the regular unknowns)
                 chain = numpy.zeros((len(sel), 4, 4))
                 for i in range(2):
@@ -5798,22 +5766,69 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     chain[:, 2 + i, 2 * i] = -0.5 * Y[i, sel] / Je[i, sel]
                     chain[:, 2 + i, 2 * i + 1] = 0.5 * X[i, sel] / Je[i, sel]
                 jac[sel] = (
-                    self._point_jacobian(T, aux, chains_u, chains_v, tu, tv, x, delta)
+                    self._point_jacobian(
+                        T,
+                        aux,
+                        chains_u,
+                        chains_v,
+                        tu,
+                        tv,
+                        x,
+                        aux.get("delta", self._delta),
+                    )
                     @ chain
                 )
-                dq = numpy.empty((4, len(sel)))
-                dq[::2], dq[1::2] = q[::2, sel] - X[:, sel], q[1::2, sel] - Y[:, sel]
-                res[:, sel] -= (jac[sel] @ dq.T[:, :, None])[:, :, 0].T
-            return res, jac, inside & numpy.all(numpy.isfinite(jac), axis=(1, 2))
+                res[:, sel] = (
+                    target[:, pts]
+                    - numpy.array([x[3], x[0], x[4], x[1]])
+                    - (jac[sel] @ dq[:, sel].T[:, :, None])[:, :, 0].T
+                )
+                more[:, sel] = (
+                    J[0, sel],
+                    J[1, sel],
+                    (T["thetaAr"] + T["comps"][0]) % (2.0 * numpy.pi),
+                    (phi[pts] - x[5]) % (2.0 * numpy.pi),
+                    (T["thetaAz"] + T["comps"][1]) % (2.0 * numpy.pi),
+                )
+            return (
+                res,
+                jac,
+                inside & numpy.all(numpy.isfinite(jac), axis=(1, 2)),
+                more,
+            )
 
-        zero = numpy.zeros(n)
-        _, solved = _newton_system(
-            fjac,
-            [numpy.sqrt(2.0 * jr), zero, numpy.sqrt(2.0 * jz), zero],
-            tol,
-            maxiter=maxiter,
+        # the anomalies where the guess's torus has the point's (u, v), on
+        # the branch of the signs of (p_u, p_v)
+        J0 = numpy.array([jr, jz], dtype="float")
+        good = numpy.flatnonzero(numpy.all(numpy.isfinite(J0) & (J0 >= 0.0), axis=0))
+        tau0 = numpy.full((2, n), numpy.nan)
+        for sel, pts, aux, _, _ in tables(numpy.maximum(J0[:, good], tiny), good)[0]:
+            u, v = coords.Rz_to_uv(R[pts], z[pts], delta=aux.get("delta", self._delta))
+            sh, ch, sn, cs = numpy.sinh(u), numpy.cosh(u), numpy.sin(v), numpy.cos(v)
+            for i, lib, c, w, p in (
+                (0, aux["uc"], u, aux["wu"], vR[pts] * ch * sn + vz[pts] * sh * cs),
+                (
+                    1,
+                    0.5 * numpy.pi,
+                    v,
+                    aux["wv"],
+                    vR[pts] * sh * cs - vz[pts] * ch * sn,
+                ),
+            ):
+                t0 = numpy.arccos(numpy.clip((lib - c) / w, -1.0, 1.0))
+                tau0[i, pts] = numpy.where(p >= 0.0, t0, 2.0 * numpy.pi - t0)
+        q0 = numpy.sqrt(2.0 * J0)[[0, 0, 1, 1]] * numpy.array(
+            [
+                numpy.cos(tau0[0]),
+                numpy.sin(tau0[0]),
+                numpy.cos(tau0[1]),
+                numpy.sin(tau0[1]),
+            ]
         )
-        out[:, ~solved] = numpy.nan
+        _, solved, more = _newton_system(fjac, q0, tol, maxiter=maxiter)
+        out = numpy.full((5, n), numpy.nan)
+        if more is not None:
+            out[:, solved] = more[:, solved]
         return out
 
     def _point_jacobian(self, T, aux, chains_u, chains_v, tu, tv, x, delta):

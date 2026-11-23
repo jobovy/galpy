@@ -252,25 +252,31 @@ def _newton_system(fjac, x0, tol, maxiter=8):
     """Solutions of independent systems of m equations in m unknowns, one
     per column of x0 (m, n), by Newton's method with the Jacobian in closed
     form: fjac(x, idx) returns, for the iterates x (m, k) of the systems
-    idx, the residuals target - function (m, k), the Jacobians of the
-    function (k, m, m), and which of the iterates are valid (k booleans; an
-    invalid system is given up). A system leaves the iteration, and is no
-    longer evaluated, once its largest residual is below tol, so that fjac
-    is last called for a solved system at its solution. Returns the
-    iterates and which of the systems are solved"""
+    idx (all of them for idx=None), the residuals target - function (m,
+    k), the Jacobians of the function (k, m, m), which of the iterates are
+    valid (k booleans; an invalid system is given up), and any further
+    quantities at the iterates (p, k); it has no side effects. A system
+    leaves the iteration, and is no longer evaluated, once its largest
+    residual is below tol. Returns the iterates, which of the systems are
+    solved, and the further quantities at each system's last iterate (its
+    solution when solved; None when no system could be evaluated)"""
     x = numpy.array(x0, dtype="float")
     solved = numpy.zeros(x.shape[1], dtype="bool")
     active = numpy.flatnonzero(numpy.all(numpy.isfinite(x), axis=0))
+    more = None
     for _ in range(maxiter + 1):
         if active.size == 0:
             break
-        res, jac, valid = fjac(x[:, active], active)
+        res, jac, valid, extra = fjac(x[:, active], active)
+        if more is None:
+            more = numpy.full((len(extra), x.shape[1]), numpy.nan)
+        more[:, active] = extra
         conv = valid & (numpy.amax(numpy.fabs(res), axis=0) < tol)
         solved[active[conv]] = True
         go = valid & ~conv
         active = active[go]
         x[:, active] += numpy.linalg.solve(jac[go], res.T[go][:, :, None])[:, :, 0].T
-    return x, solved
+    return x, solved, more
 
 
 def _sine_series(N, Dm, ms):
