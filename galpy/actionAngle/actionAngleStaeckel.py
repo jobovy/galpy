@@ -1177,28 +1177,11 @@ class actionAngleStaeckel(actionAngle):
             self._actionsFreqsAngles(R, vR, vT, z, vz, phi, _direct=True, **kwargs)
         )
         out[1] = R * vT
-        # a point without one of the two librations has no angle of it (nor,
-        # in C, of the other): the starting angles of a point slightly off it
-        flat = numpy.all(numpy.isfinite(out[[0, 2]]), axis=0) & ~numpy.all(
-            numpy.isfinite(out[[6, 8]]), axis=0
-        )
-        if numpy.any(flat):
-            kick = 1e-3 * numpy.sqrt(vR**2 + vT**2 + vz**2)[flat]
-            out[6:, flat] = self._actionsFreqsAngles(
-                R[flat],
-                vR[flat] + kick,
-                vT[flat],
-                z[flat],
-                vz[flat] + kick,
-                phi[flat],
-                _direct=True,
-                **kwargs,
-            )[6:]
-        ok = numpy.all(numpy.isfinite(out[[0, 2, 6, 8]]), axis=0)
+        ok = numpy.all(numpy.isfinite(out[[0, 2]]), axis=0)
         sol = numpy.full((5, len(R)), numpy.nan)
         if numpy.any(ok):
-            sol[:, ok] = aAI._invert(
-                R[ok], vR[ok], vT[ok], z[ok], vz[ok], phi[ok], *out[[0, 2, 6, 8]][:, ok]
+            sol[:, ok] = aAI._invert_family(
+                R[ok], vR[ok], vT[ok], z[ok], vz[ok], phi[ok], *out[[0, 2]][:, ok]
             )
         out[[0, 2, 6, 7, 8]] = sol
         bad = numpy.isnan(sol[0])
