@@ -4816,6 +4816,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "comps_u": comps_u,
             "comps_v": comps_v,
         }
+        if jac:
+            T["dpu"], T["dpv"] = ju[0], jv[0]
+            T["jac"] = (
+                T["dthetaAr"] + ju[1][0],
+                jv[1][0],
+                T["dthetaAz_du"] + ju[1][1],
+                T["dthetaAz_dv"] + jv[1][1],
+            )
         if "dlnD" in aux:
             self._dilate(T, tu, tv, aux, ju, jv, jac)
         return T
@@ -5493,8 +5501,27 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         the nine outputs and whether each point's solve failed to converge"""
         used, rows = numpy.unique(rows, return_inverse=True)
         jr, Lz, jz = tori[used].T
+        tab, aux, chains_u, chains_v = self._rows_tables(
+            jr, Lz, jz, [t[used] for t in labels], nharm, rows
+        )
+        L = (jz + numpy.fabs(Lz))[rows]
+        tu, tv, bad = self._newton_angles(thR, thz, aux, chains_u[:2], chains_v[:2])
+        T = self._torus_at(tu, tv, aux, chains_u, chains_v)
+        Om = tab["Om"][rows]
+        return (
+            *self._point(T, Lz[rows], L, anglephi, aux.get("delta")),
+            *Om[:, [0, 2, 1]].T,
+            numpy.isin(numpy.arange(len(rows)), bad),
+        )
+
+    def _rows_tables(self, jr, Lz, jz, labels, nharm, rows):
+        """The tables of a family's tori with both librations, from their
+        labels (_label_tori) with the first nharm = (u, v) coefficients of
+        the maps, and what the kernels need at points that each sit on the
+        torus rows[point]: the auxiliary torus's parameters and the maps'
+        tables, and the three action chains of each libration"""
         sgn, ell = numpy.sign(Lz), numpy.fabs(Lz)
-        tab = self._interp_tables_array(Lz, *(t[used] for t in labels), nharm)
+        tab = self._interp_tables_array(Lz, *labels, nharm)
         L = jz + ell
         a, e = self._aAIinv._orbital_params(jr, L)
         c = jz * (jz + 2.0 * ell) / L**2
@@ -5536,14 +5563,170 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
             )
             chains_v.append((dc[rows, i], tab["dwv"][rows, i], tab["dDmv"][:, rows, i]))
-        tu, tv, bad = self._newton_angles(thR, thz, aux, chains_u[:2], chains_v[:2])
-        T = self._torus_at(tu, tv, aux, chains_u, chains_v)
-        Om = tab["Om"][rows]
-        return (
-            *self._point(T, Lz[rows], L[rows], anglephi, aux.get("delta")),
-            *Om[:, [0, 2, 1]].T,
-            numpy.isin(numpy.arange(len(rows)), bad),
+        return tab, aux, chains_u, chains_v
+
+    # ---------- the inverse of the map
+    def _invert(self, R, vR, vT, z, vz, phi, jr, jz, angler, anglez, **kwargs):
+        """actionAngleInverse._invert, with a family's points first solved
+        in the family's own variables (_invert_family); what that leaves
+        (tori without one of the librations, points near the edge of the
+        domain) goes through the general solve"""
+        args = (R, vR, vT, z, vz, phi, jr, jz, angler, anglez)
+        out = self._invert_family(R, vR, vT, z, vz, phi, jr, jz)
+        left = numpy.isnan(out[0])
+        if numpy.any(left):
+            out[:, left] = super()._invert(*(a[left] for a in args), **kwargs)
+        return tuple(out)
+
+    def _invert_family(self, R, vR, vT, z, vz, phi, jr, jz, tol=1e-12, maxiter=8):
+        """The actions and angles that a family maps to the points (R, v_R,
+        v_T, z, v_z, phi), by Newton's method in the actions and the two
+        anomalies (J_R, J_z, tau_u, tau_v), in which the point of a torus
+        is explicit (no solve of the angle relations) and the Jacobian is
+        in closed form (_point_jacobian): each iteration reads the tables
+        of each point's current torus once. The anomalies start where the
+        guess's torus has the point's (u, v), on the branch of the signs of
+        (p_u, p_v). Returns the array (J_R, J_z, theta_R, theta_phi,
+        theta_z), nan for the points that are left to the general solve:
+        those that do not converge, or whose iterates leave the tori with
+        both librations inside the domain"""
+        n, Lz = len(R), R * vT
+        target = numpy.array([z, R, vz, vR])
+        jr, jz = numpy.array(jr, dtype="float"), numpy.array(jz, dtype="float")
+        tu, tv = numpy.zeros(n), numpy.zeros(n)
+        out = numpy.full((5, n), numpy.nan)
+        active = numpy.isfinite(jr + jz) & (jr > 0.0) & (jz > 0.0)
+        start = True
+        for _ in range(maxiter):
+            idx = numpy.flatnonzero(active)
+            if len(idx) == 0:
+                break
+            *labels, group, inside = _chunked(
+                self._label_tori, len(idx), jr[idx], jz[idx], Lz[idx]
+            )
+            active[idx[~inside]] = False
+            idx, group = idx[inside], group[inside]
+            labels = [t[inside] for t in labels]
+            for g in numpy.unique(group):
+                sel = numpy.flatnonzero(group == g)
+                pts = idx[sel]
+                tab, aux, chains_u, chains_v = self._rows_tables(
+                    jr[pts],
+                    Lz[pts],
+                    jz[pts],
+                    [t[sel] for t in labels],
+                    divmod(g, self._nptv + 1),
+                    numpy.arange(len(pts)),
+                )
+                delta = aux.get("delta", self._delta)
+                if start:
+                    u, v = coords.Rz_to_uv(R[pts], z[pts], delta=delta)
+                    sh, ch, sn, cs = (
+                        numpy.sinh(u),
+                        numpy.cosh(u),
+                        numpy.sin(v),
+                        numpy.cos(v),
+                    )
+                    for t, lib, q, w, p in (
+                        (
+                            tu,
+                            aux["uc"],
+                            u,
+                            aux["wu"],
+                            vR[pts] * ch * sn + vz[pts] * sh * cs,
+                        ),
+                        (
+                            tv,
+                            0.5 * numpy.pi,
+                            v,
+                            aux["wv"],
+                            vR[pts] * sh * cs - vz[pts] * ch * sn,
+                        ),
+                    ):
+                        t0 = numpy.arccos(numpy.clip((lib - q) / w, -1.0, 1.0))
+                        t[pts] = numpy.where(p >= 0.0, t0, 2.0 * numpy.pi - t0)
+                T = self._torus_at(tu[pts], tv[pts], aux, chains_u, chains_v, jac=True)
+                x = self._point(T, Lz[pts], aux["L"], 0.0, aux.get("delta"))
+                res = target[:, pts] - numpy.array([x[3], x[0], x[4], x[1]])
+                done = numpy.amax(numpy.fabs(res), axis=0) < tol
+                fin = pts[done]
+                out[:, fin] = (
+                    jr[fin],
+                    jz[fin],
+                    (T["thetaAr"] + T["comps"][0])[done] % (2.0 * numpy.pi),
+                    (phi[fin] - x[5][done]) % (2.0 * numpy.pi),
+                    (T["thetaAz"] + T["comps"][1])[done] % (2.0 * numpy.pi),
+                )
+                active[fin] = False
+                jac = self._point_jacobian(
+                    T, aux, chains_u, chains_v, tu[pts], tv[pts], x, delta
+                )
+                step = numpy.linalg.solve(jac[~done], res.T[~done][:, :, None])[:, :, 0]
+                go = pts[~done]
+                jr[go] += step[:, 0]
+                jz[go] += step[:, 1]
+                tu[go] += numpy.clip(step[:, 2], -0.5, 0.5)
+                tv[go] += numpy.clip(step[:, 3], -0.5, 0.5)
+            active &= (jr > 0.0) & (jz > 0.0)
+            start = False
+        return out
+
+    def _point_jacobian(self, T, aux, chains_u, chains_v, tu, tv, x, delta):
+        """d(z, R, v_z, v_R)/d(J_R, J_z, tau_u, tau_v) of the points x =
+        _point(T) of tori with both librations, as (npoints, 4, 4), in
+        closed form. With zeta = z + i R = delta cosh(u + i v) and pi =
+        v_z - i v_R = (p_u - i p_v) / [delta sinh(u + i v)], the
+        derivatives with respect to the anomalies follow from those of
+        (u, p_u) and (v, p_v), and those of the position with respect to
+        the actions from the chains of the turning points and of the focal
+        length. Those of the velocity with respect to the actions at fixed
+        anomalies come from the canonical structure, dp/dJ at a fixed
+        position being the transpose of dtheta/dx: dp/dJ = (dtheta/dtau
+        [dx/dtau]^-1)^T + dp/dtau [dx/dtau]^-1 dx/dJ, with the vanishing of
+        dx/dtau at a turning point (where the sum is regular) kept from
+        zero"""
+        npts = len(tu)
+        zeta, pi = x[3] + 1j * x[0], x[4] - 1j * x[1]
+        om = T["u"] + 1j * T["v"]
+        dsh, coth = delta * numpy.sinh(om), 1.0 / numpy.tanh(om)
+        su, sv = aux["wu"] * numpy.sin(tu), aux["wv"] * numpy.sin(tv)
+
+        def cols(*zs, conj=False):
+            # complex columns as real (npoints, 2, len(zs)) matrices
+            sign = -1.0 if conj else 1.0
+            return numpy.stack(
+                [numpy.stack([q.real, sign * q.imag], axis=1) for q in zs], axis=2
+            )
+
+        Xt = cols(dsh * su, 1j * dsh * sv)
+        Pt = cols(
+            T["dpu"] / dsh - pi * coth * su,
+            -1j * T["dpv"] / dsh - 1j * pi * coth * sv,
+            conj=True,
         )
+        dlnD = aux.get("dlnD", numpy.zeros((2, npts)))
+        XJ = cols(
+            *(
+                dsh
+                * (
+                    chains_u[i][2]
+                    - chains_u[i][3] * numpy.cos(tu)
+                    - 1j * chains_v[i][1] * numpy.cos(tv)
+                )
+                + zeta * dlnD[i]
+                for i in range(2)
+            )
+        )
+        floor = 1e-7 * numpy.stack([aux["wu"], aux["wv"]], axis=1)
+        s = numpy.stack([su, sv], axis=1)
+        s = numpy.where(numpy.fabs(s) > floor, s, numpy.where(s >= 0.0, floor, -floor))
+        Xti = numpy.linalg.inv(cols(dsh, 1j * dsh)) / s[:, :, None]
+        dth = numpy.stack(T["jac"], axis=1).reshape(npts, 2, 2)
+        jac = numpy.empty((npts, 4, 4))
+        jac[:, :2, :2], jac[:, :2, 2:] = XJ, Xt
+        jac[:, 2:, :2] = numpy.swapaxes(dth @ Xti, 1, 2) + Pt @ Xti @ XJ
+        jac[:, 2:, 2:] = Pt
+        return jac
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """Frequencies of the (J_R, J_z, L_z) tori, for actions that

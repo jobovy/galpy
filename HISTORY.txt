@@ -171,7 +171,9 @@ at release.]
   C and in pure Python. Supports instances with a single reference curve
   and with ``u0='torus'``, and families whose focal length follows their
   tori (``delta='fit'`` or a callable); the frequencies and angles include
-  the terms from the change of the model between tori.
+  the terms from the change of the model between tori. For an interpolated
+  family this inverts the family to its interpolation error;
+  ``polish=True`` inverts the interpolated map exactly.
 
 - actionAngleStaeckelInverse: the stored derivatives of the third integral
   of a family's nodes with respect to the grid coordinates are those at
