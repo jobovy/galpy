@@ -6031,6 +6031,305 @@ def test_actionAngleIsochroneApprox_plotting():
     return None
 
 
+# Setup for the tests of actionAngleAdiabaticApprox against actionAngleSpherical:
+# an NFW potential transformed to an isochrone, points along one orbit, and the
+# actions, frequencies, and angles of these points from actionAngleSpherical
+def setup_actionAngleAdiabaticApprox_nfw(npoints=2):
+    from galpy.actionAngle import (
+        actionAngleAdiabaticApprox,
+        actionAngleIsochrone,
+        actionAngleSpherical,
+    )
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, NFWPotential
+
+    nfw = NFWPotential(a=1.0, normalize=1.0)
+    aAA = actionAngleAdiabaticApprox(
+        pot=nfw,
+        aA=actionAngleIsochrone(ip=IsochronePotential(b=0.5, normalize=1.0)),
+        tintJ=200.0,
+        npoints=npoints,
+    )
+    obs = Orbit([1.0, 0.9, 1.1, 0.1, 0.3, 0.0])
+    times = numpy.linspace(0.0, 10.0, 6)
+    obs.integrate(times, nfw, method="dop853_c")
+    args = (
+        obs.R(times),
+        obs.vR(times),
+        obs.vT(times),
+        obs.z(times),
+        obs.vz(times),
+        obs.phi(times),
+    )
+    return aAA, args, times, actionAngleSpherical(pot=nfw).actionsFreqsAngles(*args)
+
+
+# Test the actionAngleAdiabaticApprox against actionAngleSpherical: actions
+def test_actionAngleAdiabaticApprox_nfw_actions():
+    aAA, args, times, jfa = setup_actionAngleAdiabaticApprox_nfw()
+    js = aAA(*args)
+    djr = numpy.amax(numpy.fabs(js[0] / jfa[0] - 1.0))
+    dlz = numpy.amax(numpy.fabs(js[1] / jfa[1] - 1.0))
+    djz = numpy.amax(numpy.fabs(js[2] / jfa[2] - 1.0))
+    assert djr < 10.0**-4.5, (
+        "actionAngleAdiabaticApprox applied to NFW potential fails for Jr at %g%%"
+        % (djr * 100.0)
+    )
+    # Lz and Jz are easy, because both potentials are spherical
+    assert dlz < 10.0**-9.0, (
+        "actionAngleAdiabaticApprox applied to NFW potential fails for Lz at %g%%"
+        % (dlz * 100.0)
+    )
+    assert djz < 10.0**-9.0, (
+        "actionAngleAdiabaticApprox applied to NFW potential fails for Jz at %g%%"
+        % (djz * 100.0)
+    )
+    return None
+
+
+# Test the actionAngleAdiabaticApprox against actionAngleSpherical: frequencies
+@pytest.mark.parametrize("npoints", [2, 4])
+def test_actionAngleAdiabaticApprox_nfw_freqs(npoints):
+    aAA, args, times, jfa = setup_actionAngleAdiabaticApprox_nfw(npoints=npoints)
+    jfs = aAA.actionsFreqs(*args)
+    assert len(jfs) == 6, "actionAngleAdiabaticApprox.actionsFreqs does not return six"
+    djr = numpy.amax(numpy.fabs(jfs[0] / jfa[0] - 1.0))
+    assert djr < 10.0**-4.5, (
+        "actionAngleAdiabaticApprox.actionsFreqs applied to NFW potential fails for Jr at %g%%"
+        % (djr * 100.0)
+    )
+    for ii, name in zip(range(3, 6), ["Or", "Op", "Oz"]):
+        dO = numpy.amax(numpy.fabs(jfs[ii] / jfa[ii] - 1.0))
+        assert dO < 10.0**-3.5, (
+            "actionAngleAdiabaticApprox applied to NFW potential fails for %s at %g%%"
+            % (name, dO * 100.0)
+        )
+    return None
+
+
+# Test the actionAngleAdiabaticApprox against actionAngleSpherical: the angles
+# are those of the torus up to an offset that is constant along the orbit (the
+# phase accumulated during the transformation), so they increase at the true
+# frequencies
+def test_actionAngleAdiabaticApprox_nfw_angles():
+    aAA, args, times, jfa = setup_actionAngleAdiabaticApprox_nfw()
+    jfas = aAA.actionsFreqsAngles(*args)
+    for ii, name in zip(range(6, 9), ["ar", "ap", "az"]):
+        offset = jfas[ii] - jfa[ii]
+        doffset = (offset - offset[0] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.amax(numpy.fabs(doffset)) < 10.0**-3.3, (
+            "actionAngleAdiabaticApprox applied to NFW potential has an offset from the true %s that is not constant along the orbit, but varies by %g"
+            % (name, numpy.amax(numpy.fabs(doffset)))
+        )
+        dangle = (jfas[ii] - jfas[ii][0] - jfa[ii - 3] * times + numpy.pi) % (
+            2.0 * numpy.pi
+        ) - numpy.pi
+        assert numpy.amax(numpy.fabs(dangle)) < 10.0**-3.3, (
+            "actionAngleAdiabaticApprox applied to NFW potential has %s that does not increase at the true frequency, off by %g"
+            % (name, numpy.amax(numpy.fabs(dangle)))
+        )
+    return None
+
+
+# Test that the actions are conserved along an orbit in MWPotential2014 when
+# transforming to a Staeckel potential, and better so than the Staeckel
+# approximation in MWPotential2014 itself
+def test_actionAngleAdiabaticApprox_staeckel_conserved_actions():
+    from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, OblateStaeckelWrapperPotential
+
+    delta = 0.4
+    aAA = actionAngleAdiabaticApprox(
+        pot=MWPotential2014,
+        aA=actionAngleStaeckel(
+            pot=OblateStaeckelWrapperPotential(
+                pot=MWPotential2014, delta=delta, u0=1.0
+            ),
+            delta=delta,
+        ),
+        ntintJ=101,
+    )
+    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=delta)
+    obs = Orbit([1.0, 0.2, 1.1, 0.1, 0.3, 0.0])
+    times = numpy.linspace(0.0, 20.0, 11)
+    obs.integrate(times, MWPotential2014, method="dop853_c")
+    js = numpy.array(aAA(obs(times)))
+    jss = numpy.array(aAS(obs(times)))
+    maxdj = numpy.amax(numpy.fabs(js.T / numpy.mean(js, axis=1) - 1.0), axis=0)
+    maxdjs = numpy.amax(numpy.fabs(jss.T / numpy.mean(jss, axis=1) - 1.0), axis=0)
+    assert maxdj[0] < 10.0**-3.0, "Jr conservation fails at %g%%" % (100.0 * maxdj[0])
+    assert maxdj[1] < 10.0**-9.0, "Lz conservation fails at %g%%" % (100.0 * maxdj[1])
+    assert maxdj[2] < 10.0**-3.0, "Jz conservation fails at %g%%" % (100.0 * maxdj[2])
+    assert maxdj[0] < maxdjs[0] / 10.0, (
+        "Jr is not conserved better by actionAngleAdiabaticApprox than by actionAngleStaeckel"
+    )
+    assert maxdj[2] < maxdjs[2] / 2.0, (
+        "Jz is not conserved better by actionAngleAdiabaticApprox than by actionAngleStaeckel"
+    )
+    # and the actions are close to those of the Staeckel approximation
+    assert numpy.all(
+        numpy.fabs(numpy.mean(js, axis=1) / numpy.mean(jss, axis=1) - 1.0) < 0.01
+    ), "actionAngleAdiabaticApprox actions are not close to actionAngleStaeckel's"
+    return None
+
+
+# Test the other action-angle methods that one can transform to:
+# actionAngleSpherical and actionAngleAdiabatic
+def test_actionAngleAdiabaticApprox_otheraA():
+    from galpy.actionAngle import (
+        actionAngleAdiabatic,
+        actionAngleAdiabaticApprox,
+        actionAngleSpherical,
+        actionAngleStaeckel,
+    )
+    from galpy.potential import (
+        HernquistPotential,
+        MiyamotoNagaiPotential,
+        MWPotential2014,
+        NFWPotential,
+    )
+
+    # actionAngleSpherical: NFW --> Hernquist
+    nfw = NFWPotential(a=1.0, normalize=1.0)
+    aAA = actionAngleAdiabaticApprox(
+        pot=nfw,
+        aA=actionAngleSpherical(pot=HernquistPotential(a=2.0, normalize=1.0)),
+        ntintJ=101,
+    )
+    R, vR, vT, z, vz, phi = 1.0, 0.9, 1.1, 0.1, 0.3, 0.0
+    jfs = aAA.actionsFreqs(R, vR, vT, z, vz, phi)
+    jfa = actionAngleSpherical(pot=nfw).actionsFreqs(R, vR, vT, z, vz, phi)
+    for ii, tol in enumerate([-6.0, -9.0, -9.0, -4.0, -4.0, -4.0]):
+        assert numpy.fabs(jfs[ii] / jfa[ii] - 1.0) < 10.0**tol, (
+            "actionAngleAdiabaticApprox with actionAngleSpherical fails for output %i at %g%%"
+            % (ii, 100.0 * numpy.fabs(jfs[ii] / jfa[ii] - 1.0))
+        )
+    # actionAngleAdiabatic: MWPotential2014 --> Miyamoto-Nagai, for a disk
+    # orbit; compare to the Staeckel approximation
+    aAA = actionAngleAdiabaticApprox(
+        pot=MWPotential2014,
+        aA=actionAngleAdiabatic(
+            pot=MiyamotoNagaiPotential(a=0.5, b=0.05, normalize=1.0), gamma=1.0
+        ),
+        tintJ=20.0,
+        ntintJ=101,
+    )
+    R, vR, vT, z, vz, phi = 1.0, 0.1, 1.1, 0.03, 0.05, 0.0
+    jfas = aAA.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    jfa = actionAngleStaeckel(pot=MWPotential2014, delta=0.4).actionsFreqsAngles(
+        R, vR, vT, z, vz, phi
+    )
+    assert len(jfas) == 9, (
+        "actionAngleAdiabaticApprox.actionsFreqsAngles does not return nine"
+    )
+    for ii, tol in enumerate([0.05, 1e-9, 0.05, 0.05, 0.05]):
+        assert numpy.fabs(jfas[ii] / jfa[ii] - 1.0) < tol, (
+            "actionAngleAdiabaticApprox with actionAngleAdiabatic fails for output %i at %g%%"
+            % (ii, 100.0 * numpy.fabs(jfas[ii] / jfa[ii] - 1.0))
+        )
+    return None
+
+
+# Test the different forms of input
+def test_actionAngleAdiabaticApprox_inputs():
+    from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, NFWPotential
+
+    nfw = NFWPotential(a=1.0, normalize=1.0)
+    aAI = actionAngleIsochrone(ip=IsochronePotential(b=0.5, normalize=1.0))
+    aAA = actionAngleAdiabaticApprox(pot=nfw, aA=aAI, tintJ=20.0, ntintJ=101)
+    vxvv = numpy.array(
+        [[1.0, 0.9, 1.1, 0.1, 0.3, 0.0], [1.1, 0.3, 0.9, -0.2, 0.1, 2.0]]
+    )
+    # arrays are the reference
+    jfa = numpy.array(aAA.actionsFreqsAngles(*vxvv.T))
+    assert jfa.shape == (9, 2), (
+        "actionAngleAdiabaticApprox output for array input does not have the correct shape"
+    )
+    # floats
+    for ii in range(2):
+        assert numpy.all(
+            numpy.fabs(
+                numpy.array(aAA.actionsFreqsAngles(*vxvv[ii]))[:, 0] - jfa[:, ii]
+            )
+            < 1e-10
+        ), "actionAngleAdiabaticApprox for float input does not agree with array input"
+    # Orbit, single and multiple
+    assert numpy.all(
+        numpy.fabs(numpy.array(aAA.actionsFreqsAngles(Orbit(vxvv))) - jfa) < 1e-10
+    ), "actionAngleAdiabaticApprox for Orbit input does not agree with array input"
+    assert numpy.all(
+        numpy.fabs(numpy.array(aAA(Orbit(vxvv[0])))[:, 0] - jfa[:3, 0]) < 1e-10
+    ), "actionAngleAdiabaticApprox for Orbit input does not agree with array input"
+    # planar: R,vR,vT,phi as floats, arrays, and Orbits against z=vz=0
+    vxvv[:, 3:5] = 0.0
+    jfa = numpy.array(aAA.actionsFreqsAngles(*vxvv.T))
+    assert numpy.all(numpy.fabs(jfa[2]) < 1e-10), (
+        "actionAngleAdiabaticApprox for a planar orbit does not give zero Jz"
+    )
+    planar = vxvv[:, [0, 1, 2, 5]]
+    assert numpy.all(
+        numpy.fabs(numpy.array(aAA.actionsFreqsAngles(*planar.T)) - jfa) < 1e-10
+    ), "actionAngleAdiabaticApprox for planar array input does not agree with z=vz=0"
+    assert numpy.all(
+        numpy.fabs(numpy.array(aAA.actionsFreqs(*planar[0]))[:, 0] - jfa[:6, 0]) < 1e-10
+    ), "actionAngleAdiabaticApprox for planar float input does not agree with z=vz=0"
+    assert numpy.all(
+        numpy.fabs(numpy.array(aAA.actionsFreqsAngles(Orbit(planar))) - jfa) < 1e-10
+    ), "actionAngleAdiabaticApprox for planar Orbit input does not agree with z=vz=0"
+    return None
+
+
+# Test that the output is in physical units when ro and vo are given
+def test_actionAngleAdiabaticApprox_physical():
+    from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
+    from galpy.potential import IsochronePotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 7.0, 230.0
+    nfw = NFWPotential(a=1.0, normalize=1.0)
+    aAI = actionAngleIsochrone(ip=IsochronePotential(b=0.5, normalize=1.0))
+    kw = dict(pot=nfw, aA=aAI, tintJ=20.0, ntintJ=101)
+    R, vR, vT, z, vz, phi = 1.0, 0.9, 1.1, 0.1, 0.3, 0.0
+    jfa = actionAngleAdiabaticApprox(**kw).actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    jfap = actionAngleAdiabaticApprox(ro=ro, vo=vo, **kw).actionsFreqsAngles(
+        R, vR, vT, z, vz, phi
+    )
+    for ii in range(9):
+        conv = ro * vo if ii < 3 else conversion.freq_in_Gyr(vo, ro) if ii < 6 else 1.0
+        assert numpy.fabs(jfap[ii] / jfa[ii] / conv - 1.0) < 1e-8, (
+            "actionAngleAdiabaticApprox output %i is not in physical units when ro and vo are given"
+            % ii
+        )
+    return None
+
+
+# Test that npoints < 2 raises an error
+def test_actionAngleAdiabaticApprox_npoints_error():
+    from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
+    from galpy.potential import NFWPotential
+
+    with pytest.raises(OSError, match="npoints= must be at least 2"):
+        actionAngleAdiabaticApprox(
+            pot=NFWPotential(a=1.0, normalize=1.0),
+            aA=actionAngleIsochrone(b=0.5),
+            npoints=1,
+        )
+    return None
+
+
+# Test that using MWPotential throws a warning
+def test_actionAngleAdiabaticApprox_MWPotential_warning():
+    from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
+    from galpy.potential import MWPotential
+
+    with pytest.warns(galpyWarning, match="Use of MWPotential as a Milky-Way-like"):
+        actionAngleAdiabaticApprox(pot=MWPotential, aA=actionAngleIsochrone(b=0.8))
+    return None
+
+
 # Test the Orbit interface
 def test_orbit_interface_spherical():
     from galpy.actionAngle import actionAngleSpherical
