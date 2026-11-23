@@ -13978,8 +13978,8 @@ def test_actionAngleStaeckelInverse_delta_callable_tables():
         return Ec, evaluatePotentials(lp, Rinf, 0.0) + Lz**2 / 2.0 / Rinf**2 - Ec
 
     for rule, axis_weight in (
-        (lambda E, Lz, y: 0.8 * (1.0 - 0.25 * y + 0.1 * (Lz - 1.0)), 0.0),
-        (lambda E, Lz, y: 0.8 * (1.0 + 0.1 * (Lz - 1.0) + 0.3 * E), 0.25),
+        (lambda E, Lz, f: 0.8 * (1.0 - 0.25 * f + 0.1 * (Lz - 1.0)), 0.0),
+        (lambda E, Lz, f: 0.8 * (1.0 + 0.1 * (Lz - 1.0) + 0.3 * E), 0.25),
     ):
         knobs = dict(axis_weight=axis_weight, mm_npt=32)
 
@@ -14065,14 +14065,14 @@ def test_actionAngleStaeckelInverse_delta_callable_points():
     grid = dict(setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=3.5, progressbar=False)
     grid.update(nE=4, nLz=4, nI3=4, mm_npt=32)
 
-    def rule(E, Lz, y):
+    def rule(E, Lz, f):
         return _STAECKEL_INVERSE_DELTA * (
-            1.0 + 0.15 * numpy.sin(2.0 * Lz) + 0.2 * (y - 0.5) + 0.05 * E * y
+            1.0 + 0.15 * numpy.sin(2.0 * Lz) + 0.2 * (f - 0.5) + 0.05 * E * f
         )
 
     base = actionAngleStaeckelInverse(pot=pot, **grid)
     const = actionAngleStaeckelInverse(
-        pot=pot, delta=lambda E, Lz, y: _STAECKEL_INVERSE_DELTA, **grid
+        pot=pot, delta=lambda E, Lz, f: _STAECKEL_INVERSE_DELTA, **grid
     )
     vary = actionAngleStaeckelInverse(pot=pot, delta=rule, **grid)
     angler = numpy.linspace(0.05, 6.2, 11)
@@ -14137,7 +14137,7 @@ def test_actionAngleStaeckelInverse_delta_callable_points():
         numpy.array(
             actionAngleStaeckelInverse(
                 pot=lp,
-                delta=lambda E, Lz, y: 0.8 * (1.0 - 0.25 * y + 0.1 * Lz + 0.3 * E),
+                delta=lambda E, Lz, f: 0.8 * (1.0 - 0.25 * f + 0.1 * Lz + 0.3 * E),
                 nE=n,
                 nLz=n,
                 nI3=n,
@@ -14202,12 +14202,15 @@ def test_actionAngleStaeckelInverse_delta_fit():
         < 1e-4
     ), "delta='fit' does not find the family of a Staeckel potential"
     # a family with a callable: the method returns the family's own table
-    rule = lambda E, Lz, y: 1.3 * (1.0 + 0.2 * (y - 0.5) + 0.05 * E * y)  # noqa: E731
+    rule = lambda E, Lz, f: 1.3 * (1.0 + 0.2 * (f - 0.5) + 0.05 * E * f)  # noqa: E731
     vary = actionAngleStaeckelInverse(pot=pot, delta=rule, **grid)
-    assert numpy.amax(numpy.fabs(vary.delta(E, Lz, y) / rule(E, Lz, y) - 1.0)) < 1e-3, (
+    assert numpy.all(vary.delta(E, Lz, y) == rule(E, Lz, y)), (
         "The delta method does not return the focal lengths of a family with "
         "a callable delta="
     )
+    # the callable is not pickled with the family
+    with pytest.raises(RuntimeError, match="was not pickled"):
+        pickle.loads(pickle.dumps(vary)).delta(E, Lz, y)
     # a general potential: the fitted family is canonical, the true energy
     # varies less over its tori than over those of single focal lengths,
     # and its delta method gives another family the same focal lengths
@@ -14282,9 +14285,9 @@ def test_actionAngleStaeckelInverse_delta_target():
     wide = actionAngleStaeckelInverse(delta="fit", nE=7, nLz=7, nI3=7, **kw)
     calls = []
 
-    def rule(E, Lz, y):
+    def rule(E, Lz, f):
         calls.append(numpy.shape(E))
-        return wide.delta(E, Lz, y)
+        return wide.delta(E, Lz, f)
 
     small = dict(target=o(ts), nE=4, nLz=4, nI3=4, **kw)
     loc = actionAngleStaeckelInverse(delta=rule, **small)
