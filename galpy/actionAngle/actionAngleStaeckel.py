@@ -935,8 +935,9 @@ def _u0callable(rule, nargs, E, Lz, I3, partials=False):
     I_3, L_z) with those partials, and the partials with its second
     derivatives (also by central differences), which carries the derivatives
     of both"""
-    xp = get_namespace(E, Lz, I3)
-    if xp is not numpy:
+    # (by the data: the host evaluation below is numpy whatever is forced)
+    if any(is_backend_array(t) for t in (E, Lz, I3)):
+        xp = get_namespace(E, Lz, I3)
         q = (E, I3, Lz)
         cols = [stop_gradient(t) for t in q]
         # (host_eval returns the shape it is given: the value, the 4 partials
