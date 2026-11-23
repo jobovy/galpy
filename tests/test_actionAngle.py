@@ -16570,9 +16570,10 @@ def test_actionAngleStaeckel_inverse_deltafit():
 
     kw = dict(pot=MWPotential2014, setup_interp=True, Rmin=0.85, Rmax=1.15, Rinf=2.5)
     kw.update(nE=4, nLz=4, nI3=4, mm_npt=128, progressbar=False)
-    cbI = actionAngleStaeckelInverse(
-        delta=lambda E, Lz, f: 0.45 * (1.0 + 0.1 * (f - 0.5) + 0.05 * Lz), **kw
-    )
+    with use("numpy", force=True):
+        cbI = actionAngleStaeckelInverse(
+            delta=lambda E, Lz, f: 0.45 * (1.0 + 0.1 * (f - 0.5) + 0.05 * Lz), **kw
+        )
     jr, jz = numpy.array([cbI._A_tab[n][:2] for n in nodes]).T
     x = cbI(jr, Lz, jz, *angs)
     freqs = numpy.array(cbI.Freqs(jr, Lz, jz))
