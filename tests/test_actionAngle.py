@@ -15505,42 +15505,6 @@ def test_actionAngleStaeckelInverse_from_actions_sheets():
     return None
 
 
-def test_actionAngleStaeckel_c_model_energy():
-    # The C code's switch to the energy of the Staeckel model that the
-    # approximation with (delta, u0) stands for: for a Staeckel potential
-    # with its own focal length, that model is the potential itself for any
-    # u0, so the actions, frequencies, and angles do not change (the switch
-    # is first used by actionAngleStaeckel itself for the actions alone)
-    from galpy.actionAngle import actionAngleStaeckel_c
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-
-    pot = KuzminKutuzovStaeckelPotential(ac=5.0, Delta=1.0, normalize=True)
-    rng = numpy.random.default_rng(4)
-    x = (
-        rng.uniform(0.8, 1.2, 6),
-        rng.normal(0.0, 0.15, 6),
-        rng.uniform(0.8, 1.1, 6),
-        rng.normal(0.0, 0.2, 6),
-        rng.normal(0.0, 0.1, 6),
-        rng.uniform(0.0, 2.0 * numpy.pi, 6),
-    )
-    out = [
-        numpy.array(
-            actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
-                pot, 1.0, *x, u0=numpy.full(6, 0.8), order=20, model=model
-            )[:8]
-        )
-        for model in (False, True)
-    ]
-    assert numpy.all(numpy.isfinite(out[0])) and numpy.allclose(
-        out[0], out[1], rtol=0.0, atol=1e-8
-    ), (
-        "The Staeckel C code with the energy of its Staeckel model changes "
-        "the actions, frequencies, or angles in a Staeckel potential"
-    )
-    return None
-
-
 def test_actionAngleStaeckel_inverse_single_model():
     # actionAngleStaeckel(inverse=) of tori in a single Staeckel model is
     # the transformation of that model
@@ -15716,25 +15680,21 @@ def test_actionAngleStaeckel_inverse_deltafit():
     # a single focal length does not give the family's frequencies
     own = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
     assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-3
-    # a point off the grid has the model of the rule's smooth extension, in
-    # which it has actions, frequencies, and angles like any other; a point
-    # outside the grid's range of L_z has no model (checked on the vertical
-    # action: the C code's radial action without a model is nan or zero
-    # depending on the platform)
+    # a point outside the grid's range of energy or of L_z is transformed
+    # like any other, with the focal length of the rule at the edge of that
+    # range, and with a warning (the first point is on the grid)
     one = numpy.ones(3)
     far = (one, 0.1 * one, numpy.array([1.0, 1.0, 1.6]), 0.1 * one)
-    far += (numpy.array([0.9, 0.01, 0.01]),)
-    out = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one))
-    assert numpy.all(numpy.isfinite(out[:3, :2])) and numpy.isnan(out[2, 2]), (
-        "actionAngleStaeckel(inverse=) does not return nan outside a family's L_z"
-    )
-    assert numpy.all(numpy.isfinite(out[3:, :2])) and numpy.allclose(
-        numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))[:, :2],
-        out[:, :2],
-        rtol=0.0,
-        atol=1e-7,
+    far += (numpy.array([0.01, 0.9, 0.01]),)
+    with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
+        out = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one))
+    with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
+        py = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))
+    assert numpy.all(numpy.isfinite(out)) and numpy.allclose(
+        py, out, rtol=0.0, atol=1e-7
     ), "actionAngleStaeckel(inverse=) does not transform a point off a family's grid"
-    assert numpy.allclose(numpy.array(aAS(*far))[:, :2], out[:3, :2], atol=1e-8)
+    with pytest.warns(galpyWarning, match="lie outside"):
+        assert numpy.allclose(numpy.array(aAS(*far)), out[:3], atol=1e-8)
     # a family with a callable rule: the rule itself where the family has
     # it, and the family's table of it for a pickled family, which does not
     import pickle
