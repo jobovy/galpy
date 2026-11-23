@@ -49,7 +49,11 @@ from ..backend._namespaces import (
 )
 from ..backend.interpolate import cubic_hermite_coeffs, eval_ppoly
 from ..backend.optimize import brentq as _backend_brentq
-from ..backend.optimize import iterate_bracket, iterate_to_fixed_point
+from ..backend.optimize import (
+    columnwise_jacobian,
+    iterate_bracket,
+    iterate_to_fixed_point,
+)
 from ..potential import (
     IsochronePotential,
     OblateStaeckelWrapperPotential,
@@ -78,6 +82,7 @@ from .actionAngleInverseUtil import (
     _BOUND_MARGIN,
     _antiderivative_xp,
     _bk_matching,
+    _bk_newton_system,
     _chunked,
     _const,
     _fit_isochrone_vc2,
@@ -4772,12 +4777,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         torus axis. In the arguments' own namespace, whatever backend is
         forced (the backends' lookups decode with it too)."""
         xp = namespace_from_arrays((lam, dlam, uc, duc)) or numpy
+        # (a tensor as it is: torch.asarray of one that needs grad warns)
+        arr = lambda a: a if is_backend_array(a) else xp.asarray(a)  # noqa: E731
         if key == "v":
             return (
                 xp.asin(xp.tanh(lam)),
-                dlam / xp.cosh(xp.asarray(lam)[..., None]),
+                dlam / xp.cosh(arr(lam)[..., None]),
             )
-        q = xp.asarray(lam / uc)[..., None]
+        q = arr(lam / uc)[..., None]
         th = xp.tanh(q)
         return uc * th[..., 0], th * duc + (1.0 - th**2) * (dlam - q * duc)
 
@@ -8343,12 +8350,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
     def _bk_E_of_xL(self, x, ell, circ=None):
-        """_E_of_xL on a backend, with the edges' apocentres solved afresh"""
+        """_E_of_xL on a backend, with the edges' apocentres solved afresh
+        (or taken from circ, as _bk_apocentres puts them there)"""
         xp = get_namespace(x, ell)
         circ = self._bk_circular(ell, freqs=False) if circ is None else circ
-        Emax = self._bk_grid("Phiinf") + ell**2 / (2.0 * self._Rinf**2)
-        R0c = self._bk_R0(circ["Ec"], circ["Rc"], self._Rinf + 0.0 * ell)
-        R0m = self._bk_R0(Emax, self._Rinf + 0.0 * ell, 10.0 * self._Rinf + 0.0 * ell)
+        R0c, R0m = circ["R0"] if "R0" in circ else self._bk_apocentres(ell, circ)
         g0c = R0c * self._bk_dPhi(R0c)
         g0m = R0m * self._bk_dPhi(R0m)
         R = R0c * (R0m / R0c) ** x
@@ -8357,6 +8363,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._bk_Phi(R),
             g * xp.log(R0m / R0c),
             (1.0 - x) * circ["Omc"] * (g / g0c) + x * (ell / self._Rinf**2) * (g / g0m),
+        )
+
+    def _bk_apocentres(self, ell, circ):
+        """The apocentres of the energy grid's edges at L_z = ell: of the
+        circular orbit's and of the edge at Rinf"""
+        Emax = self._bk_grid("Phiinf") + ell**2 / (2.0 * self._Rinf**2)
+        return (
+            self._bk_R0(circ["Ec"], circ["Rc"], self._Rinf + 0.0 * ell),
+            self._bk_R0(Emax, self._Rinf + 0.0 * ell, 10.0 * self._Rinf + 0.0 * ell),
         )
 
     def _bk_check_Lz(self, ell):
@@ -9363,11 +9378,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # their face and the circular orbit by where(), so that one trace covers
     # any number of tori.
 
-    def _bk_interp_coords_rows(self, xp, jr, jz, ell):
+    def _bk_interp_coords_rows(self, xp, jr, jz, ell, start=None):
         """_bk_interp_coords for many tori at once, none of them on a
         degenerate face: the 2-D Newton vectorized over the tori on the
-        batched action interpolant, then the implicit-function step; also
-        returns which tori did not converge (None when traced)"""
+        batched action interpolant (from start, the coordinates (2, n), when
+        given), then the implicit-function step; also returns which tori did
+        not converge (None when traced)"""
         wEs, ys = self._wEs, self._ys
         xlo, xhi, ylo, yhi = wEs[0] ** 2, wEs[-1] ** 2, ys[0], ys[-1]
         jtot, frac = jr + jz, jz / (jr + jz)
@@ -9406,10 +9422,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             done = xp.max(xp.abs(G), axis=0) < 1e-12
             return xp.where(done[None, :], state, xp.stack([xn, yn]))
 
-        y0 = xp.clip(frac_sg, ylo + 0.02 * (yhi - ylo), yhi - 0.02 * (yhi - ylo))
-        state = iterate_to_fixed_point(
-            step, xp.stack([0.5 * (xlo + xhi) + 0.0 * y0, y0]), 60
-        )
+        if start is None:
+            y0 = xp.clip(frac_sg, ylo + 0.02 * (yhi - ylo), yhi - 0.02 * (yhi - ylo))
+            start = xp.stack([0.5 * (xlo + xhi) + 0.0 * y0, y0])
+        state = iterate_to_fixed_point(step, stop_gradient(start), 60)
         # the implicit-function step, with the live tables and actions
         x0, y0 = stop_gradient(state[0]), stop_gradient(state[1])
         G, Gx, Gy = G_and_J(x0, y0, jtot, frac, ell)
@@ -9532,13 +9548,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             bad = bad | (h < self._Lzgrid[0]) | (h > self._Lzgrid[-1])
         return A[:, 3], dD, bad
 
-    def _bk_tables_rows(self, xp, x, y, ell, Lz, udeg, vdeg):
+    def _bk_tables_rows(self, xp, x, y, ell, Lz, udeg, vdeg, circ=None):
         """_bk_tables_at for many tori at once, with a leading point axis; the
         degeneracy flags are False (no torus on a face) or per-torus arrays,
         whose degenerate libration's tables are zeroed by where() (on
-        stand-in coordinates for its divisions)"""
+        stand-in coordinates for its divisions); circ the circular orbits at
+        ell when known"""
         A, Ax, Ay, AL, N0, N1, N2 = self._bk_label_chain_rows(xp, x, y, ell, Lz)
-        circ = self._bk_circular(ell, freqs=False)
+        circ = self._bk_circular(ell, freqs=False) if circ is None else circ
         _, dE_dx, dE_dL = self._bk_E_of_xL(x, ell, circ)
         tab = {
             "Om": dE_dx[:, None] * N0 + dE_dL[:, None] * N2,
@@ -9731,6 +9748,152 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 )
             )
         return res, bad
+
+    def _bk_invert_family(
+        self, xp, R, vR, vT, z, vz, phi, jr, jz, tol=1e-12, maxiter=8
+    ):
+        """_invert_family on jax/torch: the same Newton's method in the same
+        regular unknowns sqrt(2 J) (cos, sin) of the two anomalies, from the
+        same start and with the same linear expansion below an action of
+        1e-10, at fixed shape (_bk_newton_system) on the family's vectorized
+        tables, with each point's Jacobian by the backend's autodiff
+        (columnwise_jacobian); then one Newton step on the traced map at the
+        solution, which carries the derivatives of the actions and angles in
+        the points and in the family's parameters. Returns (J_R, J_z,
+        theta_R, theta_phi, theta_z), nan for the points that are not on a
+        torus of the family"""
+        tiny, sg, twopi = 1e-10, stop_gradient, 2.0 * numpy.pi
+        Lz = R * vT
+        target = xp.stack([z, R, vz, vR])
+        Lz_sg, target_sg, phi_sg = sg(Lz), sg(target), sg(phi)
+
+        def circular(Lzv):
+            # the circular orbits at the points' L_z, which the iteration keeps
+            ell = xp.abs(Lzv)
+            circ = self._bk_circular(ell, freqs=False)
+            return {**circ, "R0": self._bk_apocentres(ell, circ)}
+
+        circ_sg = circular(Lz_sg)
+
+        def tables(J, Lzv, circ, start=None):
+            ell = xp.abs(Lzv)
+            x, y, _ = self._bk_interp_coords_rows(xp, J[0], J[1], ell, start)
+            tab = self._bk_tables_rows(xp, x, y, ell, Lzv, False, False, circ)
+            aux, chains_u, chains_v = self._bk_aux(xp, J[0], J[1], Lzv, tab)
+            if "delta" in tab:
+                aux["delta"] = tab["delta"]
+                aux["dlnD"] = xp.permute_dims(
+                    tab["ddelta"] / tab["delta"][:, None], (1, 0)
+                )
+            return tab, aux, chains_u, chains_v
+
+        def held(J):
+            # which tori the family holds (all of them when traced), and
+            # their grid coordinates (the start of the map's label inversion)
+            ell = xp.abs(Lz_sg)
+            x, y, bad = self._bk_interp_coords_rows(xp, J[0], J[1], ell)
+            if bad is None:
+                return xp.isfinite(J[0]), xp.stack([x, y])
+            h = as_numpy(ell)
+            ok = ~bad & (h >= self._Lzgrid[0]) & (h <= self._Lzgrid[-1])
+            return asarray_on_device(xp, ok, device_of(J)), xp.stack([x, y])
+
+        def point_of(qe, Lzv, circ, start=None):
+            J = 0.5 * xp.stack([qe[0] ** 2 + qe[1] ** 2, qe[2] ** 2 + qe[3] ** 2])
+            _, aux, chains_u, chains_v = tables(J, Lzv, circ, start)
+            tu, tv = xp.atan2(qe[1], qe[0]), xp.atan2(qe[3], qe[2])
+            T = self._bk_torus_at(xp, tu, tv, aux, chains_u, chains_v)
+            x = self._bk_point(xp, T, Lzv, aux["L"], 0.0 * Lzv, aux.get("delta"))
+            return T, x
+
+        def regular(q):
+            # the unknowns of the map: below tiny, the fixed anomaly pi / 4
+            J = 0.5 * (q[0::2] ** 2 + q[1::2] ** 2)
+            low = J < tiny
+            X = xp.where(low, tiny**0.5, q[0::2])
+            Y = xp.where(low, tiny**0.5, q[1::2])
+            return J, xp.stack([X[0], Y[0], X[1], Y[1]])
+
+        def angles(T, x, phi):
+            return xp.remainder(
+                xp.stack(
+                    [
+                        T["thetaAr"] + T["comps"][0],
+                        phi - x[5],
+                        T["thetaAz"] + T["comps"][1],
+                    ]
+                ),
+                twopi,
+            )
+
+        def mapper(start):
+            def mapped(qe):
+                # (z, R, v_z, v_R) at the regular unknowns, with the angles
+                T, x = point_of(qe, Lz_sg, circ_sg, start)
+                return xp.stack([x[3], x[0], x[4], x[1]]), angles(T, x, phi_sg)
+
+            return mapped
+
+        def expanded(q, qe, jac):
+            # the linear expansion about qe (nothing above tiny)
+            dq = xp.permute_dims(q - qe, (1, 0))[..., None]
+            return xp.permute_dims((jac @ dq)[..., 0], (1, 0))
+
+        def fjac(q):
+            J, qe = regular(q)
+            ok, start = held(xp.maximum(J, 0.0 * J + tiny))
+            M, jac, ang = columnwise_jacobian(mapper(start), qe, has_aux=True)
+            res = target_sg - M - expanded(q, qe, jac)
+            valid = ok & xp.all(xp.isfinite(jac), axis=(1, 2))
+            return res, jac, valid, xp.concat([J, ang])
+
+        # the anomalies where the guess's torus has the point's (u, v), on the
+        # branch of the signs of (p_u, p_v) (stand-in tori for the others)
+        J0 = xp.stack([sg(jr), sg(jz)])
+        good = xp.all(xp.isfinite(J0) & (J0 >= 0.0), axis=0)
+        tab, aux, _, _ = tables(
+            xp.where(good[None, :], xp.maximum(J0, 0.0 * J0 + tiny), tiny),
+            Lz_sg,
+            circ_sg,
+        )
+        u, v = coords.Rz_to_uv(sg(R), sg(z), delta=aux.get("delta", self._delta))
+        sh, ch, sn, cs = xp.sinh(u), xp.cosh(u), xp.sin(v), xp.cos(v)
+        vRs, vzs = sg(vR), sg(vz)
+        tau = []
+        for lib, c, w, p in (
+            (tab["uc"], u, tab["wu"], vRs * ch * sn + vzs * sh * cs),
+            (0.5 * numpy.pi, v, tab["wv"], vRs * sh * cs - vzs * ch * sn),
+        ):
+            t0 = xp.acos(xp.clip((lib - c) / w, -1.0, 1.0))
+            tau.append(xp.where(p >= 0.0, t0, twopi - t0))
+        rt = xp.sqrt(xp.where(good[None, :], 2.0 * J0, numpy.nan))
+        q0 = xp.stack(
+            [
+                rt[0] * xp.cos(tau[0]),
+                rt[0] * xp.sin(tau[0]),
+                rt[1] * xp.cos(tau[1]),
+                rt[1] * xp.sin(tau[1]),
+            ]
+        )
+        q, solved, _ = _bk_newton_system(fjac, q0, tol, maxiter=maxiter)
+        # the derivatives: one Newton step on the traced map at the solution
+        # (its value is the solution's; stand-ins for the unsolved points)
+        q = xp.where(solved[None, :], q, xp.where(xp.isfinite(q0), q0, 0.1 + 0.0 * q0))
+        J, qe = regular(q)
+        start = held(xp.maximum(J, 0.0 * J + tiny))[1]
+        jac = columnwise_jacobian(mapper(start), qe, has_aux=True)[1]
+        circ = circular(Lz)
+        T, x = point_of(qe, Lz, circ, start)
+        rest = target - xp.stack([x[3], x[0], x[4], x[1]]) - expanded(q, qe, jac)
+        d = xp.permute_dims(
+            xp.linalg.solve(jac, xp.permute_dims(rest, (1, 0))[..., None])[..., 0],
+            (1, 0),
+        )
+        q = q + d - sg(d)
+        J, qe = regular(q)
+        T, x = point_of(qe, Lz, circ, start)
+        out = xp.concat([J, angles(T, x, phi)])
+        return xp.where(solved[None, :], out, numpy.nan)
 
     def _bk_points(self, xp, actions, angles, torus, rows_fn):
         """An interpolated family at flat arrays of actions (and angles of the

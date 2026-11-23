@@ -160,20 +160,37 @@ def implicit_fixed_point_step(func, p, args, xp, vector=False):
     g = func(p, *args)
     if not (torch.is_grad_enabled() and g.requires_grad):
         return p
-    with torch.enable_grad():
-        xr = p.clone().requires_grad_(True)
-        fx = func(xr, *dargs)
-        if not vector:
+    if not vector:
+        with torch.enable_grad():
+            xr = p.clone().requires_grad_(True)
+            fx = func(xr, *dargs)
             (slope,) = torch.autograd.grad(fx, xr, grad_outputs=torch.ones_like(fx))
-            return p + (g - g.detach()) / nonzero_slope(1.0 - slope, xp)
-        # row i of each torus's dg/dx (the tori are independent)
-        rows = [
-            torch.autograd.grad(
-                fx[i], xr, grad_outputs=torch.ones_like(fx[i]), retain_graph=True
-            )[0]
-            for i in range(p.shape[0])
-        ]
-    J = torch.stack(rows).permute(2, 0, 1)  # (n, k, k)
+        return p + (g - g.detach()) / nonzero_slope(1.0 - slope, xp)
+    J = columnwise_jacobian(lambda x: func(x, *dargs), p)[1]  # (n, k, k)
     eye = torch.eye(p.shape[0], dtype=p.dtype, device=p.device)
     rhs = (g - g.detach()).T[..., None]  # (n, k, 1)
     return p + torch.linalg.solve(eye - J, rhs)[..., 0].T
+
+
+def columnwise_jacobian(f, p, has_aux=False):
+    """torch half of optimize.columnwise_jacobian: one backward pass per
+    output row (the columns are independent)"""
+    import torch
+
+    with torch.enable_grad():
+        xr = p.detach().clone().requires_grad_(True)
+        out = f(xr)
+        fx = out[0] if has_aux else out
+        rows = [
+            torch.autograd.grad(
+                fx[i],
+                xr,
+                grad_outputs=torch.ones_like(fx[i]),
+                retain_graph=True,
+            )[0]
+            for i in range(fx.shape[0])
+        ]
+    J = torch.stack(rows).permute(2, 0, 1)  # (n, m, k)
+    if has_aux:
+        return fx.detach(), J, out[1].detach()
+    return fx.detach(), J

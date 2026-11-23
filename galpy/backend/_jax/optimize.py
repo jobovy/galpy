@@ -176,11 +176,22 @@ def implicit_fixed_point_step(func, p, args, xp, vector=False):
     if not vector:
         _, slope = jax.jvp(f, (p,), (xp.ones_like(p),))
         return p + (g - sg(g)) / nonzero_slope(1.0 - slope, xp)
-    k = p.shape[0]
-    eye = jax.numpy.eye(k, dtype=p.dtype)
-    # column i of each torus's dg/dx: the tangent of x_i, the same for all
-    cols = [jax.jvp(f, (p,), (eye[:, i, None] + 0.0 * p,))[1] for i in range(k)]
-    J = jax.numpy.moveaxis(jax.numpy.stack(cols, axis=-1), 1, 0)  # (n, k, k)
+    eye = jax.numpy.eye(p.shape[0], dtype=p.dtype)
+    J = columnwise_jacobian(f, p)[1]  # (n, k, k)
     rhs = jax.numpy.moveaxis(g - sg(g), 0, 1)[..., None]  # (n, k, 1)
     step = jax.numpy.linalg.solve(eye - J, rhs)[..., 0]
     return p + jax.numpy.moveaxis(step, 1, 0)
+
+
+def columnwise_jacobian(f, p, has_aux=False):
+    """jax half of optimize.columnwise_jacobian: the jvps of the k unknowns
+    (the tangent of one unknown on every column), batched into one pass"""
+    import jax
+
+    tangents = jax.numpy.eye(p.shape[0], dtype=p.dtype)[:, :, None] + 0.0 * p
+    out = jax.vmap(
+        lambda t: jax.jvp(f, (p,), (t,), has_aux=has_aux),
+        out_axes=(None, -1, None) if has_aux else (None, -1),
+    )(tangents)
+    J = jax.numpy.moveaxis(out[1], 1, 0)  # (n, m, k)
+    return (out[0], J, out[2]) if has_aux else (out[0], J)

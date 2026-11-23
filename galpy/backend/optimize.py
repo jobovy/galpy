@@ -230,6 +230,21 @@ def fixed_point_implicit_step(func, p, args=(), vector=False):
     return _bk(func, p, args, xp, vector=vector)
 
 
+def columnwise_jacobian(f, p, has_aux=False):
+    """The Jacobians of n independent functions of k unknowns each, one per
+    column of the backend array p (k, n): f(p) is (m, n), column j a
+    function of column j of p alone. Returns f(p) and the Jacobians (n, m,
+    k), derivative-free (with has_aux, f returns (value, aux), aux an array,
+    and aux is returned too): the k forward passes batched in jax, m
+    backward passes in torch"""
+    xp = prefer_backend_namespace(p)
+    if name_of_namespace(xp) == "jax":
+        from ._jax.optimize import columnwise_jacobian as _bk
+    else:  # array_api_compat.torch
+        from ._torch.optimize import columnwise_jacobian as _bk
+    return _bk(f, p, has_aux=has_aux)
+
+
 def del2_step(f, p0, xp):
     """One scipy ``fixed_point`` del2 update: ``(p, relerr)``, branch-free."""
     p1 = f(p0)

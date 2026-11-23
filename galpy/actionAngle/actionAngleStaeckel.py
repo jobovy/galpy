@@ -1741,6 +1741,15 @@ class actionAngleStaeckel(actionAngle):
             self._parse_eval_args(*args)
             R, vR, vT = self._eval_R, self._eval_vR, self._eval_vT
             z, vz, phi = self._eval_z, self._eval_vz, self._eval_phi
+        xp = get_namespace(R, vR, vT, z, vz, phi)
+        if xp is not numpy:
+            R, vR, vT, z, vz, phi = xp.broadcast_arrays(
+                *(
+                    xp.reshape(a * 1.0, (-1,))
+                    for a in promote_scalars(xp, R, vR, vT, z, vz, phi)
+                )
+            )
+            return self._bk_polished(xp, R, vR, vT, z, vz, phi, **kwargs)
         R, vR, vT, z, vz, phi = (
             a.copy()
             for a in numpy.broadcast_arrays(
@@ -1771,7 +1780,40 @@ class actionAngleStaeckel(actionAngle):
             out[3:6, good] = aAI._Freqs(*out[:3][:, good])
         return tuple(out)
 
-    def _inverse_model(self, R, vR, vT, z, vz, c=True, deriv=True):
+    def _bk_polished(self, xp, R, vR, vT, z, vz, phi, **kwargs):
+        """_polished on jax/torch: the family's _bk_invert_family from the
+        actions of the transformation without the polish, with the family's
+        frequencies at the polished actions; nan (with the same warning) for
+        the points that no torus of the family passes through"""
+        aAI = self._inverse
+        # (the start carries no derivative)
+        out = self._actionsFreqsAngles(
+            *(stop_gradient(a) for a in (R, vR, vT, z, vz, phi)), _direct=True, **kwargs
+        )
+        Lz = R * vT
+        sol = aAI._bk_invert_family(xp, R, vR, vT, z, vz, phi, out[0], out[2])
+        bad = xp.isnan(sol[0])
+        nbad = xp.sum(xp.astype(bad, xp.int64))
+        concrete = has_concrete_truth_value(nbad)
+        if concrete and int(nbad) > 0:
+            warnings.warn(
+                f"{int(nbad)} points are not on a torus of inverse=: their "
+                "actions, frequencies and angles are nan",
+                galpyWarning,
+            )
+        # the family's frequencies at the polished actions (a solved point's
+        # stand-in for the others)
+        if concrete and int(nbad) == R.shape[0]:
+            Om = (sol[0],) * 3
+        else:
+            jr, jz, L = sol[0], sol[1], Lz
+            if concrete and int(nbad) > 0:
+                i = int(numpy.flatnonzero(~as_numpy(bad))[0])
+                jr, jz, L = (xp.where(bad, t[i], t) for t in (jr, jz, L))
+            Om = tuple(xp.where(bad, numpy.nan, o) for o in aAI._Freqs(jr, L, jz))
+        return (sol[0], Lz, sol[1], *Om, sol[2], sol[3], sol[4])
+
+    def _inverse_model(self, R, vR, vT, z, vz, c=True, deriv=True, flag_unbound=False):
         """The focal length and reference curve of the Staeckel model of
         the torus of inverse= through each phase-space point. A reference
         curve that follows the tori depends on the torus's energy and third
@@ -1779,7 +1821,8 @@ class actionAngleStaeckel(actionAngle):
         fixed point, found by iterating the rule on the turning points in
         the current model with Aitken's acceleration: by the C code itself
         (which is then handed nan to start from the point's own u) or, with
-        c False, here; on jax/torch by _bk_inverse_model"""
+        c False, here; on jax/torch by _bk_inverse_model (where
+        flag_unbound models unbound points as C does, on a bound stand-in)"""
         aAI = self._inverse
         delta = aAI._delta
         xp = get_namespace(R, vR, vT, z, vz)
@@ -1788,7 +1831,9 @@ class actionAngleStaeckel(actionAngle):
                 return delta, aAI._staeckelwrap._u0 + 0.0 * R, None
             return delta, numpy.full(numpy.shape(R), aAI._staeckelwrap._u0), None
         if xp is not numpy:
-            return self._bk_inverse_model(xp, R, vR, vT, z, vz, delta, deriv)
+            return self._bk_inverse_model(
+                xp, R, vR, vT, z, vz, delta, deriv, flag_unbound
+            )
         R, vR, vT, z, vz = (
             a.copy()
             for a in numpy.broadcast_arrays(
@@ -2027,7 +2072,9 @@ class actionAngleStaeckel(actionAngle):
         # (the family's table is in (J_R, J_z, J_phi))
         return delta, u0, ddelta[:, [0, 2, 1]].T
 
-    def _bk_inverse_model(self, xp, R, vR, vT, z, vz, delta, deriv=True):
+    def _bk_inverse_model(
+        self, xp, R, vR, vT, z, vz, delta, deriv=True, flag_unbound=False
+    ):
         """_inverse_model's fixed point on jax/torch: the same Aitken schedule
         at fixed shape on derivative-free inputs (a point is frozen once its
         step is below _MODEL_TOL), then the implicit-function step, so that
@@ -2044,7 +2091,9 @@ class actionAngleStaeckel(actionAngle):
                     pot, delta,
                 )  # fmt: skip
             else:
-                um, up = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta, u0=u0)[1:3]
+                um, up = _staeckel_prep(
+                    xp, R, vR, vT, z, vz, pot, delta, flag_unbound, u0=u0
+                )[1:3]
             sm, sp = xp.sinh(um), xp.sinh(up)
             return xp.asinh(2.0 * sm * sp / (sm + sp))
 
@@ -2275,7 +2324,17 @@ class actionAngleStaeckel(actionAngle):
             if xp is not numpy:
                 if self._inverse is not None:
                     # each point in its own model: the backend c=False code
-                    return self._evaluate(R, vR, vT, z, vz, delta=delta, c=False)
+                    return self._evaluate(
+                        R,
+                        vR,
+                        vT,
+                        z,
+                        vz,
+                        delta=delta,
+                        c=False,
+                        _direct=True,
+                        _routed=True,
+                    )
                 # jax/torch: differentiable actions via the C-native 2x5 Jacobian
                 # (vjp/autograd.Function).
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
@@ -2344,7 +2403,8 @@ class actionAngleStaeckel(actionAngle):
                     "C module not used because potential does not have a C implementation",
                     galpyWarning,
                 )
-            routed = self._c_requested(kwargs)  # C requested, rerouted here
+            # C requested, rerouted here (or the inverse= reroute below)
+            routed = kwargs.pop("_routed", False) or self._c_requested(kwargs)
             kwargs.pop("c", None)
             # Unified vectorised, backend-agnostic path (numpy + jax/torch),
             # replacing the former per-object scipy loop. Uses the chi-anomaly
@@ -2360,7 +2420,7 @@ class actionAngleStaeckel(actionAngle):
             u0 = ddelta = None
             if self._inverse is not None:
                 delta, u0, ddelta = self._inverse_model(
-                    R, vR, vT, z, vz, c=loop_c, deriv=False
+                    R, vR, vT, z, vz, c=loop_c, deriv=False, flag_unbound=routed
                 )
             jr, Lz, jz = _staeckel_actions(
                 xp,
@@ -2440,7 +2500,17 @@ class actionAngleStaeckel(actionAngle):
             if xp is not numpy:
                 if self._inverse is not None:
                     # each point in its own model: the backend c=False code
-                    return self._actionsFreqs(R, vR, vT, z, vz, delta=delta, c=False)
+                    return self._actionsFreqs(
+                        R,
+                        vR,
+                        vT,
+                        z,
+                        vz,
+                        delta=delta,
+                        c=False,
+                        _direct=True,
+                        _routed=True,
+                    )
                 # jax/torch: differentiable (jr,jz,Omega) via the fused C-native
                 # (5x5) Jacobian -- actions rows (#1051) + freq rows (#131), in one
                 # C pass. First-order.
@@ -2545,7 +2615,8 @@ class actionAngleStaeckel(actionAngle):
                 vT = numpy.array([to_host(vT)])
                 z = numpy.array([to_host(z)])
                 vz = numpy.array([to_host(vz)])
-            routed = self._c_requested(kwargs)  # C requested, rerouted here
+            # C requested, rerouted here (or the inverse= reroute below)
+            routed = kwargs.pop("_routed", False) or self._c_requested(kwargs)
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
             # Unified vectorised, backend-agnostic path (the useu0 reference is
@@ -2555,7 +2626,9 @@ class actionAngleStaeckel(actionAngle):
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             u0 = ddelta = None
             if self._inverse is not None:
-                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz, c=loop_c)
+                delta, u0, ddelta = self._inverse_model(
+                    R, vR, vT, z, vz, c=loop_c, flag_unbound=routed
+                )
             jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
                 xp,
                 R,
@@ -2643,7 +2716,16 @@ class actionAngleStaeckel(actionAngle):
                 if self._inverse is not None:
                     # each point in its own model: the backend c=False code
                     return self._actionsFreqsAngles(
-                        R, vR, vT, z, vz, phi, delta=delta, c=False
+                        R,
+                        vR,
+                        vT,
+                        z,
+                        vz,
+                        phi,
+                        delta=delta,
+                        c=False,
+                        _direct=True,
+                        _routed=True,
                     )
                 # jax/torch: differentiable actions, frequencies AND angles via the
                 # fused C-native Jacobian (#131 PR-B); phi enters analytically
@@ -2772,7 +2854,8 @@ class actionAngleStaeckel(actionAngle):
                 z = numpy.array([to_host(z)])
                 vz = numpy.array([to_host(vz)])
                 phi = numpy.array([to_host(phi)])
-            routed = self._c_requested(kwargs)  # C requested, rerouted here
+            # C requested, rerouted here (or the inverse= reroute below)
+            routed = kwargs.pop("_routed", False) or self._c_requested(kwargs)
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
             # Unified vectorised, backend-agnostic path (the useu0 reference is
@@ -2785,7 +2868,9 @@ class actionAngleStaeckel(actionAngle):
                 phi = asarray_on_device(xp, phi, device_of(R))
             u0 = ddelta = None
             if self._inverse is not None:
-                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz, c=loop_c)
+                delta, u0, ddelta = self._inverse_model(
+                    R, vR, vT, z, vz, c=loop_c, flag_unbound=routed
+                )
             (
                 jr,
                 Lz,
@@ -3005,7 +3090,7 @@ class actionAngleStaeckel(actionAngle):
             u0 = ddelta = None
             if self._inverse is not None:
                 delta, u0, ddelta = self._inverse_model(
-                    R, vR, vT, z, vz, c=loop_c, deriv=False
+                    R, vR, vT, z, vz, c=loop_c, deriv=False, flag_unbound=routed
                 )
             s, umin, umax, vmin, _ = _staeckel_prep(
                 xp,

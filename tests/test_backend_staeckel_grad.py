@@ -454,11 +454,11 @@ def test_staeckel_inverse_c_true_backend(backend):
         numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-7)
 
 
-def _inverse_model_grad_check(backend, aAI, x0):
+def _inverse_model_grad_check(backend, aAI, x0, polish=False):
     # actionAngleStaeckel(inverse=aAI) at the point x0 = (R, vR, vT, z, vz) on
     # a backend: equal to numpy's, and its Jacobian of (J_R, J_z, Omega_R,
     # Omega_z, theta_R, theta_z) in x0 equal to central differences
-    aAS = actionAngleStaeckel(inverse=aAI, order=20)
+    aAS = actionAngleStaeckel(inverse=aAI, order=20, polish=polish)
     keep = (0, 2, 3, 5, 6, 8)
 
     def f_np(x):
@@ -482,11 +482,10 @@ def _inverse_model_grad_check(backend, aAI, x0):
             out = aAS.actionsFreqsAngles(
                 *[x[i : i + 1] for i in range(5)], jnp.zeros(1)
             )
-            return jnp.stack([out[k][0] for k in keep])
+            y = jnp.stack([out[k][0] for k in keep])
+            return y, y  # (the value comes with the Jacobian)
 
-        xb = jnp.asarray(x0)
-        val = numpy.asarray(f(xb))
-        jac = numpy.asarray(jax.jacrev(f)(xb))
+        jac, val = (numpy.asarray(t) for t in jax.jacrev(f, has_aux=True)(x0))
     else:
         xb = torch.tensor(x0, requires_grad=True)
         out = aAS.actionsFreqsAngles(
@@ -612,3 +611,57 @@ def test_staeckel_inverse_delta_callable_backend(backend):
             ref = numpy.array(method(*x))
             out = numpy.array([N(q) for q in method(*[T(q) for q in x])])
             numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-7)
+
+
+@pytest.mark.parametrize(
+    "backend,rule",
+    [(bk, rule) for bk in BACKENDS for rule in ("const", "fit")],
+)
+def test_staeckel_inverse_polish_grad(backend, rule):
+    # actionAngleStaeckel(inverse=, polish=True) on a backend: the family's
+    # torus through the point, equal to numpy's, and differentiable in the
+    # point (the implicit-function step of the family's map); at a torus
+    # inside a cell (at a node, the interpolant's second derivatives jump)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.45, setup_interp=True, progressbar=False)
+    kw.update(Rmin=0.7, Rmax=1.5, Rinf=4.0, nE=4, nLz=4, nI3=4, mm_npt=32)
+    if rule == "fit":
+        kw.update(delta="fit", delta_deg=(1, 1, 1))
+    aAI = actionAngleStaeckelInverse(**kw)
+    jr, jz = 0.5 * (aAI._A_tab[1, 2, 1][:2] + aAI._A_tab[2, 1, 2][:2])
+    Lz = 0.5 * (aAI._Lzgrid[1] + aAI._Lzgrid[2])
+    x0 = numpy.array([q[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:5]])
+    _inverse_model_grad_check(backend, aAI, x0, polish=True)
+    # a point that no torus of the family passes through (unbound): nan
+    from galpy.util import galpyWarning
+
+    xp = jnp if backend == "jax" else torch
+    xb = xp.asarray(numpy.array([1.0, 0.9, 1.0, 0.0, 2.0, 0.0]))
+    aAS = actionAngleStaeckel(inverse=aAI, polish=True)
+    with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+        off = aAS.actionsFreqsAngles(*[xb[i : i + 1] for i in range(6)])
+    off = numpy.array([float(o[0]) for o in off])
+    assert numpy.all(numpy.isnan(off[[0, 2, 3, 4, 5, 6, 7, 8]])) and off[1] == 1.0
+    # with a point that it holds: that point's torus, the other's nan
+    unb = numpy.array([1.0, 0.9, 1.0, 0.0, 2.0, 0.0])
+    both = [numpy.array([c, u]) for c, u in zip([*x0, 0.0], unb)]
+    ref = numpy.array(aAS.actionsFreqsAngles(*[b[:1] for b in both]))[:, 0]
+    with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+        mixed = aAS.actionsFreqsAngles(*[xp.asarray(b) for b in both])
+    mixed = numpy.array([[float(v) for v in o] for o in mixed])
+    numpy.testing.assert_allclose(mixed[:, 0], ref, rtol=0.0, atol=1e-9)
+    assert numpy.all(numpy.isnan(mixed[[0, 2, 3, 4, 5, 6, 7, 8], 1]))
+    if backend == "jax" and rule == "const":
+        # the family's inversion under jit (which tori it holds is then not
+        # concrete) equals the eager one
+        x = [jnp.asarray(c) for c in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:6]]
+        start = aAS._actionsFreqsAngles(*x, _direct=True)
+        inv = lambda *a: aAI._bk_invert_family(jnp, *a)  # noqa: E731
+        numpy.testing.assert_allclose(
+            numpy.asarray(jax.jit(inv)(*x, start[0], start[2])),
+            numpy.asarray(inv(*x, start[0], start[2])),
+            rtol=0.0,
+            atol=1e-12,
+        )

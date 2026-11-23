@@ -16615,12 +16615,18 @@ def test_actionAngleStaeckel_inverse_polish(rule):
     # actions and angles that the family's interpolated map sends to each
     # point, whether the family has one Staeckel model or one per torus
     from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
 
     kw = dict(pot=MWPotential2014, delta=0.45, setup_interp=True, progressbar=False)
     kw.update(Rmin=0.7, Rmax=1.5, Rinf=4.0, nE=4, nLz=4, nI3=4, mm_npt=32)
-    aAI = actionAngleStaeckelInverse(**{**kw, **rule})
+    if rule.get("delta") == "fit":
+        # (built on numpy, as such families are; evaluated under the backend)
+        with use("numpy", force=True):
+            aAI = actionAngleStaeckelInverse(**{**kw, **rule})
+    else:
+        aAI = actionAngleStaeckelInverse(**{**kw, **rule})
     aAS = actionAngleStaeckel(inverse=aAI, polish=True)
     rng = numpy.random.default_rng(2)
     jr, Lz, jz = (
