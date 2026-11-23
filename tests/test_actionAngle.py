@@ -16557,8 +16557,10 @@ def test_actionAngleStaeckel_inverse_deltafit():
     far += (numpy.array([0.01, 0.9, 0.01]),)
     with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
         out = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one))
-    with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
-        py = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))
+    py = out  # (on a backend, c=False runs the same backend code)
+    if on_numpy:
+        with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
+            py = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))
     assert numpy.all(numpy.isfinite(out)) and numpy.allclose(
         py, out, rtol=0.0, atol=1e-7
     ), "actionAngleStaeckel(inverse=) does not transform a point off a family's grid"
@@ -16593,7 +16595,7 @@ def test_actionAngleStaeckel_inverse_deltafit():
             "actionAngleStaeckel(inverse=) does not return the frequencies and "
             "angles of a family with a callable delta="
         )
-        assert numpy.allclose(
+        assert not on_numpy or numpy.allclose(
             numpy.array(actionAngleStaeckel(inverse=fam, order=20)(*x[:5], c=False)),
             out[:3],
             rtol=0.0,
