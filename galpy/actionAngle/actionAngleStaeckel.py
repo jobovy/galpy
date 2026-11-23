@@ -562,7 +562,7 @@ def _staeckel_actions_freqs(
     Omegar, Omegaphi, Omegaz = _staeckel_freqs(umin, umax, vmin, jac)
     if torus:
         dOm = _staeckel_angles(
-            s, umin, umax, vmin, pot, delta, order, jac, True, ddelta
+            s, umin, umax, vmin, pot, delta, order, jac, torus, ddelta
         )[3]
         Omegar, Omegaphi, Omegaz = Omegar + dOm[0], Omegaphi + dOm[1], Omegaz + dOm[2]
     return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz
@@ -635,13 +635,47 @@ def _u0torus_partials(s, umin, umax, pot, delta):
     return out
 
 
+def _staeckel_planar(s, pot, delta):
+    """The turning points of the u libration of the planar orbit of each
+    point's energy and angular momentum in its model (that of the setup s):
+    those at the third integral at which p_v vanishes in the midplane"""
+    sp = dict(s)
+    sp["I3U"] = (
+        s["Lz"] ** 2.0 / 2.0 / delta**2.0
+        - s["E"]
+        + (s["sinh2u0"] + s["sin2v0u"]) * s["potu0v0"]
+    )
+    sp["pux"] = numpy.sqrt(
+        numpy.maximum(s["pux"] ** 2.0 + 2.0 * delta**2.0 * (s["I3U"] - sp["I3U"]), 0.0)
+    )
+    return _staeckel_uminumax(sp, pot, delta)[:2]
+
+
+def _u0planar_partials(s, pot, delta):
+    """The partials with respect to (E, I_3, L_z, delta) of the reference
+    curve that follows the planar orbit of a torus's energy and angular
+    momentum (u0='planar' of actionAngleStaeckelInverse): those of
+    _u0torus_partials at the planar orbit's turning points, along its third
+    integral L_z^2 / (2 delta^2) - E"""
+    g = _u0torus_partials(s, *_staeckel_planar(s, pot, delta), pot, delta)
+    Lz = s["Lz"]
+    return numpy.array(
+        [
+            g[0] - g[1],
+            numpy.zeros_like(g[1]),
+            g[2] + g[1] * Lz / delta**2.0,
+            g[3] - g[1] * Lz**2.0 / delta**3.0,
+        ]
+    )
+
+
 def _staeckel_angles(
     s, umin, umax, vmin, pot, delta, order, jac, torus=False, ddelta=None
 ):
     """(angler, anglephi without the azimuth, anglez); angler and anglez in
     [0, 2pi), all three zero for circular or planar orbits. With torus, for
-    a reference curve that follows the tori (u0='torus' of
-    actionAngleStaeckelInverse): the angles of that family and the
+    a reference curve that follows the tori (torus 2: u0='torus' of
+    actionAngleStaeckelInverse; 3: its u0='planar'): the angles of that family and the
     difference of its frequencies from the model's, in the order
     (R, phi, z). The family's generating function is the model's at the
     reference curve u0(J) of each torus, so that its angles are the model's
@@ -793,7 +827,10 @@ def _staeckel_angles(
             - (Omegaz * Or_sum + dI3dJz * I3_sum) * djzdu0
         )
         # (E, I_3) move with u0 at fixed actions as -(dE/dJz, dI3/dJz) djzdu0
-        rE, rI, rL, rD = _u0torus_partials(s, umin, umax, pot, delta)
+        if torus == 3:
+            rE, rI, rL, rD = _u0planar_partials(s, pot, delta)
+        else:
+            rE, rI, rL, rD = _u0torus_partials(s, umin, umax, pot, delta)
         dEdu0 = -Omegaz * djzdu0
         norm = 1.0 - rE * dEdu0 + rI * dI3dJz * djzdu0
         du0 = numpy.array(
@@ -960,13 +997,13 @@ class actionAngleStaeckel(actionAngle):
             raise TypeError(
                 "pot= and delta= cannot be given with inverse=, which supplies them"
             )
-        if aAI._adaptive and aAI._u0_rule != "torus":
+        if aAI._adaptive and aAI._u0_rule not in ("torus", "planar"):
             raise NotImplementedError(
-                "inverse= currently supports instances with either a single "
-                "reference curve or u0='torus'"
+                "inverse= currently supports instances with a single "
+                "reference curve, u0='torus' or u0='planar'"
             )
         # (the rule of the reference curve, as the C code numbers them)
-        self._model = 2 * aAI._adaptive
+        self._model = (2 + (aAI._u0_rule == "planar")) * aAI._adaptive
         kwargs = dict(kwargs)
         kwargs["pot"] = aAI._chart_pot if aAI._adaptive else aAI._staeckelwrap
         kwargs["delta"] = aAI._delta
@@ -1063,7 +1100,12 @@ class actionAngleStaeckel(actionAngle):
 
         def rule(idx, u0, delta=delta):
             x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
-            um, up = _staeckel_prep(*x, pot, delta, u0=u0)[1:3]
+            if self._model == 3:
+                um, up = _staeckel_planar(
+                    _staeckel_setup(*x, pot, delta, u0=u0), pot, delta
+                )
+            else:
+                um, up = _staeckel_prep(*x, pot, delta, u0=u0)[1:3]
             sm, sp = numpy.sinh(um), numpy.sinh(up)
             return numpy.arcsinh(2.0 * sm * sp / (sm + sp))
 

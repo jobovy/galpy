@@ -15581,10 +15581,11 @@ def test_actionAngleStaeckel_inverse_single_model():
     return None
 
 
-def test_actionAngleStaeckel_inverse_u0torus():
+@pytest.mark.parametrize("u0", ["torus", "planar"])
+def test_actionAngleStaeckel_inverse_u0torus(u0):
     # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
-    # model (u0='torus'): every point is transformed in the model of the
-    # torus through it, with the energy of that model
+    # model (u0='torus' or 'planar'): every point is transformed in the model
+    # of the torus through it, with the energy of that model
     from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
 
@@ -15594,7 +15595,7 @@ def test_actionAngleStaeckel_inverse_u0torus():
         numpy.array([0.06, 0.02, 0.1, 0.004, 0.3]),
     )
     kw = dict(pot=MWPotential2014, jrs=jr, Lzs=Lz, jzs=jz, mm_npt=256)
-    aAI = actionAngleStaeckelInverse(delta=0.45, u0="torus", progressbar=False, **kw)
+    aAI = actionAngleStaeckelInverse(delta=0.45, u0=u0, progressbar=False, **kw)
     aAS = actionAngleStaeckel(inverse=aAI, order=20)
     sel = numpy.tile(numpy.arange(len(jr)), 8)
     angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(sel)))
@@ -15642,7 +15643,7 @@ def test_actionAngleStaeckel_inverse_u0torus():
     )
     with pytest.raises(NotImplementedError, match="currently supports"):
         actionAngleStaeckel(
-            inverse=actionAngleStaeckelInverse(delta=0.45, u0="planar", **kw)
+            inverse=actionAngleStaeckelInverse(delta=0.45, u0="shell", **kw)
         )
     return None
 
