@@ -243,7 +243,9 @@ at release.]
   (before, it raised for CUDA tensors and, on the CPU, ran its numpy checks
   on forced-backend arrays).
 
-- [slot 21]
+- Fixed the C frequencies and angles of ``actionAngleStaeckel`` for orbits
+  that stay within about 1e-3 of the plane, which were off by up to several
+  percent.
 
 - [slot 22]
 

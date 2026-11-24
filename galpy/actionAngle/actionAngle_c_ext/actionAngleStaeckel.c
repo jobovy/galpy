@@ -4089,7 +4089,15 @@ void calcVmin(int ndata,
       //orbits depending on the last bits of the potential.
       *(vmin+ii)= 0.5 * M_PI;
     }
-    else if ( fabs(GSL_FN_EVAL(JzRoot+tid,*(vx+ii))) < 0.0000001) {//we are at vmin
+    else if ( fabs(GSL_FN_EVAL(JzRoot+tid,*(vx+ii))) < 0.0000001
+	      && GSL_FN_EVAL(JzRoot+tid,
+			     fmax(( ( *(vx+ii) > 0.5 * M_PI ) ?
+				    M_PI - *(vx+ii): *(vx+ii) ) - 0.000001,
+				  0.000000001)) < 0. ) {//we are at vmin
+      //(W is this small everywhere along an orbit that stays within ~1e-3
+      //of the plane, so that W < 0 just below the point is what tells that
+      //the point is at vmin; the general search below finds the vmin of
+      //any other point of such an orbit)
       //The point lies within 1e-6 of vmin. Adopting the point itself as
       //the turning point is fine for the actions (an O(eps) endpoint
       //error only enters them at O(eps^1.5)), but the frequency and
