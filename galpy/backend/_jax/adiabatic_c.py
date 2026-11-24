@@ -9,15 +9,16 @@
 ###############################################################################
 import numpy
 
-from .staeckel_c import _host_if_concrete
+from .staeckel_c import _host_if_concrete, _values_host
 
 
-def actions_with_jac(host_jac, coords):
+def actions_with_jac(host_jac, host_val, coords):
     """Differentiable (jr, jz) with the native-C Jacobian as the vjp residual.
 
     host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5). coords : tuple of 5
-        traced jax (N,) arrays (R,vR,vT,z,vz).
+        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5). host_val : the same
+        callable returning (jr, jz) alone, for concrete coords. coords : tuple
+        of 5 traced jax (N,) arrays (R,vR,vT,z,vz).
     """
     import jax
 
@@ -59,8 +60,8 @@ def actions_with_jac(host_jac, coords):
         return (tuple(g[:, k] for k in range(5)),)
 
     _actions.defvjp(_fwd, _bwd)
-    out = _host_if_concrete(_host, coords)
-    return _actions(coords) if out is None else out[:2]
+    out = _host_if_concrete(_values_host(host_val, dtype), coords)
+    return _actions(coords) if out is None else out
 
 
 def ecczmax_with_jac(host_jac, coords):

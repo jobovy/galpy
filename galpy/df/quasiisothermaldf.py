@@ -3621,10 +3621,14 @@ class quasiisothermaldf(df):
             if int(nout) == 0:
                 return out
             if name_of_namespace(xp) == "jax":
-                # a fixed-shape where: a boolean gather or scatter recompiles for
-                # every new count of out-of-table points
-                lzs = mask_where(xp, indx, lz, self._precomputergLzmin)
-                return xp.where(indx, potential.rl(self._pot, lzs), out)
+                # rl on the out-of-table points alone (an eager solve costs the
+                # same dispatches at any size), their count padded to a bucket:
+                # a boolean gather or scatter recompiles for every new count
+                idx = numpy.flatnonzero(as_numpy(indx))
+                idx = numpy.pad(idx, (0, bucket_size(idx.size) - idx.size), mode="edge")
+                flat = xp.reshape(out, (-1,))
+                rg = potential.rl(self._pot, xp.reshape(lz, (-1,))[idx])
+                return xp.reshape(flat.at[idx].set(rg), out.shape)
             return set_at(xp, out, indx, potential.rl(self._pot, lz[indx]))
         if self._rgInterp is None:  # _precomputerg=False: rl everywhere
             # The backend branch above already had this fallback; the numpy one

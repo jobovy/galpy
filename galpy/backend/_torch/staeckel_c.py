@@ -6,9 +6,33 @@
 #   AND the full 2x5 Jacobian d(jr,jz)/d(R,vR,vT,z,vz) (assembled natively in
 #   C), saving the Jacobian; backward is a matvec of that Jacobian. Registered
 #   exactly like the C-STM autograd.Function (orbit_stm). First-order only.
+#   Calls through which no derivative can flow take host_val, the values
+#   alone, instead (the same values, without the Jacobian's cost).
 ###############################################################################
 import numpy
 import torch
+
+from .._namespaces import requires_backend_grad
+
+
+def _values_if_no_derivative(host_val, coords):
+    """``host_val``'s values (without the Jacobian) as tensors on the coords' device
+    and dtype when no derivative can flow through ``coords``: no autograd graph,
+    no torch.func transform and no forward-mode tangent. Else None."""
+    from torch.autograd.forward_ad import unpack_dual
+
+    if (
+        torch._C._functorch.peek_interpreter_stack() is not None
+        or (torch.is_grad_enabled() and requires_backend_grad(*coords))
+        or any(unpack_dual(t).tangent is not None for t in coords)
+    ):
+        return None
+    cs = [t.detach().to("cpu", torch.float64).numpy() for t in coords]
+    dev, dt = coords[0].device, coords[0].dtype
+    return tuple(
+        torch.as_tensor(numpy.asarray(v, dtype=numpy.float64), dtype=dt, device=dev)
+        for v in host_val(*cs)
+    )
 
 
 class _ActionsJacFunction(torch.autograd.Function):
@@ -33,13 +57,15 @@ class _ActionsJacFunction(torch.autograd.Function):
         return (None,) + tuple(g[:, k] for k in range(5))
 
 
-def actions_with_jac(host_jac, R, vR, vT, z, vz):
+def actions_with_jac(host_jac, host_val, R, vR, vT, z, vz):
     """Differentiable (jr, jz) with the native-C Jacobian as the backward matvec.
 
     host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5).
+        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5). host_val : the same
+        callable returning (jr, jz) alone, for calls without a derivative.
     """
-    return _ActionsJacFunction.apply(host_jac, R, vR, vT, z, vz)
+    out = _values_if_no_derivative(host_val, (R, vR, vT, z, vz))
+    return _ActionsJacFunction.apply(host_jac, R, vR, vT, z, vz) if out is None else out
 
 
 class _ActionsFreqsJacFunction(torch.autograd.Function):
@@ -62,11 +88,15 @@ class _ActionsFreqsJacFunction(torch.autograd.Function):
         return (None,) + tuple(g[:, k] for k in range(5))
 
 
-def actionsfreqs_with_jac(host_jac, R, vR, vT, z, vz):
+def actionsfreqs_with_jac(host_jac, host_val, R, vR, vT, z, vz):
     """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz) with the native-C fused (5,5)
     Jacobian as the backward matvec (#131). host_jac returns (jr,jz,Or,Op,Oz,jac)
-    with the values (N,) and jac (N,5,5)."""
-    return _ActionsFreqsJacFunction.apply(host_jac, R, vR, vT, z, vz)
+    with the values (N,) and jac (N,5,5); host_val returns the five values alone,
+    for calls without a derivative."""
+    out = _values_if_no_derivative(host_val, (R, vR, vT, z, vz))
+    if out is None:
+        return _ActionsFreqsJacFunction.apply(host_jac, R, vR, vT, z, vz)
+    return out
 
 
 class _ActionsFreqsAnglesJacFunction(torch.autograd.Function):

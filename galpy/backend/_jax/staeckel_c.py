@@ -7,6 +7,8 @@
 #       d(jr,jz)/d(R,vR,vT,z,vz) (assembled natively in C); the backward is a
 #       matvec of that Jacobian. Registered exactly like the C-STM custom_vjp
 #       (orbit_stm), so users' jit/grad stay traceable. First-order only.
+#       Concrete coords (nothing to differentiate) take host_val, the values
+#       alone, instead (the same values, without the Jacobian's cost).
 ###############################################################################
 import numpy
 
@@ -24,12 +26,24 @@ def _host_if_concrete(host, coords):
     return tuple(jnp.asarray(o) for o in host(*coords))
 
 
-def actions_with_jac(host_jac, coords):
+def _values_host(host_val, dtype):
+    """``host_val`` (the values alone, without the Jacobian) on float64 numpy coords,
+    its outputs cast to ``dtype``: the host of a concrete call (_host_if_concrete)."""
+
+    def host(*cs):
+        out = host_val(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
+        return tuple(numpy.asarray(o, dtype=dtype) for o in out)
+
+    return host
+
+
+def actions_with_jac(host_jac, host_val, coords):
     """Differentiable (jr, jz) with the native-C Jacobian as the vjp residual.
 
     host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5). coords : tuple of 5
-        traced jax (N,) arrays (R,vR,vT,z,vz).
+        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5). host_val : the same
+        callable returning (jr, jz) alone, for concrete coords. coords : tuple
+        of 5 traced jax (N,) arrays (R,vR,vT,z,vz).
     """
     import jax
     import jax.numpy as jnp
@@ -73,16 +87,17 @@ def actions_with_jac(host_jac, coords):
         return (tuple(g[:, k] for k in range(5)),)
 
     _actions.defvjp(_fwd, _bwd)
-    out = _host_if_concrete(_host, coords)
-    return _actions(coords) if out is None else out[:2]
+    out = _host_if_concrete(_values_host(host_val, dtype), coords)
+    return _actions(coords) if out is None else out
 
 
-def actionsfreqs_with_jac(host_jac, coords):
+def actionsfreqs_with_jac(host_jac, host_val, coords):
     """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz) with the native-C fused (5,5)
     Jacobian d(jr,jz,Omega)/d(R,vR,vT,z,vz) as the vjp residual (#131).
 
     host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (jr,jz,Or,Op,Oz,jac) with the values (N,) and jac (N,5,5).
+        (jr,jz,Or,Op,Oz,jac) with the values (N,) and jac (N,5,5). host_val :
+        the same callable returning the five values alone, for concrete coords.
     """
     import jax
 
@@ -117,8 +132,8 @@ def actionsfreqs_with_jac(host_jac, coords):
         return (tuple(g[:, k] for k in range(5)),)
 
     _af.defvjp(_fwd, _bwd)
-    out = _host_if_concrete(_host, coords)
-    return _af(coords) if out is None else out[:5]
+    out = _host_if_concrete(_values_host(host_val, dtype), coords)
+    return _af(coords) if out is None else out
 
 
 def actionsfreqsangles_with_jac(host_jac, coords, phi):

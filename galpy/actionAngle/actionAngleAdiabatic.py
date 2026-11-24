@@ -50,15 +50,20 @@ def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=20):
         )
         return jr, jz, jac
 
+    def host_val(Rn, vRn, vTn, zn, vzn):  # the same values, without the Jacobian
+        return actionAngleAdiabatic_c.actionAngleAdiabatic_c(
+            pot, gamma, Rn, vRn, vTn, zn, vzn
+        )[:2]
+
     name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
     if "jax" in name:
         from ..backend._jax.adiabatic_c import actions_with_jac
 
-        return actions_with_jac(host_jac, (R, vR, vT, z, vz))
+        return actions_with_jac(host_jac, host_val, (R, vR, vT, z, vz))
     if "torch" in name:
         from ..backend._torch.adiabatic_c import actions_with_jac
 
-        return actions_with_jac(host_jac, R, vR, vT, z, vz)
+        return actions_with_jac(host_jac, host_val, R, vR, vT, z, vz)
     raise NotImplementedError(  # pragma: no cover
         "C-native Adiabatic action gradients require a jax or torch input array."
     )

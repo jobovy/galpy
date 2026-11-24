@@ -3832,6 +3832,46 @@ def test_adiabaticgrid_c_grad_wrt_potential_parameter(bk, jit, cjac_ics):
     numpy.testing.assert_allclose(ad, fd, rtol=1e-7, atol=0.0)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_c_actions_without_derivative_skip_the_jacobian(backend):
+    # c=True Staeckel actions and frequencies and Adiabatic actions through which
+    # no derivative flows (eager jax; torch without a graph) come from the C
+    # entries without the Jacobian: the same values bit for bit, while a torch.func
+    # transform or a forward-mode tangent still reaches the Jacobian path and raises
+    rng = numpy.random.default_rng(5)
+    ics = [
+        rng.uniform(0.5, 1.5, 7),
+        rng.normal(0.0, 0.2, 7),
+        rng.normal(1.0, 0.2, 7),
+        rng.uniform(-0.3, 0.3, 7),
+        rng.normal(0.0, 0.15, 7),
+    ]
+    ics[3][0], ics[1][1], ics[4][2] = 0.0, 0.0, 0.0  # in the plane, turning points
+    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    aAA = actionAngleAdiabatic(pot=MWPotential2014, c=True)
+    for f in (aAS, aAS.actionsFreqs, aAA):
+        if backend == "jax":
+            cs = [jnp.asarray(c) for c in ics]
+            plain = f(*cs)
+            graph = jax.jit(lambda *a: f(*a))(*cs)  # traced: with the Jacobian
+        else:
+            plain = f(*[torch.as_tensor(c) for c in ics])
+            graph = f(*[torch.as_tensor(c).requires_grad_() for c in ics])
+            assert not any(o.requires_grad for o in plain)
+            graph = [o.detach() for o in graph]
+            x = torch.as_tensor(numpy.stack(ics))
+            with pytest.raises(RuntimeError, match="functorch"):
+                torch.func.jacrev(lambda y: f(*y)[0])(x)
+            import torch.autograd.forward_ad as fwAD
+
+            with fwAD.dual_level(), pytest.raises(NotImplementedError, match="jvp"):
+                f(*fwAD.make_dual(x, torch.ones_like(x)))
+        for p, g in zip(plain, graph):
+            assert numpy.array_equal(
+                as_numpy(p).view(numpy.int64), as_numpy(g).view(numpy.int64)
+            )
+
+
 def _staeckel_afa(p, name, cs, c):
     pars = dict(_CJAC_P0)
     if name == "R":
