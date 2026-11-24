@@ -4,7 +4,7 @@
 #      class: actionAngleAdiabaticApprox
 #
 #             Calculate actions-angle coordinates for any potential by adiabatically
-#             transforming the potential to an isochrone potential
+#             transforming the potential to an explicitly-integrable potential
 #
 #      methods:
 #             __call__: returns (jr,lz,jz)
@@ -17,7 +17,7 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..potential import DehnenSmoothWrapperPotential, IsochronePotential, MWPotential
+from ..potential import DehnenSmoothWrapperPotential, MWPotential
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -43,13 +43,13 @@ class actionAngleAdiabaticApprox(actionAngle):
         tintJ : float, optional
             Time to integrate orbits for to estimate actions (can be Quantity).
         ntintJ : int, optional
-            Number of time-integration points.
+            Number of output times of the orbit integration (only the last one is used).
         integrate_method : str, optional
             Integration method to use.
         dt : float, optional
             orbit.integrate dt keyword (for fixed stepsize integration).
         npoints : int, optional
-            Number of points along the orbit to integrate to estimate the actions, frequencies, and angles.
+            Number of points along the orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (rounded down to an even number). With npoints=0, each point is transformed on its own: the transformation is then exactly canonical and actionAngleAdiabaticApproxInverse with the same tintJ is its inverse, but no frequencies are available.
         npoints_dt : float, optional
             Amount of time to integrate forward and backwards for the npoints points (can be Quantity).
         ro : float or Quantity, optional
@@ -59,6 +59,7 @@ class actionAngleAdiabaticApprox(actionAngle):
 
         Notes
         -----
+        - The angles are angle coordinates on the torus that advance at the orbital frequencies, but they differ from the angles of other action-angle methods by an offset that is constant on each torus (it depends on the actions, on tintJ, and on the potentials). Many applications do not need the offset (for example, any use of this class together with actionAngleAdiabaticApproxInverse for the same tintJ).
         - 2025-09-23 - Started - Bovy (UofT).
         - 2025-10-15 - Allowed more general target potentials - Bovy (UofT).
 
@@ -84,20 +85,20 @@ class actionAngleAdiabaticApprox(actionAngle):
             ),
         ):  # pragma: no cover
             raise OSError(
-                "'Provided aA= does not appear to be an instance of a supported actionAngle class"
+                "Provided aA= does not appear to be an instance of a supported actionAngle class"
             )
         self._aA = kwargs["aA"]
         self._target_pot = self._aA._pot
         self._tintJ = conversion.parse_time(
             kwargs.get("tintJ", 100.0), ro=self._ro, vo=self._vo
         )
-        self._ntintJ = kwargs.get("ntintJ", 10_000)
+        self._ntintJ = kwargs.get("ntintJ", 2)
         self._integrate_dt = kwargs.get("dt", None)
         self._tsJ = numpy.linspace(0.0, self._tintJ, self._ntintJ)
         self._integrate_method = kwargs.get("integrate_method", "dop853_c")
         self._npoints = int(numpy.floor(kwargs.get("npoints", 2) / 2) * 2)
-        if self._npoints < 2:
-            raise OSError("npoints= must be at least 2")
+        if self._npoints < 0:
+            raise OSError("npoints= must be at least 0")
         self._npoints_dt = conversion.parse_time(
             kwargs.get("npoints_dt", 0.1), ro=self._ro, vo=self._vo
         )
@@ -216,12 +217,24 @@ class actionAngleAdiabaticApprox(actionAngle):
             numpy.mean(lz.reshape(Rshape), axis=1),
             numpy.mean(jz.reshape(Rshape), axis=1),
         )
+        if self._npoints == 0:
+            # Each point on its own: its angles, and no frequencies
+            nofreq = numpy.full_like(jr, numpy.nan)
+            return (
+                jr,
+                lz,
+                jz,
+                nofreq,
+                nofreq,
+                nofreq,
+                *(a.reshape(Rshape)[:, 0] % (2.0 * numpy.pi) for a in (ar, ap, az)),
+            )
         # Fit for the frequency and angle for each dimension
         angle_out, freq_out = (), ()
         for angle in (ar.reshape(Rshape), ap.reshape(Rshape), az.reshape(Rshape)):
             angleT = numpy.unwrap(numpy.reshape(angle, R.shape), axis=1)
             out = linalg.lstsq(self._vanderA, angleT.T)[0]
-            angle_out += (out[0],)
+            angle_out += (out[0] % (2.0 * numpy.pi),)
             freq_out += (out[1],)
         return (jr, lz, jz, *freq_out, *angle_out)
 
@@ -238,6 +251,7 @@ class actionAngleAdiabaticApprox(actionAngle):
                 R, vR, vT, phi = args
                 z, vz = numpy.zeros_like(R), numpy.zeros_like(R)
         else:
+            self._eval_phi = None
             self._parse_eval_args(*args)
             R = self._eval_R
             vR = self._eval_vR
@@ -245,27 +259,44 @@ class actionAngleAdiabaticApprox(actionAngle):
             z = self._eval_z
             vz = self._eval_vz
             phi = self._eval_phi
-        if isinstance(R, float):
-            R = numpy.array([R])
-            vR = numpy.array([vR])
-            vT = numpy.array([vT])
-            z = numpy.array([z])
-            vz = numpy.array([vz])
-            phi = numpy.array([phi])
-        # Integrate orbit forward and backward to get multiple _npoints_ts to average
-        # actions and estimate frequencies and angles from fit
-        orb = Orbit([R, vR, vT, z, vz, phi])
-        orb.integrate(self._npoints_ts, self._pot, method=self._integrate_method)
-        orb.integrate(-self._npoints_ts, self._pot, method=self._integrate_method)
-        # Times in increasing order, the order that self._vanderA assumes
-        os_for_actions = orb(
-            numpy.concatenate((-self._npoints_ts[:0:-1], self._npoints_ts))
+            if phi is None:
+                raise ValueError("Must specify phi for actionAngleAdiabaticApprox")
+        R, vR, vT, z, vz, phi = (
+            numpy.atleast_1d(numpy.asarray(x, dtype="float"))
+            for x in (R, vR, vT, z, vz, phi)
         )
+        if self._npoints == 0:
+            # Each point on its own
+            os_for_actions = Orbit(
+                numpy.stack([R, vR, vT, z, vz, phi], axis=-1)[:, None, :]
+            )
+        else:
+            # Integrate orbit forward and backward to get multiple
+            # _npoints_ts to average actions and estimate frequencies and
+            # angles from fit
+            orb = Orbit([R, vR, vT, z, vz, phi])
+            orb.integrate(
+                self._npoints_ts,
+                self._pot,
+                method=self._integrate_method,
+                progressbar=False,
+            )
+            orb.integrate(
+                -self._npoints_ts,
+                self._pot,
+                method=self._integrate_method,
+                progressbar=False,
+            )
+            # Times in increasing order, the order that self._vanderA assumes
+            os_for_actions = orb(
+                numpy.concatenate((-self._npoints_ts[:0:-1], self._npoints_ts))
+            )
         os_for_actions.integrate(
             self._tsJ,
             self._adiabatic_pot,
             method=self._integrate_method,
             dt=self._integrate_dt,
+            progressbar=False,
         )
         return (
             os_for_actions.R(self._tsJ[-1]),
