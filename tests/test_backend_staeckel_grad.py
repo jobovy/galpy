@@ -420,3 +420,95 @@ def test_staeckel_c_useu0_unbound_grad_finite(backend):
         ]
         gjz = [float(g[0]) for g in torch.autograd.grad(out[2].sum(), args)]
     assert numpy.all(numpy.isfinite(gjr)) and numpy.all(numpy.isfinite(gjz))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_inverse_c_true_backend(backend):
+    # actionAngleStaeckel(inverse=, c=True) with backend inputs: each point in
+    # its own model runs the backend (c=False) code, for the actions, the
+    # frequencies, and the orbital parameters, equal to C's (a family with a
+    # single model)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    jr, Lz, jz = (
+        numpy.array([0.08, 0.05]),
+        numpy.array([0.9, 1.1]),
+        numpy.array([0.06, 0.03]),
+    )
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta=0.45, jrs=jr, Lzs=Lz, jzs=jz, mm_npt=64,
+        progressbar=False,
+    )  # fmt: skip
+    aAS = actionAngleStaeckel(inverse=aAI, c=True)
+    x = numpy.array(
+        aAI(jr, Lz, jz, *numpy.array([[0.7, 1.0, 2.0], [2.5, 0.3, 4.0]]).T)[:5]
+    )
+    if backend == "jax":
+        T, N = jnp.asarray, numpy.asarray
+    else:
+        T, N = torch.tensor, lambda a: a.numpy()
+    for method in (aAS, aAS.actionsFreqs, aAS.EccZmaxRperiRap):
+        ref = numpy.array(method(*x))
+        out = numpy.array([N(q) for q in method(*[T(q) for q in x])])
+        numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_inverse_torus_model_grad(backend):
+    # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
+    # model (u0='torus') on a backend: the backend (c=False) code in each
+    # point's model, equal to numpy's, and differentiable in the phase-space
+    # point through the model's fixed point (its implicit-function step)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    jr, Lz, jz = numpy.array([0.08]), numpy.array([0.9]), numpy.array([0.06])
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta=0.45, u0="torus", jrs=jr, Lzs=Lz, jzs=jz,
+        mm_npt=64, progressbar=False,
+    )  # fmt: skip
+    aAS = actionAngleStaeckel(inverse=aAI, order=20)
+    x0 = numpy.array([q[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:5]])
+    keep = (0, 2, 3, 5, 6, 8)  # jr, jz, Omegar, Omegaz, angler, anglez
+
+    def f_np(x):
+        out = aAS.actionsFreqsAngles(
+            *[numpy.array([c]) for c in x], numpy.zeros(1), c=False
+        )
+        return numpy.array([float(out[k][0]) for k in keep])
+
+    ref = f_np(x0)
+    h = 1e-4
+    fd = numpy.stack(
+        [(f_np(x0 + h * e) - f_np(x0 - h * e)) / (2.0 * h) for e in numpy.eye(5)],
+        axis=1,
+    )
+    if backend == "jax":
+
+        def f(x):
+            out = aAS.actionsFreqsAngles(
+                *[x[i : i + 1] for i in range(5)], jnp.zeros(1)
+            )
+            return jnp.stack([out[k][0] for k in keep])
+
+        xb = jnp.asarray(x0)
+        val = numpy.asarray(f(xb))
+        jac = numpy.asarray(jax.jacrev(f)(xb))
+    else:
+        xb = torch.tensor(x0, requires_grad=True)
+        out = aAS.actionsFreqsAngles(
+            *[xb[i : i + 1] for i in range(5)], torch.zeros(1, dtype=torch.float64)
+        )
+        val = numpy.array([float(out[k][0]) for k in keep])
+        jac = numpy.stack(
+            [
+                torch.autograd.grad(out[k][0], xb, retain_graph=True)[0].numpy()
+                for k in keep
+            ]
+        )
+    numpy.testing.assert_allclose(val, ref, rtol=0.0, atol=1e-10)
+    for row, frow in zip(jac, fd):
+        numpy.testing.assert_allclose(
+            row, frow, rtol=0.0, atol=1e-6 * numpy.amax(numpy.fabs(frow))
+        )

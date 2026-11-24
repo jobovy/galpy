@@ -211,6 +211,22 @@ def fixed_point(func, x0, args=(), xtol=1e-8, maxiter=500):
     return _bk(func, x0, args, xp, xtol=xtol, maxiter=maxiter)
 
 
+def fixed_point_implicit_step(func, p, args=()):
+    """The implicit-function step of :func:`fixed_point` at a converged iterate
+    ``p`` of ``x = func(x, *args)``, for an iteration the caller ran itself on
+    derivative-free ``args``: the value stays at ``p``, and ``dx*/dtheta`` is
+    the exact first-order one for every parameter in ``args``. ``func`` acts
+    elementwise in ``x``; numpy ``p`` and ``args`` give ``p`` back."""
+    if not (is_backend_array(p) or any(map(is_backend_array, args))):
+        return p
+    xp = prefer_backend_namespace(p, *args)
+    if name_of_namespace(xp) == "jax":
+        from ._jax.optimize import implicit_fixed_point_step as _bk
+    else:  # array_api_compat.torch
+        from ._torch.optimize import implicit_fixed_point_step as _bk
+    return _bk(func, p, args, xp)
+
+
 def del2_step(f, p0, xp):
     """One scipy ``fixed_point`` del2 update: ``(p, relerr)``, branch-free."""
     p1 = f(p0)

@@ -10,7 +10,7 @@ from ..util import _load_extension_libs, coords
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
-def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
+def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10, model=False):
     """
     Use C to calculate actions using the Staeckel approximation
 
@@ -86,6 +86,7 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
+        ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.POINTER(ctypes.c_int),
@@ -126,6 +127,7 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
         pot_tfuncs,
         ctypes.c_int(ndelta),
         delta,
+        ctypes.c_int(model),
         ctypes.c_int(order),
         jr,
         jz,
@@ -695,7 +697,9 @@ def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
     return (u0, err.value)
 
 
-def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
+def actionAngleFreqStaeckel_c(
+    pot, delta, R, vR, vT, z, vz, u0=None, order=10, model=False
+):
     """
     Use C to calculate actions and frequencies using the Staeckel approximation
 
@@ -774,6 +778,7 @@ def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
+        ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -820,6 +825,7 @@ def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
         pot_tfuncs,
         ctypes.c_int(ndelta),
         delta,
+        ctypes.c_int(model),
         ctypes.c_int(order),
         jr,
         jz,
@@ -849,7 +855,7 @@ def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
 
 
 def actionAngleFreqAngleStaeckel_c(
-    pot, delta, R, vR, vT, z, vz, phi, u0=None, order=10
+    pot, delta, R, vR, vT, z, vz, phi, u0=None, order=10, model=False
 ):
     """
     Use C to calculate actions, frequencies, and angles using the Staeckel approximation
@@ -934,6 +940,7 @@ def actionAngleFreqAngleStaeckel_c(
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
+        ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -986,6 +993,7 @@ def actionAngleFreqAngleStaeckel_c(
         pot_tfuncs,
         ctypes.c_int(ndelta),
         delta,
+        ctypes.c_int(model),
         ctypes.c_int(order),
         jr,
         jz,
@@ -1023,7 +1031,9 @@ def actionAngleFreqAngleStaeckel_c(
     return (jr, jz, Omegar, Omegaphi, Omegaz, Angler, Anglephi, Anglez, err.value)
 
 
-def actionAngleUminUmaxVminStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None):
+def actionAngleUminUmaxVminStaeckel_c(
+    pot, delta, R, vR, vT, z, vz, u0=None, model=False
+):
     """
     Use C to calculate umin, umax, and vmin using the Staeckel approximation
 
@@ -1097,6 +1107,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None):
         ctypes.c_void_p,
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -1139,6 +1150,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None):
         pot_tfuncs,
         ctypes.c_int(ndelta),
         delta,
+        ctypes.c_int(model),
         umin,
         umax,
         vmin,

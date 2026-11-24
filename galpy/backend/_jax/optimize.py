@@ -136,7 +136,7 @@ def fixed_point_backend(func, x0, args, xp, *, xtol, maxiter):
     import jax
 
     from .._namespaces import is_backend_array, under_jax_trace
-    from ..optimize import del2_iterate, del2_step, nonzero_slope
+    from ..optimize import del2_iterate, del2_step
 
     sg = jax.lax.stop_gradient
     dargs = tuple(sg(a) if is_backend_array(a) else a for a in args)
@@ -154,6 +154,22 @@ def fixed_point_backend(func, x0, args, xp, *, xtol, maxiter):
         )
     else:
         p = del2_iterate(f, p, xp, xtol, maxiter)
+    return implicit_fixed_point_step(func, p, args, xp)
+
+
+def implicit_fixed_point_step(func, p, args, xp):
+    """jax half of optimize.fixed_point_implicit_step: the value at p, with
+    dx*/dtheta = (dg/dtheta) / (1 - dg/dx) through g = func(p, *args)"""
+    import jax
+
+    from .._namespaces import is_backend_array, under_jax_trace
+    from ..optimize import nonzero_slope
+
+    sg = jax.lax.stop_gradient
+    dargs = tuple(sg(a) if is_backend_array(a) else a for a in args)
+    p = sg(p)
     g = func(p, *args)
-    _, slope = jax.jvp(f, (p,), (xp.ones_like(p),))
+    if not under_jax_trace(g):  # no derivative to carry (as torch's)
+        return p
+    _, slope = jax.jvp(lambda x: func(x, *dargs), (p,), (xp.ones_like(p),))
     return p + (g - sg(g)) / nonzero_slope(1.0 - slope, xp)

@@ -137,17 +137,30 @@ def fixed_point_backend(func, x0, args, xp, *, xtol, maxiter):
     implicit-function step when a parameter needs grad."""
     import torch
 
-    from ..optimize import del2_iterate, nonzero_slope
+    from ..optimize import del2_iterate
 
     dargs = tuple(a.detach() if torch.is_tensor(a) else a for a in args)
     f = lambda x: func(x, *dargs)
     with torch.no_grad():
         p = del2_iterate(f, x0.detach() * 1.0, xp, xtol, maxiter)
+    return implicit_fixed_point_step(func, p, args, xp)
+
+
+def implicit_fixed_point_step(func, p, args, xp):
+    """torch half of optimize.fixed_point_implicit_step: the value at p, with
+    dx*/dtheta = (dg/dtheta) / (1 - dg/dx) through g = func(p, *args) when a
+    parameter needs grad"""
+    import torch
+
+    from ..optimize import nonzero_slope
+
+    dargs = tuple(a.detach() if torch.is_tensor(a) else a for a in args)
+    p = p.detach()
     g = func(p, *args)
     if not (torch.is_grad_enabled() and g.requires_grad):
         return p
     with torch.enable_grad():
         xr = p.clone().requires_grad_(True)
-        fx = f(xr)
+        fx = func(xr, *dargs)
         (slope,) = torch.autograd.grad(fx, xr, grad_outputs=torch.ones_like(fx))
     return p + (g - g.detach()) / nonzero_slope(1.0 - slope, xp)
