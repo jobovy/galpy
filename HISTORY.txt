@@ -249,7 +249,14 @@ at release.]
 
 - [slot 31]
 
-- [slot 32]
+- ``actionAngleStaeckel(inverse=)`` for a family with ``delta='fit'``: the
+  focal length of the torus through a point close to the symmetry axis is
+  found by bracketing over the fitted rule's range where the iteration does
+  not find it (the rule is not defined at every focal length there). The C
+  code returned a focal length that is not the torus's for such points and
+  the Python code nan; both now return the torus's, or nan with the warning
+  for a point that is on no torus. A circular orbit, which has no fraction
+  of the third integral, is recognized to rounding in the rule.
 
 - ``actionAngleAdiabaticApprox`` and ``actionAngleAdiabaticApproxInverse``:
   second review of the stack. The forward transformation is also set up

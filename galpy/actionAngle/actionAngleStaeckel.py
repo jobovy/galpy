@@ -126,6 +126,11 @@ _MODEL_MAXITER = 10
 _MODEL_SCAN = numpy.arcsinh(numpy.geomspace(1e-3, 1e2, 21))
 _MODEL_NBISECT = 35
 _MODEL_JUMP = 1e-6
+# (and the number of grid points over the range of a rule for the focal length)
+_MODEL_NDSCAN = 17
+# the range of the third integral, relative to the energy, below which an
+# orbit is circular for a rule for the focal length
+_MODEL_CIRC = 1e-10
 
 
 def _fixed_point_error(x0, x1, x2):
@@ -138,24 +143,26 @@ def _fixed_point_error(x0, x1, x2):
     return numpy.where(numpy.isfinite(d2), d2 * rate / (1.0 - rate), 0.0)
 
 
-def _bracket_fixed_point(rule, n):
+def _bracket_fixed_point(rule, n, scan=_MODEL_SCAN, undefined=False):
     """The fixed points u0 = rule(idx, u0) of n points by bracketing: the
     change of the reference curve under the rule decreases through zero at
     the fixed point, which is bracketed on a grid of u0 and bisected. A
     bracket that closes on a jump of the rule (where the inner turning
     point passes from one lobe of p_u^2 to another) holds no fixed point:
     nan, as for a point without a bracket (no torus of the rule passes
-    through it)"""
+    through it). The same for a rule for the focal length, on the grid scan
+    of focal lengths; with undefined, a bracket may end where the rule is
+    not defined (nan), and holds no fixed point if it closes there"""
     out = numpy.full(n, numpy.nan)
-    idx = numpy.repeat(numpy.arange(n), len(_MODEL_SCAN))
-    u = numpy.tile(_MODEL_SCAN, n)
-    g = (rule(idx, u) - u).reshape((n, len(_MODEL_SCAN)))
-    bracket = (g[:, :-1] > 0.0) & (g[:, 1:] < 0.0)
+    idx = numpy.repeat(numpy.arange(n), len(scan))
+    u = numpy.tile(scan, n)
+    g = (rule(idx, u) - u).reshape((n, len(scan)))
+    bracket = (g[:, :-1] > 0.0) & (~(g[:, 1:] > 0.0) if undefined else (g[:, 1:] < 0.0))
     idx = numpy.flatnonzero(numpy.any(bracket, axis=1))
     if len(idx) == 0:
         return out
     k = numpy.argmax(bracket[idx], axis=1)
-    lo, hi = _MODEL_SCAN[k], _MODEL_SCAN[k + 1]
+    lo, hi = scan[k], scan[k + 1]
     glo, ghi = g[idx, k], g[idx, k + 1]
     for _ in range(_MODEL_NBISECT):
         mid = 0.5 * (lo + hi)
@@ -735,7 +742,9 @@ def _staeckel_fraction(s, ush, pot, delta, partials=False):
     E, Lz = s["E"], s["Lz"]
     below = s["I3V"] - (Lz**2.0 / 2.0 / delta**2.0 - E)
     tot = below + _JRStaeckelIntegrandSquared(ush, *_staeckel_jr_args(s, pot, delta))
-    ok = tot > 0.0
+    # (a circular orbit: a range of the third integral at the level of the
+    # rounding)
+    ok = tot > _MODEL_CIRC * numpy.fabs(E)
     tot = numpy.where(ok, tot, 1.0)
     f = numpy.clip(numpy.where(ok, below / tot, 0.5), 0.0, 1.0)
     if not partials:
@@ -1504,6 +1513,24 @@ class actionAngleStaeckel(actionAngle):
             if not direct:
                 ddelta[idx] = dd
             idx = idx[left > _MODEL_TOL]
+        if turn is None and aAI._delta_fit is not None:
+            # the points that this does not converge for, or that it takes
+            # to a focal length where the rule is not defined: by bracketing
+            # over the rule's whole range, as the C code does
+            delta[idx] = numpy.nan
+            act = numpy.flatnonzero(~numpy.isfinite(delta))
+            nan = lambda k: numpy.full(len(k), numpy.nan)
+            if len(act) > 0:
+                delta[act] = _bracket_fixed_point(
+                    lambda k, d: step(act[k], nan(k), d)[1],
+                    len(act),
+                    numpy.exp(numpy.linspace(*aAI._delta_fit[1:3], _MODEL_NDSCAN)),
+                    True,
+                )
+                act = act[numpy.isfinite(delta[act])]
+            if len(act) > 0:
+                u0[act] = step(act, nan(act), delta[act])[0]
+            found = numpy.flatnonzero(numpy.isfinite(delta))
         # (a point without a focal length has no model at all)
         u0 = numpy.where(numpy.isfinite(delta), u0, numpy.nan)
         if aAI._delta_fit is not None:

@@ -698,6 +698,7 @@ static void calcModelu0(int ndata,
 // One application of the rule in the models (delta, u0) of the points: the
 // reference curve moves to its fixed point at these focal lengths
 // (calcModelu0), and the rule gives the new focal lengths
+#define MODEL_CIRC 1.e-10
 static void modelRuleDelta(int ndata,
 			   double *R,
 			   double *vR,
@@ -768,8 +769,9 @@ static void modelRuleDelta(int ndata,
       + ( sinh2u0 + snvx * snvx )
       * evaluatePotentialsUV(*(u0+ii),vx,td,nargs,targs)
       - Lz22 + E;
-    // (a circular orbit has no fraction)
-    f= below + above > 0. ? below / ( below + above ) : 0.5;
+    // (a circular orbit has no fraction: one whose range of the third
+    // integral is at the level of the rounding)
+    f= below + above > MODEL_CIRC * fabs(E) ? below / ( below + above ) : 0.5;
     f= f < 0. ? 0. : ( f > 1. ? 1. : f );
     x= log(modelRoot(&modelRootPhi,&arg,0.01 * *(R0c+ii),10. * *(R0m+ii))
 	   / *(R0c+ii)) / log(*(R0m+ii) / *(R0c+ii));
@@ -796,9 +798,96 @@ static void modelRuleDelta(int ndata,
   free(work);
   free(unew);
 }
+// The fixed point of that rule for the points whose focal length is not
+// finite, as calcModelu0Bracket finds that of the reference curve: the
+// change of the focal length under the rule decreases through zero at the
+// fixed point, which is bracketed on a grid over the rule's whole range
+// (b0, b1) and bisected. The rule is not defined at every focal length (a
+// point is on no torus of some), so a bracket may end where it is not
+// defined; one that closes there or on a jump holds no fixed point, and the
+// point's focal length remains nan
+#define MODEL_NDSCAN 17
+#define MODEL_DSCAN(j) exp(b0 + ( b1 - b0 ) * (j) / ( MODEL_NDSCAN - 1 ))
+#define MODEL_DRULE(k) for (kk=0; kk < k; kk++) *(cu0+kk)= NAN;\
+  modelRuleDelta(k,work,work+n,work+2*n,work+3*n,work+4*n,cu0,cd,cnew,\
+  work+5*n,work+6*n,tmin,tmax,0,dfit,rule,nargs,actionAngleArgs)
+static void calcModelDeltaBracket(int ndata,
+				  double **in,
+				  double *u0,
+				  double *delta,
+				  double *dfit,
+				  int rule,
+				  int nargs,
+				  struct potentialArg * actionAngleArgs){
+  int ii, jj, kk, iter, nf= 0, m;
+  double g0= 0., g1= 0.;
+  double b0= *(dfit+3), b1= *(dfit+4);
+  for (ii=0; ii < ndata; ii++) nf+= ! isfinite(*(delta+ii));
+  if ( nf == 0 ) return;
+  int n= nf;
+  int *idx= (int *) malloc ( nf * sizeof(int) );
+  // (R,vR,vT,z,vz) and the two apocentres, u0, delta, the rule there, the
+  // turning points, the bracket and the change of delta at its ends, and
+  // that on the grid (a grid value at a time, as in calcModelu0Bracket)
+  double *work= (double *) malloc ( ( 16 + MODEL_NDSCAN ) * nf * sizeof(double) );
+  double *cu0= work+7*n, *cd= work+8*n, *cnew= work+9*n;
+  double *tmin= work+10*n, *tmax= work+11*n;
+  double *lo= work+12*n, *hi= work+13*n, *glo= work+14*n, *ghi= work+15*n;
+  double *g= work+16*n;
+  for (ii=0, kk=0; ii < ndata; ii++)
+    if ( ! isfinite(*(delta+ii)) ) *(idx+kk++)= ii;
+  for (kk=0; kk < nf; kk++)
+    for (ii=0; ii < 7; ii++) *(work+ii*n+kk)= *(in[ii]+*(idx+kk));
+  for (jj=0; jj < MODEL_NDSCAN; jj++){
+    for (kk=0; kk < nf; kk++) *(cd+kk)= MODEL_DSCAN(jj);
+    MODEL_DRULE(nf);
+    for (kk=0; kk < nf; kk++) *(g+kk*MODEL_NDSCAN+jj)= *(cnew+kk) - *(cd+kk);
+  }
+  // the bracketed points, compressed
+  for (kk=0, m=0; kk < nf; kk++){
+    for (jj=0; jj < MODEL_NDSCAN - 1; jj++){
+      g0= *(g+kk*MODEL_NDSCAN+jj);
+      g1= *(g+kk*MODEL_NDSCAN+jj+1);
+      if ( g0 > 0. && ! ( g1 > 0. ) ) break;
+    }
+    if ( jj == MODEL_NDSCAN - 1 ) continue;
+    *(lo+m)= MODEL_DSCAN(jj);
+    *(hi+m)= MODEL_DSCAN(jj+1);
+    *(glo+m)= g0;
+    *(ghi+m)= g1;
+    for (ii=0; ii < 7; ii++) *(work+ii*n+m)= *(work+ii*n+kk);
+    *(idx+m++)= *(idx+kk);
+  }
+  for (iter=0; iter <= MODEL_NBISECT && m > 0; iter++){
+    for (kk=0; kk < m; kk++) *(cd+kk)= 0.5 * ( *(lo+kk) + *(hi+kk) );
+    MODEL_DRULE(m);
+    for (kk=0; kk < m; kk++){
+      g0= *(cnew+kk) - *(cd+kk);
+      if ( g0 > 0. ){
+	*(lo+kk)= *(cd+kk);
+	*(glo+kk)= g0;
+      }
+      else {
+	*(hi+kk)= *(cd+kk);
+	*(ghi+kk)= g0;
+      }
+    }
+  }
+  // (the last application was at the middle of the bracket before it)
+  for (kk=0; kk < m; kk++)
+    if ( *(glo+kk) - *(ghi+kk) < MODEL_JUMP ){
+      *(delta+*(idx+kk))= *(cd+kk);
+      *(u0+*(idx+kk))= *(cu0+kk);
+    }
+  free(idx);
+  free(work);
+}
 // The fixed point of that rule for each point, as calcModelu0 finds that of
 // the reference curve: the focal lengths and reference curves are written
-// to delta and u0 (nan for points without a model)
+// to delta and u0 (nan for points without a model). Points that the
+// iteration does not converge for, or that it takes to a focal length
+// where the rule is not defined, are solved for by bracketing
+// (calcModelDeltaBracket)
 #define MODEL_DSTEP(a,b,w) modelRuleDelta(n,work,work+ndata,work+2*ndata,\
   work+3*ndata,work+4*ndata,cu0,a,b,work+5*ndata,work+6*ndata,tmin,tmax,w,\
   dfit,rule,nargs,actionAngleArgs)
@@ -852,8 +941,8 @@ static void calcModelDelta(int ndata,
     // done where this step alone leaves less than the tolerance
     for (kk=0, m=0; kk < n; kk++){
       e1= fabs(*(d1+kk) - *(d0+kk));
-      if ( ! isfinite(e1) ) continue;
       MODEL_DOUT(*(d1+kk));
+      if ( ! isfinite(e1) ) continue;
       if ( e1 * *(rate+kk) / ( 1. - *(rate+kk) ) > MODEL_TOL * *(d1+kk) ){
 	MODEL_DKEEP;
       }
@@ -864,7 +953,8 @@ static void calcModelDelta(int ndata,
     for (kk=0, m=0; kk < n; kk++){
       e1= fabs(*(d1+kk) - *(d0+kk));
       e2= fabs(*(d2+kk) - *(d1+kk));
-      if ( ! isfinite(e2) ) continue;
+      // (a step to a focal length where the rule is not defined leaves
+      // nan: acc is nan and the point is not kept)
       *(rate+kk)= e2 / e1;
       if ( ! ( *(rate+kk) < 0.9 ) ) *(rate+kk)= 0.9;
       den= *(d2+kk) - 2. * *(d1+kk) + *(d0+kk);
@@ -878,6 +968,8 @@ static void calcModelDelta(int ndata,
     }
     n= m;
   }
+  for (kk=0; kk < n; kk++){ MODEL_DOUT(NAN); }
+  calcModelDeltaBracket(ndata,in,u0,delta,dfit,rule,nargs,actionAngleArgs);
   free(idx);
   free(work);
 }
