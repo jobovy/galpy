@@ -205,7 +205,10 @@ at release.]
 
 - [slot 29]
 
-- [slot 30]
+- Fixed the C frequencies and angles of actionAngleStaeckel for orbits that
+  stay within about 1e-3 of the plane: every point of such an orbit was
+  taken to be at its vertical turning point, which gave vertical
+  frequencies and angles that were off by up to several percent.
 
 - [slot 31]
 
