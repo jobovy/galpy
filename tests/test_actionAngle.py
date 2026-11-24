@@ -3916,9 +3916,6 @@ def test_actionAngleStaeckel_python_scalar_only_potential():
     from galpy.backend import use
     from galpy.potential import DoubleExponentialDiskPotential, HernquistPotential
 
-    pot = DoubleExponentialDiskPotential(
-        normalize=0.6, hr=1.0 / 3.0, hz=1.0 / 27.0
-    ) + HernquistPotential(normalize=0.4, a=2.0)
     xv = (
         numpy.array([1.0, 0.9]),
         numpy.array([0.05, -0.1]),
@@ -3927,7 +3924,12 @@ def test_actionAngleStaeckel_python_scalar_only_potential():
         numpy.array([0.03, 0.06]),
         numpy.array([0.3, 2.0]),
     )
+    # The potential is set up on numpy too: normalize= under a forced backend
+    # makes its amplitude a backend array
     with use("numpy", force=True):
+        pot = DoubleExponentialDiskPotential(
+            normalize=0.6, hr=1.0 / 3.0, hz=1.0 / 27.0
+        ) + HernquistPotential(normalize=0.4, a=2.0)
         aAp = actionAngleStaeckel(pot=pot, delta=0.3, c=False)
         aAc = actionAngleStaeckel(pot=pot, delta=0.3, c=True)
         for p, c in zip(aAp.actionsFreqsAngles(*xv), aAc.actionsFreqsAngles(*xv)):
