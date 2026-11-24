@@ -57,7 +57,7 @@ def _auxiliary_potential(aA):
     instance set up from one), for which it is the Staeckel potential that
     the instance approximates that potential with. An instance whose
     Staeckel potential differs from torus to torus has no single such
-    potential"""
+    potential: None"""
     from .actionAngleStaeckelInverse import actionAngleStaeckelInverse
 
     aAI = aA if isinstance(aA, actionAngleStaeckelInverse) else None
@@ -66,14 +66,65 @@ def _auxiliary_potential(aA):
     if aAI is None:
         return aA._pot
     if aAI._adaptive or aAI._delta_rule is not None:
-        raise NotImplementedError(
-            "An actionAngleStaeckelInverse instance whose focal length or "
-            "reference curve follows its tori (a callable or 'fit' delta=, or "
-            "a rule for u0=) has a different Staeckel potential for each "
-            "torus and is not yet supported as the potential that is "
-            "transformed to: use a numerical delta= and u0="
-        )
+        return None
     return aAI._staeckelwrap
+
+
+def _switch(start, end, tintJ):
+    """The potential that changes from start to end over tintJ"""
+    return DehnenSmoothWrapperPotential(
+        pot=start, tform=0.0, tsteady=tintJ, decay=True
+    ) + DehnenSmoothWrapperPotential(pot=end, tform=0.0, tsteady=tintJ, decay=False)
+
+
+def _staeckel_models(aA, R, vR, vT, z, vz):
+    """The Staeckel potential, as rows (delta, u0), of the torus through
+    each point of the family that the actionAngleStaeckel instance aA was
+    set up from (nan for a point that is on none of its tori)"""
+    # (for a fixed focal length the C code keeps the reference curve to
+    # itself)
+    delta, u0 = aA._inverse_model(
+        R, vR, vT, z, vz, c=aA._inverse._delta_rule is not None, deriv=False
+    )[:2]
+    return numpy.stack(numpy.broadcast_arrays(delta, u0), axis=-1) * 1.0
+
+
+def _deform(pot, aux, vxvv, models, ts, method, dt, back=False, wrapper=None):
+    """The points vxvv [M,6] integrated over the times ts while pot
+    changes to the potential that is transformed to (with back, while that
+    potential changes to pot): aux or, without a single such potential,
+    the Staeckel potential of each point's row (delta, u0) of models (the
+    first of the pair that wrapper(delta, u0) returns), in which case the
+    points are integrated one Staeckel potential at a time"""
+    from ..orbit import Orbit
+
+    out = numpy.full_like(vxvv, numpy.nan)
+
+    def run(sel, aux):
+        orb = Orbit(vxvv[sel])
+        orb.integrate(
+            ts,
+            _switch(aux, pot, ts[-1]) if back else _switch(pot, aux, ts[-1]),
+            method=method,
+            dt=dt,
+            progressbar=False,
+        )
+        out[sel] = numpy.stack(
+            [
+                getattr(orb, q)(ts[-1], use_physical=False)
+                for q in ("R", "vR", "vT", "z", "vz", "phi")
+            ],
+            axis=-1,
+        )
+
+    if aux is not None:
+        run(numpy.arange(len(vxvv)), aux)
+        return out
+    ok = numpy.flatnonzero(numpy.all(numpy.isfinite(models), axis=1))
+    uniq, inv = numpy.unique(models[ok], axis=0, return_inverse=True)
+    for ii, (delta, u0) in enumerate(uniq):
+        run(ok[numpy.ravel(inv) == ii], wrapper(delta, u0)[0])
+    return out
 
 
 class actionAngleAdiabaticApprox(actionAngle):
@@ -88,11 +139,15 @@ class actionAngleAdiabaticApprox(actionAngle):
         pot : Potential or list of Potentials, optional
             Potential to calculate action-angle variables for.
         aA : actionAngleIsochrone, actionAngleSpherical, actionAngleAdiabatic, or actionAngleStaeckel instance
-            actionAngle instance for the potential that is being adiabatically transformed to. For an actionAngleStaeckel instance for a potential that is not of Staeckel form (the Staeckel approximation of that potential, which is not the action-angle transformation of any one potential), the potential that is transformed to is the Staeckel potential with the instance's focal length that approximates that potential (OblateStaeckelWrapperPotential with its default reference curve), and the actions and angles are computed in that potential; set aA= up for an OblateStaeckelWrapperPotential directly to choose the reference curve.
+            actionAngle instance for the potential that is being adiabatically transformed to. For an actionAngleStaeckel instance for a potential that is not of Staeckel form (the Staeckel approximation of that potential, which is not the action-angle transformation of any one potential), the potential that is transformed to is the Staeckel potential with the instance's focal length that approximates that potential (OblateStaeckelWrapperPotential with its default reference curve), and the actions and angles are computed in that potential; set aA= up for an OblateStaeckelWrapperPotential directly to choose the reference curve. With actionAngleStaeckel(inverse=...) for an actionAngleStaeckelInverse instance of pot whose focal length or reference curve follows its tori, each point is transformed to the Staeckel potential of its own torus of that instance (see the Notes).
         aAAI : actionAngleAdiabaticApproxInverse instance, optional
             Set up the transformation that this instance inverts, in place of pot=, tintJ=, integrate_method=, and dt=, which are taken from it; aA= is then only necessary when the instance was set up without one and its aAI= is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance. Its aAI= is used as this instance's aAI= unless one is given.
         tintJ : float, optional
             Time to integrate orbits for to estimate actions (can be Quantity).
+        mm_npt : int, optional
+            For an aA= with a Staeckel potential for each torus and calibrate_angles=True: the mm_npt of the actionAngleStaeckelInverse tori of those potentials that the calibration uses. Default: 256.
+        niter : int, optional
+            For an aA= with a Staeckel potential for each torus: the number of times that the Staeckel potential of each point is updated to that of the torus that the point is transformed to, and the transformation repeated. Default: 1.
         ntintJ : int, optional
             Number of output times of the orbit integration (only the last one is used).
         integrate_method : str, optional
@@ -116,6 +171,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         -----
         - The angles are angle coordinates on the torus that advance at the orbital frequencies, but they differ from the angles of other action-angle methods by an offset that is constant on each torus (it depends on the actions, on tintJ, and on the potentials). Many applications do not need the offset (for example, any use of this class together with actionAngleAdiabaticApproxInverse for the same tintJ).
         - With calibrate_angles=True, the offset is measured for each point's torus: transforming a point of the torus of the potential of aA= back to pot and again to that of aA=, both forward in time, changes its angles by twice the offset. For a finite tintJ the offset varies slightly over the torus (at the level of the error of the angles); it is measured at one fixed point of each torus (that of aAI= at the angles (1,0,1)), such that it is a function of the actions alone and the same for this class and its inverse (without aAI=, at the point's own image). This gives the offset up to half a turn, which is fixed by the angles that aA= itself assigns to the point (and, for the radial angle, by whether the point moves outward); the half turn can come out wrong for points whose image in the potential of aA= is unbound or whose torus there is very different.
+        - With aA=actionAngleStaeckel(inverse=aAI) for an actionAngleStaeckelInverse instance aAI of pot whose Staeckel potential follows its tori (delta='fit' or a callable, or a rule for u0=), there is no single potential to transform to: each point is transformed to the Staeckel potential of its own torus. That potential has to be the same for all points of an orbit for the result to be action-angle coordinates; it is first that of the torus of aAI through the point (which varies along an orbit as the actions of the Staeckel approximation do) and is then updated niter times to that of the torus of aAI with the actions that the point is transformed to (which varies only as the actions of this class do, and is the potential that actionAngleAdiabaticApproxInverse transforms that torus from). Points are integrated one Staeckel potential at a time, which is slower than for a single potential.
         - 2025-09-23 - Started - Bovy (UofT).
         - 2025-10-15 - Allowed more general target potentials - Bovy (UofT).
 
@@ -216,14 +272,21 @@ class actionAngleAdiabaticApprox(actionAngle):
             N=2,
             increasing=True,
         )
-        self._adiabatic_pot = DehnenSmoothWrapperPotential(
-            pot=self._pot, tform=0.0, tsteady=self._tintJ, decay=True
-        ) + DehnenSmoothWrapperPotential(
-            pot=self._target_pot, tform=0.0, tsteady=self._tintJ, decay=False
+        self._adiabatic_pot = (
+            None
+            if self._target_pot is None
+            else _switch(self._pot, self._target_pot, self._tintJ)
         )
+        self._niter = int(kwargs.get("niter", 1))
+        # (the Staeckel potentials of tori and their action-angle instances,
+        # and tori of them: kept for one evaluation)
+        self._wrappers, self._tori, self._end_models = {}, {}, None
+        self._mm_npt = int(kwargs.get("mm_npt", 256))
         self._calibrate = kwargs.get("calibrate_angles", False)
         # The inverse of aA=, for the half turns of the calibrated angles
         self._aAI = kwargs.get("aAI", None)
+        if self._target_pot is None:
+            self._aAI = self._aA._inverse
         if self._aAI is None and isinstance(self._aA, actionAngleIsochrone):
             from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 
@@ -232,35 +295,156 @@ class actionAngleAdiabaticApprox(actionAngle):
         self._check_consistent_units()
         return None
 
-    def _offset(self, R, vR, vT, z, vz, phi):
+    def _offset(self, R, vR, vT, z, vz, phi, models=None):
         """The offset (jr,lz,jz order; modulo pi) of the angles of points
         of the potential that is transformed to: half of the change of
         their angles over the transformation back to pot and again to that
         potential, both forward in time"""
-        from ..orbit import Orbit
-
-        back_pot = DehnenSmoothWrapperPotential(
-            pot=self._target_pot, tform=0.0, tsteady=self._tintJ, decay=True
-        ) + DehnenSmoothWrapperPotential(
-            pot=self._pot, tform=0.0, tsteady=self._tintJ, decay=False
-        )
-        start = numpy.array(self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)[6:])
-        orb = Orbit(numpy.stack([R, vR, vT, z, vz, phi], axis=-1))
-        for pot in (back_pot, self._adiabatic_pot):
-            orb.integrate(
-                self._tsJ,
-                pot,
-                method=self._integrate_method,
-                dt=self._integrate_dt,
-                progressbar=False,
-            )
-            orb = orb(self._tsJ[-1])
-        end = numpy.array(
-            self._aA.actionsFreqsAngles(
-                orb.R(), orb.vR(), orb.vT(), orb.z(), orb.vz(), orb.phi()
-            )[6:]
-        )
+        if models is None:
+            models = self._models(R, vR, vT, z, vz)
+        start = self._aux(R, vR, vT, z, vz, phi, models)[6:]
+        xv = numpy.stack([R, vR, vT, z, vz, phi], axis=-1) * 1.0
+        for back in (True, False):
+            xv = self._deform(xv, models, back=back)
+        end = self._aux(*xv.T, models)[6:]
         return 0.5 * ((end - start + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+
+    def _wrapper(self, delta, u0):
+        """The Staeckel potential (delta, u0) of pot and the action-angle
+        instance that is exact for it"""
+        key = (float(delta), float(u0))
+        if key not in self._wrappers:
+            aux = OblateStaeckelWrapperPotential(pot=self._pot, delta=key[0], u0=key[1])
+            self._wrappers[key] = (
+                aux,
+                actionAngleStaeckel(pot=aux, delta=key[0], c=True),
+            )
+        return self._wrappers[key]
+
+    def _aux(self, R, vR, vT, z, vz, phi, models=None):
+        """The actions, frequencies, and angles [9,M] of points of the
+        potential that is transformed to: those of aA= or, without a single
+        such potential, those in the Staeckel potential of each point's row
+        (delta, u0) of models (the family's own angles are not angle
+        coordinates of any one of these potentials)"""
+        if models is None:
+            return numpy.array(self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi))
+        out = numpy.full((9, len(R)), numpy.nan)
+        ok = numpy.flatnonzero(numpy.all(numpy.isfinite(models), axis=1))
+        uniq, inv = numpy.unique(models[ok], axis=0, return_inverse=True)
+        for ii, (delta, u0) in enumerate(uniq):
+            sel = ok[numpy.ravel(inv) == ii]
+            out[:, sel] = self._wrapper(delta, u0)[1].actionsFreqsAngles(
+                *(x[sel] for x in (R, vR, vT, z, vz, phi))
+            )
+        return out
+
+    def _torus(self, jr, lz, jz):
+        """Without a single potential that is transformed to: the Staeckel
+        potential (delta, u0) of the torus of the family of aA= with these
+        actions and that torus as an explicit torus of that potential
+        ((nan, nan), None for actions that the family has no torus for)"""
+        key = (float(jr), float(lz), float(jz))
+        if key not in self._tori:
+            from .actionAngleStaeckelInverse import actionAngleStaeckelInverse
+
+            model = self._models_of_tori(
+                *(numpy.array([k]) for k in key), numpy.full((1, 2), numpy.nan)
+            )[0]
+            self._tori[key] = (
+                model,
+                actionAngleStaeckelInverse(
+                    pot=self._wrapper(*model)[0],
+                    jrs=[key[0]],
+                    Lzs=[key[1]],
+                    jzs=[key[2]],
+                    mm_npt=self._mm_npt,
+                    progressbar=False,
+                )
+                if numpy.all(numpy.isfinite(model))
+                else None,
+            )
+        return self._tori[key]
+
+    def _aux_points(self, actions, angles):
+        """The points [6,M] of the tori of the potential that is transformed
+        to with these actions and angles, from aAI= (for a family: the
+        points of each torus in its own Staeckel potential), and for a
+        family the rows (delta, u0) of the Staeckel potentials (else None)"""
+        shape = numpy.shape(actions[0])
+        if self._target_pot is not None:
+            return (
+                numpy.array(
+                    [
+                        numpy.broadcast_to(numpy.ravel(x), shape)
+                        for x in self._aAI(*actions, *angles, use_physical=False)
+                    ]
+                ),
+                None,
+            )
+        angles = numpy.broadcast_arrays(*angles, actions[0])[:3]
+        out, models = (
+            numpy.full((6, *shape), numpy.nan),
+            numpy.full((*shape, 2), numpy.nan),
+        )
+        tori, inv = numpy.unique(
+            numpy.stack(actions, axis=-1), axis=0, return_inverse=True
+        )
+        for ii, key in enumerate(tori):
+            sel = numpy.ravel(inv) == ii
+            models[sel], torus = self._torus(*key)
+            if torus is not None:
+                out[:, sel] = numpy.array(
+                    torus(*key, *(a[sel] for a in angles), use_physical=False)
+                )
+        return out, models
+
+    def _models_of_tori(self, jr, lz, jz, fallback):
+        """Without a single potential that is transformed to: the Staeckel
+        potential (rows (delta, u0)) of the tori of the family of aA= with
+        these actions, which is that of the family's torus through its own
+        point with these actions at the angles (1,0,1): a function of the
+        actions alone, the same here and in the inverse transformation. The
+        rows of fallback for actions that the family has no torus for"""
+        out = numpy.array(fallback) * 1.0
+        ok = numpy.atleast_1d(self._aAI.in_domain(jr, lz, jz))
+        if numpy.any(ok):
+            models = _staeckel_models(
+                self._aA,
+                *(
+                    numpy.broadcast_to(numpy.ravel(x), (numpy.sum(ok),))
+                    for x in self._aAI(
+                        jr[ok], lz[ok], jz[ok], 1.0, 0.0, 1.0, use_physical=False
+                    )[:5]
+                ),
+            )
+            out[ok] = numpy.where(
+                numpy.all(numpy.isfinite(models), axis=1)[:, None], models, out[ok]
+            )
+        return out
+
+    def _models(self, R, vR, vT, z, vz):
+        """The Staeckel potential (rows (delta, u0)) of each point's torus
+        of the family of aA=, where there is no single potential that is
+        transformed to: None otherwise"""
+        if self._target_pot is not None:
+            return None
+        return _staeckel_models(self._aA, R, vR, vT, z, vz)
+
+    def _deform(self, xv, models, back=False):
+        """The points xv [M,6] at the end of the transformation to the
+        potential that is transformed to (back: from it to pot)"""
+        return _deform(
+            self._pot,
+            self._target_pot,
+            xv,
+            models,
+            self._tsJ,
+            self._integrate_method,
+            self._integrate_dt,
+            back=back,
+            wrapper=self._wrapper,
+        )
 
     def _offset_torus(self, actions, end):
         """The offset (jr,lz,jz order; modulo pi) of the angles of the tori
@@ -270,14 +454,14 @@ class actionAngleAdiabaticApprox(actionAngle):
         or for tori that it does not return, that of the points end
         (R,vR,vT,z,vz,phi) of the potential that is transformed to"""
         end = [numpy.array(x, dtype="float") for x in end]
+        models = None if self._target_pot is not None else self._models(*end[:5])
         if self._aAI is not None:
-            fixed = [
-                numpy.broadcast_to(numpy.ravel(x), end[0].shape)
-                for x in self._aAI(*actions, 1.0, 0.0, 1.0, use_physical=False)
-            ]
+            fixed, torus = self._aux_points(actions, (1.0, 0.0, 1.0))
             ok = numpy.all(numpy.isfinite(fixed), axis=0)
             end = [numpy.where(ok, f, x) for f, x in zip(fixed, end)]
-        return self._offset(*end)
+            if models is not None:
+                models = numpy.where(ok[:, None], torus, models)
+        return self._offset(*end, models=models)
 
     def _halfturns(self, angles, actions, R, vR, vT, z, vz, phi):
         """Whether each of the angles (jr,lz,jz order), known modulo pi,
@@ -323,12 +507,7 @@ class actionAngleAdiabaticApprox(actionAngle):
                 cand = angles + numpy.pi * numpy.array(
                     [off[0], 0 * off[0] + kk // 2, 0 * off[0] + kk % 2]
                 )
-                xa = cart(
-                    *(
-                        numpy.broadcast_to(numpy.ravel(q), R.shape)
-                        for q in self._aAI(*actions, *cand, use_physical=False)
-                    )
-                )
+                xa = cart(*self._aux_points(actions, cand)[0])
                 score[kk] = sum(
                     numpy.sum(x[ii : ii + 3] * xa[ii : ii + 3], axis=0)
                     / numpy.sqrt(
@@ -388,14 +567,15 @@ class actionAngleAdiabaticApprox(actionAngle):
         """
         R, vR, vT, z, vz, phi = self._parse_args(*args)
         Rshape = R.shape
-        jr, lz, jz = self._aA(
+        jr, lz, jz = self._aux(
             R.flatten(),
             vR.flatten(),
             vT.flatten(),
             z.flatten(),
             vz.flatten(),
             phi.flatten(),
-        )
+            self._end_models,
+        )[:3]
         return (
             numpy.mean(jr.reshape(Rshape), axis=1),
             numpy.mean(lz.reshape(Rshape), axis=1),
@@ -451,13 +631,14 @@ class actionAngleAdiabaticApprox(actionAngle):
         """
         R, vR, vT, z, vz, phi = self._parse_args(*args)
         Rshape = R.shape
-        jr, lz, jz, Or, Op, Oz, ar, ap, az = self._aA.actionsFreqsAngles(
+        jr, lz, jz, Or, Op, Oz, ar, ap, az = self._aux(
             R.flatten(),
             vR.flatten(),
             vT.flatten(),
             z.flatten(),
             vz.flatten(),
             phi.flatten(),
+            self._end_models,
         )
         jr, lz, jz = (
             numpy.mean(jr.reshape(Rshape), axis=1),
@@ -545,11 +726,11 @@ class actionAngleAdiabaticApprox(actionAngle):
             for x in (R, vR, vT, z, vz, phi)
         )
         self._start = (R, vR, vT, z, vz, phi)
+        self._wrappers.clear()
+        self._tori.clear()
         if self._npoints == 0:
             # Each point on its own
-            os_for_actions = Orbit(
-                numpy.stack([R, vR, vT, z, vz, phi], axis=-1)[:, None, :]
-            )
+            xv = numpy.stack([R, vR, vT, z, vz, phi], axis=-1)[:, None, :]
         else:
             # Integrate orbit forward and backward to get multiple
             # _npoints_ts to average actions and estimate frequencies and
@@ -570,21 +751,30 @@ class actionAngleAdiabaticApprox(actionAngle):
                 progressbar=False,
             )
             # Times in increasing order, the order that self._vanderA assumes
-            os_for_actions = orb(
-                numpy.concatenate((-self._npoints_ts[:0:-1], self._npoints_ts))
+            ts = numpy.concatenate((-self._npoints_ts[:0:-1], self._npoints_ts))
+            xv = numpy.stack(
+                [
+                    numpy.reshape(getattr(orb, q)(ts, use_physical=False), (len(R), -1))
+                    for q in ("R", "vR", "vT", "z", "vz", "phi")
+                ],
+                axis=-1,
             )
-        os_for_actions.integrate(
-            self._tsJ,
-            self._adiabatic_pot,
-            method=self._integrate_method,
-            dt=self._integrate_dt,
-            progressbar=False,
+        shape = xv.shape
+        # (without a single potential to transform to: each point and the
+        # points along its orbit to the Staeckel potential of the point's
+        # torus, updated to that of the torus that the point ends on)
+        models = self._models(R, vR, vT, z, vz)
+        mid = self._npoints // 2
+        for ii in range(1 + self._niter * (models is not None)):
+            end = self._deform(
+                xv.reshape((-1, 6)),
+                None if models is None else numpy.repeat(models, shape[1], axis=0),
+            ).reshape(shape)
+            if models is not None and ii < self._niter:
+                models = self._models_of_tori(
+                    *self._aux(*end[:, mid].T, models)[:3], models
+                )
+        self._end_models = (
+            None if models is None else numpy.repeat(models, shape[1], axis=0)
         )
-        return (
-            os_for_actions.R(self._tsJ[-1]),
-            os_for_actions.vR(self._tsJ[-1]),
-            os_for_actions.vT(self._tsJ[-1]),
-            os_for_actions.z(self._tsJ[-1]),
-            os_for_actions.vz(self._tsJ[-1]),
-            os_for_actions.phi(self._tsJ[-1]),
-        )
+        return tuple(end[..., ii] for ii in range(6))

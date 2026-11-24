@@ -285,7 +285,17 @@ at release.]
   (``OblateStaeckelWrapperPotential``), in which the actions and angles
   are then computed (nothing was transformed before).
 
-- [slot 34]
+- ``actionAngleAdiabaticApprox`` and ``actionAngleAdiabaticApproxInverse``
+  with an ``actionAngleStaeckelInverse`` whose Staeckel potential follows
+  its tori as the auxiliary (``delta='fit'`` or a callable, or a rule for
+  ``u0=``; for example, one family for the whole of a galaxy): each point
+  is transformed to the Staeckel potential of its own torus, which is a
+  function of the actions alone (that of the family's torus with the
+  point's actions, found in ``niter=`` updates), such that the two classes
+  remain each other's inverse. Actions, frequencies, and angles are those
+  in that potential; the inverse sets up each torus explicitly in its own
+  potential (``mm_npt=``) and returns nan for tori that the family does
+  not have. Such instances raised an error before.
 
 - [slot 35]
 
