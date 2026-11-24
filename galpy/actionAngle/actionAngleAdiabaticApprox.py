@@ -20,6 +20,7 @@ from numpy import linalg
 from ..potential import (
     DehnenSmoothWrapperPotential,
     MWPotential,
+    OblateStaeckelWrapperPotential,
     evaluateRforces,
     evaluatezforces,
 )
@@ -63,16 +64,6 @@ def _auxiliary_potential(aA):
     if isinstance(aA, actionAngleStaeckel):
         aAI = aA._inverse
     if aAI is None:
-        if isinstance(aA, actionAngleStaeckel) and _focal_length_of(aA._pot) is None:
-            warnings.warn(
-                "aA= is an actionAngleStaeckel instance for a potential that is "
-                "not of Staeckel form: its actions are not those of a single "
-                "potential, and the potential that is transformed to is that "
-                "potential itself rather than a Staeckel potential. Set aA= up "
-                "for a potential of Staeckel form, for example an "
-                "OblateStaeckelWrapperPotential of that potential",
-                galpyWarning,
-            )
         return aA._pot
     if aAI._adaptive or aAI._delta_rule is not None:
         raise NotImplementedError(
@@ -97,7 +88,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         pot : Potential or list of Potentials, optional
             Potential to calculate action-angle variables for.
         aA : actionAngleIsochrone, actionAngleSpherical, actionAngleAdiabatic, or actionAngleStaeckel instance
-            actionAngle instance for the potential that is being adiabatically transformed to.
+            actionAngle instance for the potential that is being adiabatically transformed to. For an actionAngleStaeckel instance for a potential that is not of Staeckel form (the Staeckel approximation of that potential, which is not the action-angle transformation of any one potential), the potential that is transformed to is the Staeckel potential with the instance's focal length that approximates that potential (OblateStaeckelWrapperPotential with its default reference curve), and the actions and angles are computed in that potential; set aA= up for an OblateStaeckelWrapperPotential directly to choose the reference curve.
         aAAI : actionAngleAdiabaticApproxInverse instance, optional
             Set up the transformation that this instance inverts, in place of pot=, tintJ=, integrate_method=, and dt=, which are taken from it; aA= is then only necessary when the instance was set up without one and its aAI= is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance. Its aAI= is used as this instance's aAI= unless one is given.
         tintJ : float, optional
@@ -178,6 +169,28 @@ class actionAngleAdiabaticApprox(actionAngle):
                 "Provided aA= does not appear to be an instance of a supported actionAngle class"
             )
         self._aA = kwargs["aA"]
+        if (
+            isinstance(self._aA, actionAngleStaeckel)
+            and self._aA._inverse is None
+            and _focal_length_of(self._aA._pot) is None
+        ):
+            # The Staeckel approximation of a potential that is not of
+            # Staeckel form: the potential that is transformed to is the
+            # Staeckel potential of its focal length, with the action-angle
+            # instance that is exact for that potential
+            self._aA = actionAngleStaeckel(
+                pot=OblateStaeckelWrapperPotential(
+                    pot=self._aA._pot, delta=self._aA._delta
+                ),
+                delta=self._aA._delta,
+                c=self._aA._c,
+                order=self._aA._order,
+                **{
+                    k: getattr(self._aA, f"_{k}")
+                    for k in ("ro", "vo")
+                    if getattr(self._aA, f"_{k}Set")
+                },
+            )
         self._target_pot = _auxiliary_potential(self._aA)
         self._tintJ = conversion.parse_time(
             kwargs.get("tintJ", 100.0), ro=self._ro, vo=self._vo

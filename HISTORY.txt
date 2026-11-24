@@ -239,9 +239,11 @@ at release.]
   that is not of Staeckel form, the potential that is transformed to is
   the Staeckel potential that it approximates that potential with (it was
   the potential itself, such that nothing was transformed); instances
-  whose Staeckel potential follows their tori raise an error, and an
+  whose Staeckel potential follows their tori raise an error. An
   ``actionAngleStaeckel`` ``aA=`` for a potential that is not of Staeckel
-  form gives a warning.
+  form stands for the Staeckel potential of its focal length
+  (``OblateStaeckelWrapperPotential``), in which the actions and angles
+  are then computed (nothing was transformed before).
 
 - [slot 34]
 

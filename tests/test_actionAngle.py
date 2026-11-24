@@ -6659,12 +6659,32 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         "actionAngleAdiabaticApprox does not transform to the Staeckel "
         "potential of an actionAngleStaeckelInverse with delta="
     )
-    # an actionAngleStaeckel for a potential that is not of Staeckel form is
-    # not the action-angle instance of a single potential: warned about
-    with pytest.warns(galpyWarning, match="not of Staeckel form"):
-        actionAngleAdiabaticApprox(
-            pot=MWPotential2014,
-            aA=actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True),
+    # an actionAngleStaeckel for a potential that is not of Staeckel form
+    # (its Staeckel approximation) stands for the Staeckel potential with
+    # its focal length
+    wrapped = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45)
+    for kw in ({}, dict(ro=8.0, vo=220.0)):
+        assert numpy.allclose(
+            numpy.array(
+                actionAngleAdiabaticApprox(
+                    pot=MWPotential2014,
+                    aA=actionAngleStaeckel(pot=MWPotential2014, delta=0.45, **kw),
+                    tintJ=30.0,
+                ).actionsFreqsAngles(*xv)
+            ),
+            numpy.array(
+                actionAngleAdiabaticApprox(
+                    pot=MWPotential2014,
+                    aA=actionAngleStaeckel(pot=wrapped, delta=0.45, **kw),
+                    tintJ=30.0,
+                ).actionsFreqsAngles(*xv)
+            ),
+            rtol=1e-10,
+            atol=1e-10,
+        ), (
+            "actionAngleAdiabaticApprox with an actionAngleStaeckel aA= for a "
+            "potential that is not of Staeckel form does not transform to the "
+            "Staeckel potential of its focal length"
         )
     # one whose Staeckel potential follows its tori has no single auxiliary
     # potential
