@@ -61,13 +61,13 @@ jobs:
             # GitHub retains cancelled/failed attempts after a rerun succeeds.
             # Judge only the newest run of each check (per app and name).
             # A run cancelled before its matrix was expanded leaves a cancelled
-            # check run under the job's unexpanded name ("... ${{ matrix.x }} ...");
+            # check run under the job's unexpanded name (with its matrix expression left in it);
             # no later attempt ever replaces it, because the re-run's jobs have
             # their expanded names, so it is not a result and is dropped.
             checks=$(gh api --paginate \
               "repos/$REPO/commits/$SHA/check-runs?filter=all&per_page=100" \
               -q '.check_runs[] | select(.name != env.SELF)
-                  | select((.conclusion == "cancelled" and (.name | contains("${{"))) | not)
+                  | select((.conclusion == "cancelled" and (.name | contains("$" + "{{"))) | not)
                   | {app: .app.slug, name, id, status, conclusion}' 2>/dev/null \
               | jq -sc 'group_by([.app, .name])[] | max_by(.id)
                   | {name, status, conclusion}' || echo "")
