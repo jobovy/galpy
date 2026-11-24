@@ -6552,9 +6552,13 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         actionAngleIsochrone,
         actionAngleIsochroneInverse,
         actionAngleSpherical,
+        actionAngleSphericalInverse,
+        actionAngleStaeckel,
         actionAngleStaeckelInverse,
     )
+    from galpy.orbit import Orbit
     from galpy.potential import (
+        HernquistPotential,
         MWPotential2014,
         NFWPotential,
         OblateStaeckelWrapperPotential,
@@ -6619,6 +6623,107 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         back[[0, 1, 2, 6, 7, 8]], [0.05, 1.0, 0.03, 1.0, 2.0, 3.0], rtol=0.0, atol=1e-5
     ), "actionAngleAdiabaticApprox(aAAI=) with a Staeckel auxiliary is not the inverse"
     assert numpy.all(numpy.isfinite(numpy.array(aAAI.Freqs(0.05, 1.0, 0.03))))
+    # a Staeckel inverse set up with delta= from the potential itself: the
+    # auxiliary potential is the Staeckel potential that it approximates the
+    # potential with, not the potential
+    direct = actionAngleAdiabaticApproxInverse(
+        pot=MWPotential2014,
+        aAI=actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.45,
+            u0=1.0,
+            jrs=[0.05],
+            Lzs=[1.0],
+            jzs=[0.03],
+            progressbar=False,
+        ),
+        tintJ=30.0,
+    )
+    assert numpy.allclose(
+        numpy.array(direct(0.05, 1.0, 0.03, 1.0, 2.0, 3.0))[:, 0],
+        xv,
+        rtol=0.0,
+        atol=1e-9,
+    ), (
+        "actionAngleAdiabaticApproxInverse does not transform from the "
+        "Staeckel potential of an actionAngleStaeckelInverse with delta="
+    )
+    assert numpy.allclose(
+        numpy.array(
+            actionAngleAdiabaticApprox(aAAI=direct, npoints=0).actionsFreqsAngles(*xv)
+        )[[0, 1, 2, 6, 7, 8], 0],
+        back[[0, 1, 2, 6, 7, 8]],
+        rtol=0.0,
+        atol=1e-9,
+    ), (
+        "actionAngleAdiabaticApprox does not transform to the Staeckel "
+        "potential of an actionAngleStaeckelInverse with delta="
+    )
+    # an actionAngleStaeckel for a potential that is not of Staeckel form
+    # (its Staeckel approximation) stands for the Staeckel potential with
+    # its focal length
+    wrapped = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45)
+    for kw in ({}, dict(ro=8.0, vo=220.0)):
+        assert numpy.allclose(
+            numpy.array(
+                actionAngleAdiabaticApprox(
+                    pot=MWPotential2014,
+                    aA=actionAngleStaeckel(pot=MWPotential2014, delta=0.45, **kw),
+                    tintJ=30.0,
+                ).actionsFreqsAngles(*xv)
+            ),
+            numpy.array(
+                actionAngleAdiabaticApprox(
+                    pot=MWPotential2014,
+                    aA=actionAngleStaeckel(pot=wrapped, delta=0.45, **kw),
+                    tintJ=30.0,
+                ).actionsFreqsAngles(*xv)
+            ),
+            rtol=1e-10,
+            atol=1e-10,
+        ), (
+            "actionAngleAdiabaticApprox with an actionAngleStaeckel aA= for a "
+            "potential that is not of Staeckel form does not transform to the "
+            "Staeckel potential of its focal length"
+        )
+    # one whose Staeckel potential follows its tori has no single auxiliary
+    # potential
+    follows = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta=0.45,
+        u0="torus",
+        jrs=[0.05],
+        Lzs=[1.0],
+        jzs=[0.03],
+        progressbar=False,
+    )
+    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
+        actionAngleAdiabaticApproxInverse(pot=MWPotential2014, aAI=follows)
+    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
+        actionAngleAdiabaticApprox(
+            pot=MWPotential2014, aA=actionAngleStaeckel(inverse=follows)
+        )
+    # a spherical auxiliary other than the isochrone: likewise
+    hp = HernquistPotential(a=1.5, normalize=1.0)
+    jr, lz, jz = (float(j[0]) for j in actionAngleSpherical(pot=hp)(*x[:5]))
+    aAAI = actionAngleAdiabaticApproxInverse(
+        pot=np,
+        aAI=actionAngleSphericalInverse(
+            pot=hp,
+            Es=[Orbit(list(x)).E(pot=hp)],
+            Ls=[numpy.fabs(lz) + jz],
+            progressbar=False,
+        ),
+        tintJ=30.0,
+    )
+    xv = numpy.array(aAAI(jr, lz, jz, 1.0, 2.0, 3.0))[:, 0]
+    back = numpy.array(
+        actionAngleAdiabaticApprox(aAAI=aAAI, npoints=0).actionsFreqsAngles(*xv)
+    )[:, 0]
+    assert numpy.allclose(
+        back[[0, 1, 2, 6, 7, 8]], [jr, lz, jz, 1.0, 2.0, 3.0], rtol=0.0, atol=1e-5
+    ), "actionAngleAdiabaticApprox(aAAI=) with a spherical auxiliary is not the inverse"
+    assert numpy.all(numpy.isfinite(numpy.array(aAAI.Freqs(jr, lz, jz))))
     # the inverse of a transformation to a potential without a known inverse
     with pytest.raises(ValueError, match="aAI= is necessary with aAA="):
         actionAngleAdiabaticApproxInverse(
@@ -6666,7 +6771,7 @@ def test_actionAngleAdiabaticApprox_calibrate_angles():
             calibrate_angles=True,
         )
         ang = numpy.array(aAA.actionsFreqsAngles(*x))[6:]
-        assert numpy.all(numpy.fabs(wrap(ang - true)) < 0.02), (
+        assert numpy.all(numpy.fabs(wrap(ang - true)) < 1e-3), (
             "actionAngleAdiabaticApprox with calibrate_angles=True does not "
             f"return the angles of the usual convention for npoints={npoints}"
         )
@@ -6688,7 +6793,7 @@ def test_actionAngleAdiabaticApprox_calibrate_angles():
         calibrate_angles=True,
     )
     assert numpy.all(
-        numpy.fabs(wrap(numpy.array(aAA.actionsFreqsAngles(*x))[6:] - true)) < 0.02
+        numpy.fabs(wrap(numpy.array(aAA.actionsFreqsAngles(*x))[6:] - true)) < 1e-3
     ), (
         "actionAngleAdiabaticApprox with calibrate_angles=True does not return "
         "the angles of the usual convention without an inverse of aA="
@@ -6725,14 +6830,16 @@ def test_actionAngleAdiabaticApprox_calibrate_angles():
         calibrate_angles=True,
     )
     xv = aAAI(jr, lz, jz, *ang)
+    # (these tori include more eccentric ones, with larger errors at this tintJ)
     assert numpy.all(
-        numpy.fabs(wrap(numpy.array(aAS.actionsFreqsAngles(*xv))[6:] - ang)) < 0.02
+        numpy.fabs(wrap(numpy.array(aAS.actionsFreqsAngles(*xv))[6:] - ang)) < 3e-3
     ), (
         "actionAngleAdiabaticApproxInverse with calibrate_angles=True does not "
         "return points with the requested angles of the usual convention"
     )
     # and the two calibrated transformations invert each other to the
-    # precision of the calibrated angles
+    # precision of the orbit integration: the offset is the same function of
+    # the actions in both
     back = numpy.array(
         actionAngleAdiabaticApprox(
             aAAI=aAAI, npoints=0, calibrate_angles=True
@@ -6740,9 +6847,28 @@ def test_actionAngleAdiabaticApprox_calibrate_angles():
     )
     assert numpy.all(
         numpy.fabs(back[:3] - numpy.array([jr, lz, jz])) < 1e-8
-    ) and numpy.all(numpy.fabs(wrap(back[6:] - ang)) < 0.02), (
+    ) and numpy.all(numpy.fabs(wrap(back[6:] - ang)) < 1e-6), (
         "actionAngleAdiabaticApprox and its inverse with calibrate_angles=True "
         "do not invert each other"
+    )
+    aAA = actionAngleAdiabaticApprox(
+        pot=np,
+        aA=actionAngleIsochrone(b=0.5),
+        tintJ=300.0,
+        npoints=0,
+        calibrate_angles=True,
+    )
+    jfa = numpy.array(aAA.actionsFreqsAngles(*x))
+    xb = numpy.array(
+        actionAngleAdiabaticApproxInverse(aAA=aAA, calibrate_angles=True)(
+            *jfa[:3], *jfa[6:]
+        )
+    )
+    assert numpy.all(numpy.fabs(xb[:5] - numpy.array(x)[:5]) < 1e-6) and numpy.all(
+        numpy.fabs(wrap(xb[5] - x[5])) < 1e-6
+    ), (
+        "actionAngleAdiabaticApproxInverse with calibrate_angles=True does not "
+        "return the points that actionAngleAdiabaticApprox was given"
     )
 
     # calibration needs the forward transformation
