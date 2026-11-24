@@ -32,6 +32,7 @@ from ..backend import (
     has_concrete_truth_value,
     host_eval,
     is_backend_array,
+    map_row_chunks,
     match_input_dtype,
     to_host,
     use,
@@ -679,6 +680,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         target_pad=1.5,
         target_minwidth=0.02,
         delta_deg=(3, 3, 3),
+        chunk=None,
         **kwargs,
     ):
         """
@@ -814,6 +816,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             If True, display tqdm progress bars over the tori while they
             are lifted and their tables computed (requires tqdm to be
             installed). Default is True.
+        chunk : int, optional
+            jax/torch evaluation of an interpolated family at arrays of actions: evaluate the points in equal chunks of at most this many. The memory of a call is then that of one chunk, and under jax.jit the compiled program is one chunk's, whatever the number of points (the last chunk is padded). Stored as the ``chunk`` attribute, which can be changed. Default is None: all points in one pass.
         delta : float, Quantity, 'fit' or callable, optional
             Focal length of the prolate spheroidal coordinate system, to
             wrap a general axisymmetric potential in the Staeckel
@@ -959,6 +963,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._maxiter = maxiter
         self._angle_tol = angle_tol
         self._progressbar = progressbar and _TQDM_LOADED
+        self.chunk = chunk
         self._interp = setup_interp
         self._circ_cache = {}
         self._ush_cache = {}
@@ -7948,12 +7953,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _bk_chart(self, E, ell):
         """The Staeckel model of the (E, |L_z|) tori on a backend: the family's
-        wrapper or, with an adaptive reference curve, the wrapper at that
-        (E, |L_z|)'s own u0 (a gauge: no derivative flows through it)"""
+        wrapper or, with an adaptive reference curve, the wrapper at each
+        (E, |L_z|)'s own u0 (an array of them for arrays of tori; a gauge: no
+        derivative flows through it)"""
         if not self._adaptive:
             return self._staeckelwrap
-        xp = get_namespace(E, ell)
-        u0 = self._bk_u0(xp.reshape(E, (1,)), xp.reshape(ell, (1,)))[0]
+        u0 = self._bk_u0(E, ell)  # one per torus
         return OblateStaeckelWrapperPotential(
             pot=self._chart_pot, delta=self._delta, u0=u0
         )
@@ -8795,23 +8800,37 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 return self._bk_xvFreqs_torus(xp, *a, *ang)
 
             if self._interp:
-                out = self._bk_points(
-                    xp,
-                    acts,
-                    angs,
-                    torus,
-                    lambda t, rows, pts, traced: self._bk_xvFreqs_rows(
+
+                def points(*cols):
+                    acts, angs = cols[:3], cols[3:]
+                    return self._bk_points(
                         xp,
-                        *t,
-                        rows,
-                        *(angs if pts is None else (xp.take(a, pts) for a in angs)),
-                        traced,
-                    ),
-                )
+                        acts,
+                        angs,
+                        torus,
+                        lambda t, rows, pts, traced: self._bk_xvFreqs_rows(
+                            xp,
+                            *t,
+                            rows,
+                            *(angs if pts is None else (xp.take(a, pts) for a in angs)),
+                            traced,
+                        ),
+                    )
+
+                out = self._bk_chunked(xp, points, (*acts, *angs))
             else:
                 out = self._bk_per_torus(xp, acts, angs, torus)
             res = tuple(xp.reshape(o, shape) for o in out)
         return tuple(match_input_dtype(t, *ins) for t in res)
+
+    def _bk_chunked(self, xp, fn, cols):
+        """fn(*cols) for flat arrays of points, in equal chunks of at most
+        self.chunk points when that is set (map_row_chunks: a loop, or one
+        jax.lax.map under a trace)"""
+        chunk = getattr(self, "chunk", None)
+        if chunk is None:
+            return fn(*cols)
+        return map_row_chunks(xp, fn, cols, int(chunk))
 
     def _bk_check_actions(self, xp, jr, jphi, jz):
         """The actions' checks of _xvFreqs, when their values are concrete"""
@@ -8958,14 +8977,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 return self._bk_Freqs_torus(xp, *a)
 
             if self._interp:
-                out = self._bk_points(
+                out = self._bk_chunked(
                     xp,
-                    acts,
-                    (),
-                    torus,
-                    lambda t, rows, pts, traced: self._bk_Freqs_rows(
-                        xp, *t, rows, traced
+                    lambda *a: self._bk_points(
+                        xp,
+                        a,
+                        (),
+                        torus,
+                        lambda t, rows, pts, traced: self._bk_Freqs_rows(
+                            xp, *t, rows, traced
+                        ),
                     ),
+                    acts,
                 )
             else:
                 out = self._bk_per_torus(xp, acts, (), torus)
@@ -9190,6 +9213,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "udeg": udeg,
             "vdeg": vdeg,
         }
+        if self._delta_rule is not None:
+            # each torus's own focal length, a fourth table (as _bk_tables_at)
+            tab["delta"] = A[:, 3]
+            tab["ddelta"] = (
+                Ax[:, 3, None] * N0 + Ay[:, 3, None] * N1 + AL[:, 3, None] * N2
+            )
         wE = xp.sqrt(x)
         for flag, ip, sv, fs, key in (
             (udeg, self._U_ip, 1.0 - y, -1.0, "u"),
@@ -9279,6 +9308,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         "bad" flags"""
         tab = self._bk_interp_tables_rows(xp, jr, jz, jphi, traced)
         aux, chains_u, chains_v = self._bk_aux(xp, jr, jz, jphi, tab)
+        if "delta" in tab:
+            # each torus in the coordinates of its own focal length (as
+            # _bk_xvFreqs_torus), d ln(delta)/dJ with its component first
+            aux["delta"] = tab["delta"]
+            aux["dlnD"] = xp.permute_dims(tab["ddelta"] / tab["delta"][:, None], (1, 0))
         if rows is not None:
 
             def g(a):
@@ -9313,7 +9347,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         T = self._bk_torus_at(xp, tu, tv, aux, chains_u, chains_v)
         res = (
-            *self._bk_point(xp, T, Lz, aux["L"], anglephi),
+            *self._bk_point(xp, T, Lz, aux["L"], anglephi, aux.get("delta")),
             Om[:, 0],
             Om[:, 2],
             Om[:, 1],
@@ -9371,14 +9405,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         torus); tori on a degenerate face, circular orbits, a single distinct
         torus, and points whose solve does not converge through the one-torus
         path torus(actions, angles); traced actions in one pass that selects
-        faces and circular orbits by where() (one torus at a time for an
-        adaptive family, whose reference curve is per torus)"""
-        if self._delta_rule is not None:
-            # (each torus in the coordinates of its own focal length)
-            return self._bk_per_torus(xp, actions, angles, torus)
+        faces and circular orbits by where() (also for a family whose
+        reference curve or focal length is per torus: each row has its own
+        chart and focal length)"""
         if under_trace(*actions):
-            if self._adaptive:
-                return self._bk_per_torus(xp, actions, angles, torus)
             return rows_fn(actions, None, None, True)[0]
         n = actions[0].shape[0]
         dev = device_of(actions[0])

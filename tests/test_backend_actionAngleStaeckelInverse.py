@@ -1489,18 +1489,124 @@ def test_jax_jit_array_actions(interp):
     )
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_chunked_evaluation(backend, interp):
+    # chunk= evaluates arrays of actions in equal chunks of at most that many
+    # points: the values of one pass, eagerly and under jax.jit, where the
+    # compiled program is one chunk's (it does not grow with the points)
+    assert interp.chunk is None
+    J, ang = _ARR_TORI, _ARR_ANG
+    acts = [_arr(backend, J[:, k]) for k in range(3)]
+    angs = [_arr(backend, a) for a in ang]
+    one = _flat(interp.xvFreqs(*acts, *angs)), _flat(interp.Freqs(*acts))
+    try:
+        interp.chunk = 4
+        got = _flat(interp.xvFreqs(*acts, *angs)), _flat(interp.Freqs(*acts))
+        for g, o in zip(got, one):
+            numpy.testing.assert_allclose(g, o, rtol=0.0, atol=1e-13)
+        if backend == "jax":
+
+            def f(ang):
+                return lambda a, b, c: jnp.stack(interp.xvFreqs(a, b, c, *ang))
+
+            J2, ang2 = numpy.concatenate([J, J]), numpy.concatenate([ang, ang], axis=1)
+            jaxprs = [
+                jax.make_jaxpr(f(an))(*(jnp.asarray(JJ[:, k]) for k in range(3))).jaxpr
+                for JJ, an in ((J, ang), (J2, ang2))
+            ]
+            assert len(jaxprs[0].eqns) == len(jaxprs[1].eqns), (
+                "the chunked program grows with the points"
+            )
+            # (the chunks are one jax.lax.map)
+            assert any(e.primitive.name == "scan" for e in jaxprs[1].eqns)
+            numpy.testing.assert_allclose(
+                numpy.asarray(jax.jit(f(ang))(*acts)).ravel(),
+                one[0],
+                rtol=0.0,
+                atol=1e-11,
+            )
+    finally:
+        interp.chunk = None
+
+
+def _delta_rule_family():
+    # a family whose focal length follows its tori (built on numpy)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+
+    def rule(E, Lz, y):
+        return (
+            1.3
+            * (1.0 + 0.15 * numpy.tanh(Lz - 1.0) + 0.2 * (y - 0.5))
+            * (1.0 + 0.05 * E)
+        )
+
+    with use("numpy", force=True):
+        return actionAngleStaeckelInverse(
+            pot=_pot(), delta=rule, setup_interp=True, Rmin=0.7, Rmax=1.6,
+            Rinf=3.5, nE=4, nLz=4, nI3=4, mm_npt=32, progressbar=False,
+        )  # fmt: skip
+
+
 @pytest.mark.skipif(jax is None, reason="jax not installed")
-def test_jax_jit_array_actions_adaptive():
-    # a family whose reference curve is per torus evaluates traced arrays of
-    # tori one torus at a time
-    aA = _interp(u0=lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E)
-    J, ang = _ARR_TORI[[0, 1]], _ARR_ANG[:, :2]
-    f = jax.jit(lambda a, b, c: jnp.stack(aA.xvFreqs(a, b, c, *ang)))
+@pytest.mark.parametrize("kind", ["torus", "callable", "delta"])
+def test_jax_jit_array_actions_adaptive(kind):
+    # a family whose reference curve (or focal length) is per torus evaluates
+    # traced arrays of tori in the one vectorized pass, each row with its own
+    # chart (and focal length): the traced program does not grow with the
+    # number of tori (it was one unrolled torus per point), it agrees with
+    # numpy, faces and the circular orbit too, and its derivatives in the
+    # actions match numpy's finite differences
+    if kind == "delta":
+        aA = _delta_rule_family()
+    else:
+        u0 = (
+            "torus"
+            if kind == "torus"
+            else lambda E, Lz: 1.0 + 0.2 * numpy.tanh(Lz) + 0.1 * E
+        )  # noqa: E731
+        aA = _interp(u0=u0)
+
+    def f(ang):
+        return lambda a, b, c: jnp.stack(aA.xvFreqs(a, b, c, *ang))
+
+    def acts(J):
+        return [jnp.asarray(J[:, k]) for k in range(3)]
+
+    neqns = [
+        len(jax.make_jaxpr(f(ang))(*acts(J)).jaxpr.eqns)
+        for J, ang in ((_ARR_TORI[:3], _ARR_ANG[:, :3]), (_ARR_TORI, _ARR_ANG))
+    ]
+    assert neqns[0] == neqns[1], "the traced pass grows with the number of tori"
+    J, ang = _ARR_TORI, _ARR_ANG
     numpy.testing.assert_allclose(
-        numpy.asarray(f(*(jnp.asarray(J[:, k]) for k in range(3)))),
+        numpy.asarray(jax.jit(f(ang))(*acts(J))),
         numpy.array(aA.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)),
         rtol=0.0,
-        atol=_PLANE_ATOL,
+        atol=1e-11,
+    )
+    g = jax.jit(lambda a, b, c: jnp.stack(aA.Freqs(a, b, c)))
+    numpy.testing.assert_allclose(
+        numpy.asarray(g(*acts(J))),
+        numpy.array(aA.Freqs(J[:, 0], J[:, 1], J[:, 2])),
+        rtol=0.0,
+        atol=1e-11,
+    )
+    # d(x, v, Omega)/dJ_R of the generic and the retrograde torus
+    J2, ang2 = _ARR_TORI[:2], _ARR_ANG[:, :2]
+    jac = numpy.asarray(
+        jax.jit(jax.jacfwd(lambda a: f(ang2)(a, *acts(J2)[1:])))(acts(J2)[0])
+    )
+    h = 1e-5
+    fd = (
+        numpy.array(aA.xvFreqs(J2[:, 0] + h, J2[:, 1], J2[:, 2], *ang2))
+        - numpy.array(aA.xvFreqs(J2[:, 0] - h, J2[:, 1], J2[:, 2], *ang2))
+    ) / (2.0 * h)
+    numpy.testing.assert_allclose(
+        numpy.einsum("ijj->ij", jac),
+        fd,
+        rtol=0.0,
+        atol=1e-6 * numpy.amax(numpy.fabs(fd)),
     )
 
 
@@ -1557,9 +1663,9 @@ def test_array_actions_fallbacks(interp):
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_delta_family_on_backends(backend):
     # a family whose focal length follows its tori is built on numpy (a
-    # forced backend raises) and evaluates natively with backend inputs,
-    # torus by torus, each point in the coordinates of its torus's own focal
-    # length: numpy's values, and derivatives in the angles and actions that
+    # forced backend raises) and evaluates natively with backend inputs, in
+    # the vectorized pass, each point in the coordinates of its torus's own
+    # focal length: numpy's values, and derivatives in the angles and actions that
     # match a finite difference and keep the map canonical
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.backend import use
