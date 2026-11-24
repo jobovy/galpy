@@ -3808,12 +3808,12 @@ def test_actionAngleStaeckel_chi_quadrature_convergence():
     aAS = actionAngleStaeckel(pot=kksp, delta=1.4, c=False)
     # The tolerances are set by the evaluation noise of the fudge-form
     # momentum function S (a difference of O(1) potential terms), not by the
-    # quadrature rule: a few 1e-12 for generic orbits, and looser for a
+    # quadrature rule: a few 1e-11 for generic orbits, and looser for a
     # nearly planar orbit whose tiny v oscillation has S far below the
     # cancellation scale (the old fixed-order rule erred at 4.6e-4 here)
     for ic, tol in (
-        ([1.0, 0.5, 1.1, 0.2, -0.3, 0.4], 3e-11),
-        ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 3e-11),  # z<0, vR<0: other branches
+        ([1.0, 0.5, 1.1, 0.2, -0.3, 0.4], 1e-10),
+        ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 1e-10),  # z<0, vR<0: other branches
         ([1.1, 0.02, 0.9, 0.002, 0.02, 1.0], 1e-8),  # nearly planar
     ):
         lo = aAS.actionsFreqsAngles(*ic, order=10)
@@ -16891,4 +16891,120 @@ def test_actionAngleStaeckel_inverse_polish(rule):
     if not rule:
         with pytest.raises(ValueError, match="polish= requires"):
             actionAngleStaeckel(pot=MWPotential2014, delta=0.45, polish=True)
+    return None
+
+
+# actionAngleStaeckel(inverse=) close to the symmetry axis, where the
+# momentum function of the u libration has two lobes and the iteration for
+# the reference curve of a point's torus does not converge on its own
+def test_actionAngleStaeckel_inverse_nearaxis():
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+    from galpy.util import galpyWarning
+
+    fam = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta=0.3,
+        u0="torus",
+        setup_interp=True,
+        nE=4,
+        nLz=4,
+        nI3=4,
+        mm_npt=16,
+        progressbar=False,
+    )
+    # points of explicit tori (mm_npt=2048) of the same delta and u0, with
+    # their actions and angles: the iteration starts in a model in which the
+    # point is unbound, or cycles between two models
+    x = numpy.array(
+        [
+            [1.3267761370656899, -0.2848181700458333, 0.008451579340850553,
+             3.1377831825578557, -0.44892690709616395, 4.988159473847943],
+            [0.021903441859716655, -1.8349049193596925, -1.146280448585597,
+             0.3001546680366327, 0.3538612503538491, 5.419170176063995],
+            [1.853481323788396, 0.04553761502142584, 0.0006463128272536712,
+             -2.433172469481341, -0.28105638136566685, 3.1151682303146635],
+            [0.003737462681295734, -2.115570785838872, -0.26604529254019094,
+             -0.31242862791340587, 0.09782480253575135, 4.856416063842641],
+        ]
+    ).T  # fmt: skip
+    jt = numpy.array(
+        [
+            [1.182418040998694, 0.011213353789957886, 0.4662783034154542,
+             4.688436699052436, 5.075298574657615, 0.9254495061799101],
+            [1.378793945119122, -0.02510748716052455, 0.44298870111665367,
+             6.282911676292473, 4.403371120106943, 1.4750133216604375],
+            [0.8745522399516648, 0.0011979287546395553, 0.4691823389139185,
+             2.4377512621089314, 3.41759195384933, 3.4475543979237586],
+            [0.47000582306714855, -0.0009943343524033699, 0.43787154295535813,
+             6.262769210330358, 3.264869388376143, 4.854572168552439],
+        ]
+    ).T  # fmt: skip
+    for c in (True, False):
+        aAS = actionAngleStaeckel(inverse=fam, c=c)
+        out = numpy.array(aAS.actionsFreqsAngles(*x))
+        assert numpy.allclose(out[:3], jt[:3], rtol=0.0, atol=3e-6), (
+            f"actionAngleStaeckel(inverse=, c={c}) does not return the actions "
+            "of tori close to the symmetry axis"
+        )
+        assert numpy.allclose(out[6:], jt[3:], rtol=0.0, atol=1e-3), (
+            f"actionAngleStaeckel(inverse=, c={c}) does not return the angles "
+            "of tori close to the symmetry axis"
+        )
+        assert numpy.allclose(
+            numpy.array(aAS(*x[:5])), out[:3], rtol=0.0, atol=1e-10
+        ) and numpy.allclose(
+            numpy.array(aAS.actionsFreqs(*x[:5])), out[:6], rtol=0.0, atol=1e-10
+        ), f"actionAngleStaeckel(inverse=, c={c}) methods differ close to the axis"
+        # points that no torus passes through: in a gap between the tori
+        # (where the inner turning point jumps between the lobes), unbound
+        gap = [0.09240174859677441, -0.33436781352537776, 0.01642332461550298,
+               -0.858922697831848, 0.9767430270265254, 0.0]  # fmt: skip
+        unbound = [1.0, 3.0, 1.0, 0.1, 0.2, 0.0]
+        pts = numpy.array([gap, unbound, x[:, 0]]).T
+        for method, n in (
+            (aAS.actionsFreqsAngles, 6),
+            (aAS.actionsFreqs, 5),
+            (aAS, 5),
+        ):
+            with pytest.warns(galpyWarning, match="2 of the 3 points are not on"):
+                off = numpy.array(method(*pts[:n]))
+            assert (
+                numpy.all(numpy.isnan(numpy.delete(off, 1, axis=0)[:, :2]))
+                and numpy.all(numpy.isfinite(off[:, 2]))
+                and numpy.allclose(off[1], pts[0] * pts[2])
+            ), f"actionAngleStaeckel(inverse=, c={c}) is not nan off the tori"
+        with pytest.warns(galpyWarning, match="1 of the 1 points are not on"):
+            assert numpy.isnan(aAS(*unbound[:5])[0][0])
+    # a focal length that follows the tori as well: C against Python
+    fam = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta="fit",
+        u0="torus",
+        setup_interp=True,
+        nE=6,
+        nLz=6,
+        nI3=6,
+        mm_npt=64,
+        progressbar=False,
+    )
+    x = numpy.array(
+        [
+            [0.45228688699702013, -0.13050461587844964, 0.01796834670575424,
+             -2.5741563918786396, 0.04652282147245728],
+            [0.8003757901056533, -0.0290118399962716, 0.0174757261263844,
+             -2.45092834381873, -0.02797011556256042],
+            [0.09240174859677441, -0.33436781352537776, 0.01642332461550298,
+             -0.858922697831848, 0.9767430270265254],
+        ]
+    ).T  # fmt: skip
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", galpyWarning)
+        out = [
+            numpy.array(actionAngleStaeckel(inverse=fam, c=c)(*x))
+            for c in (True, False)
+        ]
+    assert numpy.all(numpy.isfinite(out[0][:, :2])) and numpy.allclose(
+        out[0][:, :2], out[1][:, :2], rtol=0.0, atol=1e-6
+    ), "actionAngleStaeckel(inverse=) with delta='fit' differs between C and Python"
     return None

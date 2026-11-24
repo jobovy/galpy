@@ -490,13 +490,107 @@ static void modelRuleu0(int ndata,
   else free(work);
   free(full);
 }
+// The fixed point of that rule for the points whose u0 is not finite: the
+// change of the reference curve under the rule decreases through zero at
+// the fixed point, which is bracketed on a grid of u0 and bisected. A
+// bracket that closes on a jump of the rule (where the inner turning point
+// passes from one lobe of p_u^2 to another) holds no fixed point, and the
+// point's u0 remains nan: no torus of the rule passes through it
+#define MODEL_NSCAN 21
+#define MODEL_NBISECT 34
+#define MODEL_JUMP 1.e-6
+// (sinh u0 from 1e-3 to 1e2)
+#define MODEL_USCAN(j) asinh(pow(10.,5. * (j) / ( MODEL_NSCAN - 1 ) - 3.))
+static void calcModelu0Bracket(int ndata,
+			       double **in,
+			       double *u0,
+			       int ndelta,
+			       double * delta,
+			       int rule,
+			       int nargs,
+			       struct potentialArg * actionAngleArgs,
+			       double *tmin,
+			       double *tmax){
+  int ii, jj, kk, iter, nf= 0, m;
+  double g0= 0., g1= 0.;
+  int delta_stride= ndelta == 1 ? 0 : 1;
+  for (ii=0; ii < ndata; ii++) nf+= ! isfinite(*(u0+ii));
+  if ( nf == 0 ) return;
+  int n= nf;
+  int *idx= (int *) malloc ( nf * sizeof(int) );
+  // (R,vR,vT,z,vz,delta), u0, the rule there, the turning points, the
+  // bracket and the change of u0 at its ends, and that on the grid (a grid
+  // value at a time: no more points at once than the potential's
+  // per-thread arguments were set up for)
+  double *work= (double *) malloc ( ( 14 + MODEL_NSCAN ) * nf * sizeof(double) );
+  double *cdelta= work+5*n, *cu= work+6*n, *cnew= work+7*n;
+  double *cmin= work+8*n, *cmax= work+9*n;
+  double *lo= work+10*n, *hi= work+11*n, *glo= work+12*n, *ghi= work+13*n;
+  double *g= work+14*n;
+  for (ii=0, kk=0; ii < ndata; ii++)
+    if ( ! isfinite(*(u0+ii)) ) *(idx+kk++)= ii;
+  for (kk=0; kk < nf; kk++){
+    for (ii=0; ii < 5; ii++) *(work+ii*n+kk)= *(in[ii]+*(idx+kk));
+    *(cdelta+kk)= *(delta+*(idx+kk)*delta_stride);
+  }
+  for (jj=0; jj < MODEL_NSCAN; jj++){
+    for (kk=0; kk < nf; kk++) *(cu+kk)= MODEL_USCAN(jj);
+    modelRuleu0(nf,work,work+n,work+2*n,work+3*n,work+4*n,cu,cnew,cmin,cmax,
+		0,nf,cdelta,rule,nargs,actionAngleArgs,NULL);
+    for (kk=0; kk < nf; kk++) *(g+kk*MODEL_NSCAN+jj)= *(cnew+kk) - *(cu+kk);
+  }
+  // the bracketed points, compressed
+  for (kk=0, m=0; kk < nf; kk++){
+    for (jj=0; jj < MODEL_NSCAN - 1; jj++){
+      g0= *(g+kk*MODEL_NSCAN+jj);
+      g1= *(g+kk*MODEL_NSCAN+jj+1);
+      if ( g0 > 0. && g1 < 0. ) break;
+    }
+    if ( jj == MODEL_NSCAN - 1 ) continue;
+    *(lo+m)= MODEL_USCAN(jj);
+    *(hi+m)= MODEL_USCAN(jj+1);
+    *(glo+m)= g0;
+    *(ghi+m)= g1;
+    for (ii=0; ii < 6; ii++) *(work+ii*n+m)= *(work+ii*n+kk);
+    *(idx+m++)= *(idx+kk);
+  }
+  for (iter=0; iter <= MODEL_NBISECT && m > 0; iter++){
+    for (kk=0; kk < m; kk++) *(cu+kk)= 0.5 * ( *(lo+kk) + *(hi+kk) );
+    modelRuleu0(m,work,work+n,work+2*n,work+3*n,work+4*n,cu,cnew,cmin,cmax,0,
+		m,cdelta,rule,nargs,actionAngleArgs,NULL);
+    for (kk=0; kk < m; kk++){
+      g0= *(cnew+kk) - *(cu+kk);
+      if ( g0 > 0. ){
+	*(lo+kk)= *(cu+kk);
+	*(glo+kk)= g0;
+      }
+      else {
+	*(hi+kk)= *(cu+kk);
+	*(ghi+kk)= g0;
+      }
+    }
+  }
+  // (the last application was at the middle of the bracket before it)
+  for (kk=0; kk < m; kk++)
+    if ( *(glo+kk) - *(ghi+kk) < MODEL_JUMP ){
+      *(u0+*(idx+kk))= *(cu+kk);
+      if ( tmin ){
+	*(tmin+*(idx+kk))= *(cmin+kk);
+	*(tmax+*(idx+kk))= *(cmax+kk);
+      }
+    }
+  free(idx);
+  free(work);
+}
 // The fixed point of that rule for each point, by iterating it with
 // Aitken's acceleration until the distance left (that of the geometric
 // series of the remaining steps, at the rate of the last two) is below
 // MODEL_TOL: from the u0 handed in where that is finite, else from the
 // point's own u. With tmin and tmax, the turning points of the last
 // application are handed back in them, and with warm those handed in are
-// where the first application starts from
+// where the first application starts from. Points that this does not
+// converge for (a first model in which the point is unbound, or a cycle
+// between two models) are solved for by bracketing (calcModelu0Bracket)
 #define MODEL_TOL 1.e-9
 #define MODEL_MAXITER 10
 #define MODEL_NWORK 14
@@ -585,6 +679,9 @@ static void calcModelu0(int ndata,
     }
     n= m;
   }
+  for (kk=0; kk < n; kk++) *(u0+*(idx+kk))= NAN;
+  calcModelu0Bracket(ndata,in,u0,ndelta,delta,rule,nargs,actionAngleArgs,
+		     tmin,tmax);
   free(idx);
   free(work);
 }

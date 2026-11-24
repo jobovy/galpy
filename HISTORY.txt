@@ -223,7 +223,13 @@ at release.]
   their actions with a rule for the focal length starts again from other
   focal lengths when the model of the first has no torus with those actions.
 
-- [slot 27]
+- actionAngleStaeckel(inverse=) close to the symmetry axis: the reference
+  curve of the torus through a point is found by bracketing where the
+  iteration for it does not converge (it returned nan from C and
+  unconverged actions from Python for some points of near-polar tori), points
+  that no torus passes through return nan with a warning from both, and the
+  Python turning points of the u libration are the first on either side of
+  the point, as the C ones are, when the momentum function has two lobes.
 
 - actionAngleAdiabaticApprox and actionAngleAdiabaticApproxInverse can each
   be set up from an instance of the other (aAAI= and aAA=); the inverse's
