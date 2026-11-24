@@ -38,6 +38,8 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             Set up the inverse of this instance, in place of pot=, aA=, tintJ=, integrate_method=, and dt=, which are taken from it; aAI= is then only necessary when its aA= is not an actionAngleIsochrone instance.
         tintJ : float or Quantity, optional
             Duration of the adiabatic transformation.
+        calibrate_angles : bool, optional
+            If True, the angles are those of the usual convention (those of actionAngleAdiabaticApprox with calibrate_angles=True) rather than angles with an offset that is constant on each torus: the offset of each torus is measured with a round trip of the transformation and the transformation is repeated where an angle is half a turn off, which makes it three to four times as expensive. Requires the forward transformation (aA=, or an aAI= that it can be set up from). Default: False.
         integrate_method : str, optional
             Orbit-integration method.
         dt : float, optional
@@ -110,6 +112,16 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
                 dt=self._integrate_dt,
             )
         )
+        self._calibrate = kwargs.get("calibrate_angles", False)
+        if self._calibrate and self._aAA is None:
+            raise ValueError(
+                "calibrate_angles=True requires aA= at initialization: the "
+                "action-angle instance that aAI= inverts, which galpy cannot "
+                "set up from this aAI="
+            )
+        if self._aAA is not None:
+            # (its half turns from the tori of this aAI=)
+            self._aAA._aAI = self._aAI
         self._check_consistent_units()
         return None
 
@@ -141,8 +153,6 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         -----
         - 2026-11-23 - Written - Bovy (UofT).
         """
-        from ..orbit import Orbit
-
         args = numpy.broadcast_arrays(
             *(
                 numpy.atleast_1d(numpy.asarray(t, dtype="float"))
@@ -150,10 +160,36 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             )
         )
         shape = args[0].shape
-        R, vR, vT, z, vz, phi = (
-            numpy.broadcast_to(numpy.ravel(x), (args[0].size,))
-            for x in self._aAI(*(t.ravel() for t in args), use_physical=False)
+        acts = [t.ravel() for t in args[:3]]
+        angles = numpy.array([t.ravel() for t in args[3:]])
+        if self._calibrate:
+            # The offset of each torus, from the round trip of its point in
+            # the potential of aAI=; then the points, and again where an
+            # angle is half a turn off
+            angles = angles + self._aAA._offset(*self._auxiliary(acts, angles))
+            xv = self._morph(acts, angles)
+            half = self._aAA._halfturns(
+                numpy.array([t.ravel() for t in args[3:]]), acts, *xv
+            )
+            if numpy.any(half):
+                xv = self._morph(acts, angles + numpy.pi * half)
+        else:
+            xv = self._morph(acts, angles)
+        return tuple(x.reshape(shape) for x in xv)
+
+    def _auxiliary(self, acts, angles):
+        """The points of the tori of aAI= with these actions and angles"""
+        return tuple(
+            numpy.broadcast_to(numpy.ravel(x), acts[0].shape)
+            for x in self._aAI(*acts, *angles, use_physical=False)
         )
+
+    def _morph(self, acts, angles):
+        """The points of the tori of aAI= with these actions and angles,
+        transformed to pot"""
+        from ..orbit import Orbit
+
+        R, vR, vT, z, vz, phi = self._auxiliary(acts, angles)
         orb = Orbit(numpy.array([R, -vR, -vT, z, -vz, phi]).T)
         orb.integrate(
             numpy.array([0.0, self._tintJ]),
@@ -163,7 +199,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             progressbar=False,
         )
         return tuple(
-            (sign * getattr(orb, q)(self._tintJ, use_physical=False)).reshape(shape)
+            sign * getattr(orb, q)(self._tintJ, use_physical=False)
             for q, sign in (
                 ("R", 1.0),
                 ("vR", -1.0),
