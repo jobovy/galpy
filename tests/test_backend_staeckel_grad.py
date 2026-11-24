@@ -506,6 +506,10 @@ def _inverse_model_grad_check(backend, aAI, x0):
         )
 
 
+def _delta_rule_ELzf(E, Lz, f):
+    return 0.45 * (1.0 + 0.1 * f + 0.05 * (Lz - 1.0))
+
+
 def _u0_rule_ELzI3(E, Lz, I3):
     return numpy.arcsinh((0.5 + 0.5 * Lz + 0.1 * E) / 0.45) + 0.02 * numpy.tanh(I3)
 
@@ -561,3 +565,50 @@ def test_staeckel_inverse_deltafit_model_grad(backend):
     Lz = 0.5 * (aAI._Lzgrid[1] + aAI._Lzgrid[2])
     x0 = numpy.array([q[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:5]])
     _inverse_model_grad_check(backend, aAI, x0)
+    if backend != "torch":
+        return None
+    # a point beyond the grid's energies: the fitted rule at the edge of its
+    # range, with the warning, as numpy's (the code is the backends' shared
+    # one, which eager jax would compile anew for this shape: torch alone)
+    from galpy.util import galpyWarning
+
+    far = numpy.array([[1.0], [0.1], [1.6], [0.1], [0.01]])
+    aAS = actionAngleStaeckel(inverse=aAI)
+    ref = numpy.array(aAS.actionsFreqs(*far))
+    with pytest.warns(galpyWarning, match="1 of the 1 points lie outside"):
+        out = aAS.actionsFreqs(*[torch.tensor(q) for q in far])
+    numpy.testing.assert_allclose(
+        numpy.array([q.numpy() for q in out]), ref, rtol=0.0, atol=1e-7
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_inverse_delta_callable_backend(backend):
+    # actionAngleStaeckel(inverse=) of a family with a callable rule for its
+    # focal length, with backend inputs, equal to numpy's, for the actions
+    # alone and with the frequencies: the rule itself, and for a pickled
+    # family, which does not keep the callable, the focal lengths of its table
+    # through the label inversion
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta=_delta_rule_ELzf, setup_interp=True,
+        Rmin=0.85, Rmax=1.15, Rinf=2.5, nE=4, nLz=4, nI3=4, mm_npt=32,
+        progressbar=False,
+    )  # fmt: skip
+    jr, jz = 0.5 * (aAI._A_tab[1, 2, 1][:2] + aAI._A_tab[2, 1, 2][:2])
+    Lz = 0.5 * (aAI._Lzgrid[1] + aAI._Lzgrid[2])
+    one = numpy.ones(2)
+    angles = numpy.array([[0.7, 1.0, 2.0], [2.5, 0.3, 4.0]]).T
+    x = numpy.array(aAI(jr * one, Lz * one, jz * one, *angles)[:5])
+    T, N = (jnp.asarray, numpy.asarray) if backend == "jax" else (torch.tensor, None)
+    N = N or (lambda a: a.numpy())
+    for fam in (aAI, pickle.loads(pickle.dumps(aAI))):
+        aAS = actionAngleStaeckel(inverse=fam)
+        for method in (aAS, aAS.actionsFreqs):
+            ref = numpy.array(method(*x))
+            out = numpy.array([N(q) for q in method(*[T(q) for q in x])])
+            numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-7)
