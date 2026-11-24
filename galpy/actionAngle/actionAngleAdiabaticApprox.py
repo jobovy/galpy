@@ -48,6 +48,33 @@ def _aA_from_inverse(aAI):
     return None
 
 
+def _auxiliary_potential(aA):
+    """The potential that an action-angle or inverse action-angle instance
+    is exact for, which is the potential to transform to: its pot, except
+    for an actionAngleStaeckelInverse instance set up with delta= for a
+    potential that is not of Staeckel form (and an actionAngleStaeckel
+    instance set up from one), for which it is the Staeckel potential that
+    the instance approximates that potential with. An instance whose
+    Staeckel potential differs from torus to torus has no single such
+    potential"""
+    from .actionAngleStaeckelInverse import actionAngleStaeckelInverse
+
+    aAI = aA if isinstance(aA, actionAngleStaeckelInverse) else None
+    if isinstance(aA, actionAngleStaeckel):
+        aAI = aA._inverse
+    if aAI is None:
+        return aA._pot
+    if aAI._adaptive or aAI._delta_rule is not None:
+        raise NotImplementedError(
+            "An actionAngleStaeckelInverse instance whose focal length or "
+            "reference curve follows its tori (a callable or 'fit' delta=, or "
+            "a rule for u0=) has a different Staeckel potential for each "
+            "torus and is not yet supported as the potential that is "
+            "transformed to: use a numerical delta= and u0="
+        )
+    return aAI._staeckelwrap
+
+
 class actionAngleAdiabaticApprox(actionAngle):
     """Action-angle formalism using an adiabatic transformation to an explicitly-integrable potential"""
 
@@ -141,7 +168,7 @@ class actionAngleAdiabaticApprox(actionAngle):
                 "Provided aA= does not appear to be an instance of a supported actionAngle class"
             )
         self._aA = kwargs["aA"]
-        self._target_pot = self._aA._pot
+        self._target_pot = _auxiliary_potential(self._aA)
         self._tintJ = conversion.parse_time(
             kwargs.get("tintJ", 100.0), ro=self._ro, vo=self._vo
         )

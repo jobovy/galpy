@@ -6553,6 +6553,7 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         actionAngleIsochroneInverse,
         actionAngleSpherical,
         actionAngleSphericalInverse,
+        actionAngleStaeckel,
         actionAngleStaeckelInverse,
     )
     from galpy.orbit import Orbit
@@ -6622,6 +6623,59 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         back[[0, 1, 2, 6, 7, 8]], [0.05, 1.0, 0.03, 1.0, 2.0, 3.0], rtol=0.0, atol=1e-5
     ), "actionAngleAdiabaticApprox(aAAI=) with a Staeckel auxiliary is not the inverse"
     assert numpy.all(numpy.isfinite(numpy.array(aAAI.Freqs(0.05, 1.0, 0.03))))
+    # a Staeckel inverse set up with delta= from the potential itself: the
+    # auxiliary potential is the Staeckel potential that it approximates the
+    # potential with, not the potential
+    direct = actionAngleAdiabaticApproxInverse(
+        pot=MWPotential2014,
+        aAI=actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.45,
+            u0=1.0,
+            jrs=[0.05],
+            Lzs=[1.0],
+            jzs=[0.03],
+            progressbar=False,
+        ),
+        tintJ=30.0,
+    )
+    assert numpy.allclose(
+        numpy.array(direct(0.05, 1.0, 0.03, 1.0, 2.0, 3.0))[:, 0],
+        xv,
+        rtol=0.0,
+        atol=1e-9,
+    ), (
+        "actionAngleAdiabaticApproxInverse does not transform from the "
+        "Staeckel potential of an actionAngleStaeckelInverse with delta="
+    )
+    assert numpy.allclose(
+        numpy.array(
+            actionAngleAdiabaticApprox(aAAI=direct, npoints=0).actionsFreqsAngles(*xv)
+        )[[0, 1, 2, 6, 7, 8], 0],
+        back[[0, 1, 2, 6, 7, 8]],
+        rtol=0.0,
+        atol=1e-9,
+    ), (
+        "actionAngleAdiabaticApprox does not transform to the Staeckel "
+        "potential of an actionAngleStaeckelInverse with delta="
+    )
+    # one whose Staeckel potential follows its tori has no single auxiliary
+    # potential
+    follows = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta=0.45,
+        u0="torus",
+        jrs=[0.05],
+        Lzs=[1.0],
+        jzs=[0.03],
+        progressbar=False,
+    )
+    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
+        actionAngleAdiabaticApproxInverse(pot=MWPotential2014, aAI=follows)
+    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
+        actionAngleAdiabaticApprox(
+            pot=MWPotential2014, aA=actionAngleStaeckel(inverse=follows)
+        )
     # a spherical auxiliary other than the isochrone: likewise
     hp = HernquistPotential(a=1.5, normalize=1.0)
     jr, lz, jz = (float(j[0]) for j in actionAngleSpherical(pot=hp)(*x[:5]))

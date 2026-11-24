@@ -14,7 +14,11 @@ import numpy
 from ..potential import DehnenSmoothWrapperPotential
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion
-from .actionAngleAdiabaticApprox import _aA_from_inverse, actionAngleAdiabaticApprox
+from .actionAngleAdiabaticApprox import (
+    _aA_from_inverse,
+    _auxiliary_potential,
+    actionAngleAdiabaticApprox,
+)
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochrone import actionAngleIsochrone
 
@@ -31,7 +35,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         pot : Potential or list of Potentials
             Potential to calculate phase-space points for.
         aAI : actionAngleInverse instance
-            Inverse action-angle instance (for example, actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse) for the potential that is adiabatically transformed into pot; it has to return points in internal units.
+            Inverse action-angle instance (for example, actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse) for the potential that is adiabatically transformed into pot; it has to return points in internal units. For an actionAngleStaeckelInverse instance that was set up with delta= for a potential that is not of Staeckel form, that potential is the Staeckel potential that the instance approximates it with (a numerical delta= and u0=: instances whose Staeckel potential follows their tori are not yet supported).
         aA : actionAngle instance, optional
             Action-angle instance for the same potential as aAI (the aA= of the corresponding actionAngleAdiabaticApprox); used for the frequencies, and only necessary for those when aAI is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance, whose forward transformations are set up from them.
         aAA : actionAngleAdiabaticApprox instance, optional
@@ -83,7 +87,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             raise OSError("Must specify aAI= for actionAngleAdiabaticApproxInverse")
         self._pot = flatten_potential(kwargs["pot"])
         self._aAI = kwargs["aAI"]
-        self._auxiliary_pot = self._aAI._pot
+        self._auxiliary_pot = _auxiliary_potential(self._aAI)
         self._tintJ = conversion.parse_time(
             kwargs.get("tintJ", 100.0), ro=self._ro, vo=self._vo
         )
