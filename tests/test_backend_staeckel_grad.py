@@ -644,15 +644,17 @@ def test_staeckel_inverse_polish_grad(backend, rule):
         off = aAS.actionsFreqsAngles(*[xb[i : i + 1] for i in range(6)])
     off = numpy.array([float(o[0]) for o in off])
     assert numpy.all(numpy.isnan(off[[0, 2, 3, 4, 5, 6, 7, 8]])) and off[1] == 1.0
-    # with a point that it holds: that point's torus, the other's nan
-    unb = numpy.array([1.0, 0.9, 1.0, 0.0, 2.0, 0.0])
-    both = [numpy.array([c, u]) for c, u in zip([*x0, 0.0], unb)]
-    ref = numpy.array(aAS.actionsFreqsAngles(*[b[:1] for b in both]))[:, 0]
-    with pytest.warns(galpyWarning, match="not on a torus of inverse="):
-        mixed = aAS.actionsFreqsAngles(*[xp.asarray(b) for b in both])
-    mixed = numpy.array([[float(v) for v in o] for o in mixed])
-    numpy.testing.assert_allclose(mixed[:, 0], ref, rtol=0.0, atol=1e-9)
-    assert numpy.all(numpy.isnan(mixed[[0, 2, 3, 4, 5, 6, 7, 8], 1]))
+    if backend == "torch":
+        # with a point that it holds: that point's torus, the other's nan
+        # (the backends' shared code, which eager jax would compile anew)
+        unb = numpy.array([1.0, 0.9, 1.0, 0.0, 2.0, 0.0])
+        both = [numpy.array([c, u]) for c, u in zip([*x0, 0.0], unb)]
+        ref = numpy.array(aAS.actionsFreqsAngles(*[b[:1] for b in both]))[:, 0]
+        with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+            mixed = aAS.actionsFreqsAngles(*[torch.tensor(b) for b in both])
+        mixed = numpy.array([o.detach().numpy() for o in mixed])
+        numpy.testing.assert_allclose(mixed[:, 0], ref, rtol=0.0, atol=1e-9)
+        assert numpy.all(numpy.isnan(mixed[[0, 2, 3, 4, 5, 6, 7, 8], 1]))
     if backend == "jax" and rule == "const":
         # the family's inversion under jit (which tori it holds is then not
         # concrete) equals the eager one
