@@ -9144,11 +9144,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         tab["bad"] = None
         return tab
 
-    def _bk_tables_rows(self, xp, x, y, ell, Lz, udeg, vdeg):
-        """_bk_tables_at for many tori at once, with a leading point axis; the
-        degeneracy flags are False (no torus on a face) or per-torus arrays,
-        whose degenerate libration's tables are zeroed by where() (on
-        stand-in coordinates for its divisions)"""
+    def _bk_label_chain_rows(self, xp, x, y, ell, Lz):
+        """The action interpolant at the grid coordinates of many tori (A,
+        Ax, Ay, AL, with a leading point axis) and d(x, y, |L_z|)/d(J_R, J_z,
+        J_phi) as its three rows (N0, N1, N2)"""
         sgn = xp.sign(Lz)
         A, Ax, Ay, AL = self._A_ip.ev4_rows(x, y, ell)
         det = Ax[:, 0] * Ay[:, 1] - Ay[:, 0] * Ax[:, 1]
@@ -9158,6 +9157,29 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         N0 = xp.stack([n00, n01, -(n00 * AL[:, 0] + n01 * AL[:, 1]) * sgn], axis=1)
         N1 = xp.stack([n10, n11, -(n10 * AL[:, 0] + n11 * AL[:, 1]) * sgn], axis=1)
         N2 = xp.stack([zero, zero, sgn + zero], axis=1)
+        return A, Ax, Ay, AL, N0, N1, N2
+
+    def _bk_focal_lengths(self, xp, jr, jz, Lz):
+        """For a family whose focal length follows its tori: the focal length
+        of many tori (none on a degenerate face) at their actions, its
+        derivatives with respect to (J_R, J_z, J_phi) as an (n, 3) array, and
+        which tori the family does not hold (None when traced), from the
+        vectorized label inversion (as _label_tori)"""
+        ell = xp.abs(Lz)
+        x, y, bad = self._bk_interp_coords_rows(xp, jr, jz, ell)
+        A, Ax, Ay, AL, N0, N1, N2 = self._bk_label_chain_rows(xp, x, y, ell, Lz)
+        dD = Ax[:, 3, None] * N0 + Ay[:, 3, None] * N1 + AL[:, 3, None] * N2
+        if bad is not None:
+            h = as_numpy(stop_gradient(ell))
+            bad = bad | (h < self._Lzgrid[0]) | (h > self._Lzgrid[-1])
+        return A[:, 3], dD, bad
+
+    def _bk_tables_rows(self, xp, x, y, ell, Lz, udeg, vdeg):
+        """_bk_tables_at for many tori at once, with a leading point axis; the
+        degeneracy flags are False (no torus on a face) or per-torus arrays,
+        whose degenerate libration's tables are zeroed by where() (on
+        stand-in coordinates for its divisions)"""
+        A, Ax, Ay, AL, N0, N1, N2 = self._bk_label_chain_rows(xp, x, y, ell, Lz)
         circ = self._bk_circular(ell, freqs=False)
         _, dE_dx, dE_dL = self._bk_E_of_xL(x, ell, circ)
         tab = {

@@ -16447,10 +16447,22 @@ def test_actionAngleStaeckel_inverse_single_model():
     return None
 
 
-def test_actionAngleStaeckel_inverse_u0torus():
+def _inverse_u0_of_ELz(E, Lz):
+    return numpy.arcsinh((0.5 + 0.5 * Lz + 0.1 * E) / 0.45)
+
+
+def _inverse_u0_of_ELzI3(E, Lz, I3):
+    return _inverse_u0_of_ELz(E, Lz) + 0.02 * numpy.tanh(I3)
+
+
+@pytest.mark.parametrize(
+    "u0", ["torus", "planar", "shell", _inverse_u0_of_ELz, _inverse_u0_of_ELzI3]
+)
+def test_actionAngleStaeckel_inverse_u0torus(u0):
     # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
-    # model (u0='torus'): every point is transformed in the model of the
-    # torus through it, with the energy of that model
+    # model (every rule for the reference curve: the built-in ones and
+    # callables of two and of three integrals): every point is transformed in
+    # the model of the torus through it, with the energy of that model
     from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
 
@@ -16460,14 +16472,16 @@ def test_actionAngleStaeckel_inverse_u0torus():
         numpy.array([0.06, 0.02, 0.1, 0.004, 0.3]),
     )
     kw = dict(pot=MWPotential2014, jrs=jr, Lzs=Lz, jzs=jz, mm_npt=256)
-    aAI = actionAngleStaeckelInverse(delta=0.45, u0="torus", progressbar=False, **kw)
+    aAI = actionAngleStaeckelInverse(delta=0.45, u0=u0, progressbar=False, **kw)
     aAS = actionAngleStaeckel(inverse=aAI, order=20)
     sel = numpy.tile(numpy.arange(len(jr)), 8)
     angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(sel)))
     x = aAI(jr[sel], Lz[sel], jz[sel], *angs)
     out = numpy.array(aAS(*x))
-    assert (
-        numpy.amax(numpy.fabs(out - numpy.array([jr[sel], Lz[sel], jz[sel]]))) < 1e-9
+    # (the most eccentric and inclined torus with the shell orbit's curve,
+    # far from it, is itself resolved to a few 1e-9 at this mm_npt)
+    assert numpy.amax(numpy.fabs(out - numpy.array([jr[sel], Lz[sel], jz[sel]]))) < (
+        1e-8 if u0 == "shell" else 1e-9
     ), (
         "actionAngleStaeckel(inverse=) does not return the actions of tori "
         "that each have their own Staeckel model"
@@ -16506,8 +16520,76 @@ def test_actionAngleStaeckel_inverse_u0torus():
     assert numpy.allclose(
         aAS.EccZmaxRperiRap(*x, c=False)[2:], (rperi, rap), rtol=1e-6, atol=0.0
     )
-    with pytest.raises(NotImplementedError, match="currently supports"):
-        actionAngleStaeckel(
-            inverse=actionAngleStaeckelInverse(delta=0.45, u0="planar", **kw)
+    return None
+
+
+def test_actionAngleStaeckel_inverse_deltafit():
+    # actionAngleStaeckel(inverse=) of a family whose focal length follows
+    # its tori (delta='fit'): every point is transformed in the model of the
+    # torus through it, whose focal length is the family's at that torus's
+    # actions; at the family's grid nodes, where its map is not interpolated,
+    # the actions, frequencies, and angles are those of its tori
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.backend import name_of_namespace, resolve_namespace, use
+    from galpy.potential import MWPotential2014
+
+    # (built on numpy, as such families are; evaluated under the backend)
+    with use("numpy", force=True):
+        aAI = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta="fit",
+            delta_deg=(1, 1, 1),
+            setup_interp=True,
+            Rmin=0.85,
+            Rmax=1.15,
+            Rinf=2.5,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=128,
+            progressbar=False,
         )
+    aAS = actionAngleStaeckel(inverse=aAI, order=20)
+    nodes = [(i, j, k) for i in (1, 2) for j in (1, 2) for k in (1, 2)] * 3
+    jr, jz = numpy.array([aAI._A_tab[n][:2] for n in nodes]).T
+    Lz = numpy.array([aAI._Lzgrid[n[2]] for n in nodes]) * numpy.tile(
+        [1.0, -1.0], len(nodes) // 2
+    )
+    angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(jr)))
+    x = aAI(jr, Lz, jz, *angs)
+    freqs = numpy.array(aAI.Freqs(jr, Lz, jz))
+    # (on a backend, c=True runs the backend code that c=False runs)
+    on_numpy = name_of_namespace(resolve_namespace()) == "numpy"
+    for c in (True, False) if on_numpy else (True,):
+        out = numpy.array(aAS.actionsFreqsAngles(*x, c=c))
+        dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-7, (
+            f"actionAngleStaeckel(inverse=) does not return the actions of a "
+            f"family whose focal length follows its tori (c={c})"
+        )
+        assert numpy.amax(numpy.fabs(out[3:6] - freqs)) < 1e-7, (
+            f"actionAngleStaeckel(inverse=) does not return the frequencies of "
+            f"a family whose focal length follows its tori (c={c})"
+        )
+        assert numpy.amax(numpy.fabs(dang)) < 1e-7, (
+            f"actionAngleStaeckel(inverse=) does not return the angles of a "
+            f"family whose focal length follows its tori (c={c})"
+        )
+        assert numpy.allclose(
+            numpy.array(aAS(*x[:5], c=c)), out[:3], rtol=0.0, atol=1e-8
+        )
+        assert numpy.allclose(
+            numpy.array(aAS.actionsFreqs(*x[:5], c=c)), out[:6], rtol=0.0, atol=1e-8
+        )
+    # a single focal length does not give the family's frequencies
+    own = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
+    assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-3
+    # points whose torus the family does not hold have no model (checked on
+    # the vertical action: the C code's radial action without a model is nan
+    # or zero depending on the platform)
+    one = numpy.ones(2)
+    far = numpy.array(aAS(one, 0.1 * one, one, 0.1 * one, numpy.array([0.9, 0.01])))
+    assert numpy.isnan(far[2, 0]) and numpy.all(numpy.isfinite(far[:, 1])), (
+        "actionAngleStaeckel(inverse=) does not return nan off a family"
+    )
     return None

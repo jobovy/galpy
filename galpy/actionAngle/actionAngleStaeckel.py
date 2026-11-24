@@ -21,6 +21,7 @@ from ..backend import (
     concretely_true,
     device_of,
     get_namespace,
+    host_eval,
     is_backend_array,
     name_of_namespace,
     promote_scalars,
@@ -35,6 +36,7 @@ from ..backend.optimize import (
     fixed_point_implicit_step,
     iterate_bracket,
 )
+from ..backend.optimize import brentq as _backend_brentq
 from ..potential import (
     CompositePotential,
     DiskSCFPotential,
@@ -73,6 +75,17 @@ from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 # point: tolerance on the step of the reference curve, and cap on the cycles
 _MODEL_TOL = 1e-9
 _MODEL_MAXITER = 10
+
+
+def _fixed_point_error(x0, x1, x2):
+    """The distance left to the fixed point of a linearly converging
+    iteration after its iterates x0, x1, x2: that of x2 itself (the
+    geometric series of the remaining steps), which bounds that of Aitken's
+    extrapolation of the three"""
+    xp = get_namespace(x0, x1, x2)
+    d1, d2 = xp.abs(x1 - x0), xp.abs(x2 - x1)
+    rate = xp.clip(d2 / xp.where(d1 > 0.0, d1, 1.0), 0.0, 0.9)
+    return xp.where(xp.isfinite(d2), d2 * rate / (1.0 - rate), 0.0)
 
 
 def _focal_length_of(pot):
@@ -702,7 +715,20 @@ def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order, jac):
 
 
 def _staeckel_actions_freqs(
-    xp, R, vR, vT, z, vz, pot, delta, order, flag_unbound=False, u0=None, torus=False
+    xp,
+    R,
+    vR,
+    vT,
+    z,
+    vz,
+    pot,
+    delta,
+    order,
+    flag_unbound=False,
+    u0=None,
+    torus=False,
+    ddelta=None,
+    du0=None,
 ):
     """Unified vectorised (jr, Lz, jz, Omegar, Omegaphi, Omegaz); the frequencies
     are NaN for circular orbits (the caller substitutes epifreq/omegac/verticalfreq).
@@ -718,7 +744,9 @@ def _staeckel_actions_freqs(
         xp, s, umin, umax, vmin, pot, delta, order, jac
     )
     if torus:
-        dOm = _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac, True)[3]
+        dOm = _staeckel_angles(
+            xp, s, umin, umax, vmin, pot, delta, order, jac, torus, ddelta, du0
+        )[3]
         Omegar, Omegaphi, Omegaz = Omegar + dOm[0], Omegaphi + dOm[1], Omegaz + dOm[2]
     Lz, (jr, jz, Omegar, Omegaphi, Omegaz) = _staeckel_flag_unbound(
         xp, s, (jr, jz, Omegar, Omegaphi, Omegaz)
@@ -759,11 +787,35 @@ def _dVdu0(v, u0, delta, pot):
     )
 
 
+def _dUddelta(u, delta, pot):
+    """The derivative of U(u) = cosh^2 u Phi(u,pi/2) with respect to the
+    focal length at fixed u"""
+    xp = get_namespace(u, delta)
+    R = delta * xp.sinh(u)
+    return -(xp.cosh(u) ** 2.0) * xp.sinh(u) * _evaluateRforces(pot, R, 0.0 * R)
+
+
+def _dVddelta(v, u0, delta, pot):
+    """The derivative of V(v) = cosh^2 u0 Phi(u0,pi/2) - (sinh^2 u0 + sin^2 v)
+    Phi(u0,v) with respect to the focal length at fixed u0 and v"""
+    xp = get_namespace(v, u0, delta)
+    sh, ch = xp.sinh(u0), xp.cosh(u0)
+    R, z = coords.uv_to_Rz(u0, v, delta=delta)
+    R0 = delta * sh
+    return -(ch**2.0) * sh * _evaluateRforces(pot, R0, 0.0 * R0) + (
+        sh**2.0 + xp.sin(v) ** 2.0
+    ) * (
+        _evaluateRforces(pot, R, z) * sh * xp.sin(v)
+        + _evaluatezforces(pot, R, z) * ch * xp.cos(v)
+    )
+
+
 def _u0torus_partials(xp, s, umin, umax, pot, delta):
-    """The partials with respect to (E, I_3, L_z) of the reference curve
-    that follows a torus's own turning points, delta sinh(u0) = 2 / (1/R_- +
-    1/R_+) with R = delta sinh(u) at the two turning points of the u
-    libration, which move with the integrals by the level-set rule"""
+    """The partials with respect to (E, I_3, L_z, delta) of the reference
+    curve that follows a torus's own turning points, delta sinh(u0) = 2 /
+    (1/R_- + 1/R_+) with R = delta sinh(u) at the two turning points of the
+    u libration, which move with the integrals and the focal length by the
+    level-set rule"""
     args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
             s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
     Lz = s["Lz"]
@@ -773,16 +825,211 @@ def _u0torus_partials(xp, s, umin, umax, pot, delta):
         sh2 = xp.sinh(u) ** 2.0
         dS = _dJRStaeckelIntegrandSquareddu(u, *args)
         chain = dH / (Rm + Rp) ** 2.0 * xp.cosh(u) / xp.cosh(s["u0"]) / dS
-        out = out + chain * xp.stack([-sh2, xp.ones_like(sh2), Lz / delta**2.0 / sh2])
+        out = out + chain * xp.stack(
+            [
+                -sh2,
+                xp.ones_like(sh2),
+                Lz / delta**2.0 / sh2,
+                _dUddelta(u, delta, pot) - Lz**2.0 / delta**3.0 / sh2,
+            ]
+        )
     return out
 
 
-def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac, torus=False):
+def _staeckel_planar(xp, s, pot, delta):
+    """The turning points of the u libration of the planar orbit of each
+    point's energy and angular momentum in its model (that of the setup s):
+    those at the third integral at which p_v vanishes in the midplane"""
+    sp = dict(s)
+    sp["I3U"] = (
+        s["Lz"] ** 2.0 / 2.0 / delta**2.0
+        - s["E"]
+        + (s["sinh2u0"] + s["sin2v0u"]) * s["potu0v0"]
+    )
+    sp["pux"] = xp.sqrt(
+        xp.maximum(
+            s["pux"] ** 2.0 + 2.0 * delta**2.0 * (s["I3U"] - sp["I3U"]),
+            xp.zeros_like(s["pux"]),
+        )
+    )
+    return _staeckel_uminumax(xp, sp, pot, delta)[:2]
+
+
+def _u0planar_partials(xp, s, pot, delta):
+    """The partials with respect to (E, I_3, L_z, delta) of the reference
+    curve that follows the planar orbit of a torus's energy and angular
+    momentum (u0='planar' of actionAngleStaeckelInverse): those of
+    _u0torus_partials at the planar orbit's turning points, along its third
+    integral L_z^2 / (2 delta^2) - E"""
+    g = _u0torus_partials(xp, s, *_staeckel_planar(xp, s, pot, delta), pot, delta)
+    Lz = s["Lz"]
+    return xp.stack(
+        [
+            g[0] - g[1],
+            xp.zeros_like(g[1]),
+            g[2] + g[1] * Lz / delta**2.0,
+            g[3] - g[1] * Lz**2.0 / delta**3.0,
+        ]
+    )
+
+
+def _u0shell(xp, s, umin, umax, pot, delta):
+    """The u of the shell orbit of each point's energy and angular momentum
+    (u0='shell' of actionAngleStaeckelInverse): where p_u^2, which the third
+    integral only shifts, is largest, between the point's turning points (on
+    jax/torch, the backend brentq, whose final Newton step carries the
+    derivative)"""
+    args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+            s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
+    if xp is numpy:
+        return bisect_root(
+            lambda u: _dJRStaeckelIntegrandSquareddu(u, *args),
+            umin,
+            umax,
+            numpy,
+            xtol=1e-14,
+            maxiter=200,
+        )
+    return _backend_brentq(
+        lambda u: _dJRStaeckelIntegrandSquareddu(u, *args), umin, umax, xtol=1e-14
+    )
+
+
+def _u0shell_partials(xp, s, ush, pot, delta, R2deriv):
+    """The partials with respect to (E, I_3, L_z, delta) of the shell u, by
+    the level-set rule on d S_u / du = 0, S_u = E sinh^2 u - U(u) - L_z^2 /
+    (2 delta^2 sinh^2 u) with U(u) = cosh^2 u Phi(delta sinh u, 0); R2deriv
+    is the potential's second radial derivative in the midplane"""
+    E, Lz = s["E"], s["Lz"]
+    sh, ch = xp.sinh(ush), xp.cosh(ush)
+    R = delta * sh
+    Phi = _evaluatePotentials(pot, R, 0.0 * R)
+    PhiR = -_evaluateRforces(pot, R, 0.0 * R)
+    Suu = (
+        2.0 * xp.cosh(2.0 * ush) * (E - Phi)
+        - 5.0 * delta * sh * ch**2.0 * PhiR
+        - delta**2.0 * ch**4.0 * R2deriv
+        + Lz**2.0 / delta**2.0 * (sh**2.0 - 3.0 * ch**2.0) / sh**4.0
+    )
+    SuD = (
+        -(2.0 * sh**2.0 * ch + ch**3.0) * PhiR
+        - delta * ch**3.0 * sh * R2deriv
+        - 2.0 * Lz**2.0 / delta**3.0 * ch / sh**3.0
+    )
+    return xp.stack(
+        [
+            -xp.sinh(2.0 * ush) / Suu,
+            xp.zeros_like(Suu),
+            -2.0 * Lz / delta**2.0 * ch / sh**3.0 / Suu,
+            -SuD / Suu,
+        ]
+    )
+
+
+def _u0callable(rule, nargs, E, Lz, I3, partials=False):
+    """The reference curve of a callable rule u0(E, |L_z|[, I_3]) of
+    actionAngleStaeckelInverse for each torus and, with partials, its
+    partials with respect to (E, I_3, L_z, delta), by central differences of
+    the callable (FINITE DIFFERENCES, of the user's callable alone). On
+    jax/torch the callable runs on the host: its value is linearized in (E,
+    I_3, L_z) with those partials, and the partials with its second
+    derivatives (also by central differences), which carries the derivatives
+    of both"""
+    # (by the data: the host evaluation below is numpy whatever is forced)
+    if any(is_backend_array(t) for t in (E, Lz, I3)):
+        xp = get_namespace(E, Lz, I3)
+        q = (E, I3, Lz)
+        cols = [stop_gradient(t) for t in q]
+        # (host_eval returns the shape it is given: the value, the 4 partials
+        # and the 3 x 3 second derivatives in (E, I_3, L_z))
+        packed = xp.stack(
+            [t + 0.0 * cols[0] for t in cols] + [0.0 * cols[0]] * 11, axis=-1
+        )
+
+        def host(a):
+            a = numpy.asarray(a, dtype="float")
+            E, I3, Lz = a[:, 0], a[:, 1], a[:, 2]
+            val = _u0callable(rule, nargs, E, Lz, I3)
+            der = _u0callable(rule, nargs, E, Lz, I3, partials=True)
+            hes = _u0callable_hessian(rule, nargs, E, Lz, I3)
+            return numpy.concatenate(
+                [val[:, None], der.T, hes.reshape(9, -1).T], axis=1
+            )
+
+        out = host_eval(host, packed)
+        val = out[:, 0]
+        der = xp.permute_dims(out[:, 1:5], (1, 0))
+        hes = xp.reshape(xp.permute_dims(out[:, 5:], (1, 0)), (3, 3, -1))
+        dq = [t - stop_gradient(t) for t in q]
+        if partials:
+            return xp.stack(
+                [der[k] + sum(hes[k, j] * dq[j] for j in range(3)) for k in range(3)]
+                + [der[3]]
+            )
+        return val + sum(der[k] * dq[k] for k in range(3))
+
+    def f(E, ell, I3):
+        return numpy.array(
+            [float(rule(*a[:nargs])) for a in zip(*numpy.broadcast_arrays(E, ell, I3))]
+        )
+
+    ell = numpy.fabs(Lz)
+    if not partials:
+        return f(E, ell, I3)
+    hE, hL, hI = (1e-6 * (1.0 + numpy.fabs(a)) for a in (E, ell, I3))
+    return numpy.array(
+        [
+            (f(E + hE, ell, I3) - f(E - hE, ell, I3)) / (2.0 * hE),
+            (f(E, ell, I3 + hI) - f(E, ell, I3 - hI)) / (2.0 * hI),
+            numpy.sign(Lz) * (f(E, ell + hL, I3) - f(E, ell - hL, I3)) / (2.0 * hL),
+            numpy.zeros_like(hE),
+        ]
+    )
+
+
+def _u0callable_hessian(rule, nargs, E, Lz, I3):
+    """The second derivatives of a callable rule u0(E, |L_z|[, I_3]) with
+    respect to (E, I_3, L_z), (3, 3, n), by central differences of the
+    callable (FINITE DIFFERENCES, of the user's callable alone)"""
+
+    def f(x):
+        E, I3, ell = x
+        return numpy.array(
+            [float(rule(*a[:nargs])) for a in zip(*numpy.broadcast_arrays(E, ell, I3))]
+        )
+
+    x = [E, I3, numpy.fabs(Lz)]
+    h = [1e-4 * (1.0 + numpy.fabs(a)) for a in x]
+    sgn = numpy.array([1.0, 1.0, 1.0])[:, None] * numpy.ones_like(E)
+    sgn[2] = numpy.sign(Lz)
+
+    def at(**d):
+        return f([x[k] + d.get(f"d{k}", 0.0) * h[k] for k in range(3)])
+
+    f0 = at()
+    out = numpy.empty((3, 3) + numpy.shape(E))
+    for k in range(3):
+        out[k, k] = (at(**{f"d{k}": 1}) - 2.0 * f0 + at(**{f"d{k}": -1})) / h[k] ** 2
+        for j in range(k):
+            out[k, j] = out[j, k] = (
+                at(**{f"d{k}": 1, f"d{j}": 1})
+                - at(**{f"d{k}": 1, f"d{j}": -1})
+                - at(**{f"d{k}": -1, f"d{j}": 1})
+                + at(**{f"d{k}": -1, f"d{j}": -1})
+            ) / (4.0 * h[k] * h[j])
+    # (L_z enters as |L_z|)
+    return out * sgn[:, None] * sgn[None, :]
+
+
+def _staeckel_angles(
+    xp, s, umin, umax, vmin, pot, delta, order, jac, torus=False, ddelta=None, du0=None
+):
     """Vectorised (angler, anglephi_raw, anglez); the caller folds the azimuth phi
     into anglephi. angler/anglez are in [0, 2pi); circular orbits -> all 0.
     `jac` = the _staeckel_jacobian 6-tuple, computed once by the caller and shared
     with the freqs. With torus, for a reference curve that follows the tori
-    (u0='torus' of actionAngleStaeckelInverse): the angles of that family and
+    (torus 2: u0='torus' of actionAngleStaeckelInverse; 3: its u0='planar'):
+    the angles of that family and
     the difference of its frequencies from the model's, in the order (R, phi,
     z). The family's generating function is the model's at the reference
     curve u0(J) of each torus, so that its angles are the model's plus K
@@ -790,7 +1037,13 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac, torus=Fals
     frequencies dE/dJ are the model's plus (dE/du0 at fixed actions) du0/dJ.
     Everything but the integral of dV/du0 over p_v, which enters as the
     integral of the third integral's weight does, is what the model's own
-    angles are made of."""
+    angles are made of. With ddelta, the derivatives of each torus's focal
+    length with respect to (J_R, L_z, J_z), also for a focal length that
+    follows the tori: the same with K_delta = dS/ddelta at fixed position
+    and actions, which is the dilation of the point transformation, -(R p_R
+    + z p_z)/delta, plus the integrals of the derivatives of p_u and p_v
+    with respect to delta along the orbit less the angles times their
+    complete versions."""
     sqrt2 = numpy.sqrt(2.0)
     pi = numpy.pi
     Lz = s["Lz"]
@@ -820,23 +1073,38 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac, torus=Fals
     Du_safe = xp.where(Du > 0.0, Du, xp.ones_like(Du))
     chi_ux = 2.0 * xp.asin(xp.sqrt(xp.clip((ux - umin) / Du_safe, 0.0, 1.0)))
     high_u = ux > umin + 0.5 * Du
+    uweights = (
+        lambda xp, u: xp.sinh(u) ** 2.0,
+        lambda xp, u: xp.ones_like(u),
+        lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
+    )
+    if ddelta is not None:
+        # sqrt(2) d p/d delta at fixed (E, I_3), over the 1/sqrt(S) of the
+        # profile integrals: 2 S + L_z^2 / (delta^2 sinh^2 u) - delta dU/ddelta
+        # and 2 S + L_z^2 / (delta^2 sin^2 v) + delta dV/ddelta
+        col = lambda a: a[..., None] if getattr(a, "ndim", 0) >= 1 else a  # noqa: E731
+        dcol, Lcol = col(delta), col(Lz)
+        ucols = tuple(col(a) for a in jr_args)
+        vcols = tuple(col(a) for a in jz_args)
+        uweights += (
+            lambda xp, q: (
+                2.0 * _staeckel_dS_flat(xp, JRsq, q, ucols)
+                + Lcol**2.0 / dcol**2.0 / xp.sinh(q) ** 2.0
+                - dcol
+                * _staeckel_dS_flat(
+                    xp, lambda qq, dd: _dUddelta(qq, dd, pot), q, (dcol,)
+                )
+            ),
+        )
     part_u = _staeckel_chi_profiles(
         xp, JRsq, _dJRStaeckelIntegrandSquareddu, jr_args, umin, Du, order,
-        (
-            lambda xp, u: xp.sinh(u) ** 2.0,
-            lambda xp, u: xp.ones_like(u),
-            lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
-        ), chimax=chi_ux[..., None],
+        uweights, chimax=chi_ux[..., None],
     )  # fmt: skip
     full_u = _staeckel_chi_profiles(
         xp, JRsq, _dJRStaeckelIntegrandSquareddu, jr_args, umin, Du, order,
-        (
-            lambda xp, u: xp.sinh(u) ** 2.0,
-            lambda xp, u: xp.ones_like(u),
-            lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
-        ),
+        uweights,
     )  # fmt: skip
-    PE, PI, PL = (xp.where(high_u, fu - pu, pu) for pu, fu in zip(part_u, full_u))
+    PE, PI, PL, *PW = (xp.where(high_u, fu - pu, pu) for pu, fu in zip(part_u, full_u))
     pos_u = pux > 0.0
     K_u = xp.where(high_u, pi, xp.where(pos_u, 0.0, 2.0 * pi)) * xp.ones_like(ux)
     s_u = xp.where(high_u, xp.where(pos_u, -1.0, 1.0), xp.where(pos_u, 1.0, -1.0))
@@ -867,6 +1135,17 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac, torus=Fals
         vweights += (
             lambda xp, v: _staeckel_dS_flat(
                 xp, lambda q, u0, d: _dVdu0(q, u0, d, pot), v, cols
+            ),
+        )
+    if ddelta is not None:
+        vweights += (
+            lambda xp, q: (
+                2.0 * _staeckel_dS_flat(xp, JZsq, q, vcols)
+                + Lcol**2.0 / dcol**2.0 / xp.sin(q) ** 2.0
+                + dcol
+                * _staeckel_dS_flat(
+                    xp, lambda qq, u0, d: _dVddelta(qq, u0, d, pot), q, cols
+                )
             ),
         )
     part_v = _staeckel_chi_profiles(
@@ -911,19 +1190,49 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac, torus=Fals
             - (Omegaz * Or_sum + dI3dJz * I3_sum) * djzdu0
         )
         # (E, I_3) move with u0 at fixed actions as -(dE/dJz, dI3/dJz) djzdu0
-        rE, rI, rL = _u0torus_partials(xp, s, umin, umax, pot, delta)
+        if du0 is not None:
+            # (a rule that the caller evaluates: its partials are handed in)
+            rE, rI, rL, rD = du0
+        elif torus == 3:
+            rE, rI, rL, rD = _u0planar_partials(xp, s, pot, delta)
+        else:
+            rE, rI, rL, rD = _u0torus_partials(xp, s, umin, umax, pot, delta)
         dEdu0 = -Omegaz * djzdu0
         norm = 1.0 - rE * dEdu0 + rI * dI3dJz * djzdu0
-        du0 = (
-            xp.stack(
-                [
-                    rE * Omegar + rI * dI3dJR,
-                    rE * Omegaphi + rI * dI3dLz + rL,
-                    rE * Omegaz + rI * dI3dJz,
-                ]
-            )
-            / norm
+        du0 = xp.stack(
+            [
+                rE * Omegar + rI * dI3dJR,
+                rE * Omegaphi + rI * dI3dLz + rL,
+                rE * Omegaz + rI * dI3dJz,
+            ]
         )
+        dOm = 0.0
+        if ddelta is not None:
+            djrdD = full_u[3] / pi / sqrt2
+            djzdD = half_v[4] * sqrt2 / pi
+            thr = Omegar * Or_sum + dI3dJR * I3_sum
+            thz = Omegaz * Or_sum + dI3dJz * I3_sum
+            sinhux, sinvx = xp.sinh(ux), xp.sin(vx)
+            KD = (
+                -(sinhux * xp.cosh(ux) * pux - sinvx * xp.cos(vx) * pvx)
+                / (sinhux**2.0 + sinvx**2.0)
+                / delta
+                + K_u * djrdD
+                + s_u * PW[0] / sqrt2
+                + K_v * djzdD
+                + s_v * QV[1] / sqrt2
+                - thr * djrdD
+                - thz * djzdD
+            )
+            dEdD = -(Omegar * djrdD + Omegaz * djzdD)
+            dI3dD = -(dI3dJR * djrdD + dI3dJz * djzdD)
+            du0 = du0 + (rE * dEdD + rI * dI3dD + rD) * ddelta
+            dOm = dEdD * ddelta
+            angler, anglephi, anglez = (
+                a + KD * d for a, d in zip((angler, anglephi, anglez), ddelta)
+            )
+        du0 = du0 / norm
+        dOm = dOm + dEdu0 * du0
         angler, anglephi, anglez = (
             a + K * d for a, d in zip((angler, anglephi, anglez), du0)
         )
@@ -935,7 +1244,7 @@ def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac, torus=Fals
     anglez = xp.where(circ_full, zeros, anglez)
     anglephi = xp.where(circ_full, zeros, anglephi)
     if torus:
-        return angler, anglephi, anglez, dEdu0 * du0
+        return angler, anglephi, anglez, dOm
     return angler, anglephi, anglez
 
 
@@ -953,6 +1262,8 @@ def _staeckel_actions_freqs_angles(
     flag_unbound=False,
     u0=None,
     torus=False,
+    ddelta=None,
+    du0=None,
 ):
     """Unified vectorised (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez);
     setup + turning points computed once and shared. anglephi includes the azimuth."""
@@ -967,7 +1278,7 @@ def _staeckel_actions_freqs_angles(
         xp, s, umin, umax, vmin, pot, delta, order, jac=jac
     )
     angler, anglephi, anglez, *dOm = _staeckel_angles(
-        xp, s, umin, umax, vmin, pot, delta, order, jac, torus
+        xp, s, umin, umax, vmin, pot, delta, order, jac, torus, ddelta, du0
     )
     if torus:
         Omegar, Omegaphi, Omegaz = (
@@ -1247,7 +1558,7 @@ class actionAngleStaeckel(actionAngle):
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
         inverse : actionAngleStaeckelInverse, optional
-            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. With jax/torch inputs, the transformation runs in the backend (c=False) implementation, with derivatives through each point's model.
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. With jax/torch inputs, the transformation runs in the backend (c=False) implementation, with derivatives through each point's model.
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
@@ -1316,17 +1627,19 @@ class actionAngleStaeckel(actionAngle):
             raise TypeError(
                 "pot= and delta= cannot be given with inverse=, which supplies them"
             )
-        if getattr(aAI, "_delta_rule", None) is not None or (
-            aAI._adaptive and aAI._u0_rule != "torus"
-        ):
-            raise NotImplementedError(
-                "inverse= currently supports instances with a numerical delta= "
-                "and either a single reference curve or u0='torus'"
-            )
-        self._model = aAI._adaptive
+        # the rule of the reference curve, as the C code numbers them: 2,
+        # u0='torus', and 3, 'planar', which it evaluates itself; 4, 'shell'
+        # or a callable, evaluated here
+        rules = {"torus": 2, "planar": 3}
+        self._model = aAI._adaptive * (
+            rules.get(aAI._u0_rule, 4) if isinstance(aAI._u0_rule, str) else 4
+        )
         kwargs = dict(kwargs)
         kwargs["pot"] = aAI._chart_pot if aAI._adaptive else aAI._staeckelwrap
         kwargs["delta"] = aAI._delta
+        if aAI._delta_rule is not None:
+            # (a placeholder: every point gets the focal length of its torus)
+            kwargs["delta"] = float(numpy.median(aAI._A_tab[..., 3]))
         if aAI._roSet:
             kwargs.setdefault("ro", aAI._ro)
         if aAI._voSet:
@@ -1339,17 +1652,18 @@ class actionAngleStaeckel(actionAngle):
         curve that follows the tori depends on the torus's energy and third
         integral in its own model, which depend on the reference curve: a
         fixed point, found by iterating the rule on the turning points in
-        the current model (in C or, with c False, in Python), with Aitken's
-        acceleration; on jax/torch by _bk_inverse_model"""
+        the current model with Aitken's acceleration: by the C code itself
+        (which is then handed nan to start from the point's own u) or, with
+        c False, here; on jax/torch by _bk_inverse_model"""
         aAI = self._inverse
         delta = aAI._delta
         xp = get_namespace(R, vR, vT, z, vz)
         if not self._model:
             if xp is not numpy:
-                return delta, aAI._staeckelwrap._u0 + 0.0 * R
-            return delta, numpy.full(numpy.shape(R), aAI._staeckelwrap._u0)
+                return delta, aAI._staeckelwrap._u0 + 0.0 * R, None
+            return delta, numpy.full(numpy.shape(R), aAI._staeckelwrap._u0), None
         if xp is not numpy:
-            return delta, self._bk_inverse_model(xp, R, vR, vT, z, vz, delta)
+            return self._bk_inverse_model(xp, R, vR, vT, z, vz, delta)
         R, vR, vT, z, vz = (
             a.copy()
             for a in numpy.broadcast_arrays(
@@ -1358,18 +1672,24 @@ class actionAngleStaeckel(actionAngle):
         )
         pot = self._pot if c else _staeckel_pot(numpy, self._pot)
 
-        def rule(idx, u0):
+        def rule(idx, u0, delta=delta):
             x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
-            if c:
-                um, up = actionAngleStaeckel_c.actionAngleUminUmaxVminStaeckel_c(
-                    pot, delta, *x, u0=u0, model=True
-                )[:2]
+            if self._model == 4:
+                return self._inverse_rule(x, delta, u0)
+            if self._model == 3:
+                um, up = _staeckel_planar(
+                    numpy, _staeckel_setup(numpy, *x, pot, delta, u0=u0), pot, delta
+                )
             else:
                 um, up = _staeckel_prep(numpy, *x, pot, delta, u0=u0)[1:3]
             sm, sp = numpy.sinh(um), numpy.sinh(up)
             return numpy.arcsinh(2.0 * sm * sp / (sm + sp))
 
         idx = numpy.arange(len(R))
+        if aAI._delta_rule is not None:
+            return self._inverse_model_delta(rule, R, vR, vT, z, vz, pot, c)
+        if c and self._model < 4:
+            return delta, numpy.full(len(R), numpy.nan), None
         u0 = rule(idx, numpy.arcsinh(R / delta))
         for _ in range(_MODEL_MAXITER):
             u1 = rule(idx, u0[idx])
@@ -1377,11 +1697,111 @@ class actionAngleStaeckel(actionAngle):
             den = u2 - 2.0 * u1 + u0[idx]
             ok = den != 0.0
             acc = u2 - (u2 - u1) ** 2 / numpy.where(ok, den, 1.0)
+            left = _fixed_point_error(u0[idx], u1, u2)
             u0[idx] = numpy.where(ok & numpy.isfinite(acc), acc, u2)
-            idx = idx[numpy.fabs(u2 - u1) > _MODEL_TOL]
+            idx = idx[left > _MODEL_TOL]
             if len(idx) == 0:
                 break
-        return delta, u0
+        return delta, u0, None
+
+    def _inverse_rule(self, x, delta, u0, partials=False):
+        """One application, in the models (delta, u0) of the points x = (R,
+        vR, vT, z, vz), of a rule for the reference curve that is evaluated
+        here: u0='shell' of inverse=, the shell orbit of each point's energy
+        and angular momentum, or its callable u0(E, |L_z|[, I_3]). With
+        partials, the rule's partials with respect to (E, I_3, L_z, delta)
+        instead"""
+        aAI = self._inverse
+        xp = get_namespace(*x)
+        pot = _staeckel_pot(xp, self._pot)
+        s = _staeckel_setup(xp, *x, pot, delta, u0=u0)
+        if callable(aAI._u0_rule):
+            return _u0callable(
+                aAI._u0_rule, aAI._u0_nargs, s["E"], s["Lz"], s["I3V"], partials
+            )
+        ush = _u0shell(xp, s, *_staeckel_uminumax(xp, s, pot, delta)[:2], pot, delta)
+        if not partials:
+            return ush
+        Rsh = delta * xp.sinh(ush)
+        if xp is numpy:
+            R2 = numpy.array(
+                [evaluateR2derivs(self._pot, r, 0.0, use_physical=False) for r in Rsh]
+            )
+        else:
+            R2 = evaluateR2derivs(self._pot, Rsh, 0.0 * Rsh, use_physical=False)
+        return _u0shell_partials(xp, s, ush, pot, delta, R2)
+
+    def _inverse_du0(self, R, vR, vT, z, vz, delta, u0):
+        """The partials of the reference curve of each point's torus for a
+        rule that is evaluated here (_inverse_rule), else None"""
+        if self._model != 4:
+            return None
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is numpy:
+            x = numpy.broadcast_arrays(
+                *(numpy.atleast_1d(a) * 1.0 for a in (R, vR, vT, z, vz))
+            )
+        else:
+            x = xp.broadcast_arrays(R, vR, vT, z, vz)
+        return self._inverse_rule(x, delta, u0, partials=True)
+
+    def _inverse_model_delta(self, rule, R, vR, vT, z, vz, pot, c):
+        """_inverse_model for a family whose focal length follows its tori:
+        the focal length of a torus is the family's own, tabulated in its
+        actions, which depend on the model; the fixed point in the focal
+        length and the reference curve together, by the same iteration.
+        Also returns the derivatives of the focal length with respect to
+        (J_R, L_z, J_z); nan for points whose torus the family does not
+        hold"""
+        aAI = self._inverse
+        Lz = R * vT
+
+        def step(idx, u0, delta):
+            x = (R[idx], vR[idx], vT[idx], z[idx], vz[idx])
+            if c:
+                # (the C code moves u0 to the fixed point at this delta,
+                # unless the rule is evaluated here)
+                u0 = numpy.array(
+                    rule(idx, u0, delta) if self._model == 4 else u0,
+                    dtype="float64",
+                    order="C",
+                )
+                jr, jz = actionAngleStaeckel_c.actionAngleStaeckel_c(
+                    pot, delta, *x, u0=u0, order=self._order, model=self._model
+                )[:2]
+            else:
+                u0 = rule(idx, u0, delta)
+                jr, _, jz = _staeckel_actions(numpy, *x, pot, delta, self._order, u0=u0)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", galpyWarning)
+                lab = aAI._label_tori(jr, jz, Lz[idx])
+            new = numpy.where(lab[-1], lab[6], numpy.nan)
+            return u0, new, numpy.where(lab[-1][:, None], lab[7], numpy.nan)
+
+        idx = numpy.arange(len(R))
+        delta = numpy.full(len(R), self._delta * 1.0)
+        ddelta = numpy.full((len(R), 3), numpy.nan)
+        u0, delta, _ = step(idx, numpy.arcsinh(R / delta), delta)
+        idx = idx[numpy.isfinite(delta)]
+        for _ in range(_MODEL_MAXITER):
+            if len(idx) == 0:
+                break
+            u1, d1, _ = step(idx, u0[idx], delta[idx])
+            d1 = numpy.where(numpy.isfinite(d1), d1, delta[idx])
+            u2, d2, dd = step(idx, u1, d1)
+            left = numpy.maximum(
+                _fixed_point_error(u0[idx], u1, u2),
+                _fixed_point_error(delta[idx], d1, d2) / d1,
+            )
+            for old, x1, x2 in ((u0, u1, u2), (delta, d1, d2)):
+                den = x2 - 2.0 * x1 + old[idx]
+                ok = den != 0.0
+                acc = x2 - (x2 - x1) ** 2 / numpy.where(ok, den, 1.0)
+                old[idx] = numpy.where(ok & numpy.isfinite(acc), acc, x2)
+            ddelta[idx] = dd
+            idx = idx[left > _MODEL_TOL]
+        # (the family's table is in (J_R, J_z, J_phi))
+        return delta, u0, ddelta[:, [0, 2, 1]].T
 
     def _bk_inverse_model(self, xp, R, vR, vT, z, vz, delta):
         """_inverse_model's fixed point on jax/torch: the same Aitken schedule
@@ -1391,12 +1811,22 @@ class actionAngleStaeckel(actionAngle):
         pot = _staeckel_pot(xp, self._pot)
         x = tuple(xp.broadcast_arrays(R, vR, vT, z, vz))
 
-        def rule(u0, R, vR, vT, z, vz):
-            um, up = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta, u0=u0)[1:3]
+        def rule(u0, R, vR, vT, z, vz, delta=delta):
+            if self._model == 4:
+                return self._inverse_rule((R, vR, vT, z, vz), delta, u0)
+            if self._model == 3:
+                um, up = _staeckel_planar(
+                    xp, _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta, u0=u0),
+                    pot, delta,
+                )  # fmt: skip
+            else:
+                um, up = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta, u0=u0)[1:3]
             sm, sp = xp.sinh(um), xp.sinh(up)
             return xp.asinh(2.0 * sm * sp / (sm + sp))
 
         xs = tuple(stop_gradient(a) for a in x)
+        if self._inverse._delta_rule is not None:
+            return self._bk_inverse_model_delta(xp, x, xs, rule, pot)
         u0 = rule(xp.asinh(xs[0] / delta), *xs)
         live = xp.ones_like(u0) > 0.0
         for _ in range(_MODEL_MAXITER):
@@ -1405,12 +1835,72 @@ class actionAngleStaeckel(actionAngle):
             den = u2 - 2.0 * u1 + u0
             ok = den != 0.0
             acc = u2 - (u2 - u1) ** 2 / xp.where(ok, den, 1.0)
+            left = _fixed_point_error(u0, u1, u2)
             u0 = xp.where(live, xp.where(ok & xp.isfinite(acc), acc, u2), u0)
-            live = live & (xp.abs(u2 - u1) > _MODEL_TOL)
+            live = live & (left > _MODEL_TOL)
             done = xp.any(live)
             if has_concrete_truth_value(done) and not concretely_true(done):
                 break
-        return fixed_point_implicit_step(rule, stop_gradient(u0), x)
+        return delta, fixed_point_implicit_step(rule, stop_gradient(u0), x), None
+
+    def _bk_inverse_model_delta(self, xp, x, xs, rule, pot):
+        """_inverse_model_delta on jax/torch: main's iteration in the focal
+        length and the reference curve together, at fixed shape on the
+        derivative-free inputs xs, with the focal length of each torus from
+        the family's vectorized label inversion (_bk_focal_lengths); then
+        the implicit-function step of the two-dimensional fixed point, and
+        the derivatives of the focal length at the model, with their own
+        derivatives. nan for points whose torus the family does not hold"""
+        aAI = self._inverse
+
+        def step(u0, delta, R, vR, vT, z, vz):
+            u0 = rule(u0, R, vR, vT, z, vz, delta=delta)
+            jr, _, jz = _staeckel_actions(
+                xp, R, vR, vT, z, vz, pot, delta, self._order, u0=u0
+            )
+            d, dd, bad = aAI._bk_focal_lengths(xp, jr, jz, R * vT)
+            if bad is not None:
+                held = asarray_on_device(xp, ~bad, device_of(d))
+                d = xp.where(held, d, numpy.nan)
+                dd = xp.where(held[:, None], dd, numpy.nan)
+            return u0, d, dd
+
+        delta = self._delta * 1.0 + 0.0 * xs[0]
+        u0, delta, _ = step(xp.asinh(xs[0] / delta), delta, *xs)
+        live = xp.isfinite(delta)
+        for _ in range(_MODEL_MAXITER):
+            u1, d1, _ = step(u0, delta, *xs)
+            d1 = xp.where(xp.isfinite(d1), d1, delta)
+            u2, d2, _ = step(u1, d1, *xs)
+            left = xp.maximum(
+                _fixed_point_error(u0, u1, u2), _fixed_point_error(delta, d1, d2) / d1
+            )
+            new = []
+            for old, x1, x2 in ((u0, u1, u2), (delta, d1, d2)):
+                den = x2 - 2.0 * x1 + old
+                ok = den != 0.0
+                acc = x2 - (x2 - x1) ** 2 / xp.where(ok, den, 1.0)
+                new.append(
+                    xp.where(live, xp.where(ok & xp.isfinite(acc), acc, x2), old)
+                )
+            u0, delta = new
+            live = live & (left > _MODEL_TOL)
+            done = xp.any(live)
+            if has_concrete_truth_value(done) and not concretely_true(done):
+                break
+
+        def G(q, R, vR, vT, z, vz):
+            u, d, _ = step(q[0], q[1], R, vR, vT, z, vz)
+            return xp.stack([u, d])
+
+        q = fixed_point_implicit_step(
+            G, stop_gradient(xp.stack([u0, delta])), x, vector=True
+        )
+        u0, delta = q[0], q[1]
+        # the derivatives of the focal length at the model, in (J_R, L_z,
+        # J_z) (the family's are in (J_R, J_z, J_phi))
+        dd = step(u0, delta, *x)[2]
+        return delta, u0, xp.stack([dd[:, 0], dd[:, 2], dd[:, 1]])
 
     def _c_requested(self, kwargs):
         return (
@@ -1458,6 +1948,8 @@ class actionAngleStaeckel(actionAngle):
         - 2012-11-27 - Written - Bovy (IAS)
         - 2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
+        loop_c = bool(self._c and kwargs.get("c", True))
+        ddelta = None
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if len(args) == 5:  # R,vR.vT, z, vz
@@ -1524,7 +2016,7 @@ class actionAngleStaeckel(actionAngle):
                     )[0]
                 kwargs.pop("u0", None)
             elif self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz)
             else:
                 u0 = None
             jr, jz, err = actionAngleStaeckel_c.actionAngleStaeckel_c(
@@ -1564,9 +2056,9 @@ class actionAngleStaeckel(actionAngle):
             xp = get_namespace(R, vR, vT, z, vz)
             if xp is not numpy:
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
-            u0 = None
+            u0 = ddelta = None
             if self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz, c=False)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz, c=loop_c)
             jr, Lz, jz = _staeckel_actions(
                 xp,
                 R,
@@ -1614,6 +2106,8 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        loop_c = bool(self._c and kwargs.get("c", True))
+        ddelta = None
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if self._use_c(kwargs, delta):
@@ -1681,7 +2175,7 @@ class actionAngleStaeckel(actionAngle):
                     )[0]
                 kwargs.pop("u0", None)
             elif self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz)
             else:
                 u0 = None
             if self._model:
@@ -1690,7 +2184,8 @@ class actionAngleStaeckel(actionAngle):
                 jr, jz, Omegar, Omegaphi, Omegaz, _, _, _, err = (
                     actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
                         self._pot, delta, R, vR, vT, z, vz, 0.0 * R,
-                        u0=u0, order=order, model=2,
+                        u0=u0, order=order, model=self._model, ddelta=ddelta,
+                        du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
                     )
                 )  # fmt: skip
             else:
@@ -1750,9 +2245,9 @@ class actionAngleStaeckel(actionAngle):
             xp = get_namespace(R, vR, vT, z, vz)
             if xp is not numpy:
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
-            u0 = None
+            u0 = ddelta = None
             if self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz, c=False)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz, c=loop_c)
             jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
                 xp,
                 R,
@@ -1766,6 +2261,8 @@ class actionAngleStaeckel(actionAngle):
                 flag_unbound=routed,
                 u0=u0,
                 torus=self._model,
+                ddelta=ddelta,
+                du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
             )
             # Close-to-circular orbits: the freqs are NaN (det(A)=0); substitute
             # epifreq/omegac/verticalfreq (vectorised mirror of the C wrapper).
@@ -1804,6 +2301,8 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2013-08-28 - Written - Bovy (IAS)
         """
+        loop_c = bool(self._c and kwargs.get("c", True))
+        ddelta = None
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if self._use_c(kwargs, delta):
@@ -1887,7 +2386,7 @@ class actionAngleStaeckel(actionAngle):
                     )[0]
                 kwargs.pop("u0", None)
             elif self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz)
             else:
                 u0 = None
             (
@@ -1911,7 +2410,9 @@ class actionAngleStaeckel(actionAngle):
                 phi,
                 u0=u0,
                 order=order,
-                model=2 * self._model,
+                model=self._model,
+                ddelta=ddelta,
+                du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
             )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
@@ -1969,9 +2470,9 @@ class actionAngleStaeckel(actionAngle):
                 # fold the azimuth in R's namespace AND device (a bare xp.asarray
                 # lands on the CPU and would collide with a CUDA anglephi).
                 phi = asarray_on_device(xp, phi, device_of(R))
-            u0 = None
+            u0 = ddelta = None
             if self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz, c=False)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz, c=loop_c)
             (
                 jr,
                 Lz,
@@ -1996,6 +2497,8 @@ class actionAngleStaeckel(actionAngle):
                 flag_unbound=routed,
                 u0=u0,
                 torus=self._model,
+                ddelta=ddelta,
+                du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
             )
             # Close-to-circular orbits: substitute epifreq/omegac/verticalfreq for
             # the NaN frequencies (vectorised mirror of the C wrapper; the angles
@@ -2107,6 +2610,7 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2017-12-12 - Written - Bovy (UofT)
         """
+        loop_c = bool(self._c and kwargs.get("c", True))
         _delta = kwargs.pop("delta", self._delta)
         # a backend delta (e.g. estimated from a differentiated potential) may
         # be traced; numpy.atleast_1d refuses it. numpy input keeps the numpy
@@ -2154,7 +2658,7 @@ class actionAngleStaeckel(actionAngle):
                     )[0]
                 kwargs.pop("u0", None)
             elif self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz)
             else:
                 u0 = None
             (
@@ -2185,9 +2689,9 @@ class actionAngleStaeckel(actionAngle):
             if xp is not numpy:
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             # _staeckel_prep already snaps vmin to pi/2 for planar orbits.
-            u0 = None
+            u0 = ddelta = None
             if self._inverse is not None:
-                delta, u0 = self._inverse_model(R, vR, vT, z, vz, c=False)
+                delta, u0, ddelta = self._inverse_model(R, vR, vT, z, vz, c=loop_c)
             s, umin, umax, vmin, _ = _staeckel_prep(
                 xp,
                 R,

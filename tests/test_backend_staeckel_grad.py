@@ -454,23 +454,12 @@ def test_staeckel_inverse_c_true_backend(backend):
         numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-7)
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
-def test_staeckel_inverse_torus_model_grad(backend):
-    # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
-    # model (u0='torus') on a backend: the backend (c=False) code in each
-    # point's model, equal to numpy's, and differentiable in the phase-space
-    # point through the model's fixed point (its implicit-function step)
-    from galpy.actionAngle import actionAngleStaeckelInverse
-    from galpy.potential import MWPotential2014
-
-    jr, Lz, jz = numpy.array([0.08]), numpy.array([0.9]), numpy.array([0.06])
-    aAI = actionAngleStaeckelInverse(
-        pot=MWPotential2014, delta=0.45, u0="torus", jrs=jr, Lzs=Lz, jzs=jz,
-        mm_npt=64, progressbar=False,
-    )  # fmt: skip
+def _inverse_model_grad_check(backend, aAI, x0):
+    # actionAngleStaeckel(inverse=aAI) at the point x0 = (R, vR, vT, z, vz) on
+    # a backend: equal to numpy's, and its Jacobian of (J_R, J_z, Omega_R,
+    # Omega_z, theta_R, theta_z) in x0 equal to central differences
     aAS = actionAngleStaeckel(inverse=aAI, order=20)
-    x0 = numpy.array([q[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:5]])
-    keep = (0, 2, 3, 5, 6, 8)  # jr, jz, Omegar, Omegaz, angler, anglez
+    keep = (0, 2, 3, 5, 6, 8)
 
     def f_np(x):
         out = aAS.actionsFreqsAngles(
@@ -479,11 +468,14 @@ def test_staeckel_inverse_torus_model_grad(backend):
         return numpy.array([float(out[k][0]) for k in keep])
 
     ref = f_np(x0)
-    h = 1e-4
-    fd = numpy.stack(
-        [(f_np(x0 + h * e) - f_np(x0 - h * e)) / (2.0 * h) for e in numpy.eye(5)],
-        axis=1,
-    )
+
+    def cd(h):
+        return numpy.stack(
+            [(f_np(x0 + h * e) - f_np(x0 - h * e)) / (2.0 * h) for e in numpy.eye(5)],
+            axis=1,
+        )
+
+    fd = (4.0 * cd(5e-4) - cd(1e-3)) / 3.0  # Richardson
     if backend == "jax":
 
         def f(x):
@@ -512,3 +504,60 @@ def test_staeckel_inverse_torus_model_grad(backend):
         numpy.testing.assert_allclose(
             row, frow, rtol=0.0, atol=1e-6 * numpy.amax(numpy.fabs(frow))
         )
+
+
+def _u0_rule_ELzI3(E, Lz, I3):
+    return numpy.arcsinh((0.5 + 0.5 * Lz + 0.1 * E) / 0.45) + 0.02 * numpy.tanh(I3)
+
+
+# every rule on torch; on jax the rule C evaluates and a callable (whose value
+# jax gets from the host, linearized in the integrals)
+_INVERSE_RULES = [
+    (bk, u0)
+    for bk in BACKENDS
+    for u0 in (
+        ("torus", "planar", "shell", _u0_rule_ELzI3)
+        if bk == "torch"
+        else ("torus", _u0_rule_ELzI3)
+    )
+]
+
+
+@pytest.mark.parametrize("backend,u0", _INVERSE_RULES)
+def test_staeckel_inverse_torus_model_grad(backend, u0):
+    # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
+    # model (a rule for the reference curve) on a backend: the backend
+    # (c=False) code in each point's model, equal to numpy's, and
+    # differentiable in the phase-space point through the model's fixed point
+    # (its implicit-function step)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    jr, Lz, jz = numpy.array([0.08]), numpy.array([0.9]), numpy.array([0.06])
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta=0.45, u0=u0, jrs=jr, Lzs=Lz, jzs=jz,
+        mm_npt=64, progressbar=False,
+    )  # fmt: skip
+    x0 = numpy.array([q[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:5]])
+    _inverse_model_grad_check(backend, aAI, x0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_inverse_deltafit_model_grad(backend):
+    # the same for a family whose focal length follows its tori (delta='fit'):
+    # the fixed point in the focal length and the reference curve together,
+    # with the focal length from the family's label inversion; at a torus
+    # inside a cell (at a node, the interpolant's second derivatives, which
+    # the focal length's derivatives carry, jump)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta="fit", delta_deg=(1, 1, 1), setup_interp=True,
+        Rmin=0.85, Rmax=1.15, Rinf=2.5, nE=4, nLz=4, nI3=4, mm_npt=64,
+        progressbar=False,
+    )  # fmt: skip
+    jr, jz = 0.5 * (aAI._A_tab[1, 2, 1][:2] + aAI._A_tab[2, 1, 2][:2])
+    Lz = 0.5 * (aAI._Lzgrid[1] + aAI._Lzgrid[2])
+    x0 = numpy.array([q[0] for q in aAI(jr, Lz, jz, 0.7, 1.0, 2.0)[:5]])
+    _inverse_model_grad_check(backend, aAI, x0)
