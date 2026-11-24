@@ -222,7 +222,11 @@ at release.]
   resolve half a period), dt= applies to all of its integrations, and an
   odd npoints raises an error instead of being rounded down.
 
-- [slot 29]
+- Added calibrate_angles= to actionAngleAdiabaticApprox and
+  actionAngleAdiabaticApproxInverse: angles in the usual convention, with
+  the offset of each torus measured by a round trip of the transformation
+  and its half turn fixed with the auxiliary potential's torus of the same
+  actions.
 
 - [slot 30]
 

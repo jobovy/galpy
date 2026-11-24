@@ -17,7 +17,12 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..potential import DehnenSmoothWrapperPotential, MWPotential
+from ..potential import (
+    DehnenSmoothWrapperPotential,
+    MWPotential,
+    evaluateRforces,
+    evaluatezforces,
+)
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -67,6 +72,10 @@ class actionAngleAdiabaticApprox(actionAngle):
             Number of points along the orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (an even number). With npoints=0, each point is transformed on its own: the transformation is then exactly canonical and actionAngleAdiabaticApproxInverse with the same tintJ is its inverse, but no frequencies are available (an implementation that can differentiate through the orbit integration can return them for npoints=0 as well, as the derivative of the energy with respect to the actions).
         npoints_dt : float, optional
             Amount of time to integrate forward and backwards for the npoints points (can be Quantity); the frequencies of the potential that is transformed to have to predict the change of each angle over this time to within pi.
+        aAI : actionAngleInverse instance, optional
+            The inverse of aA=, used by calibrate_angles=True to fix the half turns of the angles (set up automatically for an actionAngleIsochrone aA=; it has to return points for the actions of the points that are transformed; without it, or where it returns nan, a less robust rule is used that needs aA= to be close to pot).
+        calibrate_angles : bool, optional
+            If True, return the angles in the usual convention (zero radial angle at pericenter, zero vertical angle when moving upward through the plane) rather than with the offset of the first Note below: the offset of each point's torus is measured with a round trip of the transformation, which triples the orbit integration. Default: False.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -75,6 +84,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         Notes
         -----
         - The angles are angle coordinates on the torus that advance at the orbital frequencies, but they differ from the angles of other action-angle methods by an offset that is constant on each torus (it depends on the actions, on tintJ, and on the potentials). Many applications do not need the offset (for example, any use of this class together with actionAngleAdiabaticApproxInverse for the same tintJ).
+        - With calibrate_angles=True, the offset is measured for each point: transforming the point's image in the potential of aA= back to pot and again to that of aA=, both forward in time, changes its angles by twice the offset. This gives the offset up to half a turn, which is fixed by the angles that aA= itself assigns to the point (and, for the radial angle, by whether the point moves outward); the half turn can come out wrong for points whose image in the potential of aA= is unbound or whose torus there is very different.
         - 2025-09-23 - Started - Bovy (UofT).
         - 2025-10-15 - Allowed more general target potentials - Bovy (UofT).
 
@@ -157,9 +167,131 @@ class actionAngleAdiabaticApprox(actionAngle):
         ) + DehnenSmoothWrapperPotential(
             pot=self._target_pot, tform=0.0, tsteady=self._tintJ, decay=False
         )
+        self._calibrate = kwargs.get("calibrate_angles", False)
+        # The inverse of aA=, for the half turns of the calibrated angles
+        self._aAI = kwargs.get("aAI", None)
+        if self._aAI is None and isinstance(self._aA, actionAngleIsochrone):
+            from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
+
+            self._aAI = actionAngleIsochroneInverse(ip=self._aA._ip)
         # Check the units
         self._check_consistent_units()
         return None
+
+    def _offset(self, R, vR, vT, z, vz, phi):
+        """The offset (jr,lz,jz order; modulo pi) of the angles of points
+        of the potential that is transformed to: half of the change of
+        their angles over the transformation back to pot and again to that
+        potential, both forward in time"""
+        from ..orbit import Orbit
+
+        back_pot = DehnenSmoothWrapperPotential(
+            pot=self._target_pot, tform=0.0, tsteady=self._tintJ, decay=True
+        ) + DehnenSmoothWrapperPotential(
+            pot=self._pot, tform=0.0, tsteady=self._tintJ, decay=False
+        )
+        start = numpy.array(self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)[6:])
+        orb = Orbit(numpy.stack([R, vR, vT, z, vz, phi], axis=-1))
+        for pot in (back_pot, self._adiabatic_pot):
+            orb.integrate(
+                self._tsJ,
+                pot,
+                method=self._integrate_method,
+                dt=self._integrate_dt,
+                progressbar=False,
+            )
+            orb = orb(self._tsJ[-1])
+        end = numpy.array(
+            self._aA.actionsFreqsAngles(
+                orb.R(), orb.vR(), orb.vT(), orb.z(), orb.vz(), orb.phi()
+            )[6:]
+        )
+        return 0.5 * ((end - start + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+
+    def _halfturns(self, angles, actions, R, vR, vT, z, vz, phi):
+        """Whether each of the angles (jr,lz,jz order), known modulo pi,
+        of the points (R,vR,vT,z,vz,phi) of pot with the given actions is
+        half a turn off. The radial angle is in (0,pi) when the point moves
+        outward and, close to a turning point (where its sine is small and
+        its error could decide), zero when the radial acceleration is
+        outward. The azimuthal and vertical angles are those for which
+        the point of the torus of aA= with the same actions and angles lies
+        in the direction of the point and moves in its direction; without
+        an inverse of aA= (or where it has no such torus), those nearest
+        the angles that aA= assigns to the point itself"""
+        angles = numpy.array(angles)
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        vr = (R * vR + z * vz) / r
+        v2 = vR**2.0 + vT**2.0 + vz**2.0
+        racc = (v2 - vr**2.0) / r + (
+            R * evaluateRforces(self._pot, R, z, phi=phi, use_physical=False)
+            + z * evaluatezforces(self._pot, R, z, phi=phi, use_physical=False)
+        ) / r
+        off = numpy.zeros((3, len(R)), dtype="int")
+        off[0] = (
+            numpy.where(
+                numpy.fabs(numpy.sin(angles[0])) > 0.3,
+                vr * numpy.sin(angles[0]),
+                racc * numpy.cos(angles[0]),
+            )
+            < 0.0
+        )
+        todo = numpy.ones(len(R), dtype="bool")
+        if self._aAI is not None:
+            # (score of the four candidates: the cosines between the
+            # positions and between the velocities)
+            def cart(R, vR, vT, z, vz, phi):
+                c, s = numpy.cos(phi), numpy.sin(phi)
+                return numpy.array(
+                    [R * c, R * s, z, vR * c - vT * s, vR * s + vT * c, vz]
+                )
+
+            x = cart(R, vR, vT, z, vz, phi)
+            score = numpy.full((4, len(R)), -numpy.inf)
+            for kk in range(4):
+                cand = angles + numpy.pi * numpy.array(
+                    [off[0], 0 * off[0] + kk // 2, 0 * off[0] + kk % 2]
+                )
+                xa = cart(
+                    *(
+                        numpy.broadcast_to(numpy.ravel(q), R.shape)
+                        for q in self._aAI(*actions, *cand, use_physical=False)
+                    )
+                )
+                score[kk] = sum(
+                    numpy.sum(x[ii : ii + 3] * xa[ii : ii + 3], axis=0)
+                    / numpy.sqrt(
+                        numpy.sum(x[ii : ii + 3] ** 2.0, axis=0)
+                        * numpy.sum(xa[ii : ii + 3] ** 2.0, axis=0)
+                    )
+                    for ii in (0, 3)
+                )
+            best = numpy.argmax(numpy.where(numpy.isfinite(score), score, -3.0), axis=0)
+            todo = ~numpy.all(numpy.isfinite(score), axis=0)
+            off[1], off[2] = best // 2, best % 2
+        if numpy.any(todo):
+            try:
+                guess = numpy.array(
+                    self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)[6:]
+                )
+                guess[:, ~numpy.all(numpy.fabs(guess) < 100.0, axis=0)] = numpy.nan
+            except Exception:
+                guess = numpy.full((3, len(R)), numpy.nan)
+            nguess = todo & ~numpy.all(numpy.isfinite(guess), axis=0)
+            if numpy.any(nguess):
+                warnings.warn(
+                    f"{numpy.sum(nguess)} of the {len(R)} points have no angles "
+                    "in the potential of aA= (they are unbound there): their "
+                    "calibrated azimuthal and vertical angles may be half a "
+                    "turn off",
+                    galpyWarning,
+                )
+            near = numpy.round(
+                (guess[1:] - angles[1:] + numpy.pi) % (2.0 * numpy.pi) / numpy.pi - 1.0
+            )
+            use = todo & ~nguess
+            off[1:, use] = near[:, use].astype("int") % 2
+        return off
 
     def _evaluate(self, *args, **kwargs):
         """
@@ -271,7 +403,11 @@ class actionAngleAdiabaticApprox(actionAngle):
                 nofreq,
                 nofreq,
                 nofreq,
-                *(a.reshape(Rshape)[:, 0] % (2.0 * numpy.pi) for a in (ar, ap, az)),
+                *self._calibrated(
+                    [a.reshape(Rshape)[:, 0] % (2.0 * numpy.pi) for a in (ar, ap, az)],
+                    (jr, lz, jz),
+                    [x[:, 0] for x in (R, vR, vT, z, vz, phi)],
+                ),
             )
         # Fit for the frequency and angle for each dimension
         angle_out, freq_out = (), ()
@@ -285,7 +421,28 @@ class actionAngleAdiabaticApprox(actionAngle):
             out = linalg.lstsq(self._vanderA, angleT.T)[0]
             angle_out += (out[0] % (2.0 * numpy.pi),)
             freq_out += (out[1],)
-        return (jr, lz, jz, *freq_out, *angle_out)
+        mid = self._npoints // 2
+        return (
+            jr,
+            lz,
+            jz,
+            *freq_out,
+            *self._calibrated(
+                angle_out, (jr, lz, jz), [x[:, mid] for x in (R, vR, vT, z, vz, phi)]
+            ),
+        )
+
+    def _calibrated(self, angles, actions, end):
+        """The angles with the offset of each point's torus removed when
+        calibrate_angles is set: end is the image of each point in the
+        potential that is transformed to"""
+        if not self._calibrate:
+            return tuple(angles)
+        angles = (numpy.array(angles) - self._offset(*end)) % (2.0 * numpy.pi)
+        return tuple(
+            (angles + numpy.pi * self._halfturns(angles, actions, *self._start))
+            % (2.0 * numpy.pi)
+        )
 
     def _parse_args(self, *args):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
@@ -314,6 +471,7 @@ class actionAngleAdiabaticApprox(actionAngle):
             numpy.atleast_1d(numpy.asarray(x, dtype="float"))
             for x in (R, vR, vT, z, vz, phi)
         )
+        self._start = (R, vR, vT, z, vz, phi)
         if self._npoints == 0:
             # Each point on its own
             os_for_actions = Orbit(
