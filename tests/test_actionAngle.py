@@ -13980,8 +13980,8 @@ def test_actionAngleStaeckelInverse_delta_callable_tables():
         return Ec, evaluatePotentials(lp, Rinf, 0.0) + Lz**2 / 2.0 / Rinf**2 - Ec
 
     for rule, axis_weight in (
-        (lambda E, Lz, y: 0.8 * (1.0 - 0.25 * y + 0.1 * (Lz - 1.0)), 0.0),
-        (lambda E, Lz, y: 0.8 * (1.0 + 0.1 * (Lz - 1.0) + 0.3 * E), 0.25),
+        (lambda E, Lz, f: 0.8 * (1.0 - 0.25 * f + 0.1 * (Lz - 1.0)), 0.0),
+        (lambda E, Lz, f: 0.8 * (1.0 + 0.1 * (Lz - 1.0) + 0.3 * E), 0.25),
     ):
         knobs = dict(axis_weight=axis_weight, mm_npt=32)
 
@@ -14067,14 +14067,14 @@ def test_actionAngleStaeckelInverse_delta_callable_points():
     grid = dict(setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=3.5, progressbar=False)
     grid.update(nE=4, nLz=4, nI3=4, mm_npt=32)
 
-    def rule(E, Lz, y):
+    def rule(E, Lz, f):
         return _STAECKEL_INVERSE_DELTA * (
-            1.0 + 0.15 * numpy.sin(2.0 * Lz) + 0.2 * (y - 0.5) + 0.05 * E * y
+            1.0 + 0.15 * numpy.sin(2.0 * Lz) + 0.2 * (f - 0.5) + 0.05 * E * f
         )
 
     base = actionAngleStaeckelInverse(pot=pot, **grid)
     const = actionAngleStaeckelInverse(
-        pot=pot, delta=lambda E, Lz, y: _STAECKEL_INVERSE_DELTA, **grid
+        pot=pot, delta=lambda E, Lz, f: _STAECKEL_INVERSE_DELTA, **grid
     )
     vary = actionAngleStaeckelInverse(pot=pot, delta=rule, **grid)
     angler = numpy.linspace(0.05, 6.2, 11)
@@ -14139,7 +14139,7 @@ def test_actionAngleStaeckelInverse_delta_callable_points():
         numpy.array(
             actionAngleStaeckelInverse(
                 pot=lp,
-                delta=lambda E, Lz, y: 0.8 * (1.0 - 0.25 * y + 0.1 * Lz + 0.3 * E),
+                delta=lambda E, Lz, f: 0.8 * (1.0 - 0.25 * f + 0.1 * Lz + 0.3 * E),
                 nE=n,
                 nLz=n,
                 nI3=n,
@@ -14204,12 +14204,15 @@ def test_actionAngleStaeckelInverse_delta_fit():
         < 1e-4
     ), "delta='fit' does not find the family of a Staeckel potential"
     # a family with a callable: the method returns the family's own table
-    rule = lambda E, Lz, y: 1.3 * (1.0 + 0.2 * (y - 0.5) + 0.05 * E * y)  # noqa: E731
+    rule = lambda E, Lz, f: 1.3 * (1.0 + 0.2 * (f - 0.5) + 0.05 * E * f)  # noqa: E731
     vary = actionAngleStaeckelInverse(pot=pot, delta=rule, **grid)
-    assert numpy.amax(numpy.fabs(vary.delta(E, Lz, y) / rule(E, Lz, y) - 1.0)) < 1e-3, (
+    assert numpy.all(vary.delta(E, Lz, y) == rule(E, Lz, y)), (
         "The delta method does not return the focal lengths of a family with "
         "a callable delta="
     )
+    # the callable is not pickled with the family
+    with pytest.raises(RuntimeError, match="was not pickled"):
+        pickle.loads(pickle.dumps(vary)).delta(E, Lz, y)
     # a general potential: the fitted family is canonical, the true energy
     # varies less over its tori than over those of single focal lengths,
     # and its delta method gives another family the same focal lengths
@@ -14284,9 +14287,9 @@ def test_actionAngleStaeckelInverse_delta_target():
     wide = actionAngleStaeckelInverse(delta="fit", nE=7, nLz=7, nI3=7, **kw)
     calls = []
 
-    def rule(E, Lz, y):
+    def rule(E, Lz, f):
         calls.append(numpy.shape(E))
-        return wide.delta(E, Lz, y)
+        return wide.delta(E, Lz, f)
 
     small = dict(target=o(ts), nE=4, nLz=4, nI3=4, **kw)
     loc = actionAngleStaeckelInverse(delta=rule, **small)
@@ -16368,42 +16371,6 @@ def test_actionAngleStaeckelInverse_from_actions_sheets():
     return None
 
 
-def test_actionAngleStaeckel_c_model_energy():
-    # The C code's switch to the energy of the Staeckel model that the
-    # approximation with (delta, u0) stands for: for a Staeckel potential
-    # with its own focal length, that model is the potential itself for any
-    # u0, so the actions, frequencies, and angles do not change (the switch
-    # is first used by actionAngleStaeckel itself for the actions alone)
-    from galpy.actionAngle import actionAngleStaeckel_c
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-
-    pot = KuzminKutuzovStaeckelPotential(ac=5.0, Delta=1.0, normalize=True)
-    rng = numpy.random.default_rng(4)
-    x = (
-        rng.uniform(0.8, 1.2, 6),
-        rng.normal(0.0, 0.15, 6),
-        rng.uniform(0.8, 1.1, 6),
-        rng.normal(0.0, 0.2, 6),
-        rng.normal(0.0, 0.1, 6),
-        rng.uniform(0.0, 2.0 * numpy.pi, 6),
-    )
-    out = [
-        numpy.array(
-            actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
-                pot, 1.0, *x, u0=numpy.full(6, 0.8), order=20, model=model
-            )[:8]
-        )
-        for model in (False, True)
-    ]
-    assert numpy.all(numpy.isfinite(out[0])) and numpy.allclose(
-        out[0], out[1], rtol=0.0, atol=1e-8
-    ), (
-        "The Staeckel C code with the energy of its Staeckel model changes "
-        "the actions, frequencies, or angles in a Staeckel potential"
-    )
-    return None
-
-
 def test_actionAngleStaeckel_inverse_single_model():
     # actionAngleStaeckel(inverse=) of tori in a single Staeckel model is
     # the transformation of that model
@@ -16584,12 +16551,59 @@ def test_actionAngleStaeckel_inverse_deltafit():
     # a single focal length does not give the family's frequencies
     own = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
     assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-3
-    # points whose torus the family does not hold have no model (checked on
-    # the vertical action: the C code's radial action without a model is nan
-    # or zero depending on the platform)
-    one = numpy.ones(2)
-    far = numpy.array(aAS(one, 0.1 * one, one, 0.1 * one, numpy.array([0.9, 0.01])))
-    assert numpy.isnan(far[2, 0]) and numpy.all(numpy.isfinite(far[:, 1])), (
-        "actionAngleStaeckel(inverse=) does not return nan off a family"
-    )
+    # a point outside the grid's range of energy or of L_z is transformed
+    # like any other, with the focal length of the rule at the edge of that
+    # range, and with a warning (the first point is on the grid)
+    one = numpy.ones(3)
+    far = (one, 0.1 * one, numpy.array([1.0, 1.0, 1.6]), 0.1 * one)
+    far += (numpy.array([0.01, 0.9, 0.01]),)
+    with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
+        out = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one))
+    py = out  # (on a backend, c=False runs the same backend code)
+    if on_numpy:
+        with pytest.warns(galpyWarning, match="2 of the 3 points lie outside"):
+            py = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))
+    assert numpy.all(numpy.isfinite(out)) and numpy.allclose(
+        py, out, rtol=0.0, atol=1e-7
+    ), "actionAngleStaeckel(inverse=) does not transform a point off a family's grid"
+    with pytest.warns(galpyWarning, match="lie outside"):
+        assert numpy.allclose(numpy.array(aAS(*far)), out[:3], atol=1e-8)
+    # a family with a callable rule: the rule itself where the family has
+    # it, and the family's table of it for a pickled family, which does not
+    import pickle
+
+    kw = dict(pot=MWPotential2014, setup_interp=True, Rmin=0.85, Rmax=1.15, Rinf=2.5)
+    kw.update(nE=4, nLz=4, nI3=4, mm_npt=128, progressbar=False)
+    with use("numpy", force=True):
+        cbI = actionAngleStaeckelInverse(
+            delta=lambda E, Lz, f: 0.45 * (1.0 + 0.1 * (f - 0.5) + 0.05 * Lz), **kw
+        )
+    jr, jz = numpy.array([cbI._A_tab[n][:2] for n in nodes]).T
+    x = cbI(jr, Lz, jz, *angs)
+    freqs = numpy.array(cbI.Freqs(jr, Lz, jz))
+    for fam in (cbI, pickle.loads(pickle.dumps(cbI))):
+        out = numpy.array(
+            actionAngleStaeckel(inverse=fam, order=20).actionsFreqsAngles(*x)
+        )
+        dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-7, (
+            "actionAngleStaeckel(inverse=) does not return the actions of a "
+            "family with a callable delta="
+        )
+        assert (
+            numpy.amax(numpy.fabs(out[3:6] - freqs)) < 1e-7
+            and numpy.amax(numpy.fabs(dang)) < 1e-7
+        ), (
+            "actionAngleStaeckel(inverse=) does not return the frequencies and "
+            "angles of a family with a callable delta="
+        )
+        assert not on_numpy or numpy.allclose(
+            numpy.array(actionAngleStaeckel(inverse=fam, order=20)(*x[:5], c=False)),
+            out[:3],
+            rtol=0.0,
+            atol=1e-8,
+        ), (
+            "actionAngleStaeckel(inverse=) in Python does not return the actions "
+            "of the C code for a family with a callable delta="
+        )
     return None
