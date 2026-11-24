@@ -356,3 +356,20 @@
 #     the backend path deliberately does NOT raise (stays jit-traceable; unbound
 #     -> NaN, see actionAngleStaeckel.py). Neither is a coercion bug.
 # =============================================================================
+
+# DELTA FAMILY BUILT ON NUMPY ONLY (2026-11-23, v2 mirror of main's #1938-#1942;
+# ledgered with Jo's approval). A family whose focal length follows its tori
+# (delta='fit' or a callable) is built with numpy: under a forced backend its
+# construction raises NotImplementedError (_DELTA_RULE_NUMPY_ONLY). It evaluates
+# natively on jax and torch once built (test_backend_actionAngleStaeckelInverse::
+# test_delta_family_on_backends). These four come out when the native build
+# lands (the delta direction of the derivative tables, the nodes' own models,
+# the fit and the target boxes on the backends).
+jax tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_callable_tables
+jax tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_callable_points
+jax tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_fit
+jax tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_target
+torch tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_callable_tables
+torch tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_callable_points
+torch tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_fit
+torch tests/test_actionAngle.py::test_actionAngleStaeckelInverse_delta_target

@@ -1551,3 +1551,58 @@ def test_array_actions_fallbacks(interp):
         interp(
             torch.tensor([0.05, 0.06]), torch.tensor([0.93, 5.0]), 0.05, 1.0, 1.0, 1.0
         )
+
+
+# ---------- a focal length that follows the tori
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_delta_family_on_backends(backend):
+    # a family whose focal length follows its tori is built on numpy (a
+    # forced backend raises) and evaluates natively with backend inputs,
+    # torus by torus, each point in the coordinates of its torus's own focal
+    # length: numpy's values, and derivatives in the angles and actions that
+    # match a finite difference and keep the map canonical
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+
+    grid = dict(setup_interp=True, Rmin=0.7, Rmax=1.6, Rinf=3.5, progressbar=False)
+    grid.update(nE=4, nLz=4, nI3=4, mm_npt=32)
+
+    def rule(E, Lz, y):
+        return (
+            1.3
+            * (1.0 + 0.15 * numpy.tanh(Lz - 1.0) + 0.2 * (y - 0.5))
+            * (1.0 + 0.05 * E)
+        )
+
+    with use(backend, force=True):
+        with pytest.raises(NotImplementedError, match="not yet built"):
+            actionAngleStaeckelInverse(pot=_pot(), delta=rule, **grid)
+    with use("numpy", force=True):
+        aA = actionAngleStaeckelInverse(pot=_pot(), delta=rule, **grid)
+    acts = numpy.array([[0.06, 0.93, 0.10], [0.15, -1.21, 0.03], [0.02, 0.8, 0.2]]).T
+    angs = numpy.array([[0.3, 2.0, 4.1], [1.0, 4.0, 0.2], [2.0, 5.5, 3.3]])
+    ref = aA.xvFreqs(*acts, *angs)
+    got = aA.xvFreqs(
+        *(_arr(backend, q) for q in acts), *(_arr(backend, q) for q in angs)
+    )
+    assert all(_is_backend(backend, g) for g in got)
+    numpy.testing.assert_allclose(_flat(got), _flat(ref), rtol=0.0, atol=1e-12)
+    x0 = numpy.array([0.4, 1.0, 2.0, 0.06, 0.93, 0.10])
+
+    def qp_np(x):
+        return numpy.array(_qp(aA(x[3], x[4], x[5], *x[:3])))
+
+    A = numpy.empty((6, 6))
+    for k in range(6):
+        e = numpy.zeros(6)
+        e[k] = 1.0
+        A[:, k] = _fd(lambda h: qp_np(x0 + h * e), 0.0, 1e-4)
+    J = _jacobian(backend, aA, x0)
+    numpy.testing.assert_allclose(J, A, rtol=0.0, atol=2e-9)
+    assert _defect(J) < 1e-8
+    # (E, L_z, I_3) do not label its tori, as on numpy; its delta method
+    # reads backend inputs on the host
+    E, y = _arr(backend, -1.6), _arr(backend, 0.5)
+    with pytest.raises(NotImplementedError, match="do not label"):
+        aA.JR(E, _arr(backend, 0.93), _arr(backend, 2.0))
+    assert aA.delta(E, _arr(backend, 0.93), y) == aA.delta(-1.6, 0.93, 0.5)
