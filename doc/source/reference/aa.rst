@@ -36,6 +36,7 @@ Specific actionAngle modules
    actionAngleStaeckel <aastaeckel.rst>
    actionAngleStaeckelGrid <aastaeckelgrid.rst>
    actionAngleIsochroneApprox <aaisochroneapprox.rst>
+   actionAngleAdiabaticApprox <aaadiabaticapprox.rst>
    actionAngleVertical <aavertical.rst>
 
 (**J**, **a**) --> (**x**, **v**, **O**)

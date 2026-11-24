@@ -14297,6 +14297,72 @@ def test_actionAngleIsochroneApprix_setup_tintJ_units():
     return None
 
 
+def test_actionAngleAdiabaticApprox_units():
+    from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
+    from galpy.potential import IsochronePotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 9.0, 230.0
+    kw = dict(
+        pot=NFWPotential(a=1.0, normalize=1.0),
+        aA=actionAngleIsochrone(ip=IsochronePotential(b=0.5, normalize=1.0)),
+        ntintJ=101,
+    )
+    # tintJ and npoints_dt as Quantity, output as Quantity
+    aA = actionAngleAdiabaticApprox(
+        tintJ=20.0 * conversion.time_in_Gyr(vo, ro) * units.Gyr,
+        npoints_dt=0.2 * conversion.time_in_Gyr(vo, ro) * 1000.0 * units.Myr,
+        ro=ro * units.kpc,
+        vo=vo * units.km / units.s,
+        **kw,
+    )
+    aAnu = actionAngleAdiabaticApprox(tintJ=20.0, npoints_dt=0.2, **kw)
+    # Different tintJ and npoints_dt, to check that these matter at the 1e-8 level
+    aAnu_other = actionAngleAdiabaticApprox(tintJ=21.0, npoints_dt=0.3, **kw)
+    args = (
+        1.0 * ro * units.kpc,
+        0.9 * vo * units.km / units.s,
+        1.1 * vo * units.km / units.s,
+        0.1 * ro * units.kpc,
+        0.3 * vo * units.km / units.s,
+        0.0 * units.rad,
+    )
+    out = aA.actionsFreqsAngles(*args)
+    outnu = aAnu.actionsFreqsAngles(1.0, 0.9, 1.1, 0.1, 0.3, 0.0)
+    outnu_other = aAnu_other.actionsFreqsAngles(1.0, 0.9, 1.1, 0.1, 0.3, 0.0)
+    for ii in range(9):
+        unit, conv = (
+            (units.kpc * units.km / units.s, ro * vo)
+            if ii < 3
+            else (1 / units.Gyr, conversion.freq_in_Gyr(vo, ro))
+            if ii < 6
+            else (units.rad, 1.0)
+        )
+        assert isinstance(out[ii], units.Quantity), (
+            "actionAngleAdiabaticApprox method actionsFreqsAngles does not return Quantity when it should"
+        )
+        assert numpy.all(
+            numpy.fabs(out[ii].to(unit).value / outnu[ii] / conv - 1.0) < 10.0**-8.0
+        ), (
+            "actionAngleAdiabaticApprox with Quantity tintJ, npoints_dt, and input does not return Quantity with the right value"
+        )
+    assert numpy.fabs(outnu_other[0] / outnu[0] - 1.0) > 10.0**-6.0, (
+        "tintJ does not affect the actionAngleAdiabaticApprox radial action as expected"
+    )
+    assert numpy.fabs(outnu_other[3] / outnu[3] - 1.0) > 10.0**-6.0, (
+        "npoints_dt does not affect the actionAngleAdiabaticApprox frequency as expected"
+    )
+    for ii in range(3):
+        assert isinstance(aA(*args)[ii], units.Quantity), (
+            "actionAngleAdiabaticApprox method __call__ does not return Quantity when it should"
+        )
+    for ii in range(6):
+        assert isinstance(aA.actionsFreqs(*args)[ii], units.Quantity), (
+            "actionAngleAdiabaticApprox method actionsFreqs does not return Quantity when it should"
+        )
+    return None
+
+
 def test_actionAngle_method_inputAsQuantity():
     from galpy.actionAngle import (
         actionAngleAdiabatic,
