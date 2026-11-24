@@ -239,7 +239,9 @@ at release.]
   that is not of Staeckel form, the potential that is transformed to is
   the Staeckel potential that it approximates that potential with (it was
   the potential itself, such that nothing was transformed); instances
-  whose Staeckel potential follows their tori raise an error.
+  whose Staeckel potential follows their tori raise an error, and an
+  ``actionAngleStaeckel`` ``aA=`` for a potential that is not of Staeckel
+  form gives a warning.
 
 - [slot 34]
 

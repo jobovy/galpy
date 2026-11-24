@@ -6659,6 +6659,13 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         "actionAngleAdiabaticApprox does not transform to the Staeckel "
         "potential of an actionAngleStaeckelInverse with delta="
     )
+    # an actionAngleStaeckel for a potential that is not of Staeckel form is
+    # not the action-angle instance of a single potential: warned about
+    with pytest.warns(galpyWarning, match="not of Staeckel form"):
+        actionAngleAdiabaticApprox(
+            pot=MWPotential2014,
+            aA=actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True),
+        )
     # one whose Staeckel potential follows its tori has no single auxiliary
     # potential
     follows = actionAngleStaeckelInverse(

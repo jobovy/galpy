@@ -29,7 +29,7 @@ from .actionAngle import actionAngle
 from .actionAngleAdiabatic import actionAngleAdiabatic
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleSpherical import actionAngleSpherical
-from .actionAngleStaeckel import actionAngleStaeckel
+from .actionAngleStaeckel import _focal_length_of, actionAngleStaeckel
 
 
 def _aA_from_inverse(aAI):
@@ -63,6 +63,16 @@ def _auxiliary_potential(aA):
     if isinstance(aA, actionAngleStaeckel):
         aAI = aA._inverse
     if aAI is None:
+        if isinstance(aA, actionAngleStaeckel) and _focal_length_of(aA._pot) is None:
+            warnings.warn(
+                "aA= is an actionAngleStaeckel instance for a potential that is "
+                "not of Staeckel form: its actions are not those of a single "
+                "potential, and the potential that is transformed to is that "
+                "potential itself rather than a Staeckel potential. Set aA= up "
+                "for a potential of Staeckel form, for example an "
+                "OblateStaeckelWrapperPotential of that potential",
+                galpyWarning,
+            )
         return aA._pot
     if aAI._adaptive or aAI._delta_rule is not None:
         raise NotImplementedError(
