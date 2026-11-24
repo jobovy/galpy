@@ -250,7 +250,12 @@ at release.]
   taken to be at its vertical turning point, which gave vertical
   frequencies and angles that were off by up to several percent.
 
-- [slot 31]
+- ``actionAngleStaeckel`` with ``c=False``: the vertical action of orbits
+  with very little angular momentum (|L_z| below ~1e-3 in natural units) no
+  longer comes out as zero for points below the plane, or too small for the
+  smallest angular momenta: the turning point close to the symmetry axis is
+  searched for from the point's mirror image above the plane and over the
+  whole range down to the axis.
 
 - ``actionAngleStaeckel(inverse=)`` for a family with ``delta='fit'``: the
   focal length of the torus through a point close to the symmetry axis is
