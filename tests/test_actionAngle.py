@@ -6394,6 +6394,119 @@ def test_actionAngleAdiabaticApprox_inputs_and_range():
     return None
 
 
+# Test that actionAngleAdiabaticApproxInverse is the inverse of
+# actionAngleAdiabaticApprox for any duration of the transformation, and
+# returns points with the requested actions for a long one
+def test_actionAngleAdiabaticApproxInverse_inverse():
+    from galpy.actionAngle import (
+        actionAngleAdiabaticApprox,
+        actionAngleAdiabaticApproxInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+    )
+    from galpy.potential import NFWPotential
+
+    np = NFWPotential(a=1.0, normalize=1.0)
+    aAS = actionAngleSpherical(pot=np)
+    rng = numpy.random.default_rng(0)
+    jr, lz, jz = (
+        rng.uniform(0.05, 0.5, 6),
+        rng.uniform(0.5, 1.5, 6),
+        rng.uniform(0.01, 0.3, 6),
+    )
+    acts = numpy.array([jr, lz, jz])
+    ang = rng.uniform(0.0, 2.0 * numpy.pi, (3, 6))
+    for tintJ, tol in zip((20.0, 200.0), (10.0**-1.0, 10.0**-3.5)):
+        aAAI = actionAngleAdiabaticApproxInverse(
+            pot=np, aAI=actionAngleIsochroneInverse(b=0.5), tintJ=tintJ
+        )
+        aAA = actionAngleAdiabaticApprox(
+            pot=np, aA=actionAngleIsochrone(b=0.5), tintJ=tintJ, npoints=0
+        )
+        xv = aAAI(jr, lz, jz, *ang)
+        back = numpy.array(aAA.actionsFreqsAngles(*xv))
+        dang = (back[6:] - ang + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert numpy.all(numpy.fabs(back[:3] - acts) < 1e-8) and numpy.all(
+            numpy.fabs(dang) < 1e-7
+        ), (
+            "actionAngleAdiabaticApproxInverse is not the inverse of "
+            f"actionAngleAdiabaticApprox for tintJ={tintJ}"
+        )
+        assert numpy.all(numpy.fabs(numpy.array(aAS(*xv)) / acts - 1.0) < tol), (
+            "actionAngleAdiabaticApproxInverse does not return points with the "
+            f"requested actions for tintJ={tintJ}"
+        )
+    return None
+
+
+# Test the frequencies, the broadcasting, and the units of
+# actionAngleAdiabaticApproxInverse
+def test_actionAngleAdiabaticApproxInverse_freqs_shapes_units():
+    from galpy.actionAngle import (
+        actionAngleAdiabaticApproxInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+    )
+    from galpy.potential import NFWPotential
+
+    np = NFWPotential(a=1.0, normalize=1.0)
+    aAS = actionAngleSpherical(pot=np)
+    aAAI = actionAngleAdiabaticApproxInverse(
+        pot=np,
+        aAI=actionAngleIsochroneInverse(b=0.5),
+        aA=actionAngleIsochrone(b=0.5),
+        tintJ=200.0,
+    )
+    jr, lz, jz = (
+        numpy.array([0.1, 0.3]),
+        numpy.array([1.0, 0.8]),
+        numpy.array([0.05, 0.2]),
+    )
+    angs = numpy.array([0.5, 2.0, 4.0])
+    # every angle on every torus
+    out = numpy.array(
+        aAAI.xvFreqs(jr[:, None], lz[:, None], jz[:, None], angs, 1.0, 2.0)
+    )
+    assert out.shape == (9, 2, 3), (
+        "actionAngleAdiabaticApproxInverse does not broadcast actions against angles"
+    )
+    true = numpy.array(aAS.actionsFreqs(*(x.ravel() for x in out[:6])))
+    assert numpy.all(
+        numpy.fabs(out[6:].reshape((3, 6)) / true[3:] - 1.0) < 10.0**-3.0
+    ), "actionAngleAdiabaticApproxInverse.xvFreqs does not return the frequencies"
+    freqs = numpy.array(aAAI.Freqs(jr, lz, jz))
+    assert freqs.shape == (3, 2) and numpy.all(
+        numpy.fabs(freqs / out[6:, :, 0] - 1.0) < 10.0**-3.0
+    ), "actionAngleAdiabaticApproxInverse.Freqs does not return the frequencies"
+    # one torus, floats
+    one = numpy.array(aAAI(0.1, 1.0, 0.05, 0.5, 1.0, 2.0))
+    assert numpy.allclose(one[:, 0], out[:6, 0, 0], rtol=0.0, atol=1e-10)
+    # without aA=, there are no frequencies
+    nofreq = actionAngleAdiabaticApproxInverse(
+        pot=np, aAI=actionAngleIsochroneInverse(b=0.5), tintJ=20.0
+    )
+    with pytest.raises(RuntimeError, match="require aA= at initialization"):
+        nofreq.Freqs(0.1, 1.0, 0.05)
+    # physical units
+    phys = actionAngleAdiabaticApproxInverse(
+        pot=np,
+        aAI=actionAngleIsochroneInverse(b=0.5),
+        tintJ=200.0,
+        ro=8.0,
+        vo=220.0,
+    )
+    xvp = numpy.array(phys(0.1, 1.0, 0.05, 0.5, 1.0, 2.0))[:, 0]
+    assert numpy.allclose(
+        xvp / numpy.array([8.0, 220.0, 220.0, 8.0, 220.0, 1.0]),
+        one[:, 0],
+        rtol=1e-8,
+        atol=1e-8,
+    ), "actionAngleAdiabaticApproxInverse does not return physical units"
+    return None
+
+
 # Test that using MWPotential throws a warning
 def test_actionAngleAdiabaticApprox_MWPotential_warning():
     from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
