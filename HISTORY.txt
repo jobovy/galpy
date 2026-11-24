@@ -243,9 +243,10 @@ at release.]
   (before, it raised for CUDA tensors and, on the CPU, ran its numpy checks
   on forced-backend arrays).
 
-- Fixed the C frequencies and angles of ``actionAngleStaeckel`` for orbits
-  that stay within about 1e-3 of the plane, which were off by up to several
-  percent.
+- Fixed ``actionAngleStaeckel``'s vertical turning point: in C, the
+  frequencies and angles of orbits within about 1e-3 of the plane were off by
+  up to several percent; with ``c=False``, the vertical action of orbits with
+  |L_z| below about 1e-3 came out as zero or too small.
 
 - [slot 22]
 
