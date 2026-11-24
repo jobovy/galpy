@@ -257,7 +257,13 @@ at release.]
 
 - [slot 25]
 
-- [slot 26]
+- New ``actionAngleAdiabaticApproxInverse``: the phase-space point of given
+  actions and angles in any potential, by integrating the point of the torus
+  of an inverse action-angle instance ``aAI=`` (for example,
+  ``actionAngleIsochroneInverse``) backwards through the adiabatic
+  transformation of ``actionAngleAdiabaticApprox``; it is the inverse of
+  ``actionAngleAdiabaticApprox(..., npoints=0)`` (each point transformed on
+  its own) to the precision of the orbit integration, for any ``tintJ``.
 
 - [slot 27]
 
