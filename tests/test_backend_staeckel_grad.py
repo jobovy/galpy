@@ -567,7 +567,7 @@ def test_staeckel_inverse_torus_model_grad(backend, u0):
 def test_staeckel_inverse_deltafit_model_grad(backend):
     # the same for a family whose focal length follows its tori (delta='fit'):
     # the fixed point in the focal length and the reference curve together,
-    # with the focal length from the family's label inversion; at a torus
+    # with the focal length from the family's rule, in the backend; at a torus
     # inside a cell (at a node, the interpolant's second derivatives, which
     # the focal length's derivatives carry, jump)
     from galpy.actionAngle import actionAngleStaeckelInverse
@@ -629,6 +629,60 @@ def test_staeckel_inverse_delta_callable_backend(backend):
             ref = numpy.array(method(*x))
             out = numpy.array([N(q) for q in method(*[T(q) for q in x])])
             numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_inverse_delta_rule_in_backend(backend):
+    # a delta='fit' family's focal-length rule in the backend (the rule of the
+    # models of actionAngleStaeckel(inverse=)): equal to numpy's over the whole
+    # range of the energy variable, beyond the grid's energies and |L_z| (held
+    # at the edge), and nan for a non-finite energy; its closed-form partials
+    # equal numpy's and the backend's autodiff of the value (off the energy
+    # range's exact ends, where the one-sided derivative in the energy depends
+    # on the round-off of the ends' potential)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+    from galpy.potential import MWPotential2014, evaluatePotentials
+
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014, delta="fit", delta_deg=(1, 1, 1), setup_interp=True,
+        Rmin=0.85, Rmax=1.15, Rinf=2.5, nE=4, nLz=4, nI3=4, mm_npt=64,
+        progressbar=False,
+    )  # fmt: skip
+    L = numpy.linspace(aAI._Lzgrid[0], aAI._Lzgrid[-1], 7)
+    t = numpy.array([0.0, 1e-12, 0.1, 0.5, 0.9, 1.0 - 1e-12, 1.0, -0.2, 1.2])
+    L, t = (a.ravel() for a in numpy.meshgrid(L, t))
+    with use("numpy", force=True):
+        ed = aAI._delta_edges(L)
+        phic, phim = (
+            evaluatePotentials(aAI._chart_pot, ed[:, k], 0.0 * L) for k in (0, 1)
+        )
+    E = phic + t * (phim - phic)
+    Lz = numpy.concatenate([L, -L, [0.5 * aAI._Lzgrid[0], 1.5 * aAI._Lzgrid[-1]]])
+    E = numpy.concatenate([E, E, [E[3], numpy.nan]])
+    f = numpy.linspace(0.0, 1.0, len(E))
+    end = numpy.concatenate([(t == 0.0) | (t == 1.0)] * 2 + [[False, False]])
+    with use("numpy", force=True):
+        ref, dref = aAI._delta_of(E, Lz, f, aAI._delta_edges(Lz), deriv=True)
+    if backend == "jax":
+        T, N = jnp.asarray, numpy.asarray
+    else:
+        T, N = torch.tensor, lambda a: a.detach().numpy()
+    val, grad = aAI._bk_delta_of(T(E), T(Lz), T(f), deriv=True)
+    numpy.testing.assert_allclose(N(val), ref, rtol=1e-12, atol=0.0)
+    for g, gref in zip(grad, dref):
+        numpy.testing.assert_allclose(N(g)[~end], gref[~end], rtol=0.0, atol=1e-11)
+    # (at the points' shape: eager jax reuses the value's compiled ops)
+    ok = numpy.isfinite(E) & ~end
+    q = [T(a) for a in (numpy.where(ok, E, E[3]), Lz, f)]
+    if backend == "jax":
+        ad = jax.grad(lambda *a: jnp.sum(aAI._bk_delta_of(*a)), argnums=(0, 1, 2))(*q)
+    else:
+        for a in q:
+            a.requires_grad_(True)
+        ad = torch.autograd.grad(aAI._bk_delta_of(*q).sum(), q)
+    for g, gref, sign in zip(ad, dref, (1.0, numpy.sign(Lz), 1.0)):
+        numpy.testing.assert_allclose(N(g)[ok], (sign * gref)[ok], rtol=0.0, atol=1e-10)
 
 
 @pytest.mark.parametrize(

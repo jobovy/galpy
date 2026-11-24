@@ -2150,9 +2150,10 @@ class actionAngleStaeckel(actionAngle):
         length and the reference curve together, at fixed shape on the
         derivative-free inputs xs, then the implicit-function step of the
         two-dimensional fixed point. The focal length of a point's torus is
-        the family's rule at its (E, L_z, f) (_staeckel_fraction), evaluated
-        on the host and linearized in (E, L_z, f) (_bk_host_linearized), or,
-        for a family without its rule, read from its table through the
+        the family's rule at its (E, L_z, f) (_staeckel_fraction): a fitted
+        rule in the backend (_bk_delta_of), a callable on the host, linearized
+        in (E, L_z, f) (_bk_host_linearized), or, for a family without its
+        rule, read from its table through the
         vectorized label inversion (_bk_focal_lengths). With deriv, the
         partials of the focal length (as _inverse_model_delta), with their
         own derivatives. nan for points without a model"""
@@ -2179,7 +2180,15 @@ class actionAngleStaeckel(actionAngle):
                 hess[:, k] = (grad_at(Q + h)[1] - grad_at(Q - h)[1]) / (2.0 * h[k])
             return val, grad, hess
 
-        def step(u0, delta, R, vR, vT, z, vz, partials=False):
+        def rule_bk(E, q, f, edges, partials=False):
+            if aAI._delta_fit is None:  # a callable, on the host
+                return _bk_host_linearized(rule_delta, (E, q, f), partials)
+            if not partials:
+                return aAI._bk_delta_of(E, q, f, edges)
+            _, (dE, dL, dF) = aAI._bk_delta_of(E, q, f, edges, deriv=True)
+            return xp.stack([dE, xp.sign(q) * dL, dF])
+
+        def step(u0, delta, R, vR, vT, z, vz, partials=False, edges=None):
             if not direct:
                 u0 = rule(u0, R, vR, vT, z, vz, delta=delta)
                 jr, _, jz = _staeckel_actions(
@@ -2198,20 +2207,24 @@ class actionAngleStaeckel(actionAngle):
             q = s["Lz"]
             if partials:
                 f, df = _staeckel_fraction(xp, s, ush, pot, delta, True)
-                dE, dL, dF = _bk_host_linearized(rule_delta, (s["E"], q, f), True)
+                dE, dL, dF = rule_bk(s["E"], q, f, edges, True)
                 return xp.stack(
                     [dE + dF * df[0], dF * df[1], dL + dF * df[2], dF * df[3]]
                 )
             f = _staeckel_fraction(xp, s, ush, pot, delta)
-            return u0, _bk_host_linearized(rule_delta, (s["E"], q, f)), None
+            return u0, rule_bk(s["E"], q, f, edges), None
 
+        # (the fitted rule's edges at the points' L_z, for every iteration)
+        e0 = None
+        if direct and aAI._delta_fit is not None:
+            e0 = aAI._bk_delta_edges(xs[0] * xs[2])
         delta = self._delta * 1.0 + 0.0 * xs[0]
-        u0, delta, _ = step(xp.asinh(xs[0] / delta), delta, *xs)
+        u0, delta, _ = step(xp.asinh(xs[0] / delta), delta, *xs, edges=e0)
         live = xp.isfinite(delta)
         for _ in range(_MODEL_MAXITER):
-            u1, d1, _ = step(u0, delta, *xs)
+            u1, d1, _ = step(u0, delta, *xs, edges=e0)
             d1 = xp.where(xp.isfinite(d1), d1, delta)
-            u2, d2, _ = step(u1, d1, *xs)
+            u2, d2, _ = step(u1, d1, *xs, edges=e0)
             left = xp.maximum(
                 _fixed_point_error(u0, u1, u2), _fixed_point_error(delta, d1, d2) / d1
             )
