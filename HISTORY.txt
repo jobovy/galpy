@@ -279,7 +279,17 @@ at release.]
 
 - [slot 35]
 
-- [slot 36]
+- ``actionAngleAdiabaticApprox`` and ``actionAngleAdiabaticApproxInverse``
+  are differentiable on jax and PyTorch: traced or differentiated inputs,
+  differentiated parameters of the potentials, and backend arrays with an
+  in-backend ``integrate_method`` ('diffrax', 'torchode', 'torchdiffeq';
+  options in the new ``integrate_kwargs=``) are transformed in the backend,
+  with the orbits integrated differentiably (the C integrators give first
+  derivatives with respect to the phase-space point or the actions and
+  angles; the in-backend ones also those with respect to parameters of the
+  potentials, which the default integrator is rerouted for), including
+  ``npoints=`` fits and ``calibrate_angles=True``. Concrete inputs keep
+  running on the host.
 
 - [slot 37]
 

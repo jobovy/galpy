@@ -18,12 +18,21 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..backend import as_numpy, get_namespace, is_backend_array
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    host_eval,
+    is_backend_array,
+    like,
+)
 from ..backend._namespaces import (
     asarray_on_device,
     default_device,
     device_of,
+    namespace_from_arrays,
     requires_backend_grad,
+    stop_gradient,
     under_trace,
 )
 from ..potential import (
@@ -33,6 +42,7 @@ from ..potential import (
     evaluateRforces,
     evaluatezforces,
 )
+from ..potential.Potential import _pot_grad_namespace
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -41,26 +51,63 @@ from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleStaeckel import _focal_length_of, actionAngleStaeckel
 
+# Orbit.integrate's methods that integrate in the backend
+_INBACKEND_METHODS = ("diffrax", "torchode", "torchdiffeq")
+
+
+def _switch_potential(start, end, tintJ):
+    """The potential that changes from start to end over tintJ"""
+    return DehnenSmoothWrapperPotential(
+        pot=start, tform=0.0, tsteady=tintJ, decay=True
+    ) + DehnenSmoothWrapperPotential(pot=end, tform=0.0, tsteady=tintJ, decay=False)
+
+
+def _integrate_backend(self, ic, ts, pot):
+    """The orbits [M,nt,6] of the backend-array initial conditions ic [M,6]
+    in pot at the times ts, with the instance's integrator: differentiable
+    with respect to the initial conditions (for a C method, to first order)
+    and, for an in-backend method, the potential's parameters"""
+    from ..orbit import Orbit
+
+    orb = Orbit(ic)
+    orb.integrate(
+        ts,
+        pot,
+        method=self._integrate_method,
+        dt=self._integrate_dt,
+        inbackend_kwargs=self._integrate_kwargs,
+    )
+    return orb.getOrbit()
+
 
 def _on_host(method):
-    """Run a method of the adiabatic-transformation classes on the host:
-    the transformation integrates orbits in C, so the inputs have to be
-    concrete and the class's own arithmetic is numpy's (what the auxiliary
-    instances, orbits, and potentials return is brought to numpy with
-    _host). The output is returned on the namespace and device of
-    backend-array inputs or of a forced backend"""
+    """Run a method of the adiabatic-transformation classes on the host
+    for concrete inputs: the class's own arithmetic is then numpy's (what
+    the auxiliary instances, orbits, and potentials return is brought to
+    numpy with _host), and the output is returned on the namespace and
+    device of backend-array inputs or of a forced backend. Traced or
+    differentiated inputs, a differentiated parameter of the potentials,
+    and backend arrays with an in-backend integrate_method go to the
+    class's implementation in the backend (_backend) instead"""
 
     @functools.wraps(method)
     def wrapped(self, *args, **kwargs):
         bk = [a for a in args if is_backend_array(a)]
+        pxp = _pot_grad_namespace(self._adiabatic_pot)
+        if (
+            pxp is not None
+            or any(under_trace(a) or requires_backend_grad(a) for a in bk)
+            or (bk and self._integrate_method in _INBACKEND_METHODS)
+        ):
+            return self._backend(
+                method.__name__,
+                pxp or namespace_from_arrays(tuple(bk)),
+                *args,
+                **kwargs,
+            )
         xp = get_namespace(*bk)
         if xp is numpy:
             return method(self, *args, **kwargs)
-        if any(under_trace(a) or requires_backend_grad(a) for a in bk):
-            raise NotImplementedError(
-                f"{type(self).__name__} integrates orbits in C and cannot be "
-                "traced or differentiated"
-            )
         dev = device_of(*bk) if bk else default_device(xp)
         out = method(
             self, *(as_numpy(a) if is_backend_array(a) else a for a in args), **kwargs
@@ -68,6 +115,12 @@ def _on_host(method):
         return tuple(asarray_on_device(xp, o, dev) for o in out)
 
     return wrapped
+
+
+def _unwrap(xp, x):
+    """numpy.unwrap along the second axis"""
+    d = (x[:, 1:] - x[:, :-1] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    return xp.concatenate([x[:, :1], x[:, :1] + xp.cumsum(d, axis=1)], axis=1)
 
 
 def _host(out):
@@ -141,7 +194,9 @@ class actionAngleAdiabaticApprox(actionAngle):
         ntintJ : int, optional
             Number of output times of the orbit integration (only the last one is used).
         integrate_method : str, optional
-            Integration method to use.
+            Integration method to use. With 'diffrax' (jax) or 'torchode'/'torchdiffeq' (PyTorch), backend-array inputs are integrated in the backend, which is what derivatives with respect to parameters of the potentials and higher-order derivatives require (the C methods give first derivatives with respect to the phase-space point).
+        integrate_kwargs : dict, optional
+            Options for the in-backend integrator (Orbit.integrate's inbackend_kwargs).
         dt : float, optional
             orbit.integrate dt keyword (for fixed stepsize integration).
         npoints : int, optional
@@ -244,6 +299,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         self._integrate_dt = kwargs.get("dt", None)
         self._tsJ = numpy.linspace(0.0, self._tintJ, self._ntintJ)
         self._integrate_method = kwargs.get("integrate_method", "dop853_c")
+        self._integrate_kwargs = kwargs.get("integrate_kwargs", None)
         self._npoints = int(kwargs.get("npoints", 2))
         if self._npoints < 0:
             raise OSError("npoints= must be at least 0")
@@ -574,6 +630,110 @@ class actionAngleAdiabaticApprox(actionAngle):
             ),
         )
 
+    def _backend(self, name, xp, *args, **kwargs):
+        """The method name (_evaluate, _actionsFreqs, or
+        _actionsFreqsAngles) in the backend xp, for traced or differentiated
+        inputs: the same computation with the orbits integrated
+        differentiably and the arithmetic in xp"""
+        if len(args) == 4:
+            args = (*args[:3], 0.0 * args[0], 0.0 * args[0], args[3])
+        ic = xp.stack(
+            [xp.atleast_1d(x) for x in coerce_coords(xp, *self._coords(*args))], axis=-1
+        )
+        flip = like(ic, numpy.array([1.0, -1.0, -1.0, 1.0, -1.0, 1.0]))
+        pts = ic[:, None, :]
+        if self._npoints > 0:
+            # (backward in time: forward with the velocities reversed)
+            fwd = _integrate_backend(self, ic, self._npoints_ts, self._pot)
+            bwd = _integrate_backend(self, ic * flip, self._npoints_ts, self._pot)
+            pts = xp.concatenate([xp.flip(bwd[:, 1:], axis=1) * flip, fwd], axis=1)
+        shape = pts.shape[:2]
+        end = _integrate_backend(
+            self, xp.reshape(pts, (-1, 6)), self._tsJ, self._adiabatic_pot
+        )[:, -1]
+        out = [
+            xp.reshape(o, shape)
+            for o in self._aA.actionsFreqsAngles(
+                *(end[:, ii] for ii in range(6)), use_physical=False
+            )
+        ]
+        actions = tuple(xp.mean(o, axis=1) for o in out[:3])
+        if name == "_evaluate":
+            return actions
+        mid = self._npoints // 2
+        if self._npoints == 0:
+            freqs = (xp.full_like(actions[0], numpy.nan),) * 3
+            angles = [o[:, 0] % (2.0 * numpy.pi) for o in out[6:]]
+        else:
+            ts, pinv = like(ic, self._vanderA[:, 1], linalg.pinv(self._vanderA).T)
+            freqs, angles = (), []
+            for angle, freq in zip(out[6:], out[3:6]):
+                guess = xp.mean(freq, axis=1)[:, None] * ts
+                fit = (_unwrap(xp, angle - guess) + guess) @ pinv
+                angles.append(fit[:, 0] % (2.0 * numpy.pi))
+                freqs += (fit[:, 1],)
+        if name == "_actionsFreqs":
+            return (*actions, *freqs)
+        if self._calibrate:
+            end = xp.reshape(end, (*shape, 6))[:, mid]
+            angles = xp.stack(angles) - self._offset_backend(xp, actions, end)
+            angles = (
+                angles + numpy.pi * self._halfturns_backend(xp, angles, actions, ic)
+            ) % (2.0 * numpy.pi)
+        return (*actions, *freqs, *angles)
+
+    def _halfturns_backend(self, xp, angles, actions, xv):
+        """_halfturns [3,M] of the angles [3,M] of the points xv [M,6] with
+        the given actions, as backend arrays: integers, computed on the
+        host from the values (and without a derivative)"""
+        packed = stop_gradient(
+            xp.concatenate([angles % (2.0 * numpy.pi), xp.stack(actions), xv.T])
+        )
+
+        def half(u):
+            out = numpy.zeros_like(u)
+            out[:3] = self._halfturns(u[:3], u[3:6], *u[6:])
+            return out
+
+        return host_eval(half, packed)[:3]
+
+    def _offset_backend(self, xp, actions, end):
+        """_offset_torus in the backend xp: the offset [3,M] of the tori with
+        these actions, as a differentiable function of them where aAI=
+        returns the tori's fixed points, else of the points end [M,6]"""
+        if self._aAI is not None:
+            fixed = xp.stack(
+                [
+                    xp.broadcast_to(xp.reshape(x, (-1,)), actions[0].shape)
+                    for x in self._aAI(*actions, 1.0, 0.0, 1.0, use_physical=False)
+                ],
+                axis=-1,
+            )
+            end = xp.where(xp.all(xp.isfinite(fixed), axis=-1)[:, None], fixed, end)
+        angles = []
+        for xv in (
+            end,
+            _integrate_backend(
+                self,
+                _integrate_backend(
+                    self,
+                    end,
+                    self._tsJ,
+                    _switch_potential(self._target_pot, self._pot, self._tintJ),
+                )[:, -1],
+                self._tsJ,
+                self._adiabatic_pot,
+            )[:, -1],
+        ):
+            angles.append(
+                xp.stack(
+                    self._aA.actionsFreqsAngles(
+                        *(xv[:, ii] for ii in range(6)), use_physical=False
+                    )[6:]
+                )
+            )
+        return 0.5 * ((angles[1] - angles[0] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+
     def _calibrated(self, angles, actions, end):
         """The angles with the offset of each point's torus removed when
         calibrate_angles is set: end is the image of each point in the
@@ -588,10 +748,8 @@ class actionAngleAdiabaticApprox(actionAngle):
             % (2.0 * numpy.pi)
         )
 
-    def _parse_args(self, *args):
-        """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
-        from ..orbit import Orbit
-
+    def _coords(self, *args):
+        """The phase-space coordinates (R,vR,vT,z,vz,phi) of the input"""
         if len(args) == 5 or len(args) == 3:  # pragma: no cover
             raise ValueError("Must specify phi for actionAngleAdiabaticApprox")
         elif len(args) == 6 or len(args) == 4:
@@ -609,13 +767,17 @@ class actionAngleAdiabaticApprox(actionAngle):
             z = self._eval_z
             vz = self._eval_vz
             phi = self._eval_phi
-            R, vR, vT, z, vz = _host((R, vR, vT, z, vz))
-            phi = None if phi is None else _host(phi)
             if phi is None:
                 raise ValueError("Must specify phi for actionAngleAdiabaticApprox")
+        return R, vR, vT, z, vz, phi
+
+    def _parse_args(self, *args):
+        """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
+        from ..orbit import Orbit
+
         R, vR, vT, z, vz, phi = (
             numpy.atleast_1d(numpy.asarray(x, dtype="float"))
-            for x in (R, vR, vT, z, vz, phi)
+            for x in _host(self._coords(*args))
         )
         self._start = (R, vR, vT, z, vz, phi)
         if self._npoints == 0:
