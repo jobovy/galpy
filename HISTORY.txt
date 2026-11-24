@@ -264,7 +264,11 @@ at release.]
 
 - [slot 28]
 
-- [slot 29]
+- Added calibrate_angles= to actionAngleAdiabaticApprox and
+  actionAngleAdiabaticApproxInverse: angles in the usual convention, with
+  the offset of each torus measured by a round trip of the transformation
+  and its half turn fixed with the auxiliary potential's torus of the same
+  actions.
 
 - [slot 30]
 

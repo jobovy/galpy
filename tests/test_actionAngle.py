@@ -6853,6 +6853,142 @@ def test_actionAngleAdiabaticApprox_from_each_other():
     return None
 
 
+# Test the calibrated angles of actionAngleAdiabaticApprox and its inverse
+# against the angles of a spherical potential
+def test_actionAngleAdiabaticApprox_calibrate_angles():
+    from galpy.actionAngle import (
+        actionAngleAdiabaticApprox,
+        actionAngleAdiabaticApproxInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+    )
+    from galpy.actionAngle.actionAngleInverse import actionAngleInverse
+    from galpy.potential import IsochronePotential, NFWPotential
+
+    def wrap(x):
+        return (x + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+
+    np = NFWPotential(a=1.0, normalize=1.0)
+    aAS = actionAngleSpherical(pot=np)
+    rng = numpy.random.default_rng(1)
+    n = 40
+    x = (
+        rng.uniform(0.5, 1.5, n),
+        rng.normal(0.0, 0.3, n),
+        rng.choice([-1.0, 1.0], n, p=[0.2, 0.8]) * rng.uniform(0.5, 1.2, n),
+        rng.uniform(-0.5, 0.5, n),
+        rng.normal(0.0, 0.3, n),
+        rng.uniform(0.0, 2.0 * numpy.pi, n),
+    )
+    true = numpy.array(aAS.actionsFreqsAngles(*x))[6:]
+    # forward: the auxiliary's inverse set up automatically for an isochrone
+    for npoints in (0, 2):
+        aAA = actionAngleAdiabaticApprox(
+            pot=np,
+            aA=actionAngleIsochrone(b=0.5),
+            tintJ=300.0,
+            npoints=npoints,
+            calibrate_angles=True,
+        )
+        ang = numpy.array(aAA.actionsFreqsAngles(*x))[6:]
+        assert numpy.all(numpy.fabs(wrap(ang - true)) < 0.02), (
+            "actionAngleAdiabaticApprox with calibrate_angles=True does not "
+            f"return the angles of the usual convention for npoints={npoints}"
+        )
+    # they differ from the uncalibrated ones
+    raw = numpy.array(
+        actionAngleAdiabaticApprox(
+            pot=np, aA=actionAngleIsochrone(b=0.5), tintJ=300.0
+        ).actionsFreqsAngles(*x)
+    )[6:]
+    assert numpy.amax(numpy.fabs(wrap(raw - true))) > 1.0
+    # without the auxiliary's inverse: the half turns from the angles that
+    # the auxiliary assigns to the points themselves
+    ip = IsochronePotential(b=0.5, normalize=1.0)
+    aAA = actionAngleAdiabaticApprox(
+        pot=np,
+        aA=actionAngleSpherical(pot=ip),
+        tintJ=300.0,
+        npoints=0,
+        calibrate_angles=True,
+    )
+    assert numpy.all(
+        numpy.fabs(wrap(numpy.array(aAA.actionsFreqsAngles(*x))[6:] - true)) < 0.02
+    ), (
+        "actionAngleAdiabaticApprox with calibrate_angles=True does not return "
+        "the angles of the usual convention without an inverse of aA="
+    )
+    # a point that is unbound in the auxiliary potential before the
+    # transformation: no such angles, with a warning
+    light = IsochronePotential(b=0.5, normalize=0.3)
+    aAA = actionAngleAdiabaticApprox(
+        pot=np,
+        aA=actionAngleSpherical(pot=light),
+        tintJ=300.0,
+        npoints=0,
+        calibrate_angles=True,
+    )
+    fast = (1.0, 0.3, 1.1, 0.1, 0.2, 0.5)
+    with pytest.warns(galpyWarning, match="may be half a turn off"):
+        ang = numpy.array(aAA.actionsFreqsAngles(*fast))[6:, 0]
+    # (correct up to the half turns, at the precision of this poor auxiliary)
+    assert numpy.all(
+        numpy.fabs(numpy.sin(ang - numpy.array(aAS.actionsFreqsAngles(*fast))[6:, 0]))
+        < 0.1
+    ), "calibrated angles of a point that is unbound in the auxiliary are off"
+    # inverse
+    jr, lz, jz = (
+        rng.uniform(0.02, 0.4, n),
+        rng.choice([-1.0, 1.0], n, p=[0.2, 0.8]) * rng.uniform(0.4, 1.4, n),
+        rng.uniform(0.0, 0.4, n),
+    )
+    ang = rng.uniform(0.0, 2.0 * numpy.pi, (3, n))
+    aAAI = actionAngleAdiabaticApproxInverse(
+        pot=np,
+        aAI=actionAngleIsochroneInverse(b=0.5),
+        tintJ=300.0,
+        calibrate_angles=True,
+    )
+    xv = aAAI(jr, lz, jz, *ang)
+    assert numpy.all(
+        numpy.fabs(wrap(numpy.array(aAS.actionsFreqsAngles(*xv))[6:] - ang)) < 0.02
+    ), (
+        "actionAngleAdiabaticApproxInverse with calibrate_angles=True does not "
+        "return points with the requested angles of the usual convention"
+    )
+    # and the two calibrated transformations invert each other to the
+    # precision of the calibrated angles
+    back = numpy.array(
+        actionAngleAdiabaticApprox(
+            aAAI=aAAI, npoints=0, calibrate_angles=True
+        ).actionsFreqsAngles(*xv)
+    )
+    assert numpy.all(
+        numpy.fabs(back[:3] - numpy.array([jr, lz, jz])) < 1e-8
+    ) and numpy.all(numpy.fabs(wrap(back[6:] - ang)) < 0.02), (
+        "actionAngleAdiabaticApprox and its inverse with calibrate_angles=True "
+        "do not invert each other"
+    )
+
+    # calibration needs the forward transformation
+    class otherInverse(actionAngleInverse):
+        def __init__(self, aAI):
+            actionAngleInverse.__init__(self)
+            self._aAI, self._pot = aAI, aAI._pot
+
+        def _evaluate(self, *args, **kwargs):  # pragma: no cover
+            return self._aAI(*args, **kwargs)
+
+    with pytest.raises(ValueError, match="calibrate_angles=True requires aA="):
+        actionAngleAdiabaticApproxInverse(
+            pot=np,
+            aAI=otherInverse(actionAngleIsochroneInverse(b=0.5)),
+            calibrate_angles=True,
+        )
+    return None
+
+
 # Test that using MWPotential throws a warning
 def test_actionAngleAdiabaticApprox_MWPotential_warning():
     from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
