@@ -9,6 +9,8 @@
 ###############################################################################
 import torch
 
+from .staeckel_c import _values_if_no_derivative
+
 
 class _ActionsJacFunction(torch.autograd.Function):
     @staticmethod
@@ -30,13 +32,15 @@ class _ActionsJacFunction(torch.autograd.Function):
         return (None,) + tuple(g[:, k] for k in range(5))
 
 
-def actions_with_jac(host_jac, R, vR, vT, z, vz):
+def actions_with_jac(host_jac, host_val, R, vR, vT, z, vz):
     """Differentiable (jr, jz) with the native-C Jacobian as the backward matvec.
 
     host_jac : callable taking 5 numpy (N,) coord arrays, returning
-        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5).
+        (jr, jz, jac) with jr,jz (N,) and jac (N,2,5). host_val : the same
+        callable returning (jr, jz) alone, for calls without a derivative.
     """
-    return _ActionsJacFunction.apply(host_jac, R, vR, vT, z, vz)
+    out = _values_if_no_derivative(host_val, (R, vR, vT, z, vz))
+    return _ActionsJacFunction.apply(host_jac, R, vR, vT, z, vz) if out is None else out
 
 
 class _EccZmaxJacFunction(torch.autograd.Function):

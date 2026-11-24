@@ -373,6 +373,24 @@ def test_staeckel_c_freqs_circular_substitution(backend):
         )
         assert numpy.all(numpy.isfinite(g))
         numpy.testing.assert_allclose(g, numpy.asarray(ref[i]), rtol=1e-6, atol=1e-8)
+    # differentiated, the fused C Jacobian zeroes the frequency rows of such
+    # points and keeps their action rows: at a planar orbit (jz = 0), the
+    # gradients of jr through actionsFreqs and through actions agree
+    planar = (1.0, 0.2, 1.1, 0.0, 0.0)
+    if backend == "jax":
+        args = [jnp.asarray([x]) for x in planar]
+        grads = [
+            jax.grad(lambda *a: jnp.sum(f(*a)[i]), argnums=(0, 1, 2, 3, 4))(*args)
+            for f, i in ((aAS.actionsFreqs, 0), (aAS, 0), (aAS.actionsFreqs, 3))
+        ]
+    else:
+        grads = []
+        for f, i in ((aAS.actionsFreqs, 0), (aAS, 0), (aAS.actionsFreqs, 3)):
+            args = [torch.tensor([x], requires_grad=True) for x in planar]
+            grads.append(torch.autograd.grad(f(*args)[i].sum(), args))
+    gf, ga, gO = (numpy.array([float(g[0]) for g in gs]) for gs in grads)
+    assert numpy.all(numpy.isfinite(gO))
+    numpy.testing.assert_allclose(gf, ga, rtol=1e-10, atol=1e-12)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

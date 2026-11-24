@@ -1419,15 +1419,20 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=Fals
         )
         return jr, jz, jac
 
+    def host_val(Rn, vRn, vTn, zn, vzn):  # the same values, without the Jacobian
+        return actionAngleStaeckel_c.actionAngleStaeckel_c(
+            pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order
+        )[:2]
+
     name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
     if name == "jax":
         from ..backend._jax.staeckel_c import actions_with_jac
 
-        return actions_with_jac(host_jac, (R, vR, vT, z, vz))
+        return actions_with_jac(host_jac, host_val, (R, vR, vT, z, vz))
     if name == "torch":
         from ..backend._torch.staeckel_c import actions_with_jac
 
-        return actions_with_jac(host_jac, R, vR, vT, z, vz)
+        return actions_with_jac(host_jac, host_val, R, vR, vT, z, vz)
     raise NotImplementedError(  # pragma: no cover
         "C-native Staeckel action gradients require a jax or torch input array."
     )
@@ -1510,15 +1515,21 @@ def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0
         Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, Rn, jr, jz, Or, Op, Oz)
         return jr, jz, Or, Op, Oz, jac
 
+    def host_val(Rn, vRn, vTn, zn, vzn):  # the same values, without the Jacobian
+        jr, jz, Or, Op, Oz, err = actionAngleStaeckel_c.actionAngleFreqStaeckel_c(
+            pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order
+        )
+        return jr, jz, *_staeckel_c_freq_circ_fix(pot, Rn, jr, jz, Or, Op, Oz)
+
     name = name_of_namespace(get_namespace(R, vR, vT, z, vz))
     if name == "jax":
         from ..backend._jax.staeckel_c import actionsfreqs_with_jac
 
-        return actionsfreqs_with_jac(host_jac, (R, vR, vT, z, vz))
+        return actionsfreqs_with_jac(host_jac, host_val, (R, vR, vT, z, vz))
     if name == "torch":
         from ..backend._torch.staeckel_c import actionsfreqs_with_jac
 
-        return actionsfreqs_with_jac(host_jac, R, vR, vT, z, vz)
+        return actionsfreqs_with_jac(host_jac, host_val, R, vR, vT, z, vz)
     raise NotImplementedError(  # pragma: no cover
         "C-native Staeckel freq gradients require a jax or torch input array."
     )
