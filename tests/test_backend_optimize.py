@@ -462,6 +462,14 @@ def test_fixed_point_numpy_is_scipy():
     assert got.tobytes() == ref.tobytes()
 
 
+def test_fixed_point_implicit_step_numpy_gives_the_point_back():
+    # with numpy p and arguments there is no derivative to carry: p itself
+    from galpy.backend.optimize import fixed_point_implicit_step
+
+    p = numpy.array([0.5, 0.7])
+    assert fixed_point_implicit_step(lambda x, a: a * numpy.cos(x), p, (_FP_A,)) is p
+
+
 @pytest.mark.parametrize("mode", ["eager", "jit", "vmap", "torch"])
 def test_fixed_point_value_and_gradient(mode):
     if (torch if mode == "torch" else jax) is None:
