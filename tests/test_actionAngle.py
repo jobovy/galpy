@@ -6532,17 +6532,91 @@ def test_actionAngleAdiabaticApprox_physical():
     return None
 
 
-# Test that npoints < 2 raises an error
+# Test that a negative npoints raises an error
 def test_actionAngleAdiabaticApprox_npoints_error():
     from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
     from galpy.potential import NFWPotential
 
-    with pytest.raises(OSError, match="npoints= must be at least 2"):
+    with pytest.raises(OSError, match="npoints= must be at least 0"):
         actionAngleAdiabaticApprox(
             pot=NFWPotential(a=1.0, normalize=1.0),
             aA=actionAngleIsochrone(b=0.5),
-            npoints=1,
+            npoints=-2,
         )
+    return None
+
+
+# Test npoints=0: each point is transformed on its own, without frequencies
+def test_actionAngleAdiabaticApprox_singlepoint():
+    from galpy.actionAngle import (
+        actionAngleAdiabaticApprox,
+        actionAngleIsochrone,
+        actionAngleSpherical,
+    )
+    from galpy.orbit import Orbit
+    from galpy.potential import NFWPotential
+
+    np = NFWPotential(a=1.0, normalize=1.0)
+    aAS = actionAngleSpherical(pot=np)
+    aAA = actionAngleAdiabaticApprox(
+        pot=np, aA=actionAngleIsochrone(b=0.5), tintJ=200.0, npoints=0
+    )
+    o = Orbit([1.0, 0.9, 1.1, 0.1, 0.3, 0.0])
+    ts = numpy.linspace(0.0, 10.0, 6)
+    o.integrate(ts, np)
+    true = numpy.array(aAS.actionsFreqsAngles(o(ts)))
+    out = numpy.array(aAA.actionsFreqsAngles(o(ts)))
+    assert numpy.all(numpy.fabs(out[:3] / true[:3] - 1.0) < 10.0**-4.5), (
+        "actionAngleAdiabaticApprox with npoints=0 does not return the actions"
+    )
+    assert numpy.all(numpy.isnan(out[3:6])), (
+        "actionAngleAdiabaticApprox with npoints=0 returns frequencies"
+    )
+    assert numpy.all((out[6:] >= 0.0) & (out[6:] < 2.0 * numpy.pi)), (
+        "actionAngleAdiabaticApprox with npoints=0 does not return angles in [0, 2 pi)"
+    )
+    # the angles are those of the torus up to a constant offset
+    dang = (out[6:] - true[6:] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert numpy.all(numpy.fabs(dang - dang[:, :1]) < 10.0**-3.0), (
+        "actionAngleAdiabaticApprox with npoints=0 does not return angles that "
+        "differ from the true angles by a constant on a torus"
+    )
+    # __call__ and actionsFreqs
+    assert numpy.allclose(numpy.array(aAA(o(ts))), out[:3], rtol=0.0, atol=1e-10)
+    assert numpy.allclose(
+        numpy.array(aAA.actionsFreqs(o(ts)))[:3], out[:3], rtol=0.0, atol=1e-10
+    )
+    return None
+
+
+# Test the angles' range, integer input, and an Orbit without phi
+def test_actionAngleAdiabaticApprox_inputs_and_range():
+    from galpy.actionAngle import actionAngleAdiabaticApprox, actionAngleIsochrone
+    from galpy.orbit import Orbit
+    from galpy.potential import NFWPotential
+
+    aAA = actionAngleAdiabaticApprox(
+        pot=NFWPotential(a=1.0, normalize=1.0),
+        aA=actionAngleIsochrone(b=0.5),
+        tintJ=20.0,
+    )
+    o = Orbit([1.0, 0.9, 1.1, 0.1, 0.3, 0.0])
+    ts = numpy.linspace(0.0, 30.0, 31)
+    o.integrate(ts, NFWPotential(a=1.0, normalize=1.0))
+    ang = numpy.array(aAA.actionsFreqsAngles(o(ts)))[6:]
+    assert numpy.all((ang >= 0.0) & (ang < 2.0 * numpy.pi)), (
+        "actionAngleAdiabaticApprox does not return angles in [0, 2 pi)"
+    )
+    # integers
+    assert numpy.allclose(
+        numpy.array(aAA(1, 0.9, 1.1, 0.1, 0.3, 0)),
+        numpy.array(aAA(1.0, 0.9, 1.1, 0.1, 0.3, 0.0)),
+        rtol=0.0,
+        atol=1e-12,
+    ), "actionAngleAdiabaticApprox does not accept integer input"
+    # an Orbit without phi, also after a call with phi
+    with pytest.raises(ValueError, match="Must specify phi"):
+        aAA(Orbit([1.0, 0.9, 1.1, 0.1, 0.3]))
     return None
 
 
