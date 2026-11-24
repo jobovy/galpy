@@ -16165,10 +16165,12 @@ def test_actionAngleStaeckel_inverse_nearaxis_fit():
         mm_npt=32,
         progressbar=False,
     )
-    # three points whose focal length the iteration does not find, and three
-    # that are on no torus of the family's rule
+    # four points whose focal length the iteration does not find (the first
+    # from C, the others from Python), and three that are on no torus of the
+    # family's rule
     x = numpy.array(
         [
+            [0.48338706674192317, -0.7225153255750134, -0.03088495958464515, 0.4849125307190425, 0.3466863229537384],
             [2.263004194937672, 0.3885950256128122, -0.004413752377344823, 1.1396172230949002, -0.12977835378893876],
             [0.5715959802707503, -0.2807778867586726, 0.004480860692506641, 1.1325103872165077, 0.1059506621009235],
             [0.34135411290346473, -0.7068648898571247, 0.0347781501349293, -0.8069430106440976, 0.48158637694732803],
@@ -16180,22 +16182,22 @@ def test_actionAngleStaeckel_inverse_nearaxis_fit():
     out = {}
     for c in (True, False):
         aAS = actionAngleStaeckel(inverse=fam, c=c)
-        with pytest.warns(galpyWarning, match="3 of the 6 points are not on a torus"):
+        with pytest.warns(galpyWarning, match="3 of the 7 points are not on a torus"):
             out[c] = numpy.array(aAS.actionsFreqsAngles(*x, 0.0 * x[0]))
         # (the angular momentum is that of the point itself)
-        assert numpy.all(numpy.isfinite(out[c][:, :3])) and numpy.all(
-            numpy.isnan(numpy.delete(out[c][:, 3:], 1, axis=0))
+        assert numpy.all(numpy.isfinite(out[c][:, :4])) and numpy.all(
+            numpy.isnan(numpy.delete(out[c][:, 4:], 1, axis=0))
         ), (
             f"actionAngleStaeckel(inverse=, c={c}) with a fitted focal length "
             "does not find the tori of points close to the symmetry axis, or "
             "returns values for points that are on none"
         )
-    assert numpy.allclose(out[True][:3, :3], out[False][:3, :3], rtol=0.0, atol=1e-6), (
+    assert numpy.allclose(out[True][:3, :4], out[False][:3, :4], rtol=0.0, atol=1e-6), (
         "actionAngleStaeckel(inverse=) with a fitted focal length: the actions "
         "from C and Python differ close to the symmetry axis"
     )
     # and the first of them is where its explicit torus puts it
-    jr, lz, jz, _, _, _, ar, ap, az = out[False][:, 0]
+    jr, lz, jz, _, _, _, ar, ap, az = out[True][:, 0]
     tor = actionAngleStaeckelInverse(
         pot=MWPotential2014,
         delta=fam.delta,

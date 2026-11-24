@@ -953,10 +953,8 @@ static void calcModelDelta(int ndata,
     for (kk=0, m=0; kk < n; kk++){
       e1= fabs(*(d1+kk) - *(d0+kk));
       e2= fabs(*(d2+kk) - *(d1+kk));
-      if ( ! isfinite(e2) ){
-	MODEL_DOUT(NAN);
-	continue;
-      }
+      // (a step to a focal length where the rule is not defined leaves
+      // nan: acc is nan and the point is not kept)
       *(rate+kk)= e2 / e1;
       if ( ! ( *(rate+kk) < 0.9 ) ) *(rate+kk)= 0.9;
       den= *(d2+kk) - 2. * *(d1+kk) + *(d0+kk);
