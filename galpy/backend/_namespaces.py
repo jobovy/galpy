@@ -197,6 +197,23 @@ def bucket_size(n, minimum=16):
     return max(minimum, 1 << 2 * ((n - 1).bit_length() + 1 >> 1))
 
 
+def pad_edge(xp, m, *xs):
+    """The 1D arrays ``xs`` padded to length ``m`` with copies of their last
+    element (``numpy.pad(a, (0, m - len(a)), mode="edge")``, also for backend
+    arrays): with ``bucket_size``, lengths that vary call to call share the
+    shapes that eager jax compiles every op for."""
+    out = []
+    for a in xs:
+        k = m - a.shape[0]
+        if k == 0:
+            out.append(a)
+        elif is_backend_array(a):
+            out.append(xp.concat([a, xp.broadcast_to(a[-1:], (k,))]))
+        else:
+            out.append(numpy.pad(numpy.asarray(a), (0, k), mode="edge"))
+    return tuple(out)
+
+
 def cummax(xp, x):
     """Running maximum of the 1D ``x`` (``numpy.maximum.accumulate``), traceable."""
     name = name_of_namespace(xp)

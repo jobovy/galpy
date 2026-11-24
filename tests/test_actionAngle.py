@@ -16607,3 +16607,116 @@ def test_actionAngleStaeckel_inverse_deltafit():
             "of the C code for a family with a callable delta="
         )
     return None
+
+
+_POLISH_RULES = [{}, {"u0": "torus"}, {"delta": "fit", "delta_deg": (1, 1, 1)}]
+
+
+def _polish_setup(rule):
+    # a family, its forward transformation with the polish, and points of
+    # its interpolated map
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.backend import use
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.45, setup_interp=True, progressbar=False)
+    kw.update(Rmin=0.7, Rmax=1.5, Rinf=4.0, nE=4, nLz=4, nI3=4, mm_npt=32)
+    if rule.get("delta") == "fit":
+        # (built on numpy, as such families are; evaluated under the backend)
+        with use("numpy", force=True):
+            aAI = actionAngleStaeckelInverse(**{**kw, **rule})
+    else:
+        aAI = actionAngleStaeckelInverse(**{**kw, **rule})
+    aAS = actionAngleStaeckel(inverse=aAI, polish=True)
+    rng = numpy.random.default_rng(2)
+    jr, Lz, jz = (
+        rng.uniform(0.0, 0.2, 400),
+        rng.uniform(0.75, 1.45, 400) * rng.choice([-1.0, 1.0], 400),
+        rng.uniform(0.0, 0.2, 400),
+    )
+    ok = aAI.in_domain(jr, Lz, jz)
+    jr, Lz, jz = jr[ok][:60], Lz[ok][:60], jz[ok][:60]
+    angs = rng.uniform(0.0, 2.0 * numpy.pi, (3, len(jr)))
+    return aAI, aAS, (jr, Lz, jz), angs, numpy.array(aAI(jr, Lz, jz, *angs))
+
+
+@pytest.mark.parametrize("rule", _POLISH_RULES)
+def test_actionAngleStaeckel_inverse_polish(rule):
+    # actionAngleStaeckel(inverse=, polish=True) of a family returns the
+    # actions and angles that the family's interpolated map sends to each
+    # point, whether the family has one Staeckel model or one per torus
+    # (main's test, split in two for the backends' time per test; the
+    # other half is test_actionAngleStaeckel_inverse_polish_few_points)
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+
+    aAI, aAS, (jr, Lz, jz), angs, x = _polish_setup(rule)
+    out = numpy.array(aAS.actionsFreqsAngles(*x))
+    dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-10, (
+        "actionAngleStaeckel(inverse=, polish=True) does not invert a family's actions"
+    )
+    assert (
+        numpy.amax(numpy.fabs(out[3:6] - numpy.array(aAI.Freqs(jr, Lz, jz)))) < 1e-9
+    ), (
+        "actionAngleStaeckel(inverse=, polish=True) does not return a family's frequencies"
+    )
+    assert numpy.amax(numpy.fabs(dang)) < 1e-9, (
+        "actionAngleStaeckel(inverse=, polish=True) does not invert a family's angles"
+    )
+    # without the polish, the family's map is inverted to its interpolation
+    # error only
+    rough = numpy.array(actionAngleStaeckel(inverse=aAI)(*x[:5]))
+    assert 1e-8 < numpy.amax(numpy.fabs(rough[0] - jr)) < 1e-2
+    # the polish is of a family's map
+    if not rule:
+        with pytest.raises(ValueError, match="polish= requires"):
+            actionAngleStaeckel(pot=MWPotential2014, delta=0.45, polish=True)
+    return None
+
+
+@pytest.mark.parametrize("rule", _POLISH_RULES)
+def test_actionAngleStaeckel_inverse_polish_few_points(rule):
+    # actionAngleStaeckel(inverse=, polish=True) of a few points: tori
+    # without one or both of the librations, the other methods and inputs,
+    # and points that no torus of the family passes through
+    from galpy.orbit import Orbit
+
+    aAI, aAS, _, _, x = _polish_setup(rule)
+    # tori without one or both of the librations (the angle of a vanishing
+    # action is arbitrary)
+    fjr, fLz, fjz = (
+        numpy.array([0.05, 0.0, 0.0, 0.03]),
+        numpy.array([1.0, 1.2, 0.9, -1.1]),
+        numpy.array([0.0, 0.04, 0.0, 0.0]),
+    )
+    flat = numpy.array(aAS.actionsFreqsAngles(*aAI(fjr, fLz, fjz, 1.0, 2.0, 3.0)))
+    assert numpy.amax(numpy.fabs(flat[:3] - numpy.array([fjr, fLz, fjz]))) < 1e-10, (
+        "actionAngleStaeckel(inverse=, polish=True) does not invert a family's "
+        "tori with a vanishing action"
+    )
+    # the other methods and inputs: actions alone without phi, an Orbit
+    out = numpy.array(aAS.actionsFreqsAngles(*x[:, :3]))
+    assert numpy.allclose(numpy.array(aAS(*x[:5, :3])), out[:3], rtol=0.0, atol=1e-11)
+    assert numpy.allclose(
+        numpy.array(aAS.actionsFreqs(Orbit(x[:, :3].T))),
+        out[:6],
+        rtol=0.0,
+        atol=1e-11,
+    )
+    # points that no torus of the family passes through
+    with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+        off = numpy.array(
+            aAS.actionsFreqsAngles(
+                numpy.array([1.0, x[0, 0]]),
+                numpy.array([0.9, x[1, 0]]),
+                numpy.array([1.0, x[2, 0]]),
+                numpy.array([0.0, x[3, 0]]),
+                numpy.array([2.0, x[4, 0]]),
+                numpy.array([0.0, x[5, 0]]),
+            )
+        )
+    assert numpy.all(numpy.isnan(off[[0, 2, 3, 4, 5, 6, 7, 8], 0])) and numpy.all(
+        numpy.isfinite(off[:, 1])
+    ), "actionAngleStaeckel(inverse=, polish=True) does not return nan off the family"
+    return None

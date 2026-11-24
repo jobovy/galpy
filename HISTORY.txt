@@ -83,7 +83,45 @@ at release.]
   time-dependent SCF with jax: about 11x faster, and 30x faster with
   gradients. numpy outputs are unchanged.
 
-- [slot 06]
+- ``actionAngleStaeckelInverse``: the focal length of the Staeckel
+  approximation of a general potential can follow the torus in an
+  interpolated family: ``delta='fit'`` gives each torus the focal length
+  that minimizes the spread of the potential's energy over it (fitted
+  smoothly over the family; ``u0`` then defaults to ``'torus'``), and
+  ``delta`` can be a callable ``delta(E, Lz, f)``, with f the fraction of
+  the way of the third integral from the planar to the shell orbit's in
+  the torus's own model (also the variable of the fit and of the delta
+  method). Such a family is exactly canonical and is typically two to
+  three times closer to the best Staeckel torus of each of its tori than
+  a family with a single focal length; a single focal length gives the
+  same results as before. On the JAX and PyTorch backends such a family
+  evaluates natively, with derivatives; it is built on numpy for now
+  (twin of main's #1938-#1942).
+
+- On the JAX and PyTorch backends, ``actionAngleStaeckelInverse`` evaluates
+  arrays of tori whose reference curve (a ``u0=`` rule) or focal length (a
+  ``delta=`` rule) follows them in one vectorized pass, also under
+  ``jax.jit``, whose trace and compile time no longer grow with the number
+  of tori (about 45 s for 1 to 16 tori, against 385 s for 4 before); the
+  new ``chunk=`` evaluates large arrays in equal chunks of at most that many
+  points (with one chunk's memory, and under ``jax.jit`` one chunk's
+  compiled program).
+
+- Added the ``inverse=`` keyword of actionAngleStaeckel: set up from an
+  actionAngleStaeckelInverse instance, actionAngleStaeckel computes the
+  actions, frequencies, and angles of the instance's torus through each
+  phase-space point, such that it inverts that instance. Each point is
+  transformed in the Staeckel model of its own torus (the instance's focal
+  length and reference curve), with the energy evaluated in that model, in
+  C and in pure Python. Supports every rule for the reference curve (a
+  single curve, ``u0='torus'``, ``'planar'``, ``'shell'``, or a callable)
+  and families whose focal length follows their tori (``delta='fit'`` or a
+  callable); the frequencies and angles include the terms from the change
+  of the model between tori. For an interpolated family this inverts the
+  family to its interpolation error; ``polish=True`` inverts the
+  interpolated map exactly. On the JAX and PyTorch backends it runs in the
+  backend, with derivatives in the phase-space point that include each
+  point's model's dependence on its torus (twin of main's #1962-#1993).
 
 - ExpTruncNFWPotential's hand-written jax radial force, which constantbetadf
   differentiates on the numpy path, uses the potential's own exp(a/rc) and

@@ -11,7 +11,10 @@
 import numpy
 
 from ..backend import asarray_on_device, device_of, is_backend_array
-from ..backend._namespaces import namespace_from_arrays
+from ..backend._namespaces import (
+    namespace_from_arrays,
+    stop_gradient,
+)
 from ..backend.optimize import iterate_to_fixed_point
 from ..util._optional_deps import _TQDM_LOADED
 
@@ -288,6 +291,89 @@ def _safeguarded_newton(f, lo, hi, rtol, maxiter=100, x0=None, args=()):
         if active.size == 0:
             break
     return x.reshape(shape)
+
+
+def _newton_system(fjac, x0, tol, maxiter=8):
+    """Solutions of independent systems of m equations in m unknowns, one
+    per column of x0 (m, n), by Newton's method with the Jacobian in closed
+    form: fjac(x, idx) returns, for the iterates x (m, k) of the systems
+    idx (all of them for idx=None), the residuals target - function (m,
+    k), the Jacobians of the function (k, m, m), which of the iterates are
+    valid (k booleans; an invalid system is given up), and any further
+    quantities at the iterates (p, k); it has no side effects. A system
+    leaves the iteration, and is no longer evaluated, once its largest
+    residual is below tol. Returns the iterates, which of the systems are
+    solved, and the further quantities at each system's last iterate (its
+    solution when solved; None when no system could be evaluated)"""
+    x = numpy.array(x0, dtype="float")
+    solved = numpy.zeros(x.shape[1], dtype="bool")
+    active = numpy.flatnonzero(numpy.all(numpy.isfinite(x), axis=0))
+    more = None
+    for _ in range(maxiter + 1):
+        if active.size == 0:
+            break
+        res, jac, valid, extra = fjac(x[:, active], active)
+        if more is None:
+            more = numpy.full((len(extra), x.shape[1]), numpy.nan)
+        more[:, active] = extra
+        conv = valid & (numpy.amax(numpy.fabs(res), axis=0) < tol)
+        solved[active[conv]] = True
+        go = valid & ~conv
+        active = active[go]
+        x[:, active] += numpy.linalg.solve(jac[go], res.T[go][:, :, None])[:, :, 0].T
+    return x, solved, more
+
+
+def _bk_newton_system(fjac, x0, tol, maxiter=8):
+    """_newton_system on jax/torch, at fixed shape: fjac(x) evaluates every
+    column, and the iteration runs on derivative-free values
+    (iterate_to_fixed_point; a while loop under a jax trace), a column
+    frozen once it is solved or given up, so that each system takes the
+    steps it takes in _newton_system. Returns the iterates, which of the
+    systems are solved, and the further quantities at each system's last
+    iterate (nan for a system that could not start)"""
+    xp = namespace_from_arrays((x0,))
+    x = stop_gradient(x0) * 1.0
+    m = x.shape[0]
+    started = xp.all(xp.isfinite(x), axis=0)
+    # (a system that cannot start iterates on a finite stand-in, ignored)
+    x = xp.where(started[None, :], x, 0.0)
+    dev = device_of(x)
+    eye = asarray_on_device(xp, numpy.eye(m), dev, dtype=x.dtype)
+
+    def update(x, active, solved, more, ev=None):
+        ev = fjac(x) if ev is None else ev
+        res, jac, valid, extra = (stop_gradient(t) for t in ev)
+        more = xp.where(active[None, :], extra, more)
+        conv = valid & (xp.max(xp.abs(res), axis=0) < tol)
+        solved = solved | (active & conv)
+        go = active & valid & ~conv
+        # (the frozen systems' solves on the identity, discarded)
+        jac = xp.where(go[:, None, None], jac, eye)
+        res = xp.where(go[None, :], res, 0.0)
+        dx = xp.permute_dims(
+            xp.linalg.solve(jac, xp.permute_dims(res, (1, 0))[..., None])[..., 0],
+            (1, 0),
+        )
+        return xp.where(go[None, :], x + dx, x), go, solved, more
+
+    def pack(x, active, solved, more):
+        f = lambda b: xp.astype(b, x.dtype)[None, :]  # noqa: E731
+        return xp.concat([x, f(active), f(solved), more])
+
+    ev = fjac(x)
+    more0 = asarray_on_device(
+        xp, numpy.full((ev[3].shape[0], x.shape[1]), numpy.nan), dev, dtype=x.dtype
+    )
+    state = pack(*update(x, started, started & False, more0, ev))
+
+    def step(state):
+        x, active, solved = state[:m], state[m] > 0.5, state[m + 1] > 0.5
+        return pack(*update(x, active, solved, state[m + 2 :]))
+
+    state = iterate_to_fixed_point(step, state, maxiter)
+    x, solved, more = state[:m], state[m + 1] > 0.5, state[m + 2 :]
+    return xp.where(started[None, :], x, numpy.nan), solved, more
 
 
 def _sine_series(N, Dm, ms):
