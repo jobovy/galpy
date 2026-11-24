@@ -275,13 +275,20 @@ def _staeckel_vmin(s, pot, delta):
     """vmin: bracket-and-bisect root of the J_z integrand^2 below vx"""
     args = _staeckel_jz_args(s, pot, delta)
     f = lambda v: _JzStaeckelIntegrandSquared(v, *args)
-    vx, eps = s["vx"], 1e-8
+    # (the integrand is symmetric about the midplane: a point below it is
+    # searched from its mirror image, which the lower turning point is below)
+    vx, eps = numpy.minimum(s["vx"], numpy.pi - s["vx"]), 1e-8
     at_turn = (numpy.abs(s["pvx"]) < 1e-7) | (numpy.abs(f(vx)) < 1e-10)
     at_vmin = at_turn & (f(vx + eps) > 0.0) & (f(vx - eps) < 0.0)
+    # step below vx by factors of 0.9 until f < 0 (220 steps reach ~1e-10, so
+    # the turning point of an orbit with very little angular momentum, which
+    # comes close to the symmetry axis, is straddled) and bisect the last step
     vlo = _iterate_bracket(
-        lambda v: numpy.where((f(v) >= 0.0) & (v > 1e-9), v * 0.9, v), vx * 0.9, 80
+        lambda v: numpy.where((f(v) >= 0.0) & (v > 1e-10), v * 0.9, v), vx * 0.9, 220
     )
-    vmin = _bisect_root(f, vlo, vx, xtol=1e-13, maxiter=200)
+    vmin = _bisect_root(f, vlo, vlo / 0.9, xtol=1e-13, maxiter=200)
+    # f still >= 0 at the floor: the orbit reaches the symmetry axis
+    vmin = numpy.where(f(vlo) >= 0.0, vlo, vmin)
     return numpy.where(at_vmin, vx, vmin)
 
 
