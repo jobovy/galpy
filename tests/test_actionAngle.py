@@ -3775,6 +3775,37 @@ def test_actionAngleStaeckel_basic_freqs_u0():
     return None
 
 
+# Test that the C frequencies and angles agree with the Python ones along an
+# orbit that stays very close to the plane: the momentum function of the v
+# libration is then small everywhere, which C took for a point at the
+# vertical turning point
+def test_actionAngleStaeckel_smalljz_freqs_angles_c():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.1, 0.14907, 1.0679, 5.8111e-4, -7.0220e-5, 2.5817])
+    ts = numpy.linspace(0.0, 20.0, 401)
+    o.integrate(ts, MWPotential2014)
+    out = [
+        numpy.array(
+            actionAngleStaeckel(
+                pot=MWPotential2014, delta=0.45, c=c
+            ).actionsFreqsAngles(
+                o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)
+            )
+        )
+        for c in (True, False)
+    ]
+    diff = numpy.fabs(out[0] - out[1])
+    diff[6:] = numpy.fabs((diff[6:] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+    assert numpy.all(diff[:6] < 5e-3) and numpy.all(diff[6:] < 5e-3), (
+        "C and Python actionAngleStaeckel frequencies and angles differ along "
+        "an orbit very close to the plane"
+    )
+    return None
+
+
 # Basic sanity checking of the actionAngleStaeckel actions, unbound
 def test_actionAngleStaeckel_unboundr_freqs_c():
     from galpy.actionAngle import actionAngleStaeckel
