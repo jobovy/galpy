@@ -277,15 +277,6 @@ Action-Angle Coordinates
       General action-angle calculation by integrating the orbit and
       using a best-fit isochrone potential.
 
-   .. grid-item-card:: Adiabatic Deformation Method and its Inverse
-      :img-top: images/tutorials/action_angle_adiabatic_approx.png
-      :link: tutorials/action_angle/adiabatic_approx
-      :link-type: doc
-
-      Actions, frequencies, and angles in any potential by slowly
-      deforming it into an auxiliary potential, and the inverse
-      transformation from actions and angles to phase space.
-
    .. grid-item-card:: 1D Actions and Inverse Transformations
       :img-top: images/tutorials/action_angle_vertical_and_inverse.png
       :link: tutorials/action_angle/vertical_and_inverse
@@ -311,6 +302,15 @@ Action-Angle Coordinates
       in axisymmetric Staeckel potentials, and in the Staeckel
       approximation of any axisymmetric potential, through an exactly
       symplectic map.
+
+   .. grid-item-card:: Adiabatic Deformation Method and its Inverse
+      :img-top: images/tutorials/action_angle_adiabatic_approx.png
+      :link: tutorials/action_angle/adiabatic_approx
+      :link-type: doc
+
+      Actions, frequencies, and angles in any potential by slowly
+      deforming it into an auxiliary potential, and the inverse
+      transformation from actions and angles to phase space.
 
    .. grid-item-card:: Inverse Transformations (TorusMapping)
       :img-top: images/tutorials/action_angle_torus.png
