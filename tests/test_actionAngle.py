@@ -10897,6 +10897,38 @@ def test_actionAngleStaeckel_nearaxis_c_python_parity():
     return None
 
 
+def test_actionAngleStaeckel_python_smalllz_belowplane():
+    # The Python code's vertical action for orbits with very little angular
+    # momentum: the lower turning point in v, close to the symmetry axis, has
+    # to be found from points far from the plane on either side of it (it was
+    # searched for below the point's own v over a limited range, which missed
+    # it for points below the plane and for the smallest angular momenta, and
+    # the vertical action then came out as zero or too small)
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+
+    Lz = numpy.array([1e-3, 1e-4, 1e-5, 1e-5, 1e-4, 1e-3])
+    z = numpy.array([1.2, 1.2, 1.2, -1.2, -1.2, -1.2])
+    R, vR = 0.083 * numpy.ones(6), 0.73 * numpy.ones(6)
+    vz = -0.37 * numpy.sign(z)
+    aAF = actionAngleStaeckel(pot=MWPotential2014, delta=0.33, c=False)
+    aAC = actionAngleStaeckel(pot=MWPotential2014, delta=0.33, c=True)
+    jr_f, _, jz_f = (as_numpy(a) for a in aAF(R, vR, Lz / R, z, vz))
+    jr_c, _, jz_c = (as_numpy(a) for a in aAC(R, vR, Lz / R, z, vz))
+    numpy.testing.assert_allclose(jr_f, jr_c, rtol=1e-7)
+    # (the C code's quadrature is the less precise one this close to the axis)
+    numpy.testing.assert_allclose(jz_f, jz_c, rtol=1e-4)
+    # the mirror image of a point in the plane has the same actions
+    numpy.testing.assert_allclose(jz_f[:3], jz_f[:2:-1], rtol=1e-10)
+    # and the actions are continuous down to an orbit that reaches the axis
+    jr_0, _, jz_0 = (
+        as_numpy(a) for a in aAF(R[2:4], vR[2:4], numpy.zeros(2), z[2:4], vz[2:4])
+    )
+    numpy.testing.assert_allclose(jr_0, jr_f[2:4], rtol=1e-6)
+    numpy.testing.assert_allclose(jz_0, jz_f[2:4], rtol=1e-4)
+    return None
+
+
 def test_actionAngleStaeckel_delta_from_potential():
     # A potential that supplies its own focal length does not need delta=:
     # an exact Staeckel potential and an OblateStaeckelWrapperPotential give

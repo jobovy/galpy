@@ -40,6 +40,7 @@ from ..backend.optimize import (
     bisect_root,
     fixed_point_implicit_step,
     iterate_bracket,
+    iterate_to_fixed_point,
 )
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import (
@@ -338,16 +339,27 @@ def _staeckel_vmin(xp, s, pot, delta):
     args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
             s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
     f = lambda v: _JzStaeckelIntegrandSquared(v, *args)
-    vx, eps = s["vx"], 1e-8
+    # (the integrand is symmetric about the midplane: a point below it is
+    # searched from its mirror image, which the lower turning point is below)
+    vx, eps = xp.minimum(s["vx"], numpy.pi - s["vx"]), 1e-8
     at_turn = (xp.abs(s["pvx"]) < 1e-7) | (xp.abs(f(vx)) < 1e-10)
     at_vmin = at_turn & (f(vx + eps) > 0.0) & (f(vx - eps) < 0.0)
-    vlo = iterate_bracket(
-        lambda v: xp.where((f(v) >= 0.0) & (v > 1e-9), v * 0.9, v), vx * 0.9, 80
+    # step below vx by factors of 0.9 until f < 0 (220 steps reach ~1e-10, so
+    # the turning point of an orbit with very little angular momentum, which
+    # comes close to the symmetry axis, is straddled) and bisect the last step;
+    # traced, the steps stop once every point is bracketed (a while_loop, so no
+    # derivative: _refine_tp below supplies it)
+    vlo = iterate_to_fixed_point(
+        lambda v: stop_gradient(xp.where((f(v) >= 0.0) & (v > 1e-10), v * 0.9, v)),
+        stop_gradient(vx * 0.9),
+        220,
     )
-    vmin = bisect_root(f, vlo, vx, xp, xtol=1e-13, maxiter=200)
-    vmin = xp.where(at_vmin, vx, vmin)
+    vmin = bisect_root(f, vlo, vlo / 0.9, xp, xtol=1e-13, maxiter=200)
+    # f still >= 0 at the floor: the orbit reaches the symmetry axis
+    axis = f(vlo) >= 0.0
+    vmin = xp.where(at_vmin, vx, xp.where(axis, vlo, vmin))
     df = lambda v: _dJzStaeckelIntegrandSquareddv(v, *args)
-    return _refine_tp(xp, f, df, vmin, skip=(xp.zeros_like(vmin) > 0.5))
+    return _refine_tp(xp, f, df, vmin, skip=axis & ~at_vmin)
 
 
 def _staeckel_trig(xp, name, x):
