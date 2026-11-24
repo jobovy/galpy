@@ -1058,7 +1058,7 @@ class actionAngleStaeckel(actionAngle):
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
         inverse : actionAngleStaeckelInverse, optional
-            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning.
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning. Explicit tori whose focal lengths follow a rule (delta= a callable or a family's delta method) are transformed with that rule, like a family's.
         polish : bool, optional
             With inverse= a family (setup_interp=True): make the transformation the exact inverse of the family's interpolated map, by Newton's method on that map from the actions and angles of the family's tori; points that no torus of the family passes through return nan with a warning. Default is False: the actions and angles of the family's tori, to which the interpolated map agrees to its interpolation error.
         useu0 : bool, optional
@@ -1146,7 +1146,15 @@ class actionAngleStaeckel(actionAngle):
         kwargs["delta"] = aAI._delta
         if aAI._delta_rule is not None:
             # (a placeholder: every point gets the focal length of its torus)
-            kwargs["delta"] = float(numpy.median(aAI._A_tab[..., 3]))
+            if not aAI._interp and aAI._delta_callable is None:
+                raise RuntimeError(
+                    "The callable delta= of the explicit tori inverse= was not "
+                    "pickled with them: they can only be inverted by the "
+                    "instance that was set up with the callable"
+                )
+            kwargs["delta"] = float(
+                numpy.median(aAI._A_tab[..., 3] if aAI._interp else aAI._deltas)
+            )
         if aAI._roSet:
             kwargs.setdefault("ro", aAI._ro)
         if aAI._voSet:
@@ -1299,8 +1307,10 @@ class actionAngleStaeckel(actionAngle):
         the angular momentum, and f, and those of f in the model), or, for
         a family without its rule, the derivatives of the focal length
         with respect to (J_R, L_z, J_z) from the family's table (nan for
-        points whose torus the family does not hold)"""
-        aAI = self._inverse
+        points whose torus the family does not hold). Explicit tori have
+        their rule (that of the family whose delta method they were given,
+        or their callable: _rule_family), as a family does"""
+        aAI = self._inverse._rule_family
         Lz = R * vT
         pypot = _staeckel_pot(self._pot)
         edges = aAI._delta_edges(Lz)
