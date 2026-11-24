@@ -3862,10 +3862,17 @@ def test_c_actions_without_derivative_skip_the_jacobian(backend):
             x = torch.as_tensor(numpy.stack(ics))
             with pytest.raises(RuntimeError, match="functorch"):
                 torch.func.jacrev(lambda y: f(*y)[0])(x)
+            import warnings
+
             import torch.autograd.forward_ad as fwAD
 
-            with fwAD.dual_level(), pytest.raises(NotImplementedError, match="jvp"):
-                f(*fwAD.make_dual(x, torch.ones_like(x)))
+            with warnings.catch_warnings():
+                # torch-internal, under -W error: the first make_dual loads its
+                # jvp decompositions with torch.jit.script, which warns
+                # (DeprecationWarning; FutureWarning on Python 3.14)
+                warnings.filterwarnings("ignore", message=".*torch.jit.script.*")
+                with fwAD.dual_level(), pytest.raises(NotImplementedError, match="jvp"):
+                    f(*fwAD.make_dual(x, torch.ones_like(x)))
         for p, g in zip(plain, graph):
             assert numpy.array_equal(
                 as_numpy(p).view(numpy.int64), as_numpy(g).view(numpy.int64)
