@@ -36,10 +36,13 @@ def _aA_from_inverse(aAI):
     """The action-angle instance that an inverse action-angle instance
     inverts, where galpy can set it up: None otherwise"""
     from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
+    from .actionAngleSphericalInverse import actionAngleSphericalInverse
     from .actionAngleStaeckelInverse import actionAngleStaeckelInverse
 
     if isinstance(aAI, actionAngleIsochroneInverse):
         return actionAngleIsochrone(ip=aAI._ip)
+    if isinstance(aAI, actionAngleSphericalInverse):
+        return actionAngleSpherical(pot=aAI._pot)
     if isinstance(aAI, actionAngleStaeckelInverse):
         return actionAngleStaeckel(inverse=aAI, c=True)
     return None
@@ -59,7 +62,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         aA : actionAngleIsochrone, actionAngleSpherical, actionAngleAdiabatic, or actionAngleStaeckel instance
             actionAngle instance for the potential that is being adiabatically transformed to.
         aAAI : actionAngleAdiabaticApproxInverse instance, optional
-            Set up the transformation that this instance inverts, in place of pot=, tintJ=, integrate_method=, and dt=, which are taken from it; aA= is then only necessary when the instance was set up without one and its aAI= is not an actionAngleIsochroneInverse or actionAngleStaeckelInverse instance.
+            Set up the transformation that this instance inverts, in place of pot=, tintJ=, integrate_method=, and dt=, which are taken from it; aA= is then only necessary when the instance was set up without one and its aAI= is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance. Its aAI= is used as this instance's aAI= unless one is given.
         tintJ : float, optional
             Time to integrate orbits for to estimate actions (can be Quantity).
         ntintJ : int, optional
@@ -73,9 +76,9 @@ class actionAngleAdiabaticApprox(actionAngle):
         npoints_dt : float, optional
             Amount of time to integrate forward and backwards for the npoints points (can be Quantity); the frequencies of the potential that is transformed to have to predict the change of each angle over this time to within pi.
         aAI : actionAngleInverse instance, optional
-            The inverse of aA=, used by calibrate_angles=True to fix the half turns of the angles (set up automatically for an actionAngleIsochrone aA=; it has to return points for the actions of the points that are transformed; without it, or where it returns nan, a less robust rule is used that needs aA= to be close to pot).
+            The inverse of aA=, used by calibrate_angles=True for the offset and the half turns of the angles (set up automatically for an actionAngleIsochrone aA=; it has to return points for the actions of the points that are transformed; without it, or where it returns nan, the offset is measured at each point's own image and a less robust rule for the half turns is used that needs aA= to be close to pot).
         calibrate_angles : bool, optional
-            If True, return the angles in the usual convention (zero radial angle at pericenter, zero vertical angle when moving upward through the plane) rather than with the offset of the first Note below: the offset of each point's torus is measured with a round trip of the transformation, which triples the orbit integration. Default: False.
+            If True, return the angles in the usual convention (zero radial angle at pericenter, zero vertical angle when moving upward through the plane) rather than with the offset of the first Note below: the offset of each point's torus is measured with a round trip of the transformation, which triples the orbit integration. With npoints=0 and aAI=, actionAngleAdiabaticApproxInverse with calibrate_angles=True remains the exact inverse. Default: False.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -84,7 +87,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         Notes
         -----
         - The angles are angle coordinates on the torus that advance at the orbital frequencies, but they differ from the angles of other action-angle methods by an offset that is constant on each torus (it depends on the actions, on tintJ, and on the potentials). Many applications do not need the offset (for example, any use of this class together with actionAngleAdiabaticApproxInverse for the same tintJ).
-        - With calibrate_angles=True, the offset is measured for each point: transforming the point's image in the potential of aA= back to pot and again to that of aA=, both forward in time, changes its angles by twice the offset. This gives the offset up to half a turn, which is fixed by the angles that aA= itself assigns to the point (and, for the radial angle, by whether the point moves outward); the half turn can come out wrong for points whose image in the potential of aA= is unbound or whose torus there is very different.
+        - With calibrate_angles=True, the offset is measured for each point's torus: transforming a point of the torus of the potential of aA= back to pot and again to that of aA=, both forward in time, changes its angles by twice the offset. For a finite tintJ the offset varies slightly over the torus (at the level of the error of the angles); it is measured at one fixed point of each torus (that of aAI= at the angles (1,0,1)), such that it is a function of the actions alone and the same for this class and its inverse (without aAI=, at the point's own image). This gives the offset up to half a turn, which is fixed by the angles that aA= itself assigns to the point (and, for the radial angle, by whether the point moves outward); the half turn can come out wrong for points whose image in the potential of aA= is unbound or whose torus there is very different.
         - 2025-09-23 - Started - Bovy (UofT).
         - 2025-10-15 - Allowed more general target potentials - Bovy (UofT).
 
@@ -101,6 +104,7 @@ class actionAngleAdiabaticApprox(actionAngle):
                 integrate_method=aAAI._integrate_method,
                 dt=aAAI._integrate_dt,
             )
+            kwargs.setdefault("aAI", aAAI._aAI)
             if "aA" not in kwargs:
                 kwargs["aA"] = (
                     aAAI._aAA._aA
@@ -207,6 +211,23 @@ class actionAngleAdiabaticApprox(actionAngle):
             )[6:]
         )
         return 0.5 * ((end - start + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+
+    def _offset_torus(self, actions, end):
+        """The offset (jr,lz,jz order; modulo pi) of the angles of the tori
+        with these actions: that of one fixed point of each torus (that of
+        aAI= at the angles (1,0,1)), such that it is the same function of
+        the actions here and in the inverse transformation; without aAI=,
+        or for tori that it does not return, that of the points end
+        (R,vR,vT,z,vz,phi) of the potential that is transformed to"""
+        end = [numpy.array(x, dtype="float") for x in end]
+        if self._aAI is not None:
+            fixed = [
+                numpy.broadcast_to(numpy.ravel(x), end[0].shape)
+                for x in self._aAI(*actions, 1.0, 0.0, 1.0, use_physical=False)
+            ]
+            ok = numpy.all(numpy.isfinite(fixed), axis=0)
+            end = [numpy.where(ok, f, x) for f, x in zip(fixed, end)]
+        return self._offset(*end)
 
     def _halfturns(self, angles, actions, R, vR, vT, z, vz, phi):
         """Whether each of the angles (jr,lz,jz order), known modulo pi,
@@ -438,7 +459,9 @@ class actionAngleAdiabaticApprox(actionAngle):
         potential that is transformed to"""
         if not self._calibrate:
             return tuple(angles)
-        angles = (numpy.array(angles) - self._offset(*end)) % (2.0 * numpy.pi)
+        angles = (numpy.array(angles) - self._offset_torus(actions, end)) % (
+            2.0 * numpy.pi
+        )
         return tuple(
             (angles + numpy.pi * self._halfturns(angles, actions, *self._start))
             % (2.0 * numpy.pi)

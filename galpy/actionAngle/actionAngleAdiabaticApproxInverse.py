@@ -33,13 +33,13 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         aAI : actionAngleInverse instance
             Inverse action-angle instance (for example, actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse) for the potential that is adiabatically transformed into pot; it has to return points in internal units.
         aA : actionAngle instance, optional
-            Action-angle instance for the same potential as aAI (the aA= of the corresponding actionAngleAdiabaticApprox); used for the frequencies, and only necessary for those when aAI is not an actionAngleIsochroneInverse or actionAngleStaeckelInverse instance, whose forward transformations are set up from them.
+            Action-angle instance for the same potential as aAI (the aA= of the corresponding actionAngleAdiabaticApprox); used for the frequencies, and only necessary for those when aAI is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance, whose forward transformations are set up from them.
         aAA : actionAngleAdiabaticApprox instance, optional
             Set up the inverse of this instance, in place of pot=, aA=, tintJ=, integrate_method=, and dt=, which are taken from it; aAI= is then only necessary when its aA= is not an actionAngleIsochrone instance.
         tintJ : float or Quantity, optional
             Duration of the adiabatic transformation.
         calibrate_angles : bool, optional
-            If True, the angles are those of the usual convention (those of actionAngleAdiabaticApprox with calibrate_angles=True) rather than angles with an offset that is constant on each torus: the offset of each torus is measured with a round trip of the transformation and the transformation is repeated where an angle is half a turn off, which makes it three to four times as expensive. Requires the forward transformation (aA=, or an aAI= that it can be set up from). Default: False.
+            If True, the angles are those of the usual convention (those of actionAngleAdiabaticApprox with calibrate_angles=True) rather than angles with an offset that is constant on each torus: the offset of each torus is measured with a round trip of the transformation and the transformation is repeated where an angle is half a turn off, which makes it three to four times as expensive. The offset is the same function of the actions as in actionAngleAdiabaticApprox, such that the two calibrated transformations are also each other's inverse. Requires the forward transformation (aA=, or an aAI= that it can be set up from). Default: False.
         integrate_method : str, optional
             Orbit-integration method.
         dt : float, optional
@@ -166,7 +166,9 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             # The offset of each torus, from the round trip of its point in
             # the potential of aAI=; then the points, and again where an
             # angle is half a turn off
-            angles = angles + self._aAA._offset(*self._auxiliary(acts, angles))
+            angles = angles + self._aAA._offset_torus(
+                acts, self._auxiliary(acts, angles)
+            )
             xv = self._morph(acts, angles)
             half = self._aAA._halfturns(
                 numpy.array([t.ravel() for t in args[3:]]), acts, *xv

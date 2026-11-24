@@ -226,7 +226,15 @@ at release.]
 
 - [slot 32]
 
-- [slot 33]
+- ``actionAngleAdiabaticApprox`` and ``actionAngleAdiabaticApproxInverse``:
+  second review of the stack. The forward transformation is also set up
+  automatically from an ``actionAngleSphericalInverse`` ``aAI=``; with
+  ``calibrate_angles=True`` the offset of the angles is measured at one
+  fixed point of each torus, such that it is the same function of the
+  actions in both classes and the calibrated transformations are each
+  other's inverse to the precision of the orbit integration (they were to
+  that of the calibrated angles); ``actionAngleAdiabaticApprox(aAAI=)``
+  takes over the instance's ``aAI=``.
 
 - [slot 34]
 
