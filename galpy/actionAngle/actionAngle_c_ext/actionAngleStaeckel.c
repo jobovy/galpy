@@ -450,11 +450,9 @@ static void modelRuleu0(int ndata,
     if ( ! *(full+ii) && ! ( *(umin+ii) < *(umax+ii) ) ) *(full+ii)= 1;
   }
   for (ii=0; ii < ndata; ii++) nfull+= *(full+ii);
-  if ( nfull == ndata )
-    calcUminUmax(ndata,umin,umax,ux,ux,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,
-		 sin2v0,potu0v0,nargs,actionAngleArgs);
-  else if ( nfull > 0 ){
-    // (the compressed arrays of the points to solve anew)
+  if ( nfull > 0 ){
+    // (the compressed arrays of the points to solve anew: all of them on a
+    // first application)
     double *sub= (double *) malloc ( 11 * nfull * sizeof(double) );
     double *arr[9]= {ux,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0};
     for (ii=0, kk=0; ii < ndata; ii++)
