@@ -16140,3 +16140,75 @@ def test_actionAngleStaeckel_inverse_nearaxis():
         out[0][:, :2], out[1][:, :2], rtol=0.0, atol=1e-6
     ), "actionAngleStaeckel(inverse=) with delta='fit' differs between C and Python"
     return None
+
+
+def test_actionAngleStaeckel_inverse_nearaxis_fit():
+    # For a family whose focal length follows its tori by the fitted rule,
+    # the focal length of the torus through a point is a fixed point of the
+    # rule. Close to the symmetry axis the rule is not defined at every
+    # focal length (the point is on no torus of some), and the iteration
+    # can start at, or step to, one where it is not although the fixed
+    # point exists: these points are solved for by bracketing, and C and
+    # Python agree on them and on the points that are on no torus
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+    from galpy.util import galpyWarning
+
+    fam = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta="fit",
+        u0="torus",
+        setup_interp=True,
+        nE=5,
+        nLz=5,
+        nI3=5,
+        mm_npt=32,
+        progressbar=False,
+    )
+    # three points whose focal length the iteration does not find, and three
+    # that are on no torus of the family's rule
+    x = numpy.array(
+        [
+            [2.263004194937672, 0.3885950256128122, -0.004413752377344823, 1.1396172230949002, -0.12977835378893876],
+            [0.5715959802707503, -0.2807778867586726, 0.004480860692506641, 1.1325103872165077, 0.1059506621009235],
+            [0.34135411290346473, -0.7068648898571247, 0.0347781501349293, -0.8069430106440976, 0.48158637694732803],
+            [0.12838270122596657, 0.09187311237546948, -0.0009217365275638495, 0.5327978161696283, -0.8121233557162888],
+            [0.6357503174271786, -0.01975186792013046, 0.017750945701678594, 1.747728793897359, -0.47981606272293625],
+            [1.545268791580364, 0.004669803341139917, -0.0068426999559747, 0.8500650097427931, 0.38041633315831735],
+        ]
+    ).T  # fmt: skip
+    out = {}
+    for c in (True, False):
+        aAS = actionAngleStaeckel(inverse=fam, c=c)
+        with pytest.warns(galpyWarning, match="3 of the 6 points are not on a torus"):
+            out[c] = numpy.array(aAS.actionsFreqsAngles(*x, 0.0 * x[0]))
+        # (the angular momentum is that of the point itself)
+        assert numpy.all(numpy.isfinite(out[c][:, :3])) and numpy.all(
+            numpy.isnan(numpy.delete(out[c][:, 3:], 1, axis=0))
+        ), (
+            f"actionAngleStaeckel(inverse=, c={c}) with a fitted focal length "
+            "does not find the tori of points close to the symmetry axis, or "
+            "returns values for points that are on none"
+        )
+    assert numpy.allclose(out[True][:3, :3], out[False][:3, :3], rtol=0.0, atol=1e-6), (
+        "actionAngleStaeckel(inverse=) with a fitted focal length: the actions "
+        "from C and Python differ close to the symmetry axis"
+    )
+    # and the first of them is where its explicit torus puts it
+    jr, lz, jz, _, _, _, ar, ap, az = out[False][:, 0]
+    tor = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta=fam.delta,
+        u0="torus",
+        jrs=[jr],
+        Lzs=[lz],
+        jzs=[jz],
+        mm_npt=512,
+        progressbar=False,
+    )
+    xt = numpy.array(tor(jr, lz, jz, ar, ap, az)).ravel()
+    assert numpy.allclose(xt[:5], x[:, 0], rtol=0.0, atol=1e-3), (
+        "actionAngleStaeckel(inverse=) with a fitted focal length: a point "
+        "close to the symmetry axis is not on the torus that it is assigned"
+    )
+    return None
