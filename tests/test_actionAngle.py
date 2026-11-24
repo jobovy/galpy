@@ -14264,8 +14264,8 @@ def test_actionAngleStaeckelInverse_delta_callable_tables():
     for err, match, kw in (
         (
             TypeError,
-            "requires setup_interp=True",
-            dict(Es=[-1.5], Lzs=[1.0], I3s=[1.0]),
+            "requires setup_interp=True; explicit tori .* delta=family.delta",
+            dict(delta="fit", Es=[-1.5], Lzs=[1.0], I3s=[1.0]),
         ),
         (TypeError, "built-in rule for the reference curve", dict(u0=1.0, **wide)),
         (
@@ -14504,6 +14504,138 @@ def test_actionAngleStaeckelInverse_delta_fit():
     ), "A pickled family with delta='fit' does not evaluate identically"
     with pytest.raises(ValueError, match="only string value delta= accepts"):
         actionAngleStaeckelInverse(pot=lp, delta="best", **wide)
+    return None
+
+
+def test_actionAngleStaeckelInverse_delta_explicit():
+    # Explicit tori accept a rule for the focal length, a callable or the
+    # delta method of a family: such a torus is the torus that the rule's
+    # family has at its actions, with that family's angles (which carry the
+    # variation of the focal length from torus to torus) and frequencies,
+    # also where the family's grid does not reach
+    import pickle
+
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    wide = dict(setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=4.0, progressbar=False)
+    wide.update(nE=4, nLz=4, nI3=4, mm_npt=32)
+    fit = actionAngleStaeckelInverse(pot=lp, delta="fit", delta_deg=(1, 1, 1), **wide)
+    rule = lambda E, Lz, f: 0.8 * (1.0 + 0.2 * (f - 0.5) + 0.05 * E * f + 0.1 * Lz)  # noqa: E731
+    vary = actionAngleStaeckelInverse(pot=lp, delta=rule, u0="torus", **wide)
+    angs = numpy.array(
+        [[0.3, 2.0, 4.1, 5.5], [1.0, 4.0, 0.2, 3.0], [2.0, 5.5, 3.3, 1.0]]
+    )
+    wrap = lambda d: (d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi  # noqa: E731
+
+    def explicit(fam, delta, J, **kw):
+        J = numpy.atleast_2d(J)
+        if "Es" not in kw:
+            kw.update(jrs=J[:, 0], jzs=J[:, 2])
+        kw.update(mm_npt=32, auxiliary=fam.auxiliary, progressbar=False)
+        return actionAngleStaeckelInverse(pot=lp, delta=delta, Lzs=J[:, 1], **kw)
+
+    def points(aA, J):
+        # (the frequencies of one torus are floats)
+        return numpy.array([o + 0.0 * angs[0] for o in aA.xvFreqs(*J, *angs)])
+
+    # at the nodes of a family (one of them a shell and one a planar orbit),
+    # where the family is not interpolated, the explicit tori of its rule
+    # are the family's, set up from their actions or from their integrals
+    for fam, delta in ((fit, fit.delta), (vary, rule), (vary, vary.delta)):
+        nodes = ((1, 1, 1), (2, 2, 0), (3, 1, 2), (2, 3, 1), (2, 0, 3))
+        J = numpy.array(
+            [
+                [fam._A_tab[n][0], fam._Lzgrid[n[2]], fam._A_tab[n][1]]
+                for n in nodes[: 5 if delta is not vary.delta else 1]
+            ]
+        )
+        aAI = explicit(fam, delta, J)
+        # (from the integrals: the tori with both librations, whose third
+        # integral does not have to be that of a face to round-off)
+        aAE = explicit(fam, delta, J[:3], Es=aAI._Es[:3], I3s=aAI._I3s[:3])
+        for k, (jr, Lz, jz, E, I3) in enumerate(zip(*J.T, aAI._Es, aAI._I3s)):
+            ref = points(fam, (jr, Lz, jz))
+            for aA in (aAI, aAE)[: 1 + (k < len(aAE._Es))]:
+                dev = numpy.fabs(points(aA, (jr, Lz, jz)) - ref)
+                dev[5] = numpy.fabs(wrap(dev[5]))
+                assert numpy.amax(dev) < 1e-9, (
+                    "An explicit torus with a family's rule for the focal length "
+                    "is not the family's torus at a node: %g" % numpy.amax(dev)
+                )
+                assert (
+                    numpy.fabs(aA.JR(E, Lz, I3) - jr) < 1e-10
+                    and numpy.fabs(aA.Jz(E, Lz, I3) - jz) < 1e-10
+                ), "A torus set up with a rule does not have the requested actions"
+        assert numpy.all(
+            aAI.delta(aAI._Es, J[:, 1], 0.3) == delta(aAI._Es, J[:, 1], 0.3)
+        )
+    # where the family's grid does not reach (small |L_z|, of either sign),
+    # the forward transformation in the rule's models returns the actions,
+    # the frequencies and the angles of the explicit tori (the first torus
+    # lies on the grid); a pickled instance evaluates identically
+    J = numpy.array([(0.08, 1.05, 0.06), (0.2, 0.3, 0.6), (0.05, -0.3, 0.8)])
+    aAI = explicit(fit, fit.delta, J)
+    aAF = actionAngleStaeckel(inverse=fit)
+    again = pickle.loads(pickle.dumps(aAI))
+    for jr, Lz, jz in J:
+        pts = points(aAI, (jr, Lz, jz))
+        assert numpy.all(points(again, (jr, Lz, jz)) == pts), (
+            "A pickled set of explicit tori with a rule does not evaluate identically"
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", galpyWarning)
+            out = numpy.array(aAF.actionsFreqsAngles(*pts[:6]))
+        dev = numpy.fabs(
+            out - numpy.array([jr, Lz, jz, *pts[6:, 0], 0.0, 0.0, 0.0])[:, None]
+        )
+        dev[6:] = numpy.fabs(wrap(out[6:] - angs))
+        assert numpy.amax(dev) < 1e-8, (
+            "The forward transformation in a family's models does not return "
+            "the actions and angles of an explicit torus of its rule: %g"
+            % numpy.amax(dev)
+        )
+    with pytest.raises(RuntimeError, match="was not pickled"):
+        again.delta(0.5, 1.0, 0.5)
+
+    # the map of the explicit tori of a rule is canonical (to the central
+    # differences across neighbouring tori); it is not without the terms of
+    # the rule, on the same tori with their focal lengths as numbers
+    def xv(jr, Lz, jz, *angles, terms=True):
+        aA = explicit(fit, fit.delta, (jr, Lz, jz))
+        if not terms:
+            aA = explicit(fit, float(aA._deltas[0]), (jr, Lz, jz), u0="torus")
+        return aA(jr, Lz, jz, *([a] for a in angles))
+
+    args = (0.1, 0.9, 0.3, 0.7, 1.0, 2.0)
+    defect = _spherical_inverse_symplectic_defect(xv, *args, h=1e-4)
+    assert defect < 1e-6, (
+        "The map of explicit tori with a rule for the focal length is not "
+        "canonical: %g" % defect
+    )
+    assert (
+        _spherical_inverse_symplectic_defect(
+            lambda *a: xv(*a, terms=False), *args, h=1e-4
+        )
+        > 1e-2
+    ), "Tori of different focal lengths are canonical without the rule's terms"
+    # the circular orbit; actions that the rule's model has no torus for;
+    # and a rule without a focal length that is its own at the torus
+    aAC = explicit(fit, fit.delta, (0.0, 0.9, 0.0))
+    assert numpy.fabs(aAC(0.0, 0.9, 0.0, 1.0, 2.0, 3.0)[0] - lp.rl(0.9)) < 1e-10, (
+        "The circular orbit set up with a rule is not at the circular radius"
+    )
+    with pytest.raises(ValueError, match="No torus with the actions"):
+        explicit(fit, lambda E, L, f: 0.7 + 0.1 * f, (0.05, 0.15, 0.8))
+    with pytest.raises(RuntimeError, match="did not converge"):
+        explicit(
+            fit,
+            lambda E, L, f: numpy.where(f < 0.4, 0.9, 0.5),
+            (0.0, 0.9, 0.0),
+            Es=[0.84],
+            I3s=[0.9],
+        )
     return None
 
 

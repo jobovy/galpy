@@ -208,7 +208,11 @@ at release.]
   ``actionAngleAdiabaticApprox(..., npoints=0)`` (each point transformed on
   its own) to the precision of the orbit integration, for any ``tintJ``.
 
-- [slot 25]
+- Added explicit tori whose focal lengths follow a rule to
+  actionAngleStaeckelInverse: delta= a callable or the delta method of a
+  family (delta=family.delta) with Es=, Lzs=, I3s= or jrs=, Lzs=, jzs= sets
+  up the tori of the rule's family at those actions, with the family's
+  angles and frequencies, also where the family's grid does not reach.
 
 - [slot 26]
 
