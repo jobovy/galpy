@@ -21,6 +21,7 @@ from ..potential import (
     DehnenSmoothWrapperPotential,
     MWPotential,
     OblateStaeckelWrapperPotential,
+    evaluatePotentials,
     evaluateRforces,
     evaluatezforces,
 )
@@ -100,7 +101,7 @@ def _deform(pot, aux, vxvv, models, ts, method, dt, back=False, wrapper=None):
     otherwise one Staeckel potential at a time)"""
     from ..orbit import Orbit
     from ..orbit.integrateFullOrbit import _ext_loaded as ext_loaded
-    from ..orbit.integrateFullOrbit import integrateFullOrbit_c
+    from ..orbit.integrateFullOrbit import _parse_indiv_pot, integrateFullOrbit_c
 
     out = numpy.full_like(vxvv, numpy.nan)
 
@@ -126,28 +127,44 @@ def _deform(pot, aux, vxvv, models, ts, method, dt, back=False, wrapper=None):
         return out
     ok = numpy.flatnonzero(numpy.all(numpy.isfinite(models), axis=1))
     uniq, inv = numpy.unique(models[ok], axis=0, return_inverse=True)
-    auxs = [wrapper(delta, u0)[0] for delta, u0 in uniq]
-    if (
-        len(auxs) > 0
-        and ext_loaded
-        and method.endswith("_c")
-        and _check_c(_switch(pot, auxs[0], ts[-1]))
-    ):
-        # all points at once in C, each in its own potential
-        auxs = [auxs[ii] for ii in numpy.ravel(inv)]
+    if len(ok) > 0 and ext_loaded and method.endswith("_c") and _check_c(pot):
+        # all points at once in C, each in its own potential: one potential
+        # is passed in full and the focal length, reference curve, and
+        # reference value of the potential of each point's Staeckel potential
+        # in its place among that potential's arguments
+        delta, u0 = models[ok].T
+
+        def switch(aux):
+            return _switch(aux, pot, ts[-1]) if back else _switch(pot, aux, ts[-1])
+
+        def reference(delta, u0):
+            return (
+                evaluatePotentials(
+                    pot, delta * numpy.sinh(u0), 0.0 * delta, use_physical=False
+                )
+                * numpy.cosh(u0) ** 2.0
+            )
+
+        template = switch(
+            OblateStaeckelWrapperPotential(pot=pot, delta=delta[0], u0=u0[0])
+        )
+        other = switch(
+            OblateStaeckelWrapperPotential(
+                pot=pot, delta=1.1 * delta[0], u0=1.1 * u0[0]
+            )
+        )
+        idx = _parse_indiv_pot([template, other], t=ts)[4]
         out[ok] = integrateFullOrbit_c(
-            [
-                _switch(aux, pot, ts[-1]) if back else _switch(pot, aux, ts[-1])
-                for aux in auxs
-            ],
+            template,
             vxvv[ok],
             ts,
             method,
             dt=dt,
             progressbar=False,
-            indiv_pot=True,
+            indiv_args=(idx, numpy.stack([delta, u0, reference(delta, u0)], axis=1)),
         )[0][:, -1]
         return out
+    auxs = [wrapper(delta, u0)[0] for delta, u0 in uniq]
     for ii, aux in enumerate(auxs):
         run(ok[numpy.ravel(inv) == ii], aux)
     return out

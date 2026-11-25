@@ -657,6 +657,39 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
     return (npot, pot_type, pot_args, pot_tfuncs)
 
 
+def _parse_indiv_pot(pot, t=0.0):
+    """_parse_pot for a sequence of potentials that differ in the values of
+    their parameters alone: (npot, pot_type, pot_args, pot_tfuncs) of the
+    first, the entries of pot_args in which the potentials differ, and the
+    values [len(pot),number of entries] of those entries for each potential"""
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot[0], t=t)
+    diffs = []
+    for p in pot:
+        this_npot, this_type, this_args, this_tfuncs = _parse_pot(p, t=t)
+        if (
+            this_npot != npot
+            or not numpy.array_equal(this_type, pot_type)
+            or len(this_args) != len(pot_args)
+            or len(this_tfuncs) > 0
+        ):
+            raise ValueError(
+                "indiv_pot=True requires potentials that differ in the "
+                "values of their parameters alone (and that have no "
+                "parameters that are functions of time)"
+            )
+        idx = numpy.flatnonzero(
+            (this_args != pot_args) & ~(numpy.isnan(this_args) & numpy.isnan(pot_args))
+        )
+        diffs.append((idx, this_args[idx]))
+    indiv_idx = numpy.unique(numpy.concatenate([d[0] for d in diffs])).astype(
+        numpy.int32
+    )
+    indiv_args = numpy.tile(pot_args[indiv_idx], (len(pot), 1))
+    for ii, (idx, vals) in enumerate(diffs):
+        indiv_args[ii, numpy.searchsorted(indiv_idx, idx)] = vals
+    return npot, pot_type, pot_args, pot_tfuncs, indiv_idx, indiv_args
+
+
 def integrateFullOrbit_c(
     pot,
     yo,
@@ -667,6 +700,7 @@ def integrateFullOrbit_c(
     progressbar=True,
     dt=None,
     indiv_pot=False,
+    indiv_args=None,
 ):
     """
     Integrate an ode for a FullOrbit.
@@ -692,6 +726,9 @@ def integrateFullOrbit_c(
     indiv_pot : bool, optional
         If True, pot is a sequence of N potentials, one for each object, that differ in the values of their parameters alone (the same potentials combined in the same order, without parameters that are functions of time); the objects are integrated in parallel, each in its own potential. Only the first potential is passed to C in full, and the others as the parameters in which they differ from it, such that the memory use does not grow with the size of the potentials.
 
+    indiv_args : tuple, optional
+        Instead of indiv_pot=True: (idx, values) with the entries idx of the potential's parsed arguments (as _parse_indiv_pot returns them) in which the objects' potentials differ from pot and their values [N,len(idx)] for each object.
+
     Returns
     -------
     tuple
@@ -716,40 +753,18 @@ def integrateFullOrbit_c(
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
     indiv_idx = numpy.zeros(0, dtype=numpy.int32)
-    indiv_args = numpy.zeros((nobj, 0))
     if indiv_pot:
         if len(pot) != nobj:
             raise ValueError("indiv_pot=True requires one potential for each object")
-        # The first potential is passed to C in full, the others as the
-        # entries of its pot_args in which they differ from it
-        npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot[0], t=t)
-        diffs = []
-        for p in pot:
-            this_npot, this_type, this_args, this_tfuncs = _parse_pot(p, t=t)
-            if (
-                this_npot != npot
-                or not numpy.array_equal(this_type, pot_type)
-                or len(this_args) != len(pot_args)
-                or len(this_tfuncs) > 0
-            ):
-                raise ValueError(
-                    "indiv_pot=True requires potentials that differ in the "
-                    "values of their parameters alone (and that have no "
-                    "parameters that are functions of time)"
-                )
-            idx = numpy.flatnonzero(
-                (this_args != pot_args)
-                & ~(numpy.isnan(this_args) & numpy.isnan(pot_args))
-            )
-            diffs.append((idx, this_args[idx]))
-        indiv_idx = numpy.unique(numpy.concatenate([d[0] for d in diffs])).astype(
-            numpy.int32
+        npot, pot_type, pot_args, pot_tfuncs, indiv_idx, indiv_args = _parse_indiv_pot(
+            pot, t=t
         )
-        indiv_args = numpy.tile(pot_args[indiv_idx], (nobj, 1))
-        for ii, (idx, vals) in enumerate(diffs):
-            indiv_args[ii, numpy.searchsorted(indiv_idx, idx)] = vals
     else:
         npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
+        if indiv_args is not None:
+            indiv_idx, indiv_args = indiv_args
+    if not indiv_pot and indiv_args is None:
+        indiv_args = numpy.zeros((nobj, 0))
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
