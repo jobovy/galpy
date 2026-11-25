@@ -6818,6 +6818,30 @@ def test_actionAngleAdiabaticApprox_staeckel_family():
     ts = numpy.linspace(0.0, 30.0, 6)
     o.integrate(ts, MWPotential2014)
     x = numpy.array([o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)])
+    # The C integrators integrate all points at once, each in its own
+    # potential; the Python ones one at a time, with the same result
+    assert numpy.all(
+        numpy.fabs(
+            numpy.array(
+                actionAngleAdiabaticApprox(
+                    pot=MWPotential2014, aA=aAS, tintJ=2.0, npoints=0
+                )(*x[:, :2])
+            )
+            - numpy.array(
+                actionAngleAdiabaticApprox(
+                    pot=MWPotential2014,
+                    aA=aAS,
+                    tintJ=2.0,
+                    npoints=0,
+                    integrate_method="dop853",
+                )(*x[:, :2])
+            )
+        )
+        < 1e-7
+    ), (
+        "actionAngleAdiabaticApprox with a Staeckel family as the auxiliary "
+        "differs between the C and Python orbit integrators"
+    )
     # Actions and frequencies are constant along the orbit and the angles
     # advance at the frequencies, far better than those of the family (the
     # Staeckel approximation) itself

@@ -307,7 +307,15 @@ at release.]
   and their ``mm_npt=`` keyword was removed (the tori that are set up for
   a Staeckel family as the auxiliary always use 256 points).
 
-- [slot 36]
+- The C orbit integration can integrate every orbit in its own potential
+  (``integrateFullOrbit_c(..., indiv_pot=True)`` with one potential for
+  each orbit; the potentials have to differ in the values of their
+  parameters alone), in parallel like orbits in a single potential. One
+  potential is passed to C in full and the others as the parameters in
+  which they differ, such that memory does not grow with the potential.
+  ``actionAngleAdiabaticApprox`` and ``actionAngleAdiabaticApproxInverse``
+  use it for a Staeckel family as the auxiliary, which makes that as
+  fast per orbit integration as a single auxiliary potential.
 
 - [slot 37]
 

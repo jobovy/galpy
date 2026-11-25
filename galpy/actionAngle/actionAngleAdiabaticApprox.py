@@ -12,9 +12,7 @@
 #             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
-import os
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 
 import numpy
 from numpy import linalg
@@ -23,9 +21,11 @@ from ..potential import (
     DehnenSmoothWrapperPotential,
     MWPotential,
     OblateStaeckelWrapperPotential,
+    evaluatePotentials,
     evaluateRforces,
     evaluatezforces,
 )
+from ..potential.Potential import _check_c
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -97,9 +97,11 @@ def _deform(pot, aux, vxvv, models, ts, method, dt, back=False, wrapper=None):
     potential changes to pot): aux or, without a single such potential,
     the Staeckel potential of each point's row (delta, u0) of models (the
     first of the pair that wrapper(delta, u0) returns), in which case the
-    points are integrated one Staeckel potential at a time, in parallel
-    threads"""
+    points are integrated each in its own potential (in C, all at once;
+    otherwise one Staeckel potential at a time)"""
     from ..orbit import Orbit
+    from ..orbit.integrateFullOrbit import _ext_loaded as ext_loaded
+    from ..orbit.integrateFullOrbit import _parse_indiv_pot, integrateFullOrbit_c
 
     out = numpy.full_like(vxvv, numpy.nan)
 
@@ -125,16 +127,46 @@ def _deform(pot, aux, vxvv, models, ts, method, dt, back=False, wrapper=None):
         return out
     ok = numpy.flatnonzero(numpy.all(numpy.isfinite(models), axis=1))
     uniq, inv = numpy.unique(models[ok], axis=0, return_inverse=True)
-    groups = [
-        (ok[numpy.ravel(inv) == ii], wrapper(delta, u0)[0])
-        for ii, (delta, u0) in enumerate(uniq)
-    ]
-    # (the C integration releases the interpreter: one thread for each
-    # potential, as many at a time as OpenMP would use)
-    with ThreadPoolExecutor(
-        int(os.environ.get("OMP_NUM_THREADS", os.cpu_count()))
-    ) as pool:
-        list(pool.map(lambda group: run(*group), groups))
+    if len(ok) > 0 and ext_loaded and method.endswith("_c") and _check_c(pot):
+        # all points at once in C, each in its own potential: one potential
+        # is passed in full and the focal length, reference curve, and
+        # reference value of the potential of each point's Staeckel potential
+        # in its place among that potential's arguments
+        delta, u0 = models[ok].T
+
+        def switch(aux):
+            return _switch(aux, pot, ts[-1]) if back else _switch(pot, aux, ts[-1])
+
+        def reference(delta, u0):
+            return (
+                evaluatePotentials(
+                    pot, delta * numpy.sinh(u0), 0.0 * delta, use_physical=False
+                )
+                * numpy.cosh(u0) ** 2.0
+            )
+
+        template = switch(
+            OblateStaeckelWrapperPotential(pot=pot, delta=delta[0], u0=u0[0])
+        )
+        other = switch(
+            OblateStaeckelWrapperPotential(
+                pot=pot, delta=1.1 * delta[0], u0=1.1 * u0[0]
+            )
+        )
+        idx = _parse_indiv_pot([template, other], t=ts)[4]
+        out[ok] = integrateFullOrbit_c(
+            template,
+            vxvv[ok],
+            ts,
+            method,
+            dt=dt,
+            progressbar=False,
+            indiv_args=(idx, numpy.stack([delta, u0, reference(delta, u0)], axis=1)),
+        )[0][:, -1]
+        return out
+    auxs = [wrapper(delta, u0)[0] for delta, u0 in uniq]
+    for ii, aux in enumerate(auxs):
+        run(ok[numpy.ravel(inv) == ii], aux)
     return out
 
 
@@ -178,7 +210,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         -----
         - Each point is integrated for tintJ while pot is slowly changed into the auxiliary potential, and its actions, frequencies, and angles are those of aA= at the end. actionAngleAdiabaticApproxInverse is the inverse; use actionAngleAdiabaticApprox.from_inverse to set up the transformation that an instance of it inverts. With npoints=0 the two are exact inverses of each other, to the precision of the orbit integration.
         - The angles advance at the orbital frequencies, but they differ from those of other action-angle methods by an offset that is constant on each torus. Many applications do not need the offset (any use together with actionAngleAdiabaticApproxInverse, for example); calibrate_angles=True removes it, by measuring it for each point's torus with a round trip of the transformation.
-        - An actionAngleStaeckel instance as aA= sets the auxiliary potential in one of three ways. Set up for an OblateStaeckelWrapperPotential (or another potential of Staeckel form), it is that potential. Set up with delta= for another potential, it is the Staeckel potential OblateStaeckelWrapperPotential(pot=,delta=) that approximates that potential. Set up with actionAngleStaeckel.from_inverse from a family of tori of pot whose Staeckel potential follows its tori (actionAngleStaeckelInverse with setup_interp=True and delta='fit' or u0='torus'), each point is transformed to a Staeckel potential chosen to match its own torus, such that a single family serves all orbits of a galaxy: the potential of the family's torus with the point's actions, found by starting from the family's torus through the point and updating niter times with the actions that the transformation returns. actionAngleAdiabaticApproxInverse is then the inverse to the convergence of these updates (about two digits for each, such that the default two give a round trip of 1e-7 or better also for eccentric halo orbits; the precision of the actions does not depend on them). Points are then integrated one at a time, in parallel threads (as many as OMP_NUM_THREADS, or the number of cores).
+        - An actionAngleStaeckel instance as aA= sets the auxiliary potential in one of three ways. Set up for an OblateStaeckelWrapperPotential (or another potential of Staeckel form), it is that potential. Set up with delta= for another potential, it is the Staeckel potential OblateStaeckelWrapperPotential(pot=,delta=) that approximates that potential. Set up with actionAngleStaeckel.from_inverse from a family of tori of pot whose Staeckel potential follows its tori (actionAngleStaeckelInverse with setup_interp=True and delta='fit' or u0='torus'), each point is transformed to a Staeckel potential chosen to match its own torus, such that a single family serves all orbits of a galaxy: the potential of the family's torus with the point's actions, found by starting from the family's torus through the point and updating niter times with the actions that the transformation returns. actionAngleAdiabaticApproxInverse is then the inverse to the convergence of these updates (about two digits for each, such that the default two give a round trip of 1e-7 or better also for eccentric halo orbits; the precision of the actions does not depend on them). The C orbit integrators integrate all points in parallel, each in its own potential; other integrators integrate them one at a time.
         - 2025-09-23 - Started - Bovy (UofT).
         - 2025-10-15 - Allowed more general target potentials - Bovy (UofT).
 

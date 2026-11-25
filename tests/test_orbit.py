@@ -16749,3 +16749,79 @@ def test_orbit_setup_sky_does_not_modify_input():
         numpy.testing.assert_array_equal(sky, before, err_msg=str(kw))
         # and the orbit is the one set up from a private copy
         numpy.testing.assert_array_equal(o.vxvv, Orbit(before.copy(), **kw).vxvv)
+
+
+def test_integrateFullOrbit_c_indiv_pot():
+    # integrateFullOrbit_c with a potential for each orbit (potentials that
+    # differ in the values of their parameters alone) agrees with integrating
+    # each orbit in its own potential
+    from galpy.orbit.integrateFullOrbit import integrateFullOrbit_c
+    from galpy.potential import (
+        DehnenSmoothWrapperPotential,
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        NFWPotential,
+    )
+
+    def pot(a, q, tsteady):
+        # (a time-dependent wrapper and a combination of potentials)
+        return DehnenSmoothWrapperPotential(
+            pot=MiyamotoNagaiPotential(amp=0.6, a=a, b=0.05),
+            tform=0.0,
+            tsteady=tsteady,
+        ) + LogarithmicHaloPotential(normalize=0.4, q=q)
+
+    rng = numpy.random.default_rng(1)
+    nobj = 7
+    yo = numpy.array(
+        [
+            rng.uniform(0.8, 1.2, nobj),
+            rng.uniform(-0.2, 0.2, nobj),
+            rng.uniform(0.8, 1.1, nobj),
+            rng.uniform(-0.2, 0.2, nobj),
+            rng.uniform(-0.2, 0.2, nobj),
+            rng.uniform(0.0, 2.0 * numpy.pi, nobj),
+        ]
+    ).T
+    pots = [
+        pot(a, q, tsteady)
+        for a, q, tsteady in zip(
+            rng.uniform(0.3, 0.6, nobj),
+            rng.uniform(0.7, 1.0, nobj),
+            rng.uniform(1.0, 5.0, nobj),
+        )
+    ]
+    ts = numpy.linspace(0.0, 10.0, 11)
+    for method in ("dop853_c", "symplec4_c"):
+        out, err = integrateFullOrbit_c(
+            pots, numpy.copy(yo), ts, method, indiv_pot=True, progressbar=False
+        )
+        assert out.shape == (nobj, len(ts), 6) and numpy.all(err == 0)
+        for ii in range(nobj):
+            ref = integrateFullOrbit_c(pots[ii], numpy.copy(yo[ii]), ts, method)[0]
+            assert numpy.all(numpy.fabs(out[ii] - ref) < 1e-12), (
+                "integrateFullOrbit_c with indiv_pot=True does not agree with "
+                "integrating each orbit in its own potential"
+            )
+    # One potential for each orbit, all of the same structure
+    with pytest.raises(ValueError, match="one potential for each object"):
+        integrateFullOrbit_c(pots[:3], numpy.copy(yo), ts, "dop853_c", indiv_pot=True)
+    with pytest.raises(ValueError, match="values of their parameters alone"):
+        integrateFullOrbit_c(
+            pots[:-1] + [NFWPotential(normalize=1.0)],
+            numpy.copy(yo),
+            ts,
+            "dop853_c",
+            indiv_pot=True,
+        )
+    # Potentials that are all the same are integrated like a single one
+    out = integrateFullOrbit_c(
+        [pots[0]] * nobj, numpy.copy(yo), ts, "dop853_c", indiv_pot=True
+    )[0]
+    assert numpy.all(
+        numpy.fabs(
+            out - integrateFullOrbit_c(pots[0], numpy.copy(yo), ts, "dop853_c")[0]
+        )
+        < 1e-12
+    ), "integrateFullOrbit_c with the same potential for each orbit fails"
+    return None
