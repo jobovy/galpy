@@ -249,21 +249,16 @@ at release.]
 
 - [slot 23]
 
-- New ``actionAngleAdiabaticApprox``: actions, frequencies, and angles in
-  any potential, by integrating each point while the potential is
+- New ``actionAngleAdiabaticApprox`` and its inverse,
+  ``actionAngleAdiabaticApproxInverse``: actions, frequencies, and angles
+  in any potential (and the phase-space point of given actions and
+  angles), by integrating each point while the potential is
   adiabatically transformed into that of an action-angle instance
-  ``aA=`` (isochrone, spherical, adiabatic, or Staeckel) and evaluating
-  ``aA=`` at the end.
+  ``aA=`` (isochrone, spherical, adiabatic, or Staeckel).
 
 - [slot 25]
 
-- New ``actionAngleAdiabaticApproxInverse``: the phase-space point of given
-  actions and angles in any potential, by integrating the point of the torus
-  of an inverse action-angle instance ``aAI=`` (for example,
-  ``actionAngleIsochroneInverse``) backwards through the adiabatic
-  transformation of ``actionAngleAdiabaticApprox``; it is the inverse of
-  ``actionAngleAdiabaticApprox(..., npoints=0)`` (each point transformed on
-  its own) to the precision of the orbit integration, for any ``tintJ``.
+- [slot 26]
 
 - [slot 27]
 
