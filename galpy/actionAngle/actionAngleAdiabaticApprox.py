@@ -23,7 +23,6 @@ from ..backend import (
 )
 from ..backend._input import numpy_or_backend
 from ..backend._namespaces import (
-    device_type,
     has_concrete_truth_value,
     inbackend_ode_method,
     jax_transformations,
@@ -64,11 +63,10 @@ def _inbackend(self, ic, tangent=False):
     with the backend's own solver (diffrax, torchdiffeq) in place of the
     instance's C integrator: where the C integrator cannot carry the
     derivative (the potentials' parameters) or lacks the potential, and on jax
-    where that solver is faster: on a GPU; under jax.jit or jax.vmap; and for
-    more than 1000 points (for the orbits' derivatives in a direction, the
-    tangents, more than 100 points that are not being differentiated). The C
-    tangents' derivatives with respect to the points are faster in C, also
-    under jax.jit."""
+    where that solver is faster, on a CPU or a GPU: under jax.jit or jax.vmap,
+    and for more than 1000 points (500 differentiated; for the orbits'
+    derivatives in a direction, the tangents, 100). The tangents' derivatives
+    with respect to the points are faster in C, also under jax.jit."""
     from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
 
     if self._integrate_method.lower() not in _C_DXDV_METHODS:
@@ -79,15 +77,13 @@ def _inbackend(self, ic, tangent=False):
         return True
     if name_of_namespace(namespace_from_arrays((ic,))) != "jax":
         return False
-    if device_type(ic) != "cpu":
-        return True
     transformations = jax_transformations(ic)
     derivative = bool(transformations & {"forward", "reverse"})
     if tangent and derivative:
         return False
     if transformations & {"jit", "vmap"}:
         return True
-    return ic.shape[0] > (100 if tangent else 1000)
+    return ic.shape[0] > (100 if tangent else 500 if derivative else 1000)
 
 
 def _integrate_backend(self, ic, ts, pot, method=None):

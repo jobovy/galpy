@@ -365,10 +365,10 @@ def test_actionAngleAdiabaticApprox_frequency_derivatives_npoints0(backend_name)
     assert numpy.allclose(as_numpy(jr_x), fd_x[1], rtol=1e-6, atol=1e-7)
 
 
-def test_actionAngleAdiabaticApprox_integrator_rule(monkeypatch):
+def test_actionAngleAdiabaticApprox_integrator_rule():
     # which integrations of a C integrate_method run in the backend's own
-    # solver (_inbackend): on jax, for many points, under jax.jit or
-    # jax.vmap, or on a GPU, except for the derivatives of the tangents (the
+    # solver (_inbackend): on jax, on any device, for many points and under
+    # jax.jit or jax.vmap, except for the derivatives of the tangents (the
     # frequencies'); for derivatives with respect to the potential's
     # parameters; and never for another integrate_method or on PyTorch
     import importlib
@@ -377,8 +377,8 @@ def test_actionAngleAdiabaticApprox_integrator_rule(monkeypatch):
     aAA = _setup(npoints=0)
     if jax:
         jnp = jax.numpy
-        few, many, more = (jnp.ones((n, 6)) for n in (10, 200, 1001))
-        assert not mod._inbackend(aAA, few) and not mod._inbackend(aAA, many)
+        few, many, most, more = (jnp.ones((n, 6)) for n in (10, 200, 600, 1001))
+        assert not mod._inbackend(aAA, few) and not mod._inbackend(aAA, most)
         assert mod._inbackend(aAA, more)
         assert not mod._inbackend(aAA, few, tangent=True)
         assert mod._inbackend(aAA, many, tangent=True)
@@ -395,7 +395,8 @@ def test_actionAngleAdiabaticApprox_integrator_rule(monkeypatch):
         jax.vmap(probe("vmap"))(jnp.ones((2, 1, 6)))
         jax.grad(probe("grad tangent", tangent=True))(many)
         jax.jit(jax.grad(probe("jit grad tangent", tangent=True)))(many)
-        jax.grad(probe("grad"))(more)
+        jax.grad(probe("grad"))(most)
+        jax.grad(probe("grad many"))(many)
         jax.jit(jax.grad(probe("jit grad")))(few)
         jax.grad(
             lambda a: (
@@ -408,12 +409,10 @@ def test_actionAngleAdiabaticApprox_integrator_rule(monkeypatch):
             "grad tangent": False,
             "jit grad tangent": False,
             "grad": True,
+            "grad many": False,
             "jit grad": True,
             "param": True,
         }
-        monkeypatch.setattr(mod, "device_type", lambda x: "gpu")
-        assert mod._inbackend(aAA, few)
-        monkeypatch.undo()
         assert not mod._inbackend(_setup(npoints=0, integrate_method="diffrax"), more)
     if torch:
         assert not mod._inbackend(aAA, torch.ones((2000, 6), dtype=torch.float64))
