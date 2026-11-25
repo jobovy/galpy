@@ -339,11 +339,11 @@ def test_actionAngleAdiabaticApprox_frequency_derivatives_npoints0(backend_name)
         for ii in (3, 0)
     ]
     if backend_name == "jax":
-        grad_a = jax.jacfwd(lambda a: out(a, jax.numpy.asarray(x)))(2.0)
+        grad_a = jax.grad(lambda a: out(a, jax.numpy.asarray(x)))(2.0)
         with pytest.raises(NotImplementedError, match="second derivatives"):
             jax.grad(lambda x: out(2.0, x))(jax.numpy.asarray(x))
         jr_x = jax.grad(lambda x: out(2.0, x, 0))(jax.numpy.asarray(x))
-        grad_x = jax.jacfwd(lambda x: out(2.0, x, integrate_method="diffrax"))(
+        grad_x = jax.grad(lambda x: out(2.0, x, integrate_method="diffrax"))(
             jax.numpy.asarray(x)
         )
     else:

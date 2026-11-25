@@ -171,6 +171,7 @@ def integrate_orbit(
     adjoint=None,
     nsteps=None,
     engine=None,
+    tangent=None,
 ):
     """Differentiably integrate an orbit with the backend's ODE solver.
 
@@ -204,11 +205,16 @@ def integrate_orbit(
         docstring for why adaptive steps break the batched reverse pass.
     engine : torch ODE package, 'torchdiffeq' (None, default) or 'torchode'
         (torch.compile-able; ``solver`` 'dopri5' or 'tsit5'). jax: None only.
+    tangent : (jax only) a direction shaped like ``vxvv``: then also return the
+        orbit's derivative in that direction, from the variational equations
+        integrated on the orbit's steps (reverse mode through them stores the
+        adjoint's checkpoints, not every step as through jax.jvp of the solve).
 
     Returns
     -------
     backend array, shape ``(nt, phasedim)`` for one orbit or ``(nt, N, phasedim)``
-    for a batch (``nt`` is ``ts.shape[-1]``), the orbit(s) in Orbit order.
+    for a batch (``nt`` is ``ts.shape[-1]``), the orbit(s) in Orbit order; with
+    ``tangent``, a tuple of that and its derivative.
 
     Notes
     -----
@@ -239,6 +245,12 @@ def integrate_orbit(
             raise ValueError(f"engine='{engine}' is a torch option; jax uses diffrax")
         from .._jax.orbit_ode import integrate as _integrate_jax
 
+        if tangent is not None:
+            import jax
+
+            y0, tangent = jax.jvp(
+                lambda v: _to_eom(xp, v), (vxvv,), (at_least_float64(tangent),)
+            )
         ys = _integrate_jax(
             pot,
             y0,
@@ -250,8 +262,18 @@ def integrate_orbit(
             solver=solver,
             adjoint=adjoint,
             nsteps=nsteps,
+            tangent=tangent,
         )
+        if tangent is not None:
+            return tuple(
+                match_input_dtype(o, vxvv_in)
+                for o in jax.jvp(
+                    lambda y: _from_eom(xp, y, phasedim), (ys[0],), (ys[1],)
+                )
+            )
     elif "torch" in name:
+        if tangent is not None:
+            raise NotImplementedError("tangent= is a jax option")
         if nsteps is not None:
             raise NotImplementedError(
                 "nsteps (constant stepping) is a jax/diffrax option; torchdiffeq "

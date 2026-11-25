@@ -432,6 +432,46 @@ def test_inbackend_hessian_direct_adjoint_jax():
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_tangent_jax():
+    # tangent=: the orbits with their derivatives in given directions, from the
+    # variational equations integrated with them. The orbits are the plain
+    # solve's and the derivatives jax.jvp's, to the integration's tolerance (the
+    # first steps' error estimates are at the rounding level, so a larger state
+    # can change the steps), and reverse mode through them (here with respect to
+    # a potential parameter) equals forward mode
+    ic = jnp.asarray([_IC, [1.1, -0.1, 1.0, -0.1, 0.1, 2.0]])
+    v = jnp.asarray([[0.1, -0.2, 0.3, 0.05, 0.1, 0.2], [0.0, 0.1, -0.1, 0.2, 0.0, 1.0]])
+    ts = jnp.asarray(_TS)
+
+    def solve(b, x, tangent=None):
+        return integrate_orbit(PlummerPotential(amp=1.0, b=b), x, ts, tangent=tangent)
+
+    orbit, d = solve(0.6, ic, v)
+    numpy.testing.assert_allclose(orbit, solve(0.6, ic), rtol=1e-10, atol=1e-10)
+    numpy.testing.assert_allclose(
+        d, jax.jvp(lambda x: solve(0.6, x), (ic,), (v,))[1], rtol=1e-8, atol=1e-8
+    )
+
+    def f(b):
+        return jnp.sum(solve(b, ic, v)[1][-1])
+
+    numpy.testing.assert_allclose(
+        jax.grad(f)(jnp.asarray(0.6)), jax.jacfwd(f)(jnp.asarray(0.6)), rtol=1e-10
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_inbackend_tangent_torch_raises():
+    with pytest.raises(NotImplementedError, match="jax option"):
+        integrate_orbit(
+            PlummerPotential(amp=1.0, b=0.6),
+            torch.tensor(_IC),
+            torch.tensor(_TS),
+            tangent=torch.ones(6),
+        )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 def test_direct_adjoint_reverse_mode_adaptive_jax():
     # galpy's DirectAdjoint: reverse mode through an adaptive solve of more than 16
     # steps (with rejections) equals forward mode. diffrax's own DirectAdjoint is

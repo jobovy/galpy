@@ -27,7 +27,6 @@ from ..backend import (
 from ..backend._namespaces import (
     device_type,
     has_concrete_truth_value,
-    inbackend_ode_method,
     name_of_namespace,
     namespace_from_arrays,
     param_grad_array,
@@ -43,7 +42,7 @@ from ..potential import (
     evaluateRforces,
     evaluatezforces,
 )
-from ..potential.Potential import _pot_grad_namespace
+from ..potential.Potential import _check_c, _pot_grad_namespace
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -667,40 +666,65 @@ class actionAngleAdiabaticApprox(actionAngle):
         canonical, so the frequencies dH/dJ at fixed angles are the rates of
         change of the angles along the orbits: the derivative of the
         transformation in the direction of each point's orbit"""
+        from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
         from ..orbit.Orbits import _INBACKEND_SYMPLECTIC
 
-        method = self._integrate_method
+        method = self._integrate_method.lower()
         derivative = (
             under_trace(ic)
             or requires_backend_grad(ic)
             or param_grad_array(self) is not None
         )
+        velocity = _orbit_velocity(xp, self._pot, ic)
         if (
             name_of_namespace(xp) == "jax"
-            and method.lower() != "diffrax"
-            and method.lower() not in _INBACKEND_SYMPLECTIC
-            and not derivative
-            and (ic.shape[0] > 100 or device_type(ic) != "cpu")
+            and method not in _INBACKEND_SYMPLECTIC
+            and (
+                method == "diffrax"
+                or (not derivative and (ic.shape[0] > 100 or device_type(ic) != "cpu"))
+                # (C methods that Orbit.integrate runs in diffrax)
+                or (
+                    method in _C_DXDV_METHODS
+                    and (
+                        param_grad_array(self._adiabatic_pot) is not None
+                        or not _check_c(self._adiabatic_pot, dxdv3d=True)
+                    )
+                )
+            )
         ):
-            # (jax: forward mode through diffrax, which carries the one
-            # direction rather than the C integrators' full state-transition
-            # matrix; a few points on a CPU are faster in C, without diffrax's
-            # compilation, and so are derivatives, which through diffrax store
-            # every step of the integration)
-            method = inbackend_ode_method(xp)
+            # (jax: the orbits with their variational equations in diffrax,
+            # which carry the one direction rather than the C integrators' full
+            # state-transition matrix, and which reverse mode goes through with
+            # checkpoints; a few points on a CPU are faster in C, without
+            # diffrax's compilation, and so are their derivatives)
+            from ..backend._reference import integrate_orbit
 
-        # the transformed points and their rates of change along the orbits
-        end, rate = columnwise_jvp(
-            lambda p: (
-                _integrate_backend(
-                    self, p.T, self._tsJ, self._adiabatic_pot, method=method
-                )[:, -1].T
-            ),
-            ic.T,
-            _orbit_velocity(xp, self._pot, ic).T,
-            create_graph=derivative,
-            reverse=None,
-        )
+            kwargs = dict(self._integrate_kwargs or {})
+            end, rate = (
+                o[-1].T
+                for o in integrate_orbit(
+                    self._adiabatic_pot,
+                    ic,
+                    xp.asarray(self._tsJ),
+                    rtol=kwargs.pop("rtol", 1e-12),
+                    atol=kwargs.pop("atol", 1e-12),
+                    tangent=velocity,
+                    **kwargs,
+                )
+            )
+        else:
+            # the transformed points and their rates of change along the orbits
+            end, rate = columnwise_jvp(
+                lambda p: (
+                    _integrate_backend(self, p.T, self._tsJ, self._adiabatic_pot)[
+                        :, -1
+                    ].T
+                ),
+                ic.T,
+                velocity.T,
+                create_graph=derivative,
+                reverse=None,
+            )
 
         def auxiliary(p):
             out = [
