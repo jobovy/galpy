@@ -292,8 +292,8 @@ at release.]
   ``u0=``; for example, one family for the whole of a galaxy): each point
   is transformed to a Staeckel potential chosen to match its own torus,
   which is a function of the actions alone (that of the family's torus
-  with the point's actions, found in ``niter=`` updates), such that the two classes
-  remain each other's inverse. Actions, frequencies, and angles are those
+  with the point's actions, found in ``niter=`` updates, two by default),
+  such that the two classes remain each other's inverse. Actions, frequencies, and angles are those
   in that potential; the inverse sets up each torus explicitly in its own
   potential and returns nan for tori that the family does
   not have. Such instances raised an error before.
