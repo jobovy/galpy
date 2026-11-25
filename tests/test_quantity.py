@@ -14390,7 +14390,7 @@ def test_actionAngleAdiabaticApproxInverse_units():
     aAAInu_other = actionAngleAdiabaticApproxInverse(tintJ=21.0, **kw)
     acts = tuple(j * ro * vo * units.kpc * units.km / units.s for j in (0.1, 1.1, 0.2))
     out = aAAI.xvFreqs(*acts, 0.5 * units.rad, 1.0 * units.rad, 2.0 * units.rad)
-    outnu = aAAInu.xvFreqs(0.1, 1.1, 0.2, 0.5, 1.0, 2.0)
+    outnu = [as_numpy(o) for o in aAAInu.xvFreqs(0.1, 1.1, 0.2, 0.5, 1.0, 2.0)]
     kms, fGyr = units.km / units.s, conversion.freq_in_Gyr(vo, ro)
     for ii, (unit, conv) in enumerate(
         [(units.kpc, ro), (kms, vo), (kms, vo), (units.kpc, ro), (kms, vo)]
@@ -14406,7 +14406,9 @@ def test_actionAngleAdiabaticApproxInverse_units():
             "actionAngleAdiabaticApproxInverse with Quantity tintJ and input does not return Quantity with the right value"
         )
     assert (
-        numpy.fabs(aAAInu_other(0.1, 1.1, 0.2, 0.5, 1.0, 2.0)[0] / outnu[0] - 1.0)
+        numpy.fabs(
+            as_numpy(aAAInu_other(0.1, 1.1, 0.2, 0.5, 1.0, 2.0)[0]) / outnu[0] - 1.0
+        )
         > 10.0**-6.0
     ), "tintJ does not affect actionAngleAdiabaticApproxInverse as expected"
     for ii in range(6):
@@ -14423,7 +14425,9 @@ def test_actionAngleAdiabaticApproxInverse_units():
         )
         assert numpy.all(
             numpy.fabs(
-                freq.to(1 / units.Gyr).value / aAAInu.Freqs(0.1, 1.1, 0.2)[ii] / fGyr
+                freq.to(1 / units.Gyr).value
+                / as_numpy(aAAInu.Freqs(0.1, 1.1, 0.2)[ii])
+                / fGyr
                 - 1.0
             )
             < 10.0**-8.0
