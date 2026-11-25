@@ -387,3 +387,43 @@ def test_backend_object_orbit_spline_built_once(backend_name, monkeypatch):
         o2, pot=potential.PlummerPotential(amp=0.06, b=0.1)
     )
     assert rf(mo, (1.537,)) == rf(fresh, (1.537,))
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_backend_numpy_object_orbit_spline_built_once(backend_name, monkeypatch):
+    # a numpy object orbit queried at backend times (as under a forced
+    # backend): its spline is built once, in numpy, at construction, and gives
+    # the forces of the spline that was built in the backend for each query
+    import galpy.backend.interpolate as bi
+
+    xp = jnp if backend_name == "jax" else torch
+    o = Orbit([1.0, 0.1, 1.1, 0.05, 0.02, 0.3])
+    o.integrate(_MO_TS, _LP)
+    mo = potential.MovingObjectPotential(
+        o, pot=potential.PlummerPotential(amp=0.06, b=0.1)
+    )
+
+    def rf(ts):
+        return [
+            float(
+                as_numpy(
+                    mo.Rforce(1.1, 0.05, phi=0.4, t=xp.asarray([t]), use_physical=False)
+                )[0]
+            )
+            for t in ts
+        ]
+
+    nbuild = [0]
+    build = bi.cubic_spline_coeffs
+
+    def counting(*args, **kwargs):
+        nbuild[0] += 1
+        return build(*args, **kwargs)
+
+    monkeypatch.setattr(bi, "cubic_spline_coeffs", counting)
+    ts = (0.123, 0.5571, 0.871)
+    cached = rf(ts)
+    assert nbuild[0] == 0
+    del mo._orb._backend_interp_cache
+    assert numpy.allclose(rf(ts), cached, rtol=1e-14, atol=1e-14)
+    assert nbuild[0] > 0
