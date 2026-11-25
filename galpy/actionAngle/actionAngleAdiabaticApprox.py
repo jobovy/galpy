@@ -12,7 +12,9 @@
 #             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
+import os
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy
 from numpy import linalg
@@ -45,7 +47,7 @@ def _aA_from_inverse(aAI):
     if isinstance(aAI, actionAngleSphericalInverse):
         return actionAngleSpherical(pot=aAI._pot)
     if isinstance(aAI, actionAngleStaeckelInverse):
-        return actionAngleStaeckel(inverse=aAI, c=True)
+        return actionAngleStaeckel.from_inverse(aAI, c=True)
     return None
 
 
@@ -95,7 +97,8 @@ def _deform(pot, aux, vxvv, models, ts, method, dt, back=False, wrapper=None):
     potential changes to pot): aux or, without a single such potential,
     the Staeckel potential of each point's row (delta, u0) of models (the
     first of the pair that wrapper(delta, u0) returns), in which case the
-    points are integrated one Staeckel potential at a time"""
+    points are integrated one Staeckel potential at a time, in parallel
+    threads"""
     from ..orbit import Orbit
 
     out = numpy.full_like(vxvv, numpy.nan)
@@ -122,8 +125,16 @@ def _deform(pot, aux, vxvv, models, ts, method, dt, back=False, wrapper=None):
         return out
     ok = numpy.flatnonzero(numpy.all(numpy.isfinite(models), axis=1))
     uniq, inv = numpy.unique(models[ok], axis=0, return_inverse=True)
-    for ii, (delta, u0) in enumerate(uniq):
-        run(ok[numpy.ravel(inv) == ii], wrapper(delta, u0)[0])
+    groups = [
+        (ok[numpy.ravel(inv) == ii], wrapper(delta, u0)[0])
+        for ii, (delta, u0) in enumerate(uniq)
+    ]
+    # (the C integration releases the interpreter: one thread for each
+    # potential, as many at a time as OpenMP would use)
+    with ThreadPoolExecutor(
+        int(os.environ.get("OMP_NUM_THREADS", os.cpu_count()))
+    ) as pool:
+        list(pool.map(lambda group: run(*group), groups))
     return out
 
 
@@ -136,32 +147,28 @@ class actionAngleAdiabaticApprox(actionAngle):
 
         Parameters
         ----------
-        pot : Potential or list of Potentials, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
             Potential to calculate action-angle variables for.
         aA : actionAngleIsochrone, actionAngleSpherical, actionAngleAdiabatic, or actionAngleStaeckel instance
-            actionAngle instance for the potential that is being adiabatically transformed to. For an actionAngleStaeckel instance for a potential that is not of Staeckel form (the Staeckel approximation of that potential, which is not the action-angle transformation of any one potential), the potential that is transformed to is the Staeckel potential with the instance's focal length that approximates that potential (OblateStaeckelWrapperPotential with its default reference curve), and the actions and angles are computed in that potential; set aA= up for an OblateStaeckelWrapperPotential directly to choose the reference curve. With actionAngleStaeckel(inverse=...) for an actionAngleStaeckelInverse instance of pot whose focal length or reference curve follows its tori, each point is transformed to the Staeckel potential of its own torus of that instance (see the Notes).
-        aAAI : actionAngleAdiabaticApproxInverse instance, optional
-            Set up the transformation that this instance inverts, in place of pot=, tintJ=, integrate_method=, and dt=, which are taken from it; aA= is then only necessary when the instance was set up without one and its aAI= is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance. Its aAI= is used as this instance's aAI= unless one is given.
-        tintJ : float, optional
-            Time to integrate orbits for to estimate actions (can be Quantity).
-        mm_npt : int, optional
-            For an aA= with a Staeckel potential for each torus and calibrate_angles=True: the mm_npt of the actionAngleStaeckelInverse tori of those potentials that the calibration uses. Default: 256.
+            Action-angle instance of the auxiliary potential that pot is adiabatically transformed to (see the Notes for an actionAngleStaeckel instance).
+        tintJ : float or Quantity, optional
+            Duration of the adiabatic transformation. Default: 100.
+        npoints : int, optional
+            Number of points along each point's orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (an even number). With npoints=0, each point is transformed on its own and no frequencies are available. Default: 2.
+        npoints_dt : float or Quantity, optional
+            Time on either side of each point that the npoints points cover; the frequencies in the auxiliary potential have to predict the change of each angle over this time to within pi. Default: 0.1.
+        calibrate_angles : bool, optional
+            If True, return the angles in the usual convention (zero radial angle at pericenter, zero vertical angle when moving upward through the plane) rather than with an offset that is constant on each torus (see the Notes); this triples the orbit integration. Default: False.
+        aAI : actionAngleInverse instance, optional
+            The inverse of aA=, which calibrate_angles=True uses to measure the offset at one fixed point of each torus (set up automatically for an actionAngleIsochrone instance and for actionAngleStaeckel.from_inverse); without it, the offset is measured at each point's own image, which requires the auxiliary potential to be close to pot.
         niter : int, optional
-            For an aA= with a Staeckel potential for each torus: the number of times that the Staeckel potential of each point is updated to that of the torus that the point is transformed to, and the transformation repeated. Default: 1.
+            For an aA= that has a Staeckel potential for each torus (see the Notes): the number of times that each point's Staeckel potential is updated, each at the cost of another orbit integration. Default: 2.
+        integrate_method : str, optional
+            Orbit-integration method. Default: 'dop853_c'.
+        dt : float, optional
+            Orbit.integrate's dt keyword (for fixed-stepsize integration).
         ntintJ : int, optional
             Number of output times of the orbit integration (only the last one is used).
-        integrate_method : str, optional
-            Integration method to use.
-        dt : float, optional
-            orbit.integrate dt keyword (for fixed stepsize integration).
-        npoints : int, optional
-            Number of points along the orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (an even number). With npoints=0, each point is transformed on its own: the transformation is then exactly canonical and actionAngleAdiabaticApproxInverse with the same tintJ is its inverse, but no frequencies are available (an implementation that can differentiate through the orbit integration can return them for npoints=0 as well, as the derivative of the energy with respect to the actions).
-        npoints_dt : float, optional
-            Amount of time to integrate forward and backwards for the npoints points (can be Quantity); the frequencies of the potential that is transformed to have to predict the change of each angle over this time to within pi.
-        aAI : actionAngleInverse instance, optional
-            The inverse of aA=, used by calibrate_angles=True for the offset and the half turns of the angles (set up automatically for an actionAngleIsochrone aA=; it has to return points for the actions of the points that are transformed; without it, or where it returns nan, the offset is measured at each point's own image and a less robust rule for the half turns is used that needs aA= to be close to pot).
-        calibrate_angles : bool, optional
-            If True, return the angles in the usual convention (zero radial angle at pericenter, zero vertical angle when moving upward through the plane) rather than with the offset of the first Note below: the offset of each point's torus is measured with a round trip of the transformation, which triples the orbit integration. With npoints=0 and aAI=, actionAngleAdiabaticApproxInverse with calibrate_angles=True remains the exact inverse. Default: False.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -169,39 +176,14 @@ class actionAngleAdiabaticApprox(actionAngle):
 
         Notes
         -----
-        - The angles are angle coordinates on the torus that advance at the orbital frequencies, but they differ from the angles of other action-angle methods by an offset that is constant on each torus (it depends on the actions, on tintJ, and on the potentials). Many applications do not need the offset (for example, any use of this class together with actionAngleAdiabaticApproxInverse for the same tintJ).
-        - With calibrate_angles=True, the offset is measured for each point's torus: transforming a point of the torus of the potential of aA= back to pot and again to that of aA=, both forward in time, changes its angles by twice the offset. For a finite tintJ the offset varies slightly over the torus (at the level of the error of the angles); it is measured at one fixed point of each torus (that of aAI= at the angles (1,0,1)), such that it is a function of the actions alone and the same for this class and its inverse (without aAI=, at the point's own image). This gives the offset up to half a turn, which is fixed by the angles that aA= itself assigns to the point (and, for the radial angle, by whether the point moves outward); the half turn can come out wrong for points whose image in the potential of aA= is unbound or whose torus there is very different.
-        - With aA=actionAngleStaeckel(inverse=aAI) for an actionAngleStaeckelInverse instance aAI of pot whose Staeckel potential follows its tori (delta='fit' or a callable, or a rule for u0=), there is no single potential to transform to: each point is transformed to the Staeckel potential of its own torus. That potential has to be the same for all points of an orbit for the result to be action-angle coordinates; it is first that of the torus of aAI through the point (which varies along an orbit as the actions of the Staeckel approximation do) and is then updated niter times to that of the torus of aAI with the actions that the point is transformed to (which varies only as the actions of this class do, and is the potential that actionAngleAdiabaticApproxInverse transforms that torus from). Points are integrated one Staeckel potential at a time, which is slower than for a single potential.
+        - Each point is integrated for tintJ while pot is slowly changed into the auxiliary potential, and its actions, frequencies, and angles are those of aA= at the end. actionAngleAdiabaticApproxInverse is the inverse; use actionAngleAdiabaticApprox.from_inverse to set up the transformation that an instance of it inverts. With npoints=0 the two are exact inverses of each other, to the precision of the orbit integration.
+        - The angles advance at the orbital frequencies, but they differ from those of other action-angle methods by an offset that is constant on each torus. Many applications do not need the offset (any use together with actionAngleAdiabaticApproxInverse, for example); calibrate_angles=True removes it, by measuring it for each point's torus with a round trip of the transformation.
+        - An actionAngleStaeckel instance as aA= sets the auxiliary potential in one of three ways. Set up for an OblateStaeckelWrapperPotential (or another potential of Staeckel form), it is that potential. Set up with delta= for another potential, it is the Staeckel potential OblateStaeckelWrapperPotential(pot=,delta=) that approximates that potential. Set up with actionAngleStaeckel.from_inverse from a family of tori of pot whose Staeckel potential follows its tori (actionAngleStaeckelInverse with setup_interp=True and delta='fit' or u0='torus'), each point is transformed to a Staeckel potential chosen to match its own torus, such that a single family serves all orbits of a galaxy: the potential of the family's torus with the point's actions, found by starting from the family's torus through the point and updating niter times with the actions that the transformation returns. actionAngleAdiabaticApproxInverse is then the inverse to the convergence of these updates (about two digits for each, such that the default two give a round trip of 1e-7 or better also for eccentric halo orbits; the precision of the actions does not depend on them). Points are then integrated one at a time, in parallel threads (as many as OMP_NUM_THREADS, or the number of cores).
         - 2025-09-23 - Started - Bovy (UofT).
         - 2025-10-15 - Allowed more general target potentials - Bovy (UofT).
 
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
-        if "aAAI" in kwargs:
-            # The transformation that an actionAngleAdiabaticApproxInverse
-            # instance inverts
-            aAAI = kwargs["aAAI"]
-            kwargs = dict(kwargs)
-            kwargs.update(
-                pot=aAAI._pot,
-                tintJ=aAAI._tintJ,
-                integrate_method=aAAI._integrate_method,
-                dt=aAAI._integrate_dt,
-            )
-            kwargs.setdefault("aAI", aAAI._aAI)
-            if "aA" not in kwargs:
-                kwargs["aA"] = (
-                    aAAI._aAA._aA
-                    if aAAI._aAA is not None
-                    else _aA_from_inverse(aAAI._aAI)
-                )
-            if kwargs["aA"] is None:
-                raise ValueError(
-                    "aA= is necessary with aAAI= when the "
-                    "actionAngleAdiabaticApproxInverse instance was set up "
-                    "without one and from an inverse action-angle instance "
-                    "that galpy cannot set up the forward transformation of"
-                )
         if "pot" not in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleAdiabaticApprox")
         self._pot = flatten_potential(kwargs["pot"])
@@ -277,15 +259,16 @@ class actionAngleAdiabaticApprox(actionAngle):
             if self._target_pot is None
             else _switch(self._pot, self._target_pot, self._tintJ)
         )
-        self._niter = int(kwargs.get("niter", 1))
+        self._niter = int(kwargs.get("niter", 2))
         # (the Staeckel potentials of tori and their action-angle instances,
         # and tori of them: kept for one evaluation)
         self._wrappers, self._tori, self._end_models = {}, {}, None
-        self._mm_npt = int(kwargs.get("mm_npt", 256))
         self._calibrate = kwargs.get("calibrate_angles", False)
         # The inverse of aA=, for the half turns of the calibrated angles
         self._aAI = kwargs.get("aAI", None)
         if self._target_pot is None:
+            self._aAI = self._aA._inverse
+        if self._aAI is None and isinstance(self._aA, actionAngleStaeckel):
             self._aAI = self._aA._inverse
         if self._aAI is None and isinstance(self._aA, actionAngleIsochrone):
             from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
@@ -294,6 +277,49 @@ class actionAngleAdiabaticApprox(actionAngle):
         # Check the units
         self._check_consistent_units()
         return None
+
+    @classmethod
+    def from_inverse(cls, aAAI, aA=None, **kwargs):
+        """
+        Set up the transformation that an actionAngleAdiabaticApproxInverse instance inverts.
+
+        Parameters
+        ----------
+        aAAI : actionAngleAdiabaticApproxInverse instance
+            The inverse transformation; the potential, the duration of the transformation, and the orbit-integration settings are taken from it, and its aAI= is the aAI= of the new instance.
+        aA : actionAngle instance, optional
+            Action-angle instance of the auxiliary potential; only necessary when aAAI was set up without one and its aAI= is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance.
+        **kwargs
+            Other keywords of actionAngleAdiabaticApprox (npoints=, npoints_dt=, calibrate_angles=, niter=, ntintJ=, ro=, vo=).
+
+        Returns
+        -------
+        actionAngleAdiabaticApprox instance
+            With npoints=0, the exact inverse of aAAI (also for calibrate_angles=True in both).
+
+        Notes
+        -----
+        - 2026-11-24 - Written as a class method (was the aAAI= keyword) - Bovy (UofT)
+
+        """
+        if aA is None:
+            aA = aAAI._aAA._aA if aAAI._aAA is not None else _aA_from_inverse(aAAI._aAI)
+        if aA is None:
+            raise ValueError(
+                "aA= is necessary when the actionAngleAdiabaticApproxInverse "
+                "instance was set up without one and from an inverse "
+                "action-angle instance that galpy cannot set up the forward "
+                "transformation of"
+            )
+        kwargs.setdefault("aAI", aAAI._aAI)
+        return cls(
+            pot=aAAI._pot,
+            aA=aA,
+            tintJ=aAAI._tintJ,
+            integrate_method=aAAI._integrate_method,
+            dt=aAAI._integrate_dt,
+            **kwargs,
+        )
 
     def _offset(self, R, vR, vT, z, vz, phi, models=None):
         """The offset (jr,lz,jz order; modulo pi) of the angles of points
@@ -358,7 +384,7 @@ class actionAngleAdiabaticApprox(actionAngle):
                     jrs=[key[0]],
                     Lzs=[key[1]],
                     jzs=[key[2]],
-                    mm_npt=self._mm_npt,
+                    mm_npt=256,
                     progressbar=False,
                 )
                 if numpy.all(numpy.isfinite(model))

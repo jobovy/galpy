@@ -588,7 +588,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             for instance the localized families of many targets; beyond
             the range of energy and |L_z| of the fitted family's grid it
             is that family's focal length at the edge of the range, as for
-            actionAngleStaeckel(inverse=family), and its partials are the
+            actionAngleStaeckel.from_inverse(family), and its partials are the
             fitted polynomial's own). Explicit
             tori (from Es, Lzs and I3s, the third integral being that of
             each torus's own model, or from jrs, Lzs and jzs) take a
@@ -5489,7 +5489,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         - The method is itself a rule: delta=family.delta gives another
           family of the same potential, or explicit tori, the same focal
           lengths without fitting them again, which are also those of
-          actionAngleStaeckel(inverse=family).
+          actionAngleStaeckel.from_inverse(family).
         - 2026-11-17 - Written - Bovy (UofT)
         """
         E = conversion.parse_energy(E, vo=self._vo)
