@@ -309,6 +309,12 @@ def test_actionAngleAdiabaticApprox_frequencies_npoints0(backend_name):
         atol=1e-12,
     )
     assert numpy.all(numpy.isnan(aAA.actionsFreqs(*_X)[3:]))
+    # more than 100 points (integrated with diffrax on jax): the same
+    many = numpy.tile(_X, 51)
+    got = aAA.actionsFreqs(*(xp.asarray(x) for x in many))
+    assert numpy.allclose(
+        numpy.array([as_numpy(g) for g in got])[:, :2], exact, rtol=1e-4, atol=1e-6
+    )
 
 
 @pytest.mark.parametrize("backend_name", BACKENDS)
