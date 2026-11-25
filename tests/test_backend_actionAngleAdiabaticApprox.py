@@ -67,7 +67,7 @@ def _derivative(backend_name, func, x, ii):
         )
     x = torch.tensor(x, requires_grad=True)
     (grad,) = torch.autograd.grad(torch.sum(func(*x)[ii]), x)
-    return grad.numpy()
+    return as_numpy(grad)
 
 
 def _finite_difference(func, x, ii, wrap=False, h=1e-6):
@@ -75,7 +75,7 @@ def _finite_difference(func, x, ii, wrap=False, h=1e-6):
     for jj in range(len(x)):
         dx = numpy.zeros_like(x)
         dx[jj] = h
-        d = numpy.array(func(*(x + dx))[ii]) - numpy.array(func(*(x - dx))[ii])
+        d = as_numpy(func(*(x + dx))[ii]) - as_numpy(func(*(x - dx))[ii])
         out[jj] = ((d + numpy.pi) % (2.0 * numpy.pi) - numpy.pi if wrap else d) / (
             2.0 * h
         )

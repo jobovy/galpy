@@ -19,21 +19,15 @@ import numpy
 from numpy import linalg
 
 from ..backend import (
-    as_numpy,
     coerce_coords,
     get_namespace,
-    host_eval,
     is_backend_array,
     like,
 )
 from ..backend._namespaces import (
-    asarray_on_device,
-    default_device,
-    device_of,
+    has_concrete_truth_value,
     namespace_from_arrays,
-    requires_backend_grad,
     stop_gradient,
-    under_trace,
 )
 from ..potential import (
     DehnenSmoothWrapperPotential,
@@ -50,9 +44,6 @@ from .actionAngleAdiabatic import actionAngleAdiabatic
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleStaeckel import _focal_length_of, actionAngleStaeckel
-
-# Orbit.integrate's methods that integrate in the backend
-_INBACKEND_METHODS = ("diffrax", "torchode", "torchdiffeq")
 
 
 def _switch_potential(start, end, tintJ):
@@ -80,55 +71,37 @@ def _integrate_backend(self, ic, ts, pot):
     return orb.getOrbit()
 
 
-def _on_host(method):
-    """Run a method of the adiabatic-transformation classes on the host
-    for concrete inputs: the class's own arithmetic is then numpy's (what
-    the auxiliary instances, orbits, and potentials return is brought to
-    numpy with _host), and the output is returned on the namespace and
-    device of backend-array inputs or of a forced backend. Traced or
-    differentiated inputs, a differentiated parameter of the potentials,
-    and backend arrays with an in-backend integrate_method go to the
-    class's implementation in the backend (_backend) instead"""
+def _in_namespace(method):
+    """Run a method of the adiabatic-transformation classes in the namespace
+    of its inputs: numpy inputs, with potentials that have no backend
+    parameters and without a forced backend, take the numpy path; anything
+    else (backend-array inputs, a forced backend, or backend parameters of
+    the potentials) the class's implementation in that backend (_backend)"""
 
     @functools.wraps(method)
     def wrapped(self, *args, **kwargs):
-        bk = [a for a in args if is_backend_array(a)]
-        pxp = _pot_grad_namespace(self._adiabatic_pot)
-        if (
-            pxp is not None
-            or any(under_trace(a) or requires_backend_grad(a) for a in bk)
-            or (bk and self._integrate_method in _INBACKEND_METHODS)
-        ):
-            return self._backend(
-                method.__name__,
-                pxp or namespace_from_arrays(tuple(bk)),
-                *args,
-                **kwargs,
-            )
-        xp = get_namespace(*bk)
+        vals = args
+        if len(args) <= 2 and hasattr(self, "_coords"):
+            # (an Orbit: its phase-space coordinates)
+            vals = self._coords(*args)
+        bk = tuple(a for a in vals if is_backend_array(a))
+        xp = _pot_grad_namespace(self._adiabatic_pot, any_backend=True)
+        if xp is None:
+            xp = namespace_from_arrays(bk) if bk else get_namespace()
         if xp is numpy:
             return method(self, *args, **kwargs)
-        dev = device_of(*bk) if bk else default_device(xp)
-        out = method(
-            self, *(as_numpy(a) if is_backend_array(a) else a for a in args), **kwargs
-        )
-        return tuple(asarray_on_device(xp, o, dev) for o in out)
+        return self._backend(method.__name__, xp, *args, **kwargs)
 
     return wrapped
 
 
 def _unwrap(xp, x):
     """numpy.unwrap along the second axis"""
-    d = (x[:, 1:] - x[:, :-1] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-    return xp.concatenate([x[:, :1], x[:, :1] + xp.cumsum(d, axis=1)], axis=1)
-
-
-def _host(out):
-    """What an auxiliary instance, an orbit, or a potential returns (under a
-    forced backend: backend arrays) as numpy arrays"""
-    if isinstance(out, tuple):
-        return tuple(as_numpy(o) for o in out)
-    return as_numpy(out)
+    dd = x[:, 1:] - x[:, :-1]
+    ddmod = (dd + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    ddmod = xp.where((ddmod == -numpy.pi) & (dd > 0.0), numpy.pi, ddmod)
+    correct = xp.where(xp.abs(dd) < numpy.pi, 0.0, ddmod - dd)
+    return xp.concatenate([x[:, :1], x[:, 1:] + xp.cumsum(correct, axis=1)], axis=1)
 
 
 def _aA_from_inverse(aAI):
@@ -345,9 +318,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         ) + DehnenSmoothWrapperPotential(
             pot=self._pot, tform=0.0, tsteady=self._tintJ, decay=False
         )
-        start = numpy.array(
-            _host(tuple(self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)))[6:]
-        )
+        start = numpy.array(self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)[6:])
         orb = Orbit(numpy.stack([R, vR, vT, z, vz, phi], axis=-1))
         for pot in (back_pot, self._adiabatic_pot):
             orb.integrate(
@@ -359,17 +330,13 @@ class actionAngleAdiabaticApprox(actionAngle):
             )
             orb = orb(self._tsJ[-1])
         end = numpy.array(
-            _host(
-                tuple(
-                    self._aA.actionsFreqsAngles(
-                        _host(orb.R()),
-                        _host(orb.vR()),
-                        _host(orb.vT()),
-                        _host(orb.z()),
-                        _host(orb.vz()),
-                        _host(orb.phi()),
-                    )
-                )
+            self._aA.actionsFreqsAngles(
+                orb.R(),
+                orb.vR(),
+                orb.vT(),
+                orb.z(),
+                orb.vz(),
+                orb.phi(),
             )[6:]
         )
         return 0.5 * ((end - start + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
@@ -385,9 +352,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         if self._aAI is not None:
             fixed = [
                 numpy.broadcast_to(numpy.ravel(x), end[0].shape)
-                for x in _host(
-                    tuple(self._aAI(*actions, 1.0, 0.0, 1.0, use_physical=False))
-                )
+                for x in self._aAI(*actions, 1.0, 0.0, 1.0, use_physical=False)
             ]
             ok = numpy.all(numpy.isfinite(fixed), axis=0)
             end = [numpy.where(ok, f, x) for f, x in zip(fixed, end)]
@@ -409,8 +374,8 @@ class actionAngleAdiabaticApprox(actionAngle):
         vr = (R * vR + z * vz) / r
         v2 = vR**2.0 + vT**2.0 + vz**2.0
         racc = (v2 - vr**2.0) / r + (
-            R * _host(evaluateRforces(self._pot, R, z, phi=phi, use_physical=False))
-            + z * _host(evaluatezforces(self._pot, R, z, phi=phi, use_physical=False))
+            R * evaluateRforces(self._pot, R, z, phi=phi, use_physical=False)
+            + z * evaluatezforces(self._pot, R, z, phi=phi, use_physical=False)
         ) / r
         off = numpy.zeros((3, len(R)), dtype="int")
         off[0] = (
@@ -440,9 +405,7 @@ class actionAngleAdiabaticApprox(actionAngle):
                 xa = cart(
                     *(
                         numpy.broadcast_to(numpy.ravel(q), R.shape)
-                        for q in _host(
-                            tuple(self._aAI(*actions, *cand, use_physical=False))
-                        )
+                        for q in self._aAI(*actions, *cand, use_physical=False)
                     )
                 )
                 score[kk] = sum(
@@ -459,7 +422,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         if numpy.any(todo):
             try:
                 guess = numpy.array(
-                    _host(tuple(self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)))[6:]
+                    self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)[6:]
                 )
                 guess[:, ~numpy.all(numpy.fabs(guess) < 100.0, axis=0)] = numpy.nan
             except Exception:
@@ -480,7 +443,7 @@ class actionAngleAdiabaticApprox(actionAngle):
             off[1:, use] = near[:, use].astype("int") % 2
         return off
 
-    @_on_host
+    @_in_namespace
     def _evaluate(self, *args, **kwargs):
         """
         Evaluate the actions (jr,lz,jz).
@@ -505,25 +468,22 @@ class actionAngleAdiabaticApprox(actionAngle):
         """
         R, vR, vT, z, vz, phi = self._parse_args(*args)
         Rshape = R.shape
-        jr, lz, jz = _host(
-            tuple(
-                self._aA(
-                    R.flatten(),
-                    vR.flatten(),
-                    vT.flatten(),
-                    z.flatten(),
-                    vz.flatten(),
-                    phi.flatten(),
-                )
-            )
+        jr, lz, jz = self._aA(
+            R.flatten(),
+            vR.flatten(),
+            vT.flatten(),
+            z.flatten(),
+            vz.flatten(),
+            phi.flatten(),
         )
+
         return (
             numpy.mean(jr.reshape(Rshape), axis=1),
             numpy.mean(lz.reshape(Rshape), axis=1),
             numpy.mean(jz.reshape(Rshape), axis=1),
         )
 
-    @_on_host
+    @_in_namespace
     def _actionsFreqs(self, *args, **kwargs):
         """
         Evaluate the actions (jr,lz,jz) and frequencies (Or,Op,Oz).
@@ -549,7 +509,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         acfs = self._actionsFreqsAngles(*args, **kwargs)
         return (acfs[0], acfs[1], acfs[2], acfs[3], acfs[4], acfs[5])
 
-    @_on_host
+    @_in_namespace
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
         Evaluate the actions (jr,lz,jz), frequencies (Or,Op,Oz), and angles (angler,anglephi,anglez).
@@ -574,18 +534,15 @@ class actionAngleAdiabaticApprox(actionAngle):
         """
         R, vR, vT, z, vz, phi = self._parse_args(*args)
         Rshape = R.shape
-        jr, lz, jz, Or, Op, Oz, ar, ap, az = _host(
-            tuple(
-                self._aA.actionsFreqsAngles(
-                    R.flatten(),
-                    vR.flatten(),
-                    vT.flatten(),
-                    z.flatten(),
-                    vz.flatten(),
-                    phi.flatten(),
-                )
-            )
+        jr, lz, jz, Or, Op, Oz, ar, ap, az = self._aA.actionsFreqsAngles(
+            R.flatten(),
+            vR.flatten(),
+            vT.flatten(),
+            z.flatten(),
+            vz.flatten(),
+            phi.flatten(),
         )
+
         jr, lz, jz = (
             numpy.mean(jr.reshape(Rshape), axis=1),
             numpy.mean(lz.reshape(Rshape), axis=1),
@@ -683,19 +640,103 @@ class actionAngleAdiabaticApprox(actionAngle):
         return (*actions, *freqs, *angles)
 
     def _halfturns_backend(self, xp, angles, actions, xv):
-        """_halfturns [3,M] of the angles [3,M] of the points xv [M,6] with
-        the given actions, as backend arrays: integers, computed on the
-        host from the values (and without a derivative)"""
-        packed = stop_gradient(
-            xp.concatenate([angles % (2.0 * numpy.pi), xp.stack(actions), xv.T])
+        """_halfturns in the backend xp: whether each of the angles [3,M],
+        known modulo pi, of the points xv [M,6] with the given actions is
+        half a turn off, as 0 or 1 (without a derivative: the rule only
+        decides between two candidates)"""
+        sg = stop_gradient
+        angles = sg(angles) % (2.0 * numpy.pi)
+        actions = tuple(sg(a) for a in actions)
+        R, vR, vT, z, vz, phi = (sg(xv[:, ii]) for ii in range(6))
+        r = xp.sqrt(R**2.0 + z**2.0)
+        vr = (R * vR + z * vz) / r
+        v2 = vR**2.0 + vT**2.0 + vz**2.0
+        racc = (v2 - vr**2.0) / r + (
+            R * evaluateRforces(self._pot, R, z, phi=phi, use_physical=False)
+            + z * evaluatezforces(self._pot, R, z, phi=phi, use_physical=False)
+        ) / r
+        off0 = xp.where(
+            xp.where(
+                xp.abs(xp.sin(angles[0])) > 0.3,
+                vr * xp.sin(angles[0]),
+                racc * xp.cos(angles[0]),
+            )
+            < 0.0,
+            1.0,
+            0.0,
         )
+        off1 = off2 = 0.0 * off0
+        todo = off0 == off0
+        if self._aAI is not None:
+            # (score of the four candidates: the cosines between the
+            # positions and between the velocities)
+            def cart(R, vR, vT, z, vz, phi):
+                c, s = xp.cos(phi), xp.sin(phi)
+                return xp.stack([R * c, R * s, z, vR * c - vT * s, vR * s + vT * c, vz])
 
-        def half(u):
-            out = numpy.zeros_like(u)
-            out[:3] = self._halfturns(u[:3], u[3:6], *u[6:])
-            return out
-
-        return host_eval(half, packed)[:3]
+            x = cart(R, vR, vT, z, vz, phi)
+            scores = []
+            for kk in range(4):
+                cand = angles + numpy.pi * xp.stack(
+                    [off0, 0.0 * off0 + kk // 2, 0.0 * off0 + kk % 2]
+                )
+                xa = cart(
+                    *(
+                        xp.broadcast_to(xp.reshape(sg(q), (-1,)), R.shape)
+                        for q in self._aAI(*actions, *cand, use_physical=False)
+                    )
+                )
+                scores.append(
+                    sum(
+                        xp.sum(x[ii : ii + 3] * xa[ii : ii + 3], axis=0)
+                        / xp.sqrt(
+                            xp.sum(x[ii : ii + 3] ** 2.0, axis=0)
+                            * xp.sum(xa[ii : ii + 3] ** 2.0, axis=0)
+                        )
+                        for ii in (0, 3)
+                    )
+                )
+            score = xp.stack(scores)
+            best = xp.argmax(xp.where(xp.isfinite(score), score, -3.0), axis=0)
+            todo = ~xp.all(xp.isfinite(score), axis=0)
+            off1 = xp.where(best // 2 > 0, 1.0, 0.0)
+            off2 = xp.where(best % 2 > 0, 1.0, 0.0)
+        if not (
+            self._aAI is not None
+            and has_concrete_truth_value(todo)
+            and not bool(xp.any(todo))
+        ):
+            # without an inverse of aA= (or where it has no such torus): the
+            # half turns nearest the angles that aA= assigns to the point
+            try:
+                guess = sg(
+                    xp.stack(self._aA.actionsFreqsAngles(R, vR, vT, z, vz, phi)[6:])
+                )
+                guess = xp.where(
+                    xp.all(xp.abs(guess) < 100.0, axis=0), guess, numpy.nan
+                )
+            except Exception:
+                guess = xp.full_like(angles, numpy.nan)
+            nguess = todo & ~xp.all(xp.isfinite(guess), axis=0)
+            if has_concrete_truth_value(nguess) and bool(xp.any(nguess)):
+                warnings.warn(
+                    f"{int(xp.sum(xp.astype(nguess, xp.int64)))} of the "
+                    f"{R.shape[0]} points have no angles in the potential of aA= "
+                    "(they are unbound there): their calibrated azimuthal and "
+                    "vertical angles may be half a turn off",
+                    galpyWarning,
+                )
+            near = (
+                xp.round(
+                    (guess[1:] - angles[1:] + numpy.pi) % (2.0 * numpy.pi) / numpy.pi
+                    - 1.0
+                )
+                % 2.0
+            )
+            use = todo & ~nguess
+            off1 = xp.where(use, near[0], off1)
+            off2 = xp.where(use, near[1], off2)
+        return xp.stack([off0, off1, off2])
 
     def _offset_backend(self, xp, actions, end):
         """_offset_torus in the backend xp: the offset [3,M] of the tori with
@@ -777,7 +818,7 @@ class actionAngleAdiabaticApprox(actionAngle):
 
         R, vR, vT, z, vz, phi = (
             numpy.atleast_1d(numpy.asarray(x, dtype="float"))
-            for x in _host(self._coords(*args))
+            for x in self._coords(*args)
         )
         self._start = (R, vR, vT, z, vz, phi)
         if self._npoints == 0:
@@ -816,10 +857,10 @@ class actionAngleAdiabaticApprox(actionAngle):
             progressbar=False,
         )
         return (
-            _host(os_for_actions.R(self._tsJ[-1])),
-            _host(os_for_actions.vR(self._tsJ[-1])),
-            _host(os_for_actions.vT(self._tsJ[-1])),
-            _host(os_for_actions.z(self._tsJ[-1])),
-            _host(os_for_actions.vz(self._tsJ[-1])),
-            _host(os_for_actions.phi(self._tsJ[-1])),
+            os_for_actions.R(self._tsJ[-1]),
+            os_for_actions.vR(self._tsJ[-1]),
+            os_for_actions.vT(self._tsJ[-1]),
+            os_for_actions.z(self._tsJ[-1]),
+            os_for_actions.vz(self._tsJ[-1]),
+            os_for_actions.phi(self._tsJ[-1]),
         )

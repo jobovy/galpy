@@ -18,9 +18,8 @@ from ..util import conversion
 from .actionAngleAdiabaticApprox import (
     _aA_from_inverse,
     _auxiliary_potential,
-    _host,
+    _in_namespace,
     _integrate_backend,
-    _on_host,
     actionAngleAdiabaticApprox,
 )
 from .actionAngleInverse import actionAngleInverse
@@ -138,7 +137,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         self._check_consistent_units()
         return None
 
-    @_on_host
+    @_in_namespace
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) at actions and angles that broadcast against each other.
@@ -193,10 +192,21 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             xv = self._morph(acts, angles)
         return tuple(x.reshape(shape) for x in xv)
 
+    def _require_aA(self):
+        """The frequencies need the forward transformation"""
+        if self._aAA is None:
+            raise RuntimeError(
+                "The frequencies of actionAngleAdiabaticApproxInverse require "
+                "aA= at initialization: the action-angle instance that aAI= "
+                "inverts, which galpy cannot set up from this aAI="
+            )
+
     def _backend(self, name, xp, *args, **kwargs):
         """The method name (_evaluate, _xvFreqs, or _Freqs) in the backend
         xp, for traced or differentiated inputs: the same computation with
         the orbits integrated differentiably and the arithmetic in xp"""
+        if name != "_evaluate":
+            self._require_aA()
         if name == "_Freqs":
             return self._backend("_xvFreqs", xp, *args, 1.0, 0.0, 1.0)[6:]
         args = xp.broadcast_arrays(
@@ -244,7 +254,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         """The points of the tori of aAI= with these actions and angles"""
         return tuple(
             numpy.broadcast_to(numpy.ravel(x), acts[0].shape)
-            for x in _host(tuple(self._aAI(*acts, *angles, use_physical=False)))
+            for x in self._aAI(*acts, *angles, use_physical=False)
         )
 
     def _morph(self, acts, angles):
@@ -262,7 +272,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             progressbar=False,
         )
         return tuple(
-            sign * _host(getattr(orb, q)(self._tintJ, use_physical=False))
+            sign * getattr(orb, q)(self._tintJ, use_physical=False)
             for q, sign in (
                 ("R", 1.0),
                 ("vR", -1.0),
@@ -273,7 +283,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             )
         )
 
-    @_on_host
+    @_in_namespace
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) and the frequencies at actions and angles that broadcast against each other.
@@ -303,20 +313,13 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         - The frequencies are those that actionAngleAdiabaticApprox returns for each point and require aA= at initialization.
         - 2026-11-23 - Written - Bovy (UofT).
         """
-        if self._aAA is None:
-            raise RuntimeError(
-                "The frequencies of actionAngleAdiabaticApproxInverse require "
-                "aA= at initialization: the action-angle instance that aAI= "
-                "inverts, which galpy cannot set up from this aAI="
-            )
+        self._require_aA()
         xv = self._evaluate(jr, jphi, jz, angler, anglephi, anglez)
         shape = xv[0].shape
-        freqs = _host(
-            tuple(self._aAA.actionsFreqs(*(x.ravel() for x in xv), use_physical=False))
-        )[3:]
+        freqs = self._aAA.actionsFreqs(*(x.ravel() for x in xv), use_physical=False)[3:]
         return (*xv, *(f.reshape(shape) for f in freqs))
 
-    @_on_host
+    @_in_namespace
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """
         Return the frequencies of tori.
