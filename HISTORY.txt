@@ -262,13 +262,7 @@ at release.]
 
 - [slot 27]
 
-- actionAngleAdiabaticApprox and actionAngleAdiabaticApproxInverse can each
-  be set up from an instance of the other (aAAI= and aAA=); the inverse's
-  frequencies no longer need aA= for an isochrone or Staeckel auxiliary;
-  the frequencies of actionAngleAdiabaticApprox are fit about the advance
-  of the angles at the auxiliary's frequencies (npoints_dt does not have to
-  resolve half a period), dt= applies to all of its integrations, and an
-  odd npoints raises an error instead of being rounded down.
+- [slot 28]
 
 - [slot 29]
 
