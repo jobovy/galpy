@@ -14328,8 +14328,10 @@ def test_actionAngleAdiabaticApprox_units():
         0.0 * units.rad,
     )
     out = aA.actionsFreqsAngles(*args)
-    outnu = aAnu.actionsFreqsAngles(1.0, 0.9, 1.1, 0.1, 0.3, 0.0)
-    outnu_other = aAnu_other.actionsFreqsAngles(1.0, 0.9, 1.1, 0.1, 0.3, 0.0)
+    outnu = [as_numpy(o) for o in aAnu.actionsFreqsAngles(1.0, 0.9, 1.1, 0.1, 0.3, 0.0)]
+    outnu_other = [
+        as_numpy(o) for o in aAnu_other.actionsFreqsAngles(1.0, 0.9, 1.1, 0.1, 0.3, 0.0)
+    ]
     for ii in range(9):
         unit, conv = (
             (units.kpc * units.km / units.s, ro * vo)
