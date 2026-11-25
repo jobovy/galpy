@@ -8036,7 +8036,11 @@ class Orbit:
         """
         # a prebuilt interpolant of this very trajectory (_cache_backend_interp)
         cache = getattr(self, "_backend_interp_cache", None)
-        cached = orbit is None and cache is not None and cache[0] is self.orbit
+        cached = (
+            cache is not None
+            and cache[0] is self.orbit
+            and (orbit is None or not is_backend_array(self.orbit))
+        )
         # orbit: the trajectory to spline (default self.orbit; a numpy orbit
         # queried at a traced time is lifted onto the time's backend)
         orbit = self.orbit if orbit is None else orbit
@@ -8072,11 +8076,12 @@ class Orbit:
         # so the per-coordinate splines return a flat (nt,) each.
         tq = t if is_backend_array(t) else xp.asarray(t_np)
         tq = xp.reshape(tq, (-1,))
-        prep = (
-            cache[1]
-            if cached
-            else self._backend_interp_prep(orbit, self_t, grid_traced)
-        )
+        if not cached:
+            prep = self._backend_interp_prep(orbit, self_t, grid_traced)
+        elif is_backend_array(self.orbit):
+            prep = cache[1]
+        else:  # a numpy orbit's spline coefficients, onto the query's backend
+            prep = (*cache[1][:2], like(tq, cache[1][2]))
         out = self._backend_interp_eval(prep, tq)
         if scalar:
             return out[:, 0]  # (phasedim, size)
@@ -8149,12 +8154,20 @@ class Orbit:
 
     def _cache_backend_interp(self):
         """Prebuild the off-grid interpolant of an in-backend orbit for repeated
-        queries (a MovingObjectPotential's every force evaluation). Filled only
-        here, never lazily: a fill inside an ODE solve's trace leaks its tracers."""
-        if (
-            not is_backend_array(getattr(self, "orbit", None))
-            or numpy.ndim(self.t) != 1
-        ):
+        queries (a MovingObjectPotential's every force evaluation), and that of
+        a numpy orbit for its queries at backend times (in numpy, brought onto
+        each query's backend). Filled only here, never lazily: a fill inside an
+        ODE solve's trace leaks its tracers."""
+        orbit = getattr(self, "orbit", None)
+        if orbit is None or numpy.ndim(self.t) != 1 or numpy.shape(self.t)[0] < 2:
+            return None
+        if not is_backend_array(orbit):
+            self._backend_interp_cache = (
+                orbit,
+                self._backend_interp_prep(
+                    orbit, numpy.asarray(self.t, dtype=float), False
+                ),
+            )
             return None
         grid_traced = under_trace(self.t) or requires_backend_grad(self.t)
         self_t = self.t if grid_traced else numpy.asarray(to_host(self.t))
