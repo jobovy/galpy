@@ -690,7 +690,7 @@ def integrateFullOrbit_c(
     dt : float, optional
         Force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators).
     indiv_pot : bool, optional
-        If True, pot is a sequence of N potentials, one for each object, that differ in the values of their parameters alone (the same potentials combined in the same order); the objects are integrated in parallel, each in its own potential.
+        If True, pot is a sequence of N potentials, one for each object, that differ in the values of their parameters alone (the same potentials combined in the same order, without parameters that are functions of time); the objects are integrated in parallel, each in its own potential. Only the first potential is passed to C in full, and the others as the parameters in which they differ from it, such that the memory use does not grow with the size of the potentials.
 
     Returns
     -------
@@ -715,24 +715,39 @@ def integrateFullOrbit_c(
     yo = numpy.atleast_2d(yo)
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
+    indiv_idx = numpy.zeros(0, dtype=numpy.int32)
+    indiv_args = numpy.zeros((nobj, 0))
     if indiv_pot:
         if len(pot) != nobj:
             raise ValueError("indiv_pot=True requires one potential for each object")
-        parsed = [_parse_pot(p, t=t) for p in pot]
-        npot, pot_type = parsed[0][:2]
-        if any(
-            p[0] != npot
-            or not numpy.array_equal(p[1], pot_type)
-            or len(p[2]) != len(parsed[0][2])
-            for p in parsed
-        ):
-            raise ValueError(
-                "indiv_pot=True requires potentials that differ in the "
-                "values of their parameters alone"
+        # The first potential is passed to C in full, the others as the
+        # entries of its pot_args in which they differ from it
+        npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot[0], t=t)
+        diffs = []
+        for p in pot:
+            this_npot, this_type, this_args, this_tfuncs = _parse_pot(p, t=t)
+            if (
+                this_npot != npot
+                or not numpy.array_equal(this_type, pot_type)
+                or len(this_args) != len(pot_args)
+                or len(this_tfuncs) > 0
+            ):
+                raise ValueError(
+                    "indiv_pot=True requires potentials that differ in the "
+                    "values of their parameters alone (and that have no "
+                    "parameters that are functions of time)"
+                )
+            idx = numpy.flatnonzero(
+                (this_args != pot_args)
+                & ~(numpy.isnan(this_args) & numpy.isnan(pot_args))
             )
-        pot_type = numpy.concatenate([p[1] for p in parsed])
-        pot_args = numpy.concatenate([p[2] for p in parsed])
-        pot_tfuncs = [f for p in parsed for f in p[3]]
+            diffs.append((idx, this_args[idx]))
+        indiv_idx = numpy.unique(numpy.concatenate([d[0] for d in diffs])).astype(
+            numpy.int32
+        )
+        indiv_args = numpy.tile(pot_args[indiv_idx], (nobj, 1))
+        for ii, (idx, vals) in enumerate(diffs):
+            indiv_args[ii, numpy.searchsorted(indiv_idx, idx)] = vals
     else:
         npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
@@ -770,6 +785,9 @@ def integrateFullOrbit_c(
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_void_p,
         ctypes.c_int,
+        ctypes.c_int,
+        ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_double,
         ctypes.c_double,
         ctypes.c_double,
@@ -797,7 +815,10 @@ def integrateFullOrbit_c(
         pot_type,
         pot_args,
         pot_tfuncs,
-        ctypes.c_int(indiv_pot),
+        ctypes.c_int(len(pot_args)),
+        ctypes.c_int(len(indiv_idx)),
+        numpy.require(indiv_idx, dtype=numpy.int32, requirements=["C", "W"]),
+        numpy.require(indiv_args, dtype=numpy.float64, requirements=["C", "W"]),
         ctypes.c_double(dt),
         ctypes.c_double(rtol),
         ctypes.c_double(atol),

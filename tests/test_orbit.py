@@ -16814,4 +16814,14 @@ def test_integrateFullOrbit_c_indiv_pot():
             "dop853_c",
             indiv_pot=True,
         )
+    # Potentials that are all the same are integrated like a single one
+    out = integrateFullOrbit_c(
+        [pots[0]] * nobj, numpy.copy(yo), ts, "dop853_c", indiv_pot=True
+    )[0]
+    assert numpy.all(
+        numpy.fabs(
+            out - integrateFullOrbit_c(pots[0], numpy.copy(yo), ts, "dop853_c")[0]
+        )
+        < 1e-12
+    ), "integrateFullOrbit_c with the same potential for each orbit fails"
     return None
