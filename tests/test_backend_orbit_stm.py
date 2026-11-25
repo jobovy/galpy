@@ -222,6 +222,57 @@ def test_vmap_over_multiorbit_batches_and_jacrev():
 
 
 # ---------------------------------------------------------------- numpy IC raises
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_cstm_tangent(backend):
+    # tangent=: the orbit and its derivative in a direction, from one C
+    # variational solve per orbit: the orbit is the C-STM's and the derivative
+    # its matrix times the direction (to the integrators' tolerance), for a
+    # batch and for one orbit; the orbit's gradient is the C-STM's, and
+    # differentiating the derivative (or, on torch, the gradient) raises
+    from galpy.backend._reference.inbackend_stm import c_stm_forward, integrate_stm
+
+    pot = MWPotential2014
+    ic = numpy.array([_IC, [1.2, -0.1, 0.95, -0.1, 0.05, 2.0]])
+    v = numpy.array([[0.1, -0.2, 0.3, 0.05, 0.1, 0.2], [0.0, 0.1, -0.1, 0.2, 0.0, 1.0]])
+    xt, M = c_stm_forward(pot, ic, _TS, "dop853_c", 1e-12, 1e-12)
+    kw = dict(method="dop853_c", rtol=1e-12, atol=1e-12)
+    for x0, dv, k in ((ic, v, slice(None)), (ic[0], v[0], 0)):
+        x, dx = integrate_stm(
+            pot, _arr(backend, x0), _TS, tangent=_arr(backend, dv), **kw
+        )
+        assert numpy.allclose(as_numpy(x), xt[k], rtol=1e-9, atol=1e-9)
+        assert numpy.allclose(
+            as_numpy(dx),
+            numpy.einsum("...tab,...b->...ta", M[k], dv),
+            rtol=1e-9,
+            atol=1e-9,
+        )
+    want = M[:, -1].sum(axis=1)  # gradient of the sum of the final states
+    if backend == "jax":
+
+        def f(c, which):
+            out = integrate_stm(pot, c, _TS, tangent=jnp.asarray(v), **kw)
+            return jnp.sum(out[which][:, -1])
+
+        c = jnp.asarray(ic)
+        assert numpy.allclose(jax.grad(f)(c, 0), want, rtol=1e-12, atol=1e-12)
+        assert numpy.allclose(
+            jax.jit(jax.grad(f), static_argnums=1)(c, 0), want, rtol=1e-12, atol=1e-12
+        )
+        with pytest.raises(NotImplementedError, match="second derivatives"):
+            jax.grad(f)(c, 1)
+    else:
+        c = torch.tensor(ic, requires_grad=True)
+        x, dx = integrate_stm(pot, c, _TS, tangent=torch.tensor(v), **kw)
+        (g,) = torch.autograd.grad(x[:, -1].sum(), c, create_graph=True)
+        assert numpy.allclose(as_numpy(g), want, rtol=1e-12, atol=1e-12)
+        with pytest.raises(RuntimeError, match="second derivatives"):
+            torch.autograd.grad(g.sum(), c)
+        x, dx = integrate_stm(pot, c, _TS, tangent=torch.tensor(v), **kw)
+        with pytest.raises(RuntimeError, match="second derivatives"):
+            torch.autograd.grad(dx.sum(), c)
+
+
 def test_numpy_ic_raises():
     from galpy.backend._reference.inbackend_stm import integrate_stm
 

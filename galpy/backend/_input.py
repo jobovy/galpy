@@ -48,6 +48,7 @@ from ._namespaces import (
     as_numpy,
     device_of,
     float64_default,
+    is_backend_array,
     name_of_namespace,
     namespace_from_arrays,
     param_grad_array,
@@ -55,7 +56,7 @@ from ._namespaces import (
     requires_backend_grad,
     under_trace,
 )
-from ._resolver import _BACKEND_CTX, use
+from ._resolver import _BACKEND_CTX, get_namespace, use
 
 _NULLCTX = nullcontext()
 
@@ -148,6 +149,34 @@ def _coerce_one(xp, val, device=None):
         return type(val)(coerce_coords(xp, *val, device=device))
     (out,) = coerce_coords(xp, val, device=device)
     return out
+
+
+def numpy_or_backend(params, coords=None):
+    """Decorate the numpy implementation of a method of a class that also has a
+    separate backend implementation, ``self._backend(name, xp, *args,
+    **kwargs)``.
+
+    The method runs as is on numpy inputs, when no parameter of
+    ``getattr(self, params)`` (a potential, say) is a backend array and no
+    backend is forced or set as the default; anything else runs ``_backend`` in
+    the namespace that ``get_namespace`` gives for the backend-array inputs and
+    such a parameter. ``coords(self, *args)``, if given, gives the arrays among
+    the inputs (an Orbit's phase-space coordinates, say).
+    """
+
+    def decorator(method):
+        @wraps(method)
+        def wrapped(self, *args, **kwargs):
+            vals = args if coords is None else coords(self, *args)
+            bk = [a for a in vals if is_backend_array(a)]
+            xp = get_namespace(*bk, _grad_param(getattr(self, params)))
+            if xp is numpy:
+                return method(self, *args, **kwargs)
+            return self._backend(method.__name__, xp, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
 
 
 def backend_input(*coords):

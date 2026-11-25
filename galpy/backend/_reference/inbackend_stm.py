@@ -229,7 +229,49 @@ def _c_stm_forward_loop(pot, vxvv, ts, method, rtol, atol):
     return xt, M
 
 
-def integrate_stm(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
+def c_tangent_forward(pot, vxvv, tangent, ts, method, rtol, atol):
+    """Run the C variational integrator with one deviation per orbit and return
+    (x(t), dx(t)): the orbits and their derivatives in the directions
+    ``tangent`` (forward mode: one variational solve per orbit, where
+    ``c_stm_forward`` propagates all d columns of the state-transition matrix).
+
+    Pure numpy; no autodiff. ``vxvv`` and ``tangent`` (d,) or (N, d) in Orbit
+    order, ``ts`` a shared (nt,) grid; both outputs (nt, d) or (N, nt, d).
+    """
+    from ...orbit import Orbit
+    from .. import use
+
+    vxvv = numpy.asarray(vxvv, dtype=numpy.float64)
+    single = vxvv.ndim == 1
+    ics = vxvv[None] if single else vxvv
+    devs = numpy.broadcast_to(numpy.asarray(tangent, dtype=numpy.float64), ics.shape)
+    d = ics.shape[-1]
+    with use("numpy", force=True):  # (host-side, also under a forced backend)
+        o = Orbit(ics)
+        o.integrate_dxdv(
+            devs,
+            _snap_equispaced(numpy.asarray(ts, dtype=numpy.float64), method),
+            pot,
+            method=method,
+            progressbar=False,
+            numcores=1,
+            rectIn=False,
+            rectOut=False,
+            rtol=rtol,
+            atol=atol,
+        )
+        xt = numpy.array(o.getOrbit())
+        dxt = numpy.array(o.getOrbit_dxdv())
+    if d in (4, 6):  # phi in (-pi, pi], as Orbit.integrate (see _c_stm_forward_loop)
+        xt[..., -1] = numpy.mod(xt[..., -1] + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+    if single:
+        return xt[0], dxt[0]
+    return xt, dxt
+
+
+def integrate_stm(
+    pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10, tangent=None
+):
     """Differentiable fast-C orbit integration; dispatches on ``vxvv``'s backend.
 
     Parameters
@@ -244,10 +286,14 @@ def integrate_stm(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
         (leapfrog_c / symplec4_c / symplec6_c).
     rtol, atol : C integrator tolerances.
 
+    tangent : backend array shaped like ``vxvv`` (optional): also return the
+        orbit's derivative in that direction, from one C variational solve per
+        orbit (forward mode). It is first order: differentiating it raises.
+
     Returns
     -------
     backend array, (nt, d) or (N, nt, d), the orbit in Orbit order, differentiable
-    w.r.t. ``vxvv``.
+    w.r.t. ``vxvv``; with ``tangent``, a tuple of that and its derivative.
     """
     if method.lower() not in _C_DXDV_METHODS:
         raise ValueError(
@@ -258,11 +304,15 @@ def integrate_stm(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
     if "jax" in name:
         from .._jax.orbit_stm import integrate as _integrate_jax
 
-        return _integrate_jax(pot, vxvv, ts, method=method, rtol=rtol, atol=atol)
+        return _integrate_jax(
+            pot, vxvv, ts, method=method, rtol=rtol, atol=atol, tangent=tangent
+        )
     if "torch" in name:
         from .._torch.orbit_stm import integrate as _integrate_torch
 
-        return _integrate_torch(pot, vxvv, ts, method=method, rtol=rtol, atol=atol)
+        return _integrate_torch(
+            pot, vxvv, ts, method=method, rtol=rtol, atol=atol, tangent=tangent
+        )
     raise NotImplementedError(
         "C-STM autodiff requires a jax or torch input array; for numpy use "
         "Orbit.integrate (the same C integrator, non-differentiable)."
