@@ -194,3 +194,40 @@ def columnwise_jacobian(f, p, has_aux=False):
     if has_aux:
         return fx.detach(), J, out[1].detach()
     return fx.detach(), J
+
+
+def columnwise_jvp(f, p, t, has_aux=False, create_graph=False):
+    """torch half of optimize.columnwise_jvp: one backward pass per output
+    row (the columns are independent), contracted with t"""
+    import torch
+
+    with torch.enable_grad():
+        xr = p if p.requires_grad else p.detach().requires_grad_(True)
+        out = f(xr)
+        fx = out[0] if has_aux else out
+        rate = torch.stack(
+            [
+                torch.sum(
+                    torch.autograd.grad(
+                        fx[i],
+                        xr,
+                        grad_outputs=torch.ones_like(fx[i]),
+                        retain_graph=True,
+                        create_graph=create_graph,
+                    )[0]
+                    * t,
+                    dim=0,
+                )
+                for i in range(fx.shape[0])
+            ]
+        )
+    aux = out[1] if has_aux else None
+    if not create_graph:
+        fx, rate = fx.detach(), rate.detach()
+        if has_aux:  # (an array or a tuple of arrays)
+            aux = (
+                tuple(a.detach() for a in aux)
+                if isinstance(aux, tuple)
+                else aux.detach()
+            )
+    return (fx, rate, aux) if has_aux else (fx, rate)

@@ -122,12 +122,13 @@ def test_actionAngleAdiabaticApprox_derivatives(backend_name, kwargs):
     ref = numpy.array(aAA.actionsFreqsAngles(*_X))
     if backend_name == "torch":
         got = aAA.actionsFreqsAngles(*torch.tensor(_X, requires_grad=True))
+        # (for npoints=0, numpy has no frequencies)
+        keep = numpy.all(numpy.isfinite(ref), axis=1)
         assert numpy.allclose(
-            numpy.array([as_numpy(g.detach()) for g in got]),
-            ref,
+            numpy.array([as_numpy(g.detach()) for g in got])[keep],
+            ref[keep],
             rtol=1e-8,
             atol=1e-8,
-            equal_nan=True,
         )
     for ii in (0, 6) + (4,) * (kwargs["npoints"] > 0):
         assert numpy.allclose(
@@ -279,3 +280,119 @@ def test_actionAngleAdiabaticApproxInverse_backend(backend_name):
         rtol=1e-4,
         atol=1e-4,
     )
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_actionAngleAdiabaticApprox_frequencies_npoints0(backend_name):
+    # With npoints=0, the frequencies of backend inputs are dH/dJ at fixed
+    # angles, by differentiating the transformation along each point's orbit
+    # in an in-backend integration (also for the default C method). Between
+    # two isochrones, they approach the exact frequencies as tintJ grows; on
+    # numpy there are none
+    true = IsochronePotential(b=0.8, normalize=1.0)
+    aAA = actionAngleAdiabaticApprox(
+        pot=true,
+        aA=actionAngleIsochrone(ip=IsochronePotential(b=0.5, normalize=1.0)),
+        tintJ=100.0,
+        npoints=0,
+    )
+    exact = numpy.array(actionAngleIsochrone(ip=true).actionsFreqs(*_X))
+    xp = namespace_for_name(backend_name)
+    got = aAA.actionsFreqsAngles(*(xp.asarray(x) for x in _X))
+    assert all(is_backend_array(g) for g in got)
+    got = numpy.array([as_numpy(g) for g in got])
+    assert numpy.allclose(got[:6], exact, rtol=1e-4, atol=1e-6)
+    assert numpy.allclose(
+        numpy.array([as_numpy(g) for g in aAA.actionsFreqs(*map(xp.asarray, _X))]),
+        got[:6],
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    assert numpy.all(numpy.isnan(aAA.actionsFreqs(*_X)[3:]))
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_actionAngleAdiabaticApprox_frequency_derivatives_npoints0(backend_name):
+    # The frequencies for npoints=0 are differentiable with respect to the
+    # potential's parameters and the phase-space point; on PyTorch, the
+    # latter, a second derivative, needs an in-backend integrator
+    x = _X[:, 0]
+
+    def Or(a, x, **kwargs):
+        return _setup(a=a, npoints=0, tintJ=5.0, **kwargs).actionsFreqs(*x)[3][0]
+
+    xp = namespace_for_name(backend_name)
+    fd_a = (
+        float(Or(2.0 + 1e-5, xp.asarray(x))) - float(Or(2.0 - 1e-5, xp.asarray(x)))
+    ) / 2e-5
+    fd_x = _finite_difference(
+        lambda *x: [Or(2.0, xp.asarray(numpy.array(x)))], x, 0, h=1e-5
+    )
+    if backend_name == "jax":
+        grad_a = jax.jacfwd(lambda a: Or(a, jax.numpy.asarray(x)))(2.0)
+        grad_x = jax.jacfwd(lambda x: Or(2.0, x))(jax.numpy.asarray(x))
+    else:
+        a = torch.tensor(2.0, dtype=torch.float64, requires_grad=True)
+        (grad_a,) = torch.autograd.grad(Or(a, torch.tensor(x)), a)
+        tx = torch.tensor(x, requires_grad=True)
+        with pytest.raises(RuntimeError, match="second derivatives"):
+            torch.autograd.grad(Or(2.0, tx), tx)
+        (grad_x,) = torch.autograd.grad(Or(2.0, tx, integrate_method="torchode"), tx)
+    assert abs(float(grad_a) / fd_a - 1.0) < 1e-6
+    assert numpy.allclose(as_numpy(grad_x), fd_x, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_columnwise_jvp(backend_name):
+    # galpy.backend.optimize.columnwise_jvp: f(p) and the derivative of each
+    # column of f(p) in the direction of that column of t, with or without
+    # an aux output, and differentiable again with create_graph
+    from galpy.backend.optimize import columnwise_jvp
+
+    xp = namespace_for_name(backend_name)
+    p = xp.asarray(numpy.array([[0.3, -0.7], [1.1, 0.4]]))
+    t = xp.asarray(numpy.array([[1.0, 2.0], [0.5, -1.0]]))
+
+    def f(p):
+        return xp.stack([p[0] * p[1], p[0] ** 2.0])
+
+    for reverse in (False, True, None):  # (reverse: backward passes on jax too)
+        val, rate = columnwise_jvp(f, p, t, reverse=reverse)
+        assert numpy.allclose(as_numpy(val), [[0.33, -0.28], [0.09, 0.49]])
+        assert numpy.allclose(as_numpy(rate), [[1.25, 1.5], [0.6, -2.8]])
+    for aux in (lambda p: 2.0 * p, lambda p: (2.0 * p, 3.0 * p)):
+        val, rate, got = columnwise_jvp(
+            lambda p: (f(p), aux(p)), p, t, has_aux=True, reverse=True
+        )
+        assert numpy.allclose(as_numpy(rate), [[1.25, 1.5], [0.6, -2.8]])
+        want = aux(as_numpy(p))
+        for g, w in zip(
+            *((got, want) if isinstance(want, tuple) else ((got,), (want,)))
+        ):
+            assert numpy.allclose(as_numpy(g), w)
+    if backend_name == "jax":
+        # reverse=None: backward passes for a function that only has those
+        @jax.custom_vjp
+        def g(p):
+            return f(p)
+
+        g.defvjp(lambda p: (f(p), p), lambda p, ct: (jax.vjp(f, p)[1](ct)[0],))
+        assert numpy.allclose(
+            as_numpy(columnwise_jvp(g, p, t, reverse=None)[1]),
+            [[1.25, 1.5], [0.6, -2.8]],
+        )
+
+        def bad(p):
+            raise TypeError("other")
+
+        with pytest.raises(TypeError, match="other"):
+            columnwise_jvp(bad, p, t, reverse=None)
+    # d(rate[1, 0])/d(p[0, 0]) = 2 t[0, 0]
+    if backend_name == "jax":
+        d = jax.grad(lambda p: columnwise_jvp(f, p, t)[1][1, 0])(p)
+    else:
+        p = torch.tensor(as_numpy(p), requires_grad=True)
+        (d,) = torch.autograd.grad(
+            columnwise_jvp(f, p, t, create_graph=True)[1][1, 0], p
+        )
+    assert numpy.allclose(as_numpy(d), [[2.0, 0.0], [0.0, 0.0]])

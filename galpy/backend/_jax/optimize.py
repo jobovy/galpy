@@ -195,3 +195,30 @@ def columnwise_jacobian(f, p, has_aux=False):
     )(tangents)
     J = jax.numpy.moveaxis(out[1], 1, 0)  # (n, m, k)
     return (out[0], J, out[2]) if has_aux else (out[0], J)
+
+
+def columnwise_jvp(f, p, t, has_aux=False, reverse=False):
+    """jax half of optimize.columnwise_jvp: jax.jvp, or with reverse one
+    backward pass per output row (the columns are independent), contracted
+    with t; reverse=None: jax.jvp unless f contains a custom_vjp (such as the
+    C-STM), which only differentiates backward"""
+    import jax
+
+    if reverse is None:  # forward, unless f only differentiates backward
+        try:
+            return jax.jvp(f, (p,), (t,), has_aux=has_aux)
+        except TypeError as e:
+            if "custom_vjp" not in str(e):
+                raise
+    elif not reverse:
+        return jax.jvp(f, (p,), (t,), has_aux=has_aux)
+    out = jax.vjp(f, p, has_aux=has_aux)
+    fx, back = out[0], out[1]
+    eye = jax.numpy.eye(fx.shape[0], dtype=fx.dtype)[:, :, None]
+    rate = jax.numpy.stack(
+        [
+            jax.numpy.sum(back(eye[i] + 0.0 * fx)[0] * t, axis=0)
+            for i in range(fx.shape[0])
+        ]
+    )
+    return (fx, rate, out[2]) if has_aux else (fx, rate)

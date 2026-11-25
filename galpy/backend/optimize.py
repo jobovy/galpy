@@ -245,6 +245,27 @@ def columnwise_jacobian(f, p, has_aux=False):
     return _bk(f, p, has_aux=has_aux)
 
 
+def columnwise_jvp(f, p, t, has_aux=False, create_graph=False, reverse=False):
+    """The directional derivatives of n independent functions of k unknowns
+    each, one per column of the backend array p (k, n): f(p) is (m, n),
+    column j a function of column j of p alone, differentiated in the
+    direction of column j of t (k, n). Returns f(p) and the derivatives (m,
+    n) (with has_aux, f returns (value, aux), aux an array or a tuple of
+    arrays, and aux is returned too). jax: one forward pass, differentiable,
+    or with reverse m backward passes (for an f that only differentiates
+    backward, such as the C-STM; reverse=None: whichever f allows); torch: m
+    backward passes, whose graph is kept (for derivatives of the result) with
+    create_graph"""
+    xp = prefer_backend_namespace(p)
+    if name_of_namespace(xp) == "jax":
+        from ._jax.optimize import columnwise_jvp as _bk
+
+        return _bk(f, p, t, has_aux=has_aux, reverse=reverse)
+    from ._torch.optimize import columnwise_jvp as _bk  # array_api_compat.torch
+
+    return _bk(f, p, t, has_aux=has_aux, create_graph=create_graph)
+
+
 def del2_step(f, p0, xp):
     """One scipy ``fixed_point`` del2 update: ``(p, relerr)``, branch-free."""
     p1 = f(p0)
