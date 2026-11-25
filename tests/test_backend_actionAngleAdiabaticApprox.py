@@ -14,10 +14,12 @@ from galpy.actionAngle import (
     actionAngleIsochrone,
     actionAngleIsochroneInverse,
     actionAngleSpherical,
+    actionAngleStaeckel,
 )
 from galpy.backend import as_numpy, is_backend_array
 from galpy.backend._namespaces import namespace_for_name
 from galpy.potential import IsochronePotential, NFWPotential
+from galpy.util import galpyWarning
 
 pytestmark = pytest.mark.backend_managed
 
@@ -192,6 +194,31 @@ def test_actionAngleAdiabaticApprox_calibrate_without_inverse_backend(backend_na
         rtol=1e-5,
         atol=1e-5,
     )
+
+
+@pytest.mark.parametrize(
+    "backend_name,c",
+    [(b, True) for b in BACKENDS] + ([("torch", False)] if torch else []),
+)
+def test_actionAngleAdiabaticApprox_calibrate_unbound_in_auxiliary_backend(
+    backend_name, c
+):
+    # a point that is unbound in the potential of aA=: no half turns from
+    # aA=, with a warning, also in the backend (with c=False, aA= raises; on
+    # torch only, as eager jax takes minutes for it)
+    aAA = _setup(
+        aA=actionAngleStaeckel(
+            pot=IsochronePotential(b=0.5, normalize=0.3), delta=0.1, c=c
+        ),
+        npoints=0,
+        calibrate_angles=True,
+    )
+    fast = numpy.array([[1.0, 0.3, 1.1, 0.1, 0.2, 0.5]]).T
+    with pytest.warns(galpyWarning, match="may be half a turn off"):
+        grad = _derivative(backend_name, aAA.actionsFreqsAngles, fast, 6)
+    with pytest.warns(galpyWarning, match="may be half a turn off"):
+        fd = _finite_difference(aAA.actionsFreqsAngles, fast, 6, wrap=True)
+    assert numpy.allclose(grad, fd, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize("backend_name", BACKENDS)
