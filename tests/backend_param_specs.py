@@ -1738,6 +1738,30 @@ add_aa(
     coords={"jr": 0.04, "lz": 1.0, "jz": 0.03, "ar": 0.4, "ap": 0.5, "az": 0.6},
     diff_coords=["ar"],
 )
+add_aa(
+    "actionAngleAdiabaticApprox",
+    lambda P: aa.actionAngleAdiabaticApprox(
+        pot=gp.NFWPotential(amp=P["amp"], a=P["a"]),
+        aA=aa.actionAngleIsochrone(b=0.5),
+        tintJ=20.0,
+        npoints=0,
+    ),
+    {"amp": 3.0, "a": 2.0},
+    afa(),
+)
+add_aa(
+    "actionAngleAdiabaticApproxInverse",
+    lambda P: aa.actionAngleAdiabaticApproxInverse(
+        pot=gp.NFWPotential(amp=P["amp"], a=P["a"]),
+        aAI=aa.actionAngleIsochroneInverse(b=0.5),
+        aA=aa.actionAngleIsochrone(b=0.5),
+        tintJ=20.0,
+    ),
+    {"amp": 3.0, "a": 2.0},
+    iinv,
+    coords={"jr": 0.05, "lz": 1.1, "jz": 0.02, "ar": 0.4, "ap": 0.5, "az": 0.6},
+    diff_coords=["jr", "ar"],
+)
 
 
 def einv(o, C):
