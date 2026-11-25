@@ -14,22 +14,23 @@ from .._reference.inbackend_stm import c_stm_forward
 
 
 class _NoSecondOrder(torch.autograd.Function):
-    """A zero whose backward raises: ties the C-STM's IC gradient back to the IC,
-    so differentiating that gradient again (d/d(IC) of a Jacobian) fails loudly
-    instead of silently dropping dM/d(IC)."""
+    """A zero whose backward raises: ties a gradient from C's Jacobian (the
+    C-STM's IC gradient by default) back to x, so differentiating that gradient
+    again (d/dx of a Jacobian) fails loudly instead of silently dropping it."""
 
     @staticmethod
-    def forward(ctx, x):
-        return x.new_zeros(())
-
-    @staticmethod
-    def backward(ctx, g):
-        raise RuntimeError(
+    def forward(ctx, x, message=None):
+        ctx.message = message or (
             "second derivatives through the C state-transition matrix are not "
             "supported (it is first-order only); integrate with "
             "method='torchdiffeq' or 'torchode' (for an actionAngle object: "
             "integrate_method='torchdiffeq')"
         )
+        return x.new_zeros(())
+
+    @staticmethod
+    def backward(ctx, g):
+        raise RuntimeError(ctx.message)
 
 
 class _CSTMFunction(torch.autograd.Function):

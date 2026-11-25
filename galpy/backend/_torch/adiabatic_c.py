@@ -9,7 +9,7 @@
 ###############################################################################
 import torch
 
-from .staeckel_c import _values_if_no_derivative
+from .staeckel_c import _jac_backward, _values_if_no_derivative
 
 
 class _ActionsJacFunction(torch.autograd.Function):
@@ -19,7 +19,9 @@ class _ActionsJacFunction(torch.autograd.Function):
         cs = [t.detach().to("cpu", torch.float64).numpy() for t in (R, vR, vT, z, vz)]
         jr, jz, jac = host_jac(*cs)
         dev, dt = R.device, R.dtype
-        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,2,5)
+        ctx.save_for_backward(
+            torch.as_tensor(jac, dtype=dt, device=dev), R, vR, vT, z, vz
+        )  # (N,2,5)
         return (
             torch.as_tensor(jr, dtype=dt, device=dev),
             torch.as_tensor(jz, dtype=dt, device=dev),
@@ -27,9 +29,7 @@ class _ActionsJacFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, g_jr, g_jz):
-        (jac,) = ctx.saved_tensors  # (N,2,5)
-        g = g_jr[:, None] * jac[:, 0, :] + g_jz[:, None] * jac[:, 1, :]  # (N,5)
-        return (None,) + tuple(g[:, k] for k in range(5))
+        return _jac_backward(ctx, (g_jr, g_jz))
 
 
 def actions_with_jac(host_jac, host_val, R, vR, vT, z, vz):
@@ -49,17 +49,16 @@ class _EccZmaxJacFunction(torch.autograd.Function):
         cs = [t.detach().to("cpu", torch.float64).numpy() for t in (R, vR, vT, z, vz)]
         ecc, zmax, rperi, rap, jac = host_jac(*cs)
         dev, dt = R.device, R.dtype
-        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,4,5)
+        ctx.save_for_backward(
+            torch.as_tensor(jac, dtype=dt, device=dev), R, vR, vT, z, vz
+        )  # (N,4,5)
         return tuple(
             torch.as_tensor(x, dtype=dt, device=dev) for x in (ecc, zmax, rperi, rap)
         )
 
     @staticmethod
     def backward(ctx, g_ecc, g_zmax, g_rperi, g_rap):
-        (jac,) = ctx.saved_tensors  # (N,4,5)
-        gs = (g_ecc, g_zmax, g_rperi, g_rap)
-        g = sum(gs[o][:, None] * jac[:, o, :] for o in range(4))  # (N,5)
-        return (None,) + tuple(g[:, k] for k in range(5))
+        return _jac_backward(ctx, (g_ecc, g_zmax, g_rperi, g_rap))
 
 
 def ecczmax_with_jac(host_jac, R, vR, vT, z, vz):

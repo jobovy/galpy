@@ -184,13 +184,13 @@ class actionAngleAdiabaticApprox(actionAngle):
         ntintJ : int, optional
             Number of output times of the orbit integration (only the last one is used).
         integrate_method : str, optional
-            Integration method to use. With 'diffrax' (jax) or 'torchode'/'torchdiffeq' (PyTorch), backend-array inputs are integrated in the backend, which is what derivatives with respect to parameters of the potentials and higher-order derivatives require (the C methods give first derivatives with respect to the phase-space point). On jax, the frequencies for npoints=0 integrate with 'diffrax' (except for at most 100 concrete points on a CPU).
+            Integration method to use. With 'diffrax' (jax) or 'torchode'/'torchdiffeq' (PyTorch), backend-array inputs are integrated in the backend, which is what derivatives with respect to parameters of the potentials and higher-order derivatives require (the C methods give first derivatives with respect to the phase-space point). On jax, the frequencies for npoints=0 integrate with 'diffrax' for more than 100 points or on a GPU, except under a derivative.
         integrate_kwargs : dict, optional
             Options for the in-backend integrator (Orbit.integrate's inbackend_kwargs).
         dt : float, optional
             orbit.integrate dt keyword (for fixed stepsize integration).
         npoints : int, optional
-            Number of points along the orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (an even number). With npoints=0, each point is transformed on its own: the transformation is then exactly canonical and actionAngleAdiabaticApproxInverse with the same tintJ is its inverse, but on numpy no frequencies are available (they are nan). For backend inputs (or under a forced backend), the frequencies are then the derivatives of the energy with respect to the actions at fixed angles, by automatic differentiation of the transformation along each point's orbit (on jax, the orbits are then integrated with 'diffrax', except for at most 100 concrete points on a CPU; on PyTorch, derivatives of these frequencies with respect to the phase-space point need integrate_method='torchode' or 'torchdiffeq').
+            Number of points along the orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (an even number). With npoints=0, each point is transformed on its own: the transformation is then exactly canonical and actionAngleAdiabaticApproxInverse with the same tintJ is its inverse, but on numpy no frequencies are available (they are nan). For backend inputs (or under a forced backend), the frequencies are then the derivatives of the energy with respect to the actions at fixed angles, by automatic differentiation of the transformation along each point's orbit (on jax, the orbits are then integrated with 'diffrax' for more than 100 points or on a GPU, except under a derivative; derivatives of these frequencies with respect to the phase-space point need integrate_method='diffrax' on jax and 'torchode' or 'torchdiffeq' on PyTorch, and an aA= that these backends can differentiate twice, such as one with c=False).
         npoints_dt : float, optional
             Amount of time to integrate forward and backwards for the npoints points (can be Quantity); the frequencies of the potential that is transformed to have to predict the change of each angle over this time to within pi.
         aAI : actionAngleInverse instance, optional
@@ -679,12 +679,14 @@ class actionAngleAdiabaticApprox(actionAngle):
             name_of_namespace(xp) == "jax"
             and method.lower() != "diffrax"
             and method.lower() not in _INBACKEND_SYMPLECTIC
-            and (derivative or ic.shape[0] > 100 or device_type(ic) != "cpu")
+            and not derivative
+            and (ic.shape[0] > 100 or device_type(ic) != "cpu")
         ):
             # (jax: forward mode through diffrax, which carries the one
             # direction rather than the C integrators' full state-transition
-            # matrix and can be differentiated further; a few concrete points
-            # on a CPU are faster in C, without diffrax's compilation)
+            # matrix; a few points on a CPU are faster in C, without diffrax's
+            # compilation, and so are derivatives, which through diffrax store
+            # every step of the integration)
             method = inbackend_ode_method(xp)
 
         # the transformed points and their rates of change along the orbits

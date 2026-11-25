@@ -253,8 +253,9 @@ def columnwise_jvp(f, p, t, has_aux=False, create_graph=False, reverse=False):
     n) (with has_aux, f returns (value, aux), aux an array or a tuple of
     arrays, and aux is returned too). jax: one forward pass, differentiable,
     or with reverse m backward passes (for an f that only differentiates
-    backward, such as the C-STM; reverse=None: whichever f allows); torch: m
-    backward passes, whose graph is kept (for derivatives of the result) with
+    backward, such as the C-STM; reverse=None: whichever f allows, and for
+    such an f differentiating the derivatives raises); torch: m backward
+    passes, whose graph is kept (for derivatives of the result) with
     create_graph"""
     xp = prefer_backend_namespace(p)
     if name_of_namespace(xp) == "jax":

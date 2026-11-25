@@ -320,32 +320,49 @@ def test_actionAngleAdiabaticApprox_frequencies_npoints0(backend_name):
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_actionAngleAdiabaticApprox_frequency_derivatives_npoints0(backend_name):
     # The frequencies for npoints=0 are differentiable with respect to the
-    # potential's parameters and the phase-space point; on PyTorch, the
-    # latter, a second derivative, needs an in-backend integrator
+    # potential's parameters and, with an in-backend integrator, the
+    # phase-space point (a second derivative: through the C integrators it
+    # raises, while the actions remain differentiable)
     x = _X[:, 0]
 
-    def Or(a, x, **kwargs):
-        return _setup(a=a, npoints=0, tintJ=5.0, **kwargs).actionsFreqs(*x)[3][0]
+    def out(a, x, ii=3, **kwargs):
+        return _setup(a=a, npoints=0, tintJ=5.0, **kwargs).actionsFreqs(*x)[ii][0]
 
     xp = namespace_for_name(backend_name)
     fd_a = (
-        float(Or(2.0 + 1e-5, xp.asarray(x))) - float(Or(2.0 - 1e-5, xp.asarray(x)))
+        float(out(2.0 + 1e-5, xp.asarray(x))) - float(out(2.0 - 1e-5, xp.asarray(x)))
     ) / 2e-5
-    fd_x = _finite_difference(
-        lambda *x: [Or(2.0, xp.asarray(numpy.array(x)))], x, 0, h=1e-5
-    )
+    fd_x = [
+        _finite_difference(
+            lambda *x: [out(2.0, xp.asarray(numpy.array(x)), ii)], x, 0, h=1e-5
+        )
+        for ii in (3, 0)
+    ]
     if backend_name == "jax":
-        grad_a = jax.jacfwd(lambda a: Or(a, jax.numpy.asarray(x)))(2.0)
-        grad_x = jax.jacfwd(lambda x: Or(2.0, x))(jax.numpy.asarray(x))
+        grad_a = jax.jacfwd(lambda a: out(a, jax.numpy.asarray(x)))(2.0)
+        with pytest.raises(NotImplementedError, match="second derivatives"):
+            jax.grad(lambda x: out(2.0, x))(jax.numpy.asarray(x))
+        jr_x = jax.grad(lambda x: out(2.0, x, 0))(jax.numpy.asarray(x))
+        grad_x = jax.jacfwd(lambda x: out(2.0, x, integrate_method="diffrax"))(
+            jax.numpy.asarray(x)
+        )
     else:
         a = torch.tensor(2.0, dtype=torch.float64, requires_grad=True)
-        (grad_a,) = torch.autograd.grad(Or(a, torch.tensor(x)), a)
+        (grad_a,) = torch.autograd.grad(out(a, torch.tensor(x)), a)
         tx = torch.tensor(x, requires_grad=True)
         with pytest.raises(RuntimeError, match="second derivatives"):
-            torch.autograd.grad(Or(2.0, tx), tx)
-        (grad_x,) = torch.autograd.grad(Or(2.0, tx, integrate_method="torchode"), tx)
+            torch.autograd.grad(out(2.0, tx), tx)
+        (jr_x,) = torch.autograd.grad(out(2.0, tx, 0), tx)
+        (grad_x,) = torch.autograd.grad(out(2.0, tx, integrate_method="torchode"), tx)
+        # (an aA= whose derivatives are C's, to first order, raises too)
+        aA = actionAngleStaeckel(
+            pot=IsochronePotential(b=0.5, normalize=1.0), delta=0.1, c=True
+        )
+        with pytest.raises(RuntimeError, match="through the C actions"):
+            torch.autograd.grad(out(2.0, tx, aA=aA, integrate_method="torchode"), tx)
     assert abs(float(grad_a) / fd_a - 1.0) < 1e-6
-    assert numpy.allclose(as_numpy(grad_x), fd_x, rtol=1e-6, atol=1e-7)
+    assert numpy.allclose(as_numpy(grad_x), fd_x[0], rtol=1e-6, atol=1e-7)
+    assert numpy.allclose(as_numpy(jr_x), fd_x[1], rtol=1e-6, atol=1e-7)
 
 
 @pytest.mark.parametrize("backend_name", BACKENDS)
@@ -387,6 +404,27 @@ def test_columnwise_jvp(backend_name):
             as_numpy(columnwise_jvp(g, p, t, reverse=None)[1]),
             [[1.25, 1.5], [0.6, -2.8]],
         )
+        # traced: the values differentiable, the rate not (also under jit,
+        # and for a custom_vjp within a jitted function)
+        for wrap, h in ((lambda u: u, g), (jax.jit, g), (lambda u: u, jax.jit(g))):
+            assert numpy.allclose(
+                as_numpy(
+                    wrap(
+                        jax.grad(
+                            lambda p: columnwise_jvp(h, p, t, reverse=None)[0][1, 0]
+                        )
+                    )(p)
+                ),
+                [[0.6, 0.0], [0.0, 0.0]],
+            )
+            with pytest.raises(NotImplementedError, match="second derivatives"):
+                wrap(
+                    jax.grad(lambda p: columnwise_jvp(h, p, t, reverse=None)[1][1, 0])
+                )(p)
+        assert numpy.allclose(
+            as_numpy(jax.jit(lambda p: columnwise_jvp(g, p, t, reverse=None)[1])(p)),
+            [[1.25, 1.5], [0.6, -2.8]],
+        )
 
         def bad(p):
             raise TypeError("other")
@@ -396,6 +434,12 @@ def test_columnwise_jvp(backend_name):
     # d(rate[1, 0])/d(p[0, 0]) = 2 t[0, 0]
     if backend_name == "jax":
         d = jax.grad(lambda p: columnwise_jvp(f, p, t)[1][1, 0])(p)
+        assert numpy.allclose(
+            as_numpy(
+                jax.grad(lambda p: columnwise_jvp(f, p, t, reverse=None)[1][1, 0])(p)
+            ),
+            as_numpy(d),
+        )
     else:
         p = torch.tensor(as_numpy(p), requires_grad=True)
         (d,) = torch.autograd.grad(
