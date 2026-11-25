@@ -1113,6 +1113,7 @@ EXPORT void integrateFullOrbit(int nobj,
 			       int * pot_type,
 			       double * pot_args,
              tfuncs_type_arr pot_tfuncs,
+			       int indiv_pot,
 			       double dt,
 			       double rtol,
 			       double atol,
@@ -1127,16 +1128,33 @@ EXPORT void integrateFullOrbit(int nobj,
   int * thread_pot_type;
   double * thread_pot_args;
   tfuncs_type_arr thread_pot_tfuncs;
+  // indiv_pot: every object has its own potential, all of the same
+  // structure; pot_type, pot_args, and pot_tfuncs then hold nobj of them
+  // one after the other, each of these sizes
+  size_t ntype= 0, nargs= 0, ntfuncs= 0;
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
-#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads)
-  for (ii=0; ii < max_threads; ii++) {
-    thread_pot_type= pot_type; // need to make thread-private pointers, bc
-    thread_pot_args= pot_args; // these pointers are changed in parse_...
-    thread_pot_tfuncs= pot_tfuncs; // ...
-    parse_leapFuncArgs_Full(npot,potentialArgs+ii*npot,
+  if ( indiv_pot ) {
+    // the sizes, from how far parsing the first object's potential gets
+    thread_pot_type= pot_type;
+    thread_pot_args= pot_args;
+    thread_pot_tfuncs= pot_tfuncs;
+    parse_leapFuncArgs_Full(npot,potentialArgs,
 			    &thread_pot_type,&thread_pot_args,&thread_pot_tfuncs);
+    free_potentialArgs(npot,potentialArgs);
+    ntype= thread_pot_type-pot_type;
+    nargs= thread_pot_args-pot_args;
+    ntfuncs= pot_tfuncs ? thread_pot_tfuncs-pot_tfuncs : 0;
+  } else {
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads)
+    for (ii=0; ii < max_threads; ii++) {
+      thread_pot_type= pot_type; // need to make thread-private pointers, bc
+      thread_pot_args= pot_args; // these pointers are changed in parse_...
+      thread_pot_tfuncs= pot_tfuncs; // ...
+      parse_leapFuncArgs_Full(npot,potentialArgs+ii*npot,
+			      &thread_pot_type,&thread_pot_args,&thread_pot_tfuncs);
+    }
   }
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
@@ -1191,8 +1209,16 @@ EXPORT void integrateFullOrbit(int nobj,
     dim= 3;
     break;
   }
-#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
+#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
+    if ( indiv_pot ) { // this object's own potential
+      thread_pot_type= pot_type+ntype*ii;
+      thread_pot_args= pot_args+nargs*ii;
+      thread_pot_tfuncs= pot_tfuncs ? pot_tfuncs+ntfuncs*ii : pot_tfuncs;
+      parse_leapFuncArgs_Full(npot,potentialArgs+omp_get_thread_num()*npot,
+			      &thread_pot_type,&thread_pot_args,
+			      &thread_pot_tfuncs);
+    }
     // offsets in size_t, because nobj*nt*6 can exceed INT_MAX
     cyl_to_rect_galpy(yo+6*(size_t) ii);
     odeint_func(odeint_deriv_func,dim,yo+6*(size_t) ii,nt,dt,
@@ -1203,11 +1229,15 @@ EXPORT void integrateFullOrbit(int nobj,
       rect_to_cyl_galpy(result+6*((size_t) nt*ii+jj));
     if ( cb ) // Callback if not void
       cb();
+    if ( indiv_pot )
+      free_potentialArgs(npot,potentialArgs+omp_get_thread_num()*npot);
   }
   //Free allocated memory
+  if ( !indiv_pot ) {
 #pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
-  for (ii=0; ii < max_threads; ii++)
-    free_potentialArgs(npot,potentialArgs+ii*npot);
+    for (ii=0; ii < max_threads; ii++)
+      free_potentialArgs(npot,potentialArgs+ii*npot);
+  }
   free(potentialArgs);
   //Done!
 }

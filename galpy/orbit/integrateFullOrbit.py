@@ -658,7 +658,15 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
 
 
 def integrateFullOrbit_c(
-    pot, yo, t, int_method, rtol=None, atol=None, progressbar=True, dt=None
+    pot,
+    yo,
+    t,
+    int_method,
+    rtol=None,
+    atol=None,
+    progressbar=True,
+    dt=None,
+    indiv_pot=False,
 ):
     """
     Integrate an ode for a FullOrbit.
@@ -681,6 +689,8 @@ def integrateFullOrbit_c(
         If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
     dt : float, optional
         Force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators).
+    indiv_pot : bool, optional
+        If True, pot is a sequence of N potentials, one for each object, that differ in the values of their parameters alone (the same potentials combined in the same order); the objects are integrated in parallel, each in its own potential.
 
     Returns
     -------
@@ -696,6 +706,7 @@ def integrateFullOrbit_c(
     - 2011-11-13 - Written - Bovy (IAS)
     - 2018-12-21 - Adapted to allow multiple objects - Bovy (UofT)
     - 2022-04-12 - Add progressbar - Bovy (UofT)
+    - 2026-11-24 - Add indiv_pot - Bovy (UofT)
     """
     if len(yo.shape) == 1:
         single_obj = True
@@ -704,7 +715,26 @@ def integrateFullOrbit_c(
     yo = numpy.atleast_2d(yo)
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
+    if indiv_pot:
+        if len(pot) != nobj:
+            raise ValueError("indiv_pot=True requires one potential for each object")
+        parsed = [_parse_pot(p, t=t) for p in pot]
+        npot, pot_type = parsed[0][:2]
+        if any(
+            p[0] != npot
+            or not numpy.array_equal(p[1], pot_type)
+            or len(p[2]) != len(parsed[0][2])
+            for p in parsed
+        ):
+            raise ValueError(
+                "indiv_pot=True requires potentials that differ in the "
+                "values of their parameters alone"
+            )
+        pot_type = numpy.concatenate([p[1] for p in parsed])
+        pot_args = numpy.concatenate([p[2] for p in parsed])
+        pot_tfuncs = [f for p in parsed for f in p[3]]
+    else:
+        npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
@@ -739,6 +769,7 @@ def integrateFullOrbit_c(
         ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_void_p,
+        ctypes.c_int,
         ctypes.c_double,
         ctypes.c_double,
         ctypes.c_double,
@@ -766,6 +797,7 @@ def integrateFullOrbit_c(
         pot_type,
         pot_args,
         pot_tfuncs,
+        ctypes.c_int(indiv_pot),
         ctypes.c_double(dt),
         ctypes.c_double(rtol),
         ctypes.c_double(atol),
