@@ -11,12 +11,13 @@
 ###############################################################################
 import numpy
 
-from ..potential import DehnenSmoothWrapperPotential
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion
 from .actionAngleAdiabaticApprox import (
     _aA_from_inverse,
     _auxiliary_potential,
+    _deform,
+    _switch,
     actionAngleAdiabaticApprox,
 )
 from .actionAngleInverse import actionAngleInverse
@@ -35,13 +36,15 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         pot : Potential or list of Potentials
             Potential to calculate phase-space points for.
         aAI : actionAngleInverse instance
-            Inverse action-angle instance (for example, actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse) for the potential that is adiabatically transformed into pot; it has to return points in internal units. For an actionAngleStaeckelInverse instance that was set up with delta= for a potential that is not of Staeckel form, that potential is the Staeckel potential that the instance approximates it with (a numerical delta= and u0=: instances whose Staeckel potential follows their tori are not yet supported).
+            Inverse action-angle instance (for example, actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse) for the potential that is adiabatically transformed into pot; it has to return points in internal units. For an actionAngleStaeckelInverse instance that was set up with delta= for a potential that is not of Staeckel form, that potential is the Staeckel potential that the instance approximates it with; for an instance whose focal length or reference curve follows its tori, each torus is transformed from its own Staeckel potential (one torus at a time), which makes a single instance for the whole of a galaxy the auxiliary.
         aA : actionAngle instance, optional
             Action-angle instance for the same potential as aAI (the aA= of the corresponding actionAngleAdiabaticApprox); used for the frequencies, and only necessary for those when aAI is not an actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse instance, whose forward transformations are set up from them.
         aAA : actionAngleAdiabaticApprox instance, optional
             Set up the inverse of this instance, in place of pot=, aA=, tintJ=, integrate_method=, and dt=, which are taken from it; aAI= is then only necessary when its aA= is not an actionAngleIsochrone instance.
         tintJ : float or Quantity, optional
             Duration of the adiabatic transformation.
+        mm_npt : int, optional
+            For an aAI= with a Staeckel potential for each torus: the mm_npt of the actionAngleStaeckelInverse torus that is set up for each torus in its own potential. Default: 256.
         calibrate_angles : bool, optional
             If True, the angles are those of the usual convention (those of actionAngleAdiabaticApprox with calibrate_angles=True) rather than angles with an offset that is constant on each torus: the offset of each torus is measured with a round trip of the transformation and the transformation is repeated where an angle is half a turn off, which makes it three to four times as expensive. The offset is the same function of the actions as in actionAngleAdiabaticApprox, such that the two calibrated transformations are also each other's inverse. Requires the forward transformation (aA=, or an aAI= that it can be set up from). Default: False.
         integrate_method : str, optional
@@ -70,6 +73,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
                 tintJ=aAA._tintJ,
                 integrate_method=aAA._integrate_method,
                 dt=aAA._integrate_dt,
+                mm_npt=aAA._mm_npt,
             )
             if "aAI" not in kwargs and isinstance(aAA._aA, actionAngleIsochrone):
                 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
@@ -96,10 +100,10 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         # Time reversal of actionAngleAdiabaticApprox's transformation: the
         # same switch run from the auxiliary potential to pot, applied to
         # the point with its velocities reversed
-        self._adiabatic_pot = DehnenSmoothWrapperPotential(
-            pot=self._auxiliary_pot, tform=0.0, tsteady=self._tintJ, decay=True
-        ) + DehnenSmoothWrapperPotential(
-            pot=self._pot, tform=0.0, tsteady=self._tintJ, decay=False
+        self._adiabatic_pot = (
+            None
+            if self._auxiliary_pot is None
+            else _switch(self._auxiliary_pot, self._pot, self._tintJ)
         )
         # The forward transformation, for the frequencies: with the aA= given
         # or the one that galpy can set up from aAI (None otherwise)
@@ -114,6 +118,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
                 ntintJ=2,
                 integrate_method=self._integrate_method,
                 dt=self._integrate_dt,
+                mm_npt=kwargs.get("mm_npt", 256),
             )
         )
         self._calibrate = kwargs.get("calibrate_angles", False)
@@ -164,6 +169,11 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             )
         )
         shape = args[0].shape
+        if self._aAA is not None:
+            # (the tori of an aAI= with a Staeckel potential for each torus
+            # are kept for one evaluation)
+            self._aAA._wrappers.clear()
+            self._aAA._tori.clear()
         acts = [t.ravel() for t in args[:3]]
         angles = numpy.array([t.ravel() for t in args[3:]])
         if self._calibrate:
@@ -171,7 +181,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             # the potential of aAI=; then the points, and again where an
             # angle is half a turn off
             angles = angles + self._aAA._offset_torus(
-                acts, self._auxiliary(acts, angles)
+                acts, self._auxiliary(acts, angles)[0]
             )
             xv = self._morph(acts, angles)
             half = self._aAA._halfturns(
@@ -184,37 +194,39 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         return tuple(x.reshape(shape) for x in xv)
 
     def _auxiliary(self, acts, angles):
-        """The points of the tori of aAI= with these actions and angles"""
-        return tuple(
-            numpy.broadcast_to(numpy.ravel(x), acts[0].shape)
-            for x in self._aAI(*acts, *angles, use_physical=False)
+        """The points of the tori of aAI= with these actions and angles
+        and, for an aAI= with a Staeckel potential for each torus (for
+        which they are the points of each torus in its own Staeckel
+        potential), the rows (delta, u0) of those potentials (else None)"""
+        if self._auxiliary_pot is None:
+            return self._aAA._aux_points(acts, angles)
+        return (
+            numpy.array(
+                [
+                    numpy.broadcast_to(numpy.ravel(x), acts[0].shape)
+                    for x in self._aAI(*acts, *angles, use_physical=False)
+                ]
+            ),
+            None,
         )
 
     def _morph(self, acts, angles):
         """The points of the tori of aAI= with these actions and angles,
         transformed to pot"""
-        from ..orbit import Orbit
-
-        R, vR, vT, z, vz, phi = self._auxiliary(acts, angles)
-        orb = Orbit(numpy.array([R, -vR, -vT, z, -vz, phi]).T)
-        orb.integrate(
+        xv, models = self._auxiliary(acts, angles)
+        flip = numpy.array([1.0, -1.0, -1.0, 1.0, -1.0, 1.0])
+        out = flip * _deform(
+            self._pot,
+            self._auxiliary_pot,
+            flip * xv.T,
+            models,
             numpy.array([0.0, self._tintJ]),
-            self._adiabatic_pot,
-            method=self._integrate_method,
-            dt=self._integrate_dt,
-            progressbar=False,
+            self._integrate_method,
+            self._integrate_dt,
+            back=True,
+            wrapper=None if self._aAA is None else self._aAA._wrapper,
         )
-        return tuple(
-            sign * getattr(orb, q)(self._tintJ, use_physical=False)
-            for q, sign in (
-                ("R", 1.0),
-                ("vR", -1.0),
-                ("vT", -1.0),
-                ("z", 1.0),
-                ("vz", -1.0),
-                ("phi", 1.0),
-            )
-        )
+        return tuple(out.T)
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
@@ -253,7 +265,12 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
             )
         xv = self._evaluate(jr, jphi, jz, angler, anglephi, anglez)
         shape = xv[0].shape
-        freqs = self._aAA.actionsFreqs(*(x.ravel() for x in xv), use_physical=False)[3:]
+        # (tori that aAI= does not have are nan)
+        flat = numpy.array([x.ravel() for x in xv])
+        ok = numpy.all(numpy.isfinite(flat), axis=0)
+        freqs = numpy.full((3, flat.shape[1]), numpy.nan)
+        if numpy.any(ok):
+            freqs[:, ok] = self._aAA.actionsFreqs(*flat[:, ok], use_physical=False)[3:]
         return (*xv, *(f.reshape(shape) for f in freqs))
 
     def _Freqs(self, jr, jphi, jz, **kwargs):

@@ -6717,8 +6717,8 @@ def test_actionAngleAdiabaticApprox_from_each_other():
             "potential that is not of Staeckel form does not transform to the "
             "Staeckel potential of its focal length"
         )
-    # one whose Staeckel potential follows its tori has no single auxiliary
-    # potential
+    # one whose Staeckel potential follows its tori: each torus is transformed
+    # from its own Staeckel potential
     follows = actionAngleStaeckelInverse(
         pot=MWPotential2014,
         delta=0.45,
@@ -6728,12 +6728,22 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         jzs=[0.03],
         progressbar=False,
     )
-    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
-        actionAngleAdiabaticApproxInverse(pot=MWPotential2014, aAI=follows)
-    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
-        actionAngleAdiabaticApprox(
-            pot=MWPotential2014, aA=actionAngleStaeckel(inverse=follows)
+    aAAI = actionAngleAdiabaticApproxInverse(
+        pot=MWPotential2014, aAI=follows, tintJ=30.0
+    )
+    angles = numpy.array([[1.0, 2.0], [0.5, 3.0], [2.0, 4.0]])
+    back = numpy.array(
+        actionAngleAdiabaticApprox(aAAI=aAAI, npoints=0).actionsFreqsAngles(
+            *aAAI(0.05, 1.0, 0.03, *angles)
         )
+    )
+    assert numpy.allclose(
+        back[:3], [[0.05], [1.0], [0.03]], rtol=0.0, atol=1e-6
+    ) and numpy.allclose(back[6:], angles, rtol=0.0, atol=1e-6), (
+        "actionAngleAdiabaticApprox does not invert "
+        "actionAngleAdiabaticApproxInverse for an explicit torus whose "
+        "reference curve follows it"
+    )
     # a spherical auxiliary other than the isochrone: likewise
     hp = HernquistPotential(a=1.5, normalize=1.0)
     jr, lz, jz = (float(j[0]) for j in actionAngleSpherical(pot=hp)(*x[:5]))
@@ -6765,6 +6775,144 @@ def test_actionAngleAdiabaticApprox_from_each_other():
 
 # Test the calibrated angles of actionAngleAdiabaticApprox and its inverse
 # against the angles of a spherical potential
+def test_actionAngleAdiabaticApprox_staeckel_family():
+    # A family of tori whose Staeckel potential follows its tori (a fitted
+    # focal length and u0="torus", for the whole of a galaxy) as the
+    # auxiliary: each point is transformed to the Staeckel potential of its
+    # own torus
+    from galpy.actionAngle import (
+        actionAngleAdiabaticApprox,
+        actionAngleAdiabaticApproxInverse,
+        actionAngleStaeckel,
+        actionAngleStaeckelInverse,
+    )
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    def wrap(x):
+        return (x + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+
+    fam = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta="fit",
+        u0="torus",
+        setup_interp=True,
+        nE=5,
+        nLz=5,
+        nI3=5,
+        mm_npt=32,
+        progressbar=False,
+    )
+    aAS = actionAngleStaeckel(inverse=fam)
+    o = Orbit([1.0, 0.3, 0.9, 0.3, 0.5, 0.5])
+    ts = numpy.linspace(0.0, 30.0, 6)
+    o.integrate(ts, MWPotential2014)
+    x = numpy.array([o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)])
+    # Actions and frequencies are constant along the orbit and the angles
+    # advance at the frequencies, far better than those of the family (the
+    # Staeckel approximation) itself
+    out = numpy.array(
+        actionAngleAdiabaticApprox(
+            pot=MWPotential2014, aA=aAS, tintJ=50.0
+        ).actionsFreqsAngles(*x)
+    )
+    fudge = numpy.array(aAS.actionsFreqsAngles(*x))
+    for ii in (0, 2, 3, 4, 5):
+        assert numpy.std(out[ii]) < 3e-4 * numpy.mean(out[ii]), (
+            "Actions or frequencies of actionAngleAdiabaticApprox with a "
+            "Staeckel family as the auxiliary are not constant along an orbit"
+        )
+    assert numpy.std(fudge[0]) > 100.0 * numpy.std(out[0]) and numpy.std(
+        fudge[2]
+    ) > 100.0 * numpy.std(out[2]), (
+        "Actions of actionAngleAdiabaticApprox with a Staeckel family as the "
+        "auxiliary are not far better conserved than those of the family"
+    )
+    for ii in range(3):
+        resid = numpy.unwrap(wrap(out[6 + ii] - numpy.mean(out[3 + ii]) * ts))
+        assert numpy.ptp(resid) < 2e-3, (
+            "Angles of actionAngleAdiabaticApprox with a Staeckel family as "
+            "the auxiliary do not advance at the frequencies along an orbit"
+        )
+    # Each point on its own, and the inverse: exact inverses
+    for calibrate in (False, True):
+        aAA = actionAngleAdiabaticApprox(
+            pot=MWPotential2014,
+            aA=aAS,
+            tintJ=50.0,
+            npoints=0,
+            calibrate_angles=calibrate,
+        )
+        aAAI = actionAngleAdiabaticApproxInverse(
+            aAA=aAA, aAI=fam, calibrate_angles=calibrate
+        )
+        out = numpy.array(aAA.actionsFreqsAngles(*x))
+        back = numpy.array(aAAI(*out[:3], *out[6:]))
+        assert numpy.all(numpy.fabs(back[:5] - x[:5]) < 1e-6) and numpy.all(
+            numpy.fabs(wrap(back[5] - x[5])) < 1e-6
+        ), (
+            "actionAngleAdiabaticApproxInverse with a Staeckel family as the "
+            "auxiliary is not the inverse of actionAngleAdiabaticApprox "
+            f"(calibrate_angles={calibrate})"
+        )
+        if calibrate:
+            # (the usual convention: close to the angles of the family)
+            assert numpy.all(numpy.fabs(wrap(out[6:] - fudge[6:])) < 0.03), (
+                "Calibrated angles of actionAngleAdiabaticApprox with a "
+                "Staeckel family as the auxiliary are not close to the "
+                "family's"
+            )
+    # The inverse set up from the family alone; tori that the family does not
+    # have are nan
+    aAAI = actionAngleAdiabaticApproxInverse(
+        pot=MWPotential2014, aAI=fam, tintJ=50.0, mm_npt=128
+    )
+    jr, lz, jz = numpy.mean(out[:3], axis=1)
+    angles = numpy.array([[1.0, 4.0], [2.0, 5.0], [3.0, 0.5]])
+    xvf = numpy.array(
+        aAAI.xvFreqs(
+            numpy.array([jr, jr, 50.0]),
+            lz,
+            numpy.array([jz, jz, 0.1]),
+            *numpy.hstack([angles, [[1.0], [2.0], [3.0]]]),
+        )
+    )
+    assert numpy.all(numpy.isnan(xvf[:, 2])) and numpy.all(
+        numpy.isfinite(xvf[:, :2])
+    ), (
+        "actionAngleAdiabaticApproxInverse with a Staeckel family as the "
+        "auxiliary does not return nan for tori that the family does not have"
+    )
+    assert numpy.all(
+        numpy.isnan(numpy.array(aAAI.xvFreqs(50.0, lz, 0.1, 1.0, 2.0, 3.0)))
+    ), (
+        "actionAngleAdiabaticApproxInverse with a Staeckel family as the "
+        "auxiliary does not return nan for a torus that the family does not have"
+    )
+    back = numpy.array(
+        actionAngleAdiabaticApprox(aAAI=aAAI, npoints=0).actionsFreqsAngles(
+            *xvf[:6, :2]
+        )
+    )
+    assert numpy.all(
+        numpy.fabs(back[:3] - numpy.array([[jr], [lz], [jz]])) < 1e-6
+    ) and numpy.all(numpy.fabs(wrap(back[6:] - angles)) < 1e-6), (
+        "actionAngleAdiabaticApprox with a Staeckel family as the auxiliary "
+        "does not return the actions and angles of the points of "
+        "actionAngleAdiabaticApproxInverse"
+    )
+    assert numpy.all(
+        numpy.fabs(
+            xvf[6:, :2] / numpy.array(aAAI.Freqs(jr, lz, jz)).reshape((3, 1)) - 1.0
+        )
+        < 1e-3
+    ), (
+        "Frequencies of actionAngleAdiabaticApproxInverse with a Staeckel "
+        "family as the auxiliary are not those of the torus"
+    )
+    return None
+
+
 def test_actionAngleAdiabaticApprox_calibrate_angles():
     from galpy.actionAngle import (
         actionAngleAdiabaticApprox,
