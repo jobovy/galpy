@@ -8014,15 +8014,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
     def _bk_rule_values(self, xp, args):
-        """The callable delta= at backend arrays args = (E, L_z, f), on their
-        backend whatever the callable returns (it may evaluate on the host,
-        as another family's delta method does)"""
-        D = conversion.parse_length(self._delta_rule(*args), ro=self._ro)
-        if not is_backend_array(D):
-            D = asarray_on_device(
-                xp, numpy.asarray(D, dtype="float"), device_of(args[0])
+        """The callable delta= at backend arrays args = (E, L_z, f), called
+        with numpy arrays on the host (host_eval), as on numpy and as the
+        callable u0 rules, without a derivative (a gauge)"""
+        cols = [stop_gradient(t) for t in args]
+        zero = 0.0 * (cols[0] + cols[1] + cols[2])
+
+        def host(a):
+            a = numpy.asarray(a, dtype="float")
+            out = numpy.zeros_like(a)
+            out[..., 0] = conversion.parse_length(
+                self._delta_rule(*numpy.moveaxis(a, -1, 0)), ro=self._ro
             )
-        return D
+            return out
+
+        return host_eval(host, xp.stack([t + zero for t in cols], axis=-1))[..., 0]
 
     def _bk_delta_rule_at(self, xp, concrete, E, L, f, dE_dx, dE_dL):
         """_delta_rule_at natively: the rule's focal lengths of the nodes'
