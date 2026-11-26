@@ -3823,12 +3823,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         way of their third integral from the planar to the shell orbit's
         and L_z, with lam the position of ln L_z in the grid's range, and
         their partials with respect to (x, y, L_z): the basis of the fitted
-        focal length"""
+        focal length (numpy or a backend's arrays)"""
+        xp = get_namespace(x, y, L)
         span = numpy.log(self._Lzgrid[-1] / self._Lzgrid[0])
-        lam = numpy.log(L / self._Lzgrid[0]) / span
+        lam = xp.log(L / self._Lzgrid[0]) / span
         P, dP = (
             [
-                numpy.array(
+                xp.stack(
                     [t**i if k == 0 else i * t ** max(i - 1, 0) for i in range(d + 1)]
                 )
                 for t, d in zip((x, y, lam), self._delta_deg)
@@ -3837,7 +3838,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
 
         def tensor(a, b, c):
-            return numpy.einsum("in,jn,kn->nijk", a, b, c).reshape(len(x), -1)
+            if xp is numpy:
+                return numpy.einsum("in,jn,kn->nijk", a, b, c).reshape(len(x), -1)
+            abc = a[:, None, None] * b[None, :, None] * c[None, None, :]
+            return xp.reshape(xp.permute_dims(abc, (3, 0, 1, 2)), (x.shape[0], -1))
 
         return (
             tensor(*P),
@@ -3856,13 +3860,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         of that range beyond it, where P leaves it by more"""
         coef, b0, b1, m = self._delta_fit
         F = self._delta_features(x, y, L)
+        xp = get_namespace(F[0])
+        zero = 0.0
+        if xp is not numpy:
+            coef = asarray_on_device(xp, coef, device_of(F[0]))
+            zero = xp.zeros_like(F[0][:, 0])
         P = F[0] @ coef
-        D = numpy.exp(
+        D = xp.exp(
             P
-            - m * numpy.logaddexp(0.0, (P - b1) / m)
-            + m * numpy.logaddexp(0.0, (b0 - P) / m)
+            - m * xp.logaddexp(zero, (P - b1) / m)
+            + m * xp.logaddexp(zero, (b0 - P) / m)
         )
-        ds = 0.5 * (numpy.tanh(0.5 * (b1 - P) / m) - numpy.tanh(0.5 * (b0 - P) / m))
+        ds = 0.5 * (xp.tanh(0.5 * (b1 - P) / m) - xp.tanh(0.5 * (b0 - P) / m))
         return D, [D * ds * (G @ coef) for G in F[1:]]
 
     def _setup_delta_fit(self):
@@ -8383,6 +8392,78 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._bk_R0(circ["Ec"], circ["Rc"], self._Rinf + 0.0 * ell),
             self._bk_R0(Emax, self._Rinf + 0.0 * ell, 10.0 * self._Rinf + 0.0 * ell),
         )
+
+    def _bk_delta_edges(self, Lz):
+        """_delta_edges of a fitted rule on a backend: the circular orbits of
+        the tori's |L_z| (held at the grid's range of |L_z|), the apocentres
+        between which their energy variable runs, the midplane potential
+        there, and the derivatives of the apocentres' logarithms with respect
+        to |L_z| (zero beyond the grid's range)"""
+        xp = get_namespace(Lz)
+        ell = xp.abs(Lz)
+        # (held by where(), so that a torus at an end keeps its derivative,
+        # as the closed form's)
+        lo, hi = float(self._Lzgrid[0]), float(self._Lzgrid[-1])
+        Lin = xp.where(ell < lo, lo, xp.where(ell > hi, hi, ell))
+        circ = self._bk_circular(Lin, freqs=False)
+        R0c, R0m = self._bk_apocentres(Lin, circ)
+        inside = Lin == ell
+        return {
+            "Lin": Lin,
+            "inside": inside,
+            "R0c": R0c,
+            "R0m": R0m,
+            "Phic": self._bk_Phi(R0c),
+            "Phim": self._bk_Phi(R0m),
+            "dlnc": xp.where(
+                inside, Lin / circ["Rc"] ** 2 / (R0c * self._bk_dPhi(R0c)), 0.0
+            ),
+            "dlnm": xp.where(
+                inside, Lin / self._Rinf**2 / (R0m * self._bk_dPhi(R0m)), 0.0
+            ),
+        }
+
+    def _bk_delta_of(self, E, Lz, f, edges=None, deriv=False):
+        """_delta_of of a fitted rule on a backend, for arrays of tori (E,
+        L_z, f) (edges: _bk_delta_edges of their L_z), with the partials of
+        deriv in the same closed form, whose own derivatives autodiff carries;
+        nan for a non-finite E"""
+        xp = get_namespace(E, Lz, f)
+        e = self._bk_delta_edges(Lz) if edges is None else edges
+        ok = xp.isfinite(E)
+        Es = xp.where(ok, E, e["Phic"])
+        Ein = xp.where(
+            Es < e["Phic"], e["Phic"], xp.where(Es > e["Phim"], e["Phim"], Es)
+        )
+        span = xp.log(e["R0m"] / e["R0c"])
+        # the energy variable x itself, on [0, 1], by Newton steps from its
+        # linear estimate in the potential (in which it is nearly linear; two
+        # reach round-off)
+        x = _backend_brentq(
+            lambda x, EE, R0c, sp: self._bk_Phi(R0c * xp.exp(sp * x)) - EE,
+            0.0 * Ein,
+            0.0 * Ein + 1.0,
+            args=(Ein, e["R0c"], span),
+            guess=stop_gradient((Ein - e["Phic"]) / (e["Phim"] - e["Phic"])),
+            elementwise=True,
+            newton_steps=4,
+        )
+        x = xp.where(x < 0.0, 0.0, xp.where(x > 1.0, 1.0, x))
+        R = e["R0c"] * xp.exp(span * x)
+        D, (dx, df, dL) = self._delta_fitted(x, f, e["Lin"])
+        D = xp.where(ok, D, numpy.nan)
+        if not deriv:
+            return D
+        # (as _delta_of: x moves with the energy through the apocentre R,
+        # and with the angular momentum through the two edges)
+        dx = xp.where(Ein == Es, dx, 0.0)
+        grad = [
+            dx / (R * self._bk_dPhi(R) * span),
+            xp.where(e["inside"], dL, 0.0)
+            - dx * (e["dlnc"] * (1.0 - x) + e["dlnm"] * x) / span,
+            df,
+        ]
+        return D, [xp.where(ok, g, numpy.nan) for g in grad]
 
     def _bk_check_Lz(self, ell):
         # a family built under a trace has no concrete grid to check against
