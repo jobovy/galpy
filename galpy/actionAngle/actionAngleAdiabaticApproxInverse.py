@@ -14,8 +14,14 @@ import numpy
 from ..potential import DehnenSmoothWrapperPotential
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion
-from .actionAngleAdiabaticApprox import _host, _on_host, actionAngleAdiabaticApprox
+from .actionAngleAdiabaticApprox import (
+    _aA_from_inverse,
+    _host,
+    _on_host,
+    actionAngleAdiabaticApprox,
+)
 from .actionAngleInverse import actionAngleInverse
+from .actionAngleIsochrone import actionAngleIsochrone
 
 
 class actionAngleAdiabaticApproxInverse(actionAngleInverse):
@@ -32,7 +38,9 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         aAI : actionAngleInverse instance
             Inverse action-angle instance (for example, actionAngleIsochroneInverse, actionAngleSphericalInverse, or actionAngleStaeckelInverse) for the potential that is adiabatically transformed into pot; it has to return points in internal units.
         aA : actionAngle instance, optional
-            Action-angle instance for the same potential as aAI (the aA= of the corresponding actionAngleAdiabaticApprox); only necessary for the frequencies.
+            Action-angle instance for the same potential as aAI (the aA= of the corresponding actionAngleAdiabaticApprox); used for the frequencies, and only necessary for those when aAI is not an actionAngleIsochroneInverse or actionAngleStaeckelInverse instance, whose forward transformations are set up from them.
+        aAA : actionAngleAdiabaticApprox instance, optional
+            Set up the inverse of this instance, in place of pot=, aA=, tintJ=, integrate_method=, and dt=, which are taken from it; aAI= is then only necessary when its aA= is not an actionAngleIsochrone instance.
         tintJ : float or Quantity, optional
             Duration of the adiabatic transformation.
         integrate_method : str, optional
@@ -51,6 +59,27 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
 
         """
         actionAngleInverse.__init__(self, *args, **kwargs)
+        if "aAA" in kwargs:
+            # The inverse of an actionAngleAdiabaticApprox instance
+            aAA = kwargs["aAA"]
+            kwargs = dict(kwargs)
+            kwargs.update(
+                pot=aAA._pot,
+                aA=aAA._aA,
+                tintJ=aAA._tintJ,
+                integrate_method=aAA._integrate_method,
+                dt=aAA._integrate_dt,
+            )
+            if "aAI" not in kwargs and isinstance(aAA._aA, actionAngleIsochrone):
+                from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
+
+                kwargs["aAI"] = actionAngleIsochroneInverse(ip=aAA._aA._ip)
+            if "aAI" not in kwargs:
+                raise ValueError(
+                    "aAI= is necessary with aAA= when the aA= of the "
+                    "actionAngleAdiabaticApprox instance is not an "
+                    "actionAngleIsochrone instance"
+                )
         if "pot" not in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleAdiabaticApproxInverse")
         if "aAI" not in kwargs:  # pragma: no cover
@@ -71,17 +100,20 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         ) + DehnenSmoothWrapperPotential(
             pot=self._pot, tform=0.0, tsteady=self._tintJ, decay=False
         )
+        # The forward transformation, for the frequencies: with the aA= given
+        # or the one that galpy can set up from aAI (None otherwise)
+        aA = kwargs["aA"] if "aA" in kwargs else _aA_from_inverse(self._aAI)
         self._aAA = (
-            actionAngleAdiabaticApprox(
+            None
+            if aA is None
+            else actionAngleAdiabaticApprox(
                 pot=self._pot,
-                aA=kwargs["aA"],
+                aA=aA,
                 tintJ=self._tintJ,
                 ntintJ=2,
                 integrate_method=self._integrate_method,
                 dt=self._integrate_dt,
             )
-            if "aA" in kwargs
-            else None
         )
         self._check_consistent_units()
         return None
@@ -185,7 +217,8 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
         if self._aAA is None:
             raise RuntimeError(
                 "The frequencies of actionAngleAdiabaticApproxInverse require "
-                "aA= at initialization"
+                "aA= at initialization: the action-angle instance that aAI= "
+                "inverts, which galpy cannot set up from this aAI="
             )
         xv = self._evaluate(jr, jphi, jz, angler, anglephi, anglez)
         shape = xv[0].shape
@@ -215,7 +248,7 @@ class actionAngleAdiabaticApproxInverse(actionAngleInverse):
 
         Notes
         -----
-        - The frequencies are those that actionAngleAdiabaticApprox returns for one point of each torus and require aA= at initialization.
+        - The frequencies are those that actionAngleAdiabaticApprox returns for one point of each torus (that at the angles (1,0,1)); they converge to the frequencies of the torus as tintJ increases, and for a finite tintJ they vary over the torus by about their error, such that they differ from those of xvFreqs at other angles at that level.
         - 2026-11-23 - Written - Bovy (UofT).
         """
         return self._xvFreqs(jr, jphi, jz, 1.0, 0.0, 1.0)[6:]
