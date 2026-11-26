@@ -323,7 +323,10 @@ at release.]
   rather than torus by torus (setting up many such tori is about four
   times faster)
 
-- [slot 38]
+- actionAngleStaeckelInverse: with setup_interp=True, the grid's shell
+  face is the shell orbits exactly also when the third integral is large (a
+  focal length far below the tori's size); such families were refused
+  with non-finite tables (#2046)
 
 - SCFPotential (and DiskSCFPotential, whose expansion is one) evaluates arrays
   of points in one vectorized pass instead of a Python loop over the points
