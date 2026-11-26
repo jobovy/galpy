@@ -1559,6 +1559,12 @@ class actionAngleStaeckel(actionAngle):
             if len(act) > 0:
                 u0[act] = step(act, nan(act), delta[act])[0]
             found = numpy.flatnonzero(numpy.isfinite(delta))
+        if turn is None and (not c or self._model == 4) and len(found) > 0:
+            # the reference curve at its fixed point at the focal length
+            # itself (the iteration's is that at the last iterate, which
+            # Aitken's extrapolation of the focal length moves on from), as
+            # the C code solves for it when it is handed the focal length
+            u0[found] = solve(found, delta[found], u0[found])
         # (a point without a focal length has no model at all)
         u0 = numpy.where(numpy.isfinite(delta), u0, numpy.nan)
         if aAI._delta_fit is not None:
