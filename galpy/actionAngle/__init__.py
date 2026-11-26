@@ -1,6 +1,7 @@
 from . import (
     actionAngle,
     actionAngleAdiabatic,
+    actionAngleAdiabaticApprox,
     actionAngleAdiabaticGrid,
     actionAngleHarmonic,
     actionAngleHarmonicInverse,
@@ -35,6 +36,7 @@ dePeriod = actionAngleIsochroneApprox.dePeriod
 actionAngle = actionAngle.actionAngle
 actionAngleInverse = actionAngleInverse.actionAngleInverse
 actionAngleAdiabatic = actionAngleAdiabatic.actionAngleAdiabatic
+actionAngleAdiabaticApprox = actionAngleAdiabaticApprox.actionAngleAdiabaticApprox
 actionAngleAdiabaticGrid = actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
 actionAngleStaeckel = actionAngleStaeckel.actionAngleStaeckel
 actionAngleStaeckelGrid = actionAngleStaeckelGrid.actionAngleStaeckelGrid

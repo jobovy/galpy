@@ -249,7 +249,11 @@ at release.]
 
 - [slot 23]
 
-- [slot 24]
+- New ``actionAngleAdiabaticApprox``: actions, frequencies, and angles in
+  any potential, by integrating each point while the potential is
+  adiabatically transformed into that of an action-angle instance
+  ``aA=`` (isochrone, spherical, adiabatic, or Staeckel) and evaluating
+  ``aA=`` at the end.
 
 - [slot 25]
 
