@@ -365,6 +365,59 @@ def test_actionAngleAdiabaticApprox_frequency_derivatives_npoints0(backend_name)
     assert numpy.allclose(as_numpy(jr_x), fd_x[1], rtol=1e-6, atol=1e-7)
 
 
+def test_actionAngleAdiabaticApprox_integrator_rule():
+    # which integrations of a C integrate_method run in the backend's own
+    # solver (_inbackend): on jax, on any device, for many points and under
+    # jax.jit or jax.vmap, except for the derivatives of the tangents (the
+    # frequencies'); for derivatives with respect to the potential's
+    # parameters; and never for another integrate_method or on PyTorch
+    import importlib
+
+    mod = importlib.import_module("galpy.actionAngle.actionAngleAdiabaticApprox")
+    aAA = _setup(npoints=0)
+    if jax:
+        jnp = jax.numpy
+        few, many, most, more = (jnp.ones((n, 6)) for n in (10, 200, 600, 1001))
+        assert not mod._inbackend(aAA, few) and not mod._inbackend(aAA, most)
+        assert mod._inbackend(aAA, more)
+        assert not mod._inbackend(aAA, few, tangent=True)
+        assert mod._inbackend(aAA, many, tangent=True)
+        seen = {}
+
+        def probe(tag, **kwargs):
+            def f(x):
+                seen[tag] = mod._inbackend(aAA, x, **kwargs)
+                return jnp.sum(x)
+
+            return f
+
+        jax.jit(probe("jit", tangent=True))(few)
+        jax.vmap(probe("vmap"))(jnp.ones((2, 1, 6)))
+        jax.grad(probe("grad tangent", tangent=True))(many)
+        jax.jit(jax.grad(probe("jit grad tangent", tangent=True)))(many)
+        jax.grad(probe("grad"))(most)
+        jax.grad(probe("grad many"))(many)
+        jax.jit(jax.grad(probe("jit grad")))(few)
+        jax.grad(
+            lambda a: (
+                seen.update(param=mod._inbackend(_setup(a=a, npoints=0), few)) or a
+            )
+        )(2.0)
+        assert seen == {
+            "jit": True,
+            "vmap": True,
+            "grad tangent": False,
+            "jit grad tangent": False,
+            "grad": True,
+            "grad many": False,
+            "jit grad": True,
+            "param": True,
+        }
+        assert not mod._inbackend(_setup(npoints=0, integrate_method="diffrax"), more)
+    if torch:
+        assert not mod._inbackend(aAA, torch.ones((2000, 6), dtype=torch.float64))
+
+
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_columnwise_jvp(backend_name):
     # galpy.backend.optimize.columnwise_jvp: f(p) and the derivative of each

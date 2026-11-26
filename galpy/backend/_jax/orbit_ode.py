@@ -53,23 +53,17 @@ def _resolve_adjoint(diffrax, adjoint):
 
 
 def _carries_jvp_tangent(*xs):
-    """True if one of ``xs`` carries a forward-mode (jax.jvp/jacfwd) tangent.
-
-    Walks each tracer's chain (``.primal`` / ``.val``) by class name -- private
-    API, so it can only ever MISS a tangent (e.g. jvp of a jitted function,
-    whose inner trace has none), never invent one. Off when reverse mode also
-    runs on JVP tracers (``jax_use_direct_linearize`` off, older jax), so a
-    jax.grad never switches adjoints."""
+    """True if one of ``xs`` carries a forward-mode (jax.jvp/jacfwd) tangent
+    (``jax_transformations``). Off when reverse mode also runs on JVP tracers
+    (``jax_use_direct_linearize`` off, older jax), so a jax.grad never
+    switches adjoints."""
     import jax
 
-    if not getattr(jax.config, "jax_use_direct_linearize", False):
-        return False
-    for x in xs:
-        while isinstance(x, jax.core.Tracer):
-            if type(x).__name__ == "JVPTracer":
-                return True
-            x = getattr(x, "primal", getattr(x, "val", None))
-    return False
+    from .._namespaces import jax_transformations
+
+    return getattr(
+        jax.config, "jax_use_direct_linearize", False
+    ) and "forward" in jax_transformations(*xs)
 
 
 def integrate(

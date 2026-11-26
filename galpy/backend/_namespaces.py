@@ -141,6 +141,35 @@ def under_jax_trace(*xs):
     return any(isinstance(x, jax.core.Tracer) for x in xs)
 
 
+def jax_transformations(*xs):
+    """The jax transformations that one of ``xs`` is traced by: a set of
+    ``'forward'`` (a JVPTracer: jax.jvp, jacfwd), ``'reverse'`` (a
+    LinearizeTracer: jax.grad, vjp, jacrev), ``'jit'`` (a DynamicJaxprTracer),
+    and ``'vmap'`` (a BatchTracer); empty for a concrete array. Walks each
+    tracer's chain (``.primal`` / ``.val``) by class name -- private API, so it
+    can only ever MISS a transformation (a derivative of a jax.jit-ed function
+    is not seen inside it), never invent one. Without
+    ``jax_use_direct_linearize`` (older jax), reverse mode also runs on
+    JVPTracers, which then count as both derivatives."""
+    if not under_jax_trace(*xs):
+        return set()
+    import jax
+
+    direct = getattr(jax.config, "jax_use_direct_linearize", False)
+    kinds = {
+        "LinearizeTracer": ("reverse",),
+        "JVPTracer": ("forward",) if direct else ("forward", "reverse"),
+        "DynamicJaxprTracer": ("jit",),
+        "BatchTracer": ("vmap",),
+    }
+    found = set()
+    for x in xs:
+        while isinstance(x, jax.core.Tracer):
+            found.update(kinds.get(type(x).__name__, ()))
+            x = getattr(x, "primal", getattr(x, "val", None))
+    return found
+
+
 def under_trace(*xs):
     """True iff one of ``xs`` is being TRACED rather than concretely evaluated.
 

@@ -11,15 +11,20 @@
 ###############################################################################
 import numpy
 
-from .._reference.inbackend_stm import c_stm_forward
+from .._reference.inbackend_stm import c_stm_forward, c_tangent_forward
 
 
-def integrate(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
+def integrate(
+    pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10, tangent=None
+):
     """Differentiable C-STM orbit integration under jax.
 
     vxvv: jax array (d,) or (N,d), d in {6,4,2} (3D/planar/1D), Orbit order.
     Returns (nt,d) or (N,nt,d). Differentiable w.r.t. vxvv. pot/ts/method are
-    static (closed over).
+    static (closed over). With ``tangent`` (shaped like vxvv): (orbit, its
+    derivative in that direction), from one C variational solve per orbit; only
+    a reverse-mode derivative computes the state-transition matrix, and
+    differentiating the derivative raises.
     """
     import jax
     import jax.numpy as jnp
@@ -64,4 +69,45 @@ def integrate(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
         return (vbar,)
 
     _stm.defvjp(_fwd, _bwd)
-    return _stm(vxvv)
+    if tangent is None:
+        return _stm(vxvv)
+
+    def _host_tangent(vxvv_np, tangent_np):
+        return c_tangent_forward(
+            pot,
+            numpy.asarray(vxvv_np, dtype=numpy.float64),
+            numpy.asarray(tangent_np, dtype=numpy.float64),
+            ts_np,
+            method,
+            rtol,
+            atol,
+        )
+
+    @jax.custom_vjp
+    def _tangent(v, dv):
+        nx = (nt, d) if v.ndim == 1 else (v.shape[0], nt, d)
+        out = jax.ShapeDtypeStruct(nx, v.dtype)
+        return jax.pure_callback(
+            _host_tangent, (out, out), v, dv, vmap_method="sequential"
+        )
+
+    def _tangent_fwd(v, dv):
+        xt, M = _call(v.value)
+        # (the derivative in the direction dv from the matrix: no second solve)
+        sub = "tab,b->ta" if M.ndim == 3 else "ntab,nb->nta"
+        return (xt, jnp.einsum(sub, M, dv.value)), M
+
+    def _tangent_bwd(M, cts):
+        ct_x, ct_dx = cts
+        if not isinstance(ct_dx, jax.custom_derivatives.SymbolicZero):
+            raise NotImplementedError(
+                "second derivatives through the C state-transition matrix are "
+                "not available (it is first-order only); integrate with "
+                "method='diffrax'"
+            )
+        # (called with a nonzero ct_x: an unused orbit and derivative skip bwd)
+        sub = "tab,ta->b" if M.ndim == 3 else "ntab,nta->nb"
+        return jnp.einsum(sub, M, ct_x), None
+
+    _tangent.defvjp(_tangent_fwd, _tangent_bwd, symbolic_zeros=True)
+    return _tangent(vxvv, jnp.broadcast_to(tangent, vxvv.shape))

@@ -968,3 +968,40 @@ def test_carries_jvp_tangent_only_under_direct_linearize():
         jax.config.update("jax_use_direct_linearize", prev)
     assert seen == {"jvp": True, "grad": False, "jvp_off": False}
     assert not _carries_jvp_tangent(jnp.ones(2), 1.0)  # concrete values
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_jax_transformations():
+    # the transformations an array is traced by, by tracer class; without
+    # direct linearize (older jax), a JVPTracer counts as both derivatives
+    from galpy.backend._namespaces import jax_transformations
+
+    seen = {}
+
+    def f(x, tag):
+        seen[tag] = sorted(jax_transformations(x, 1.0))
+        return jnp.sum(x**2.0)
+
+    x = jnp.ones(2)
+    prev = jax.config.jax_use_direct_linearize
+    try:
+        jax.config.update("jax_use_direct_linearize", True)
+        f(x, "eager")
+        jax.grad(lambda x: f(x, "grad"))(x)
+        jax.jacfwd(lambda x: f(x, "jacfwd"))(x)
+        jax.jit(lambda x: f(x, "jit"))(x)
+        jax.jit(jax.grad(lambda x: f(x, "jit(grad)")))(x)
+        jax.vmap(lambda x: f(x, "vmap"))(jnp.ones((3, 2)))
+        jax.config.update("jax_use_direct_linearize", False)
+        jax.jacfwd(lambda x: f(x, "jacfwd_off"))(x)
+    finally:
+        jax.config.update("jax_use_direct_linearize", prev)
+    assert seen == {
+        "eager": [],
+        "grad": ["reverse"],
+        "jacfwd": ["forward"],
+        "jit": ["jit"],
+        "jit(grad)": ["jit", "reverse"],
+        "vmap": ["vmap"],
+        "jacfwd_off": ["forward", "reverse"],
+    }

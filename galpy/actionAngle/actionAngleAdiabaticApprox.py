@@ -12,7 +12,6 @@
 #             actionsFreqsAngles: returns (jr,lz,jz,Or,Op,Oz,ar,ap,az)
 #
 ###############################################################################
-import functools
 import warnings
 
 import numpy
@@ -20,13 +19,13 @@ from numpy import linalg
 
 from ..backend import (
     coerce_coords,
-    get_namespace,
-    is_backend_array,
     like,
 )
+from ..backend._input import numpy_or_backend
 from ..backend._namespaces import (
-    device_type,
     has_concrete_truth_value,
+    inbackend_ode_method,
+    jax_transformations,
     name_of_namespace,
     namespace_from_arrays,
     param_grad_array,
@@ -42,7 +41,7 @@ from ..potential import (
     evaluateRforces,
     evaluatezforces,
 )
-from ..potential.Potential import _check_c, _pot_grad_namespace
+from ..potential.Potential import _check_c
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -59,18 +58,54 @@ def _switch_potential(start, end, tintJ):
     ) + DehnenSmoothWrapperPotential(pot=end, tform=0.0, tsteady=tintJ, decay=False)
 
 
+def _inbackend(self, ic, tangent=False):
+    """Whether the orbits of the backend-array points ic [M,6] are integrated
+    with the backend's own solver (diffrax, torchdiffeq) in place of the
+    instance's C integrator: where the C integrator cannot carry the
+    derivative (the potentials' parameters) or lacks the potential, and on jax
+    where that solver is faster, on a CPU or a GPU: under jax.jit or jax.vmap,
+    and for more than 1000 points (500 differentiated; for the orbits'
+    derivatives in a direction, the tangents, 100). The tangents' derivatives
+    with respect to the points are faster in C, also under jax.jit."""
+    from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
+
+    if self._integrate_method.lower() not in _C_DXDV_METHODS:
+        return False
+    if param_grad_array(self._adiabatic_pot) is not None or not _check_c(
+        self._adiabatic_pot, dxdv3d=True
+    ):
+        return True
+    if name_of_namespace(namespace_from_arrays((ic,))) != "jax":
+        return False
+    transformations = jax_transformations(ic)
+    derivative = bool(transformations & {"forward", "reverse"})
+    if tangent and derivative:
+        return False
+    if transformations & {"jit", "vmap"}:
+        return True
+    return ic.shape[0] > (100 if tangent else 500 if derivative else 1000)
+
+
 def _integrate_backend(self, ic, ts, pot, method=None):
     """The orbits [M,nt,6] of the backend-array initial conditions ic [M,6]
-    in pot at the times ts, with the instance's integrator (or method):
-    differentiable with respect to the initial conditions (for a C method, to
-    first order) and, for an in-backend method, the potential's parameters"""
+    in pot at the times ts, with the instance's integrator (or method; see
+    _inbackend): differentiable with respect to the initial conditions (for a
+    C method, to first order) and, for an in-backend method, the potential's
+    parameters"""
     from ..orbit import Orbit
 
+    if method is None:
+        method = (
+            inbackend_ode_method(namespace_from_arrays((ic,)))
+            if _inbackend(self, ic)
+            else self._integrate_method
+        )
     orb = Orbit(ic)
     orb.integrate(
         ts,
         pot,
-        method=self._integrate_method if method is None else method,
+        method=method,
+        progressbar=False,
         dt=self._integrate_dt,
         inbackend_kwargs=self._integrate_kwargs,
     )
@@ -87,28 +122,17 @@ def _orbit_velocity(xp, pot, xv):
     return xp.stack([d[0], d[1], d[0] * d[2] + R * d[3], d[4], d[5], d[2]], axis=-1)
 
 
-def _in_namespace(method):
-    """Run a method of the adiabatic-transformation classes in the namespace
-    of its inputs: numpy inputs, with potentials that have no backend
-    parameters and without a forced backend, take the numpy path; anything
-    else (backend-array inputs, a forced backend, or backend parameters of
-    the potentials) the class's implementation in that backend (_backend)"""
+def _point_coords(self, *args):
+    """The phase-space coordinates among the inputs of a method of the
+    adiabatic-transformation classes (an Orbit's, for an Orbit)"""
+    return self._coords(*args) if len(args) <= 2 and hasattr(self, "_coords") else args
 
-    @functools.wraps(method)
-    def wrapped(self, *args, **kwargs):
-        vals = args
-        if len(args) <= 2 and hasattr(self, "_coords"):
-            # (an Orbit: its phase-space coordinates)
-            vals = self._coords(*args)
-        bk = tuple(a for a in vals if is_backend_array(a))
-        xp = _pot_grad_namespace(self._adiabatic_pot, any_backend=True)
-        if xp is None:
-            xp = namespace_from_arrays(bk) if bk else get_namespace()
-        if xp is numpy:
-            return method(self, *args, **kwargs)
-        return self._backend(method.__name__, xp, *args, **kwargs)
 
-    return wrapped
+# numpy inputs, with potentials that have no backend parameters and without a
+# forced backend, take the numpy path; anything else (backend-array inputs, a
+# forced backend, or backend parameters of the potentials) the class's
+# implementation in that backend (_backend)
+_in_namespace = numpy_or_backend("_adiabatic_pot", coords=_point_coords)
 
 
 def _unwrap(xp, x):
@@ -667,36 +691,21 @@ class actionAngleAdiabaticApprox(actionAngle):
         change of the angles along the orbits: the derivative of the
         transformation in the direction of each point's orbit"""
         from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
-        from ..orbit.Orbits import _INBACKEND_SYMPLECTIC
 
-        method = self._integrate_method.lower()
         derivative = (
             under_trace(ic)
             or requires_backend_grad(ic)
             or param_grad_array(self) is not None
         )
         velocity = _orbit_velocity(xp, self._pot, ic)
-        if (
-            name_of_namespace(xp) == "jax"
-            and method not in _INBACKEND_SYMPLECTIC
-            and (
-                method == "diffrax"
-                or (not derivative and (ic.shape[0] > 100 or device_type(ic) != "cpu"))
-                # (C methods that Orbit.integrate runs in diffrax)
-                or (
-                    method in _C_DXDV_METHODS
-                    and (
-                        param_grad_array(self._adiabatic_pot) is not None
-                        or not _check_c(self._adiabatic_pot, dxdv3d=True)
-                    )
-                )
-            )
-        ):
+        method = (
+            inbackend_ode_method(xp)
+            if _inbackend(self, ic, tangent=True)
+            else self._integrate_method.lower()
+        )
+        if method == "diffrax":
             # (jax: the orbits with their variational equations in diffrax,
-            # which carry the one direction rather than the C integrators' full
-            # state-transition matrix, and which reverse mode goes through with
-            # checkpoints; a few points on a CPU are faster in C, without
-            # diffrax's compilation, and so are their derivatives)
+            # which reverse mode goes through with checkpoints)
             from ..backend._reference import integrate_orbit
 
             kwargs = dict(self._integrate_kwargs or {})
@@ -712,13 +721,30 @@ class actionAngleAdiabaticApprox(actionAngle):
                     **kwargs,
                 )
             )
+        elif method in _C_DXDV_METHODS:
+            # (C: the orbits with their variational equations from the
+            # points' velocities, one solve each)
+            from ..backend._reference.inbackend_stm import integrate_stm
+
+            end, rate = (
+                o[:, -1].T
+                for o in integrate_stm(
+                    self._adiabatic_pot,
+                    ic,
+                    self._tsJ,
+                    method=method,
+                    rtol=1e-12,
+                    atol=1e-12,
+                    tangent=velocity,
+                )
+            )
         else:
             # the transformed points and their rates of change along the orbits
             end, rate = columnwise_jvp(
                 lambda p: (
-                    _integrate_backend(self, p.T, self._tsJ, self._adiabatic_pot)[
-                        :, -1
-                    ].T
+                    _integrate_backend(
+                        self, p.T, self._tsJ, self._adiabatic_pot, method=method
+                    )[:, -1].T
                 ),
                 ic.T,
                 velocity.T,
