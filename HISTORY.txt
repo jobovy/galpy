@@ -254,7 +254,8 @@ at release.]
   in any potential (and the phase-space point of given actions and
   angles), by integrating each point while the potential is
   adiabatically transformed into that of an action-angle instance
-  ``aA=`` (isochrone, spherical, adiabatic, or Staeckel).
+  ``aA=`` (isochrone, spherical, adiabatic, or Staeckel);
+  ``calibrate_angles=True`` gives angles in the usual convention.
 
 - [slot 25]
 
