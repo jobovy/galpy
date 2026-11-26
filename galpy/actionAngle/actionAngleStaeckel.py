@@ -29,6 +29,7 @@ from ..backend import (
     to_host,
     use,
 )
+from ..backend._coerce import lazy_cond
 from ..backend._namespaces import (
     as_numpy,
     has_concrete_truth_value,
@@ -92,6 +93,140 @@ def _fixed_point_error(x0, x1, x2):
     d1, d2 = xp.abs(x1 - x0), xp.abs(x2 - x1)
     rate = xp.clip(d2 / xp.where(d1 > 0.0, d1, 1.0), 0.0, 0.9)
     return xp.where(xp.isfinite(d2), d2 * rate / (1.0 - rate), 0.0)
+
+
+# the same fixed point by bracketing, for the points that the iteration does
+# not converge for: the grid of sinh u0, the halvings, and the largest step
+# of the rule across the closed bracket that is not a jump
+_MODEL_SCAN = numpy.arcsinh(numpy.geomspace(1e-3, 1e2, 21))
+_MODEL_NBISECT = 35
+_MODEL_JUMP = 1e-6
+# (on jax/torch, the halvings in sections of this many equal parts at once)
+_MODEL_NSECT = 32
+# (and the number of grid points over the range of a rule for the focal length)
+_MODEL_NDSCAN = 17
+# the range of the third integral, relative to the energy, below which an
+# orbit is circular for a rule for the focal length
+_MODEL_CIRC = 1e-10
+
+
+def _bracket_fixed_point(rule, n, scan=_MODEL_SCAN, undefined=False):
+    """The fixed points u0 = rule(idx, u0) of n points by bracketing: the
+    change of the reference curve under the rule decreases through zero at
+    the fixed point, which is bracketed on a grid of u0 and bisected. A
+    bracket that closes on a jump of the rule (where the inner turning
+    point passes from one lobe of p_u^2 to another) holds no fixed point:
+    nan, as for a point without a bracket (no torus of the rule passes
+    through it). The same for a rule for the focal length, on the grid scan
+    of focal lengths; with undefined, a bracket may end where the rule is
+    not defined (nan), and holds no fixed point if it closes there"""
+    out = numpy.full(n, numpy.nan)
+    idx = numpy.repeat(numpy.arange(n), len(scan))
+    u = numpy.tile(scan, n)
+    g = (rule(idx, u) - u).reshape((n, len(scan)))
+    bracket = (g[:, :-1] > 0.0) & (~(g[:, 1:] > 0.0) if undefined else (g[:, 1:] < 0.0))
+    idx = numpy.flatnonzero(numpy.any(bracket, axis=1))
+    if len(idx) == 0:
+        return out
+    k = numpy.argmax(bracket[idx], axis=1)
+    lo, hi = scan[k], scan[k + 1]
+    glo, ghi = g[idx, k], g[idx, k + 1]
+    for _ in range(_MODEL_NBISECT):
+        mid = 0.5 * (lo + hi)
+        gmid = rule(idx, mid) - mid
+        up = gmid > 0.0
+        lo, glo = numpy.where(up, mid, lo), numpy.where(up, gmid, glo)
+        hi, ghi = numpy.where(up, hi, mid), numpy.where(up, ghi, gmid)
+    out[idx] = numpy.where(glo - ghi < _MODEL_JUMP, 0.5 * (lo + hi), numpy.nan)
+    return out
+
+
+def _bk_bracket_fixed_point(xp, g, need, x, scan=_MODEL_SCAN, undefined=False):
+    """_bracket_fixed_point on jax/torch at a fixed shape, for the points of
+    the (n,) mask need: g(u, *x) is the change under the rule at the points
+    x (a tuple of (k,) arrays: the n points, or each of them repeated), each
+    evaluated without derivatives (the caller's implicit-function step
+    supplies them). The bracket on the grid scan is narrowed by sections of
+    _MODEL_NSECT equal parts at once, to the width of _MODEL_NBISECT
+    halvings (each section's points are those of the halvings, evaluated
+    together: one evaluation of the rule per section, not per halving, which
+    is what an eager backend pays for). Returns the fixed points, nan where
+    no bracket holds one; only when a point is in need (lazy_cond)"""
+    n = need.shape[0]
+
+    def rep(k):  # each point repeated k times, point-major
+        return [
+            xp.reshape(
+                stop_gradient(t)[:, None]
+                + xp.zeros((1, k), dtype=t.dtype, device=device_of(t)),
+                (-1,),
+            )
+            for t in x
+        ]
+
+    def evaluate(u):  # g at u of shape (n, k)
+        k = u.shape[1]
+        return xp.reshape(stop_gradient(g(xp.reshape(u, (-1,)), *rep(k))), (n, k))
+
+    def first_crossing(nodes, vals):
+        # the first pair of neighbouring nodes with the change above zero at
+        # the first and not above it at the second (nan: undefined, or not
+        # a bracket of a fixed point)
+        cross = (vals[:, :-1] > 0.0) & (
+            ~(vals[:, 1:] > 0.0) if undefined else (vals[:, 1:] < 0.0)
+        )
+        has = xp.any(cross, axis=1)
+        k = xp.argmax(xp.astype(cross, vals.dtype), axis=1)
+        sel = (
+            asarray_on_device(xp, numpy.arange(nodes.shape[1] - 1), device_of(k))[
+                None, :
+            ]
+            == k[:, None]
+        )
+
+        def pick(t):
+            return xp.sum(xp.where(sel, t, 0.0), axis=1)
+
+        return (
+            has,
+            pick(nodes[:, :-1]),
+            pick(nodes[:, 1:]),
+            pick(vals[:, :-1]),
+            pick(vals[:, 1:]),
+        )
+
+    def run():
+        x0 = stop_gradient(x[0])
+        dev = device_of(x0)
+        sc = asarray_on_device(xp, numpy.asarray(scan, dtype="float"), dev)
+        nodes = sc[None, :] + 0.0 * x0[:, None]
+        has, lo, hi, glo, ghi = first_crossing(nodes, evaluate(nodes))
+        lo = xp.where(has, lo, sc[0])
+        hi = xp.where(has, hi, sc[1])
+        frac = asarray_on_device(xp, numpy.arange(1, _MODEL_NSECT) / _MODEL_NSECT, dev)[
+            None, :
+        ]
+
+        def step(st):
+            lo, hi, glo, ghi = st[0], st[1], st[2], st[3]
+            inner = lo[:, None] + (hi - lo)[:, None] * frac
+            nodes = xp.concat([lo[:, None], inner, hi[:, None]], axis=1)
+            vals = xp.concat([glo[:, None], evaluate(inner), ghi[:, None]], axis=1)
+            ok, *new = first_crossing(nodes, vals)
+            return xp.stack([xp.where(ok, t, o) for t, o in zip(new, st)])
+
+        nsect = -(-_MODEL_NBISECT // int(numpy.log2(_MODEL_NSECT)))
+
+        def sections():
+            st = iterate_bracket(step, xp.stack([lo, hi, glo, ghi]), nsect)
+            return xp.where(
+                has & (st[2] - st[3] < _MODEL_JUMP), 0.5 * (st[0] + st[1]), numpy.nan
+            )
+
+        # (no sections when no point in need has a bracket on the grid)
+        return lazy_cond(xp, xp.any(has & need), sections, lambda: numpy.nan + 0.0 * x0)
+
+    return lazy_cond(xp, xp.any(need), run, lambda: numpy.nan + 0.0 * x[0])
 
 
 def _focal_length_of(pot):
@@ -286,11 +421,16 @@ def _staeckel_uminumax(xp, s, pot, delta):
     at_umin = at_turn & (peps > 0.0) & (meps < 0.0)
     at_umax = at_turn & (peps < 0.0) & (meps > 0.0)
     circular = at_turn & ~at_umin & ~at_umax
-    # Lower bracket: HALVE below ux until f<0 (60 halvings reach ~1e-18, so even a
-    # near-axis turning point at u~1e-4 -- low-Lz, nearly-radial orbits -- is
-    # straddled; *0.9 only reached ~3.8e-4*ux in 80 steps and collapsed umin to ux).
-    lo = iterate_bracket(
-        lambda l: xp.where((f(l) >= 0.0) & (l > 1e-10), l * 0.5, l), ux * 0.5, 60
+    # lower bracket: step below ux by factors of 0.9 until f < 0, as the C
+    # code does: the turning point is the first below ux also when p_u^2 has
+    # a second lobe below it (220 steps reach ~1e-10, so even a near-axis
+    # turning point of a nearly radial orbit is straddled); traced, the steps
+    # stop once every point is bracketed (a while_loop, so no derivative:
+    # _refine_tp below supplies it)
+    lo = iterate_to_fixed_point(
+        lambda l: stop_gradient(xp.where((f(l) >= 0.0) & (l > 1e-10), l * 0.9, l)),
+        stop_gradient(ux * 0.9),
+        220,
     )
     # f still >0 at the floor -> no lower J_R turning point: the orbit reaches the
     # symmetry axis (Lz~0, purely-radial), so umin=0 (mirrors C / Single rstart==0).
@@ -311,6 +451,9 @@ def _staeckel_uminumax(xp, s, pot, delta):
     # brackets. The snapped side's bisection result is discarded by the where below.
     u_lo_umax = xp.where(at_umin, ux + eps, ux)  # umax: bracket above (from inside)
     u_hi_umin = xp.where(at_umax, ux - eps, ux)  # umin: bracket below (from inside)
+    # (the last step of each bracket, where it took more than one)
+    u_lo_umax = xp.where(hi > 1.15 * ux, hi / 1.1, u_lo_umax)
+    u_hi_umin = xp.where(lo < 0.85 * ux, lo / 0.9, u_hi_umin)
     umin = bisect_root(f, lo, u_hi_umin, xp, xtol=1e-13, maxiter=200)
     umax = bisect_root(f, u_lo_umax, hi, xp, xtol=1e-13, maxiter=200)
     umin = xp.where(at_umin | circular, ux, umin)
@@ -927,7 +1070,9 @@ def _staeckel_fraction(xp, s, ush, pot, delta, partials=False):
     E, Lz = s["E"], s["Lz"]
     below = s["I3V"] - (Lz**2.0 / 2.0 / delta**2.0 - E)
     tot = below + _JRStaeckelIntegrandSquared(ush, *_staeckel_jr_args(s, pot, delta))
-    ok = tot > 0.0
+    # (a circular orbit: a range of the third integral at the level of the
+    # rounding)
+    ok = tot > _MODEL_CIRC * xp.abs(E)
     tot = xp.where(ok, tot, 1.0)
     f = xp.clip(xp.where(ok, below / tot, 0.5), 0.0, 1.0)
     if not partials:
@@ -1658,7 +1803,7 @@ class actionAngleStaeckel(actionAngle):
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
         inverse : actionAngleStaeckelInverse, optional
-            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning. With jax/torch inputs, the transformation runs in the backend (c=False) implementation, with derivatives through each point's model.
+            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning. Explicit tori whose focal lengths follow a rule (delta= a callable or a family's delta method) are transformed with that rule, like a family's. Points that no torus passes through return nan with a warning: unbound points and, close to the symmetry axis, points in the gaps that a reference curve or focal length that follows the tori leaves between them. With jax/torch inputs, the transformation runs in the backend (c=False) implementation, with derivatives through each point's model.
         polish : bool, optional
             With inverse= a family (setup_interp=True): make the transformation the exact inverse of the family's interpolated map, by Newton's method on that map from the actions and angles of the family's tori; points that no torus of the family passes through return nan with a warning. Default is False: the actions and angles of the family's tori, to which the interpolated map agrees to its interpolation error.
         useu0 : bool, optional
@@ -1746,7 +1891,15 @@ class actionAngleStaeckel(actionAngle):
         kwargs["delta"] = aAI._delta
         if aAI._delta_rule is not None:
             # (a placeholder: every point gets the focal length of its torus)
-            kwargs["delta"] = float(numpy.median(aAI._A_tab[..., 3]))
+            if not aAI._interp and aAI._delta_callable is None:
+                raise RuntimeError(
+                    "The callable delta= of the explicit tori inverse= was not "
+                    "pickled with them: they can only be inverted by the "
+                    "instance that was set up with the callable"
+                )
+            kwargs["delta"] = float(
+                numpy.median(aAI._A_tab[..., 3] if aAI._interp else aAI._deltas)
+            )
         if aAI._roSet:
             kwargs.setdefault("ro", aAI._ro)
         if aAI._voSet:
@@ -1859,11 +2012,13 @@ class actionAngleStaeckel(actionAngle):
         curve that follows the tori depends on the torus's energy and third
         integral in its own model, which depend on the reference curve: a
         fixed point, found by iterating the rule on the turning points in
-        the current model with Aitken's acceleration: by the C code itself
-        (which is then handed nan to start from the point's own u) or, with
-        c False, here; on jax/torch by _bk_inverse_model (where
-        flag_unbound models unbound points as C does, on a bound stand-in,
-        and only the first npts points count in its warning)"""
+        the current model with Aitken's acceleration and, where that does
+        not converge, by bracketing: by the C code itself (which is then
+        handed nan to start from the point's own u) or, with c False, here;
+        on jax/torch by _bk_inverse_model (where flag_unbound models unbound
+        points as C does, on a bound stand-in, and only the first npts points
+        count in its warning). A point without a fixed point is on no torus:
+        its u0 is nan"""
         aAI = self._inverse
         delta = aAI._delta
         xp = get_namespace(R, vR, vT, z, vz)
@@ -1892,28 +2047,80 @@ class actionAngleStaeckel(actionAngle):
                     numpy, _staeckel_setup(numpy, *x, pot, delta, u0=u0), pot, delta
                 )
             else:
-                um, up = _staeckel_prep(numpy, *x, pot, delta, u0=u0)[1:3]
+                # (a point that is unbound in this model has no turning points)
+                um, up, unbound = _staeckel_uminumax(
+                    numpy, _staeckel_setup(numpy, *x, pot, delta, u0=u0), pot, delta
+                )
+                up = numpy.where(unbound, numpy.nan, up)
             sm, sp = numpy.sinh(um), numpy.sinh(up)
             return numpy.arcsinh(2.0 * sm * sp / (sm + sp))
 
+        def solve(sel, delta=delta, u0=None):
+            # the fixed point of the rule at these focal lengths, from u0
+            # where that is given and finite, else from the points' own u
+            d = numpy.broadcast_to(delta, sel.shape) * 1.0
+            u0 = numpy.arcsinh(R[sel] / d) if u0 is None else u0 * 1.0
+            start = ~numpy.isfinite(u0)
+            u0[start] = numpy.arcsinh(R[sel] / d)[start]
+            u0 = rule(sel, u0, d)
+            act = numpy.arange(len(sel))
+            for _ in range(_MODEL_MAXITER):
+                u1 = rule(sel[act], u0[act], d[act])
+                u2 = rule(sel[act], u1, d[act])
+                den = u2 - 2.0 * u1 + u0[act]
+                ok = den != 0.0
+                acc = u2 - (u2 - u1) ** 2 / numpy.where(ok, den, 1.0)
+                left = _fixed_point_error(u0[act], u1, u2)
+                u0[act] = numpy.where(ok & numpy.isfinite(acc), acc, u2)
+                act = act[left > _MODEL_TOL]
+                if len(act) == 0:
+                    break
+            # the points that this does not converge for (a first model in
+            # which the point is unbound, or a cycle between two models): by
+            # bracketing
+            u0[act] = numpy.nan
+            act = numpy.flatnonzero(~numpy.isfinite(u0))
+            if len(act) > 0:
+                u0[act] = _bracket_fixed_point(
+                    lambda k, u: rule(sel[act[k]], u, d[act[k]]), len(act)
+                )
+            return u0
+
         idx = numpy.arange(len(R))
         if aAI._delta_rule is not None:
-            return self._inverse_model_delta(rule, R, vR, vT, z, vz, pot, c, deriv)
+            return self._inverse_model_delta(solve, R, vR, vT, z, vz, pot, c, deriv)
         if c and self._model != 4:
             return delta, numpy.full(len(R), numpy.nan), None
-        u0 = rule(idx, numpy.arcsinh(R / delta))
-        for _ in range(_MODEL_MAXITER):
-            u1 = rule(idx, u0[idx])
-            u2 = rule(idx, u1)
-            den = u2 - 2.0 * u1 + u0[idx]
-            ok = den != 0.0
-            acc = u2 - (u2 - u1) ** 2 / numpy.where(ok, den, 1.0)
-            left = _fixed_point_error(u0[idx], u1, u2)
-            u0[idx] = numpy.where(ok & numpy.isfinite(acc), acc, u2)
-            idx = idx[left > _MODEL_TOL]
-            if len(idx) == 0:
-                break
-        return delta, u0, None
+        return delta, solve(idx), None
+
+    def _inverse_missing(self, delta, u0, *out):
+        """out with nan for the points without a model: those that no torus
+        of inverse= passes through (on jax/torch, the warning for concrete
+        points only)"""
+        xp = get_namespace(u0, *out)
+        missing = ~xp.isfinite(delta + u0)
+        if xp is not numpy:
+            nmiss = xp.sum(xp.astype(missing, xp.int64))
+            if has_concrete_truth_value(nmiss) and int(nmiss) > 0:
+                warnings.warn(
+                    f"{int(nmiss)} of the {missing.shape[0]} points are not on "
+                    "a torus of inverse= (a reference curve or focal length "
+                    "that follows the tori leaves gaps between them close to "
+                    "the symmetry axis, and unbound points are on none): their "
+                    "actions, frequencies, and angles are nan",
+                    galpyWarning,
+                )
+            return tuple(xp.where(missing, numpy.nan, o) for o in out)
+        if numpy.any(missing):
+            warnings.warn(
+                f"{numpy.sum(missing)} of the {len(missing)} points are not on "
+                "a torus of inverse= (a reference curve or focal length that "
+                "follows the tori leaves gaps between them close to the "
+                "symmetry axis, and unbound points are on none): their "
+                "actions, frequencies, and angles are nan",
+                galpyWarning,
+            )
+        return tuple(numpy.where(missing, numpy.nan, o) for o in out)
 
     def _inverse_rule(self, x, delta, u0, partials=False):
         """One application, in the models (delta, u0) of the points x = (R,
@@ -1957,13 +2164,14 @@ class actionAngleStaeckel(actionAngle):
             x = xp.broadcast_arrays(R, vR, vT, z, vz)
         return self._inverse_rule(x, delta, u0, partials=True)
 
-    def _inverse_model_delta(self, rule, R, vR, vT, z, vz, pot, c, deriv):
+    def _inverse_model_delta(self, solve, R, vR, vT, z, vz, pot, c, deriv):
         """_inverse_model for a family whose focal length follows its tori:
         the focal length of a torus is the family's rule at the torus's
         energy, angular momentum, and fraction f of the way of its third
         integral from the planar to the shell orbit's, all in its own
-        model: the fixed point in the focal length and the reference curve
-        together, by the same iteration. For a family that does not have
+        model: the fixed point in the focal length, by the same iteration,
+        with the reference curve at its own fixed point (solve) at each
+        focal length. For a family that does not have
         its rule (a pickled family with a callable delta=), the focal
         length is read from the family's table at the torus's actions
         instead. Also returns, for the frequencies and angles, the partials
@@ -1972,8 +2180,10 @@ class actionAngleStaeckel(actionAngle):
         the angular momentum, and f, and those of f in the model), or, for
         a family without its rule, the derivatives of the focal length
         with respect to (J_R, L_z, J_z) from the family's table (nan for
-        points whose torus the family does not hold)"""
-        aAI = self._inverse
+        points whose torus the family does not hold). Explicit tori have
+        their rule (that of the family whose delta method they were given,
+        or their callable: _rule_family), as a family does"""
+        aAI = self._inverse._rule_family
         Lz = R * vT
         pypot = _staeckel_pot(numpy, self._pot)
         edges = aAI._delta_edges(Lz)
@@ -1995,7 +2205,7 @@ class actionAngleStaeckel(actionAngle):
                     )[:2]
                     s = _staeckel_setup(numpy, *x, pypot, delta, u0=u0)
                 else:
-                    u0 = rule(idx, u0, delta)
+                    u0 = solve(idx, delta, u0)
                     s = _staeckel_setup(numpy, *x, pypot, delta, u0=u0)
                     um, up = _staeckel_uminumax(numpy, s, pypot, delta)[:2]
                 # the third integral above the planar orbit's (in the gauge
@@ -2021,7 +2231,7 @@ class actionAngleStaeckel(actionAngle):
                 # (the C code moves u0 to the fixed point at this delta,
                 # unless the rule is evaluated here)
                 u0 = numpy.array(
-                    rule(idx, u0, delta) if self._model == 4 else u0,
+                    solve(idx, delta, u0) if self._model == 4 else u0,
                     dtype="float64",
                     order="C",
                 )
@@ -2029,7 +2239,7 @@ class actionAngleStaeckel(actionAngle):
                     pot, delta, *x, u0=u0, order=self._order, model=self._model
                 )[:2]
             else:
-                u0 = rule(idx, u0, delta)
+                u0 = solve(idx, delta, u0)
                 jr, _, jz = _staeckel_actions(numpy, *x, pot, delta, self._order, u0=u0)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", galpyWarning)
@@ -2087,6 +2297,30 @@ class actionAngleStaeckel(actionAngle):
             if not direct:
                 ddelta[idx] = dd
             idx = idx[left > _MODEL_TOL]
+        if turn is None and aAI._delta_fit is not None:
+            # the points that this does not converge for, or that it takes
+            # to a focal length where the rule is not defined: by bracketing
+            # over the rule's whole range, as the C code does
+            delta[idx] = numpy.nan
+            act = numpy.flatnonzero(~numpy.isfinite(delta))
+            nan = lambda k: numpy.full(len(k), numpy.nan)
+            if len(act) > 0:
+                delta[act] = _bracket_fixed_point(
+                    lambda k, d: step(act[k], nan(k), d)[1],
+                    len(act),
+                    numpy.exp(numpy.linspace(*aAI._delta_fit[1:3], _MODEL_NDSCAN)),
+                    True,
+                )
+                act = act[numpy.isfinite(delta[act])]
+            if len(act) > 0:
+                u0[act] = step(act, nan(act), delta[act])[0]
+            found = numpy.flatnonzero(numpy.isfinite(delta))
+        if turn is None and (not c or self._model == 4) and len(found) > 0:
+            # the reference curve at its fixed point at the focal length
+            # itself (the iteration's is that at the last iterate, which
+            # Aitken's extrapolation of the focal length moves on from), as
+            # the C code solves for it when it is handed the focal length
+            u0[found] = solve(found, delta[found], u0[found])
         # (a point without a focal length has no model at all)
         u0 = numpy.where(numpy.isfinite(delta), u0, numpy.nan)
         if aAI._delta_fit is not None:
@@ -2132,30 +2366,70 @@ class actionAngleStaeckel(actionAngle):
                     pot, delta,
                 )  # fmt: skip
             else:
-                um, up = _staeckel_prep(
-                    xp, R, vR, vT, z, vz, pot, delta, flag_unbound, u0=u0
-                )[1:3]
+                # (a point that is unbound in this model has no turning points)
+                um, up, unbound = _staeckel_uminumax(
+                    xp, _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta, u0=u0),
+                    pot, delta,
+                )  # fmt: skip
+                up = xp.where(unbound, numpy.nan, up)
             sm, sp = xp.sinh(um), xp.sinh(up)
             return xp.asinh(2.0 * sm * sp / (sm + sp))
 
         xs = tuple(stop_gradient(a) for a in x)
         if self._inverse._delta_rule is not None:
             return self._bk_inverse_model_delta(xp, x, xs, rule, pot, deriv, npts)
-        u0 = rule(xp.asinh(xs[0] / delta), *xs)
-        live = xp.ones_like(u0) > 0.0
-        for _ in range(_MODEL_MAXITER):
-            u1 = rule(u0, *xs)
-            u2 = rule(u1, *xs)
+        u0 = self._bk_solve_u0(xp, rule, xs, delta)
+        return delta, fixed_point_implicit_step(rule, stop_gradient(u0), x), None
+
+    @staticmethod
+    def _bk_solve_u0(xp, rule, xs, delta, u0=None):
+        """solve of _inverse_model on jax/torch, at fixed shape on the
+        derivative-free points xs: the fixed point of the rule for the
+        reference curve at the focal lengths delta, from u0 where that is
+        given and finite, else from the points' own u, by the Aitken
+        schedule (a point is frozen once its step is below _MODEL_TOL) and,
+        for the points that this does not converge for, by bracketing; nan
+        for a point that no torus of the rule passes through"""
+        own = xp.asinh(xs[0] / delta)
+        u0 = own if u0 is None else xp.where(xp.isfinite(u0), u0, own)
+        u0 = stop_gradient(rule(u0, *xs, delta=delta))
+
+        def aitken(s):
+            # (s: u0 and the mask of the points that are still iterated)
+            u0, live = s[0], s[1] > 0.0
+            u1 = rule(u0, *xs, delta=delta)
+            u2 = rule(u1, *xs, delta=delta)
             den = u2 - 2.0 * u1 + u0
             ok = den != 0.0
             acc = u2 - (u2 - u1) ** 2 / xp.where(ok, den, 1.0)
             left = _fixed_point_error(u0, u1, u2)
             u0 = xp.where(live, xp.where(ok & xp.isfinite(acc), acc, u2), u0)
             live = live & (left > _MODEL_TOL)
-            done = xp.any(live)
-            if has_concrete_truth_value(done) and not concretely_true(done):
-                break
-        return delta, fixed_point_implicit_step(rule, stop_gradient(u0), x), None
+            return stop_gradient(xp.stack([u0, xp.astype(live, u0.dtype)]))
+
+        s = iterate_to_fixed_point(
+            aitken,
+            xp.stack([u0, 1.0 + 0.0 * u0]),
+            _MODEL_MAXITER,
+            done=lambda s: ~xp.any(s[1] > 0.0),
+        )
+        u0, live = s[0], s[1] > 0.0
+        # the points that this does not converge for (a first model in which
+        # the point is unbound, or a cycle between two models): by bracketing
+        # (not those without a focal length, as main's, which solves only
+        # those that have one)
+        u0 = xp.where(live, numpy.nan, u0)
+        need = ~xp.isfinite(u0) & xp.isfinite(delta + 0.0 * xs[0])
+        return xp.where(
+            need,
+            _bk_bracket_fixed_point(
+                xp,
+                lambda u, *p: rule(u, *p[:5], delta=p[5]) - u,
+                need,
+                (*xs, delta + 0.0 * xs[0]),
+            ),
+            u0,
+        )
 
     def _bk_inverse_model_delta(self, xp, x, xs, rule, pot, deriv, npts=None):
         """_inverse_model_delta on jax/torch: main's iteration in the focal
@@ -2168,11 +2442,11 @@ class actionAngleStaeckel(actionAngle):
         rule, read from its table through the
         vectorized label inversion (_bk_focal_lengths). With deriv, the
         partials of the focal length (as _inverse_model_delta), with their
-        own derivatives. nan for points without a model"""
-        aAI = self._inverse
-        with use("numpy", force=True):
-            edges = aAI._delta_edges(as_numpy(xs[0] * xs[2]))
-            direct = aAI._delta_of(*[edges[:0, 0]] * 3, edges[:0]) is not None
+        own derivatives. nan for points without a model. Explicit tori have
+        their rule (_rule_family), as a family does"""
+        aAI = self._inverse._rule_family
+        # (a rule of its own: fitted, or a callable that was kept)
+        direct = aAI._delta_fit is not None or aAI._delta_callable is not None
 
         def rule_delta(Q):
             # the rule at (E, L_z, f), its gradient, and that gradient's
@@ -2200,9 +2474,15 @@ class actionAngleStaeckel(actionAngle):
             _, (dE, dL, dF) = aAI._bk_delta_of(E, q, f, edges, deriv=True)
             return xp.stack([dE, xp.sign(q) * dL, dF])
 
-        def step(u0, delta, R, vR, vT, z, vz, partials=False, edges=None):
+        def step(u0, delta, R, vR, vT, z, vz, partials=False, edges=None, solve=True):
+            # (the reference curve at its own fixed point at this focal length,
+            # as main's; one step of the rule for the implicit-function step)
+            u0 = (
+                self._bk_solve_u0(xp, rule, (R, vR, vT, z, vz), delta, u0)
+                if solve
+                else rule(u0, R, vR, vT, z, vz, delta=delta)
+            )
             if not direct:
-                u0 = rule(u0, R, vR, vT, z, vz, delta=delta)
                 jr, _, jz = _staeckel_actions(
                     xp, R, vR, vT, z, vz, pot, delta, self._order, u0=u0
                 )
@@ -2212,7 +2492,6 @@ class actionAngleStaeckel(actionAngle):
                     d = xp.where(held, d, numpy.nan)
                     dd = xp.where(held[:, None], dd, numpy.nan)
                 return u0, d, dd
-            u0 = rule(u0, R, vR, vT, z, vz, delta=delta)
             s = _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta, u0=u0)
             um, up = _staeckel_uminumax(xp, s, pot, delta)[:2]
             ush = _u0shell(xp, s, um, up, pot, delta)
@@ -2232,8 +2511,10 @@ class actionAngleStaeckel(actionAngle):
             e0 = aAI._bk_delta_edges(xs[0] * xs[2])
         delta = self._delta * 1.0 + 0.0 * xs[0]
         u0, delta, _ = step(xp.asinh(xs[0] / delta), delta, *xs, edges=e0)
-        live = xp.isfinite(delta)
-        for _ in range(_MODEL_MAXITER):
+
+        def aitken(s):
+            # (s: u0, delta and the mask of the points that are still iterated)
+            u0, delta, live = s[0], s[1], s[2] > 0.0
             u1, d1, _ = step(u0, delta, *xs, edges=e0)
             d1 = xp.where(xp.isfinite(d1), d1, delta)
             u2, d2, _ = step(u1, d1, *xs, edges=e0)
@@ -2248,14 +2529,49 @@ class actionAngleStaeckel(actionAngle):
                 new.append(
                     xp.where(live, xp.where(ok & xp.isfinite(acc), acc, x2), old)
                 )
-            u0, delta = new
             live = live & (left > _MODEL_TOL)
-            done = xp.any(live)
-            if has_concrete_truth_value(done) and not concretely_true(done):
-                break
+            return stop_gradient(xp.stack([*new, xp.astype(live, u0.dtype)]))
+
+        s = iterate_to_fixed_point(
+            aitken,
+            stop_gradient(
+                xp.stack([u0, delta, xp.astype(xp.isfinite(delta), delta.dtype)])
+            ),
+            _MODEL_MAXITER,
+            done=lambda s: ~xp.any(s[2] > 0.0),
+        )
+        u0, delta, live = s[0], s[1], s[2] > 0.0
+        if direct and aAI._delta_fit is not None:
+            # the points that this does not converge for, or that it takes to
+            # a focal length where the rule is not defined: by bracketing over
+            # the rule's whole range (at each focal length, the reference
+            # curve at its own fixed point), as main's _inverse_model_delta
+            delta = xp.where(live, numpy.nan, delta)
+            need = ~xp.isfinite(delta)
+
+            def g(d, *p):
+                return step(d + numpy.nan, d, *p)[1] - d
+
+            lo, hi = (float(as_numpy(stop_gradient(t))) for t in aAI._delta_fit[1:3])
+            delta = xp.where(
+                need,
+                _bk_bracket_fixed_point(
+                    xp,
+                    g,
+                    need,
+                    xs,
+                    numpy.exp(numpy.linspace(lo, hi, _MODEL_NDSCAN)),
+                    True,
+                ),
+                delta,
+            )
+            u0 = xp.where(need, self._bk_solve_u0(xp, rule, xs, delta), u0)
+        # the reference curve at its fixed point at the focal length itself
+        # (the iteration's is that at the last iterate), as main's
+        u0 = self._bk_solve_u0(xp, rule, xs, delta, u0)
 
         def G(q, R, vR, vT, z, vz):
-            u, d, _ = step(q[0], q[1], R, vR, vT, z, vz)
+            u, d, _ = step(q[0], q[1], R, vR, vT, z, vz, solve=False)
             return xp.stack([u, d])
 
         q = fixed_point_implicit_step(
@@ -2269,22 +2585,19 @@ class actionAngleStaeckel(actionAngle):
             and aAI._delta_fit is not None
             and has_concrete_truth_value(xp.all(u0 == u0))
         ):
-            # points beyond the tori that the rule was fitted to (on the host)
-            h = [as_numpy(stop_gradient(t)) for t in (*xs, delta, u0)]
-            with use("numpy", force=True):
-                E = _staeckel_setup(
-                    numpy, *h[:5], _staeckel_pot(numpy, self._pot), h[5], u0=h[6]
-                )["E"]
-                Lz = h[0] * h[2]
-                off = numpy.fabs(Lz) != numpy.clip(
-                    numpy.fabs(Lz), aAI._Lzgrid[0], aAI._Lzgrid[-1]
-                )
-                for edge, sign in zip(edges.T[:2], (-1.0, 1.0)):
-                    off |= (
-                        sign * (E - _evaluatePotentials(self._pot, edge, 0.0 * edge))
-                        > 0.0
-                    )
-                off = off[:npts]  # (not _bk_polished's padding)
+            # points beyond the tori that the rule was fitted to: beyond the
+            # grid's range of |L_z|, or of energy at the edges' apocentres
+            E = _staeckel_setup(
+                xp, *xs, pot, stop_gradient(delta), u0=stop_gradient(u0)
+            )["E"]
+            ell = xp.abs(xs[0] * xs[2])
+            off = (
+                (ell < float(aAI._Lzgrid[0]))
+                | (ell > float(aAI._Lzgrid[-1]))
+                | (E < e0["Phic"])
+                | (E > e0["Phim"])
+            )
+            off = numpy.asarray(as_numpy(off))[:npts]  # (not _bk_polished's padding)
             if numpy.any(off):
                 warnings.warn(
                     f"{numpy.sum(off)} of the {len(off)} points lie outside the "
@@ -2295,7 +2608,7 @@ class actionAngleStaeckel(actionAngle):
                 )
         if not deriv:
             return delta, u0, None
-        dd = step(u0, delta, *x, partials=direct)
+        dd = step(u0, delta, *x, partials=direct, solve=False)
         if direct:
             return delta, u0, dd
         # (the family's table is in (J_R, J_z, J_phi))
@@ -2444,8 +2757,7 @@ class actionAngleStaeckel(actionAngle):
                 model=self._model,
             )
             if self._inverse is not None:
-                # (a point without a model has no actions)
-                jr, jz = jr + 0.0 * delta, jz + 0.0 * delta
+                jr, jz = self._inverse_missing(delta, u0, jr, jz)
             if err == 0:
                 return (jr, Lz, jz)
             else:  # pragma: no cover
@@ -2490,6 +2802,8 @@ class actionAngleStaeckel(actionAngle):
                 flag_unbound=routed,
                 u0=u0,
             )
+            if self._inverse is not None:
+                jr, jz = self._inverse_missing(delta, u0, jr, jz)
             if xp is not numpy:
                 return (jr, Lz, jz)
             return (numpy.atleast_1d(jr), numpy.atleast_1d(Lz), numpy.atleast_1d(jz))
@@ -2625,8 +2939,9 @@ class actionAngleStaeckel(actionAngle):
                     )
                 )
             if self._inverse is not None:
-                # (a point without a model has no actions)
-                jr, jz = jr + 0.0 * delta, jz + 0.0 * delta
+                jr, jz, Omegar, Omegaphi, Omegaz = self._inverse_missing(
+                    delta, u0, jr, jz, Omegar, Omegaphi, Omegaz
+                )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
                 jz < 10.0**-3.0
@@ -2700,6 +3015,10 @@ class actionAngleStaeckel(actionAngle):
                 ddelta=ddelta,
                 du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
             )
+            if self._inverse is not None:
+                jr, jz, Omegar, Omegaphi, Omegaz = self._inverse_missing(
+                    delta, u0, jr, jz, Omegar, Omegaphi, Omegaz
+                )
             # Close-to-circular orbits: the freqs are NaN (det(A)=0); substitute
             # epifreq/omegac/verticalfreq (vectorised mirror of the C wrapper).
             Omegar, Omegaphi, Omegaz = _staeckel_circular_freqs(
@@ -2865,8 +3184,20 @@ class actionAngleStaeckel(actionAngle):
                 du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0, c=True),
             )
             if self._inverse is not None:
-                # (a point without a model has no actions)
-                jr, jz = jr + 0.0 * delta, jz + 0.0 * delta
+                jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez = (
+                    self._inverse_missing(
+                        delta,
+                        u0,
+                        jr,
+                        jz,
+                        Omegar,
+                        Omegaphi,
+                        Omegaz,
+                        angler,
+                        anglephi,
+                        anglez,
+                    )
+                )
             # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
                 jz < 10.0**-3.0
@@ -2956,6 +3287,13 @@ class actionAngleStaeckel(actionAngle):
                 ddelta=ddelta,
                 du0=self._inverse_du0(R, vR, vT, z, vz, delta, u0),
             )
+            if self._inverse is not None:
+                jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez = (
+                    self._inverse_missing(
+                        delta, u0, jr, jz, Omegar, Omegaphi, Omegaz,
+                        angler, anglephi, anglez,
+                    )
+                )  # fmt: skip
             # Close-to-circular orbits: substitute epifreq/omegac/verticalfreq for
             # the NaN frequencies (vectorised mirror of the C wrapper; the angles
             # are already 0 there, as in the C calcAnglesStaeckel).

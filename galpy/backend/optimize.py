@@ -393,11 +393,13 @@ def iterate_bracket(step, x0, n):
     return x0
 
 
-def iterate_to_fixed_point(step, x0, n):
+def iterate_to_fixed_point(step, x0, n, done=None):
     """Run ``x = step(x)`` until a step leaves ``x`` unchanged, at most ``n``
     times -- for an iteration whose ``step`` freezes the converged elements
     (``xp.where(converged, x, update)``), so that the fixed point is reached
-    exactly once every element has converged.
+    exactly once every element has converged. With ``done``, until
+    ``done(x)`` holds instead (a state that carries its own convergence mask:
+    no step to confirm the fixed point).
 
     Unlike :func:`iterate_bracket`, whose traced form runs all ``n`` steps (a
     ``lax.fori_loop``), this one stops at convergence under a jax trace too (a
@@ -411,11 +413,11 @@ def iterate_to_fixed_point(step, x0, n):
     if under_jax_trace(x0):
         from ._jax.optimize import iterate_to_fixed_point as _bk
 
-        return _bk(step, x0, n)
+        return _bk(step, x0, n, done)
     xp = namespace_from_arrays((x0,)) or numpy
     for _ in range(n):
         x1 = step(x0)
-        if concretely_true(xp.all(x1 == x0)):
+        if concretely_true(xp.all(x1 == x0) if done is None else done(x1)):
             return x1
         x0 = x1
     return x0
