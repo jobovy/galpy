@@ -182,6 +182,17 @@ def _hermite_eval(tab, x, deriv=False):
     return val, eval_ppoly(numpy, *tab, x, nu=1, extrapolate="clip")
 
 
+def _col(d):
+    """A focal length against arrays with a point axis after the tori's:
+    itself for the single one of a model, a column for one per torus"""
+    return d if numpy.ndim(d) == 0 else d[:, None]
+
+
+def _rep(d, k):
+    """A focal length against the tori taken k times in a row (tiled)"""
+    return d if numpy.ndim(d) == 0 else numpy.tile(d, k)
+
+
 def _multisect(f, lo, hi, bits):
     """The first root of f in each of the brackets [lo, hi] (arrays; f is
     negative at lo and takes a point axis after the brackets'), located to
@@ -2168,13 +2179,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._midplane_tab = (tab, (scan, *_hermite_eval(tab, scan, deriv=True)))
         return self._midplane_tab
 
-    def _W0(self, lnR, E, ell, deriv=False):
+    def _W0(self, lnR, E, ell, deriv=False, delta=None):
         """p_u^2 + 2 delta^2 I_3 for tori of energies E and angular momenta
         ell where the u spheroid crosses the midplane at ln R (R = delta
         sinh u), from the tabulated midplane potential: 2 E R^2 - 2
         (delta^2 + R^2) Phi(R) - L_z^2 delta^2 / R^2; with deriv, its
-        derivative with respect to ln R instead"""
-        d2, R2 = self._delta**2, numpy.exp(2.0 * lnR)
+        derivative with respect to ln R instead; delta: the focal lengths
+        of the tori where each has its own (of the shape of E)"""
+        d2 = (self._delta if delta is None else delta) ** 2
+        R2 = numpy.exp(2.0 * lnR)
         if not deriv:
             return (
                 2.0 * R2 * E
@@ -2184,7 +2197,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Phi, dPhi = _hermite_eval(self._midplane()[0], lnR, deriv=True)
         return 4.0 * R2 * (E - Phi) - 2.0 * (d2 + R2) * dPhi + 2.0 * ell**2 * d2 / R2
 
-    def _wells(self, E, ell):
+    def _wells(self, E, ell, delta=None):
         """The extrema of p_u^2 for tori of energies E and angular momenta
         ell (I_3 only shifts it): the ln R (R = delta sinh u) of its
         outermost maximum, of the barrier next to that on the inside and of
@@ -2194,9 +2207,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         |L_z|: below the barrier's level one libration spans both wells,
         above it the libration about the outer maximum and that about the
         inner one coexist at the same integrals. Each extremum is located
-        on a fixed scan and refined by sectioning."""
+        on a fixed scan and refined by sectioning. delta: the focal length
+        of each torus, where they differ."""
         xs, Phi, dPhi = self._midplane()[1]
-        d2, R2 = self._delta**2, numpy.exp(2.0 * xs)
+        d = self._delta if delta is None else delta
+        d2, R2, d3 = _col(d) ** 2, numpy.exp(2.0 * xs), _rep(d, 3)
         pos = (
             4.0 * R2 * (E[:, None] - Phi)
             - 2.0 * (d2 + R2) * dPhi
@@ -2214,14 +2229,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sgn = numpy.repeat([-1.0, 1.0, -1.0], len(E))[:, None]
         E3, l3 = numpy.tile(E, 3), numpy.tile(ell, 3)
         x = _multisect(
-            lambda x: sgn * self._W0(x, E3[:, None], l3[:, None], deriv=True),
+            lambda x: (
+                sgn * self._W0(x, E3[:, None], l3[:, None], deriv=True, delta=_col(d3))
+            ),
             xs[numpy.maximum(kk, 0)],
             xs[numpy.maximum(kk, 0) + 1],
             36,
         )
         x = numpy.where(kk >= 0, x, numpy.nan)
         with numpy.errstate(invalid="ignore"):
-            return (*x.reshape(3, -1), *self._W0(x, E3, l3).reshape(3, -1))
+            return (*x.reshape(3, -1), *self._W0(x, E3, l3, delta=d3).reshape(3, -1))
 
     def _circular_many(self, ell):
         """The energies and the epicycle and vertical frequencies of the
@@ -2261,7 +2278,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             numpy.where(numpy.isfinite(nu), nu, kappa),
         )
 
-    def _V_many(self, v, u0, deriv=False):
+    def _V_many(self, v, u0, deriv=False, delta=None):
         """V(v) for many tori, each on the reference curve u0 that its rule
         gives it (from the potential on that spheroid; with deriv, also
         dV/du0), or all on the family's single curve (u0 is None: V is
@@ -2271,7 +2288,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 vs = numpy.linspace(1e-10, 0.5 * numpy.pi, 4001)
                 self._Vref_tab = _hermite_table(vs, self._V(vs), self._dV(vs))
             return _hermite_eval(self._Vref_tab, v)
-        d = self._delta
+        d = _col(self._delta if delta is None else delta)
         sh, ch = numpy.sinh(u0), numpy.cosh(u0)
         sn, cs = numpy.sin(v), numpy.cos(v)
         R, z, pre = d * sh * sn, d * ch * cs, sh**2 + sn**2
@@ -2299,25 +2316,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
         )
 
-    def _u0_many(self, E, ell, I3, um, up, uref, udeg, valid, wells):
+    def _u0_many(self, E, ell, I3, um, up, uref, udeg, valid, wells, delta=None):
         """The reference u0 that the rule gives each of many tori, with its
         partials in (E, I_3) (None and zeros without a rule). The built-in
         rules are vectorized: 'torus' is the closed form of _u0_torus on
         the torus's own turning points, 'planar' the same on those of the
         planar orbit of (E, L_z), 'shell' the u of the highest maximum of
         p_u^2; a callable, which need not take arrays, is evaluated torus by
-        torus, with one-sided differences"""
+        torus, with one-sided differences. With delta, the focal length of
+        each torus ('torus' and 'planar'), the partials of a torus on the
+        shell face are not computed (NaN: its curve is the shell orbit's
+        spheroid in the model of a single focal length)"""
         if not self._adaptive:
             return None, 0.0, 0.0
-        d, d2 = self._delta, self._delta**2
+        d = self._delta if delta is None else delta
+        d2 = d**2
 
         def dWdu(u):
-            return self._W0(numpy.log(d * numpy.sinh(u)), E, ell, deriv=True) / (
-                numpy.tanh(u)
-            )
+            return self._W0(
+                numpy.log(d * numpy.sinh(u)), E, ell, deriv=True, delta=delta
+            ) / (numpy.tanh(u))
 
         def dushell(u):
             # the level-set rule on the maximum of p_u^2
+            if delta is not None:
+                return numpy.nan * u
             return -2.0 * d2 * numpy.sinh(2.0 * u) / self._d2Wu(u, E, ell)
 
         def mean(um, up, udeg, uref):
@@ -2347,7 +2370,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 return mean(um, up, udeg, uref)
             if self._u0_rule == "planar":
                 pm, pp, _, _, _, ok = self._u_ends(
-                    E, ell, ell**2 / (2.0 * d2) - E, wells, False
+                    E, ell, ell**2 / (2.0 * d2) - E, wells, False, delta=delta
                 )
                 u0, gE, gI = mean(pm, pp, ~ok, uref)
                 return numpy.where(ok, u0, numpy.nan), gE - gI, 0.0 * gI
@@ -2369,7 +2392,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             out[2, ii] = (self._u0_of(Ei, li, Ii + hI) - out[0, ii]) / hI
         return tuple(out)
 
-    def _u_ends(self, E, ell, I3, wells, inner):
+    def _u_ends(self, E, ell, I3, wells, inner, delta=None):
         """The u librations of many tori from their integrals: the turning
         points of the libration about the outermost maximum of p_u^2 (it
         ends at a barrier that I_3 leaves below zero, and spans both wells
@@ -2378,8 +2401,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         maximum inside the barrier; the u of the libration's maximum,
         whether the libration is degenerate, the side of the barrier's
         level on which the torus lies (1 above, -1 below, 0 where there is
-        no barrier), and whether the integrals are those of a torus"""
-        d2 = self._delta**2
+        no barrier), and whether the integrals are those of a torus; delta:
+        the focal length of each torus, where they differ"""
+        d = self._delta if delta is None else delta
+        d2, dd = d**2, _rep(d, 2)
         xo, xb, xi, Wo, Wb, Wi = wells
         c = 2.0 * d2 * I3
         split = numpy.isfinite(xb)
@@ -2407,30 +2432,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         lo = numpy.where(numpy.tile(valid, 2), lo, 0.0)
         hi = numpy.where(numpy.tile(valid, 2), hi, 1.0)
         ok = deg | (
-            (sgn * (self._W0(lo, E2, l2) - c2) < 0.0)
-            & (sgn * (self._W0(hi, E2, l2) - c2) >= 0.0)
+            (sgn * (self._W0(lo, E2, l2, delta=dd) - c2) < 0.0)
+            & (sgn * (self._W0(hi, E2, l2, delta=dd) - c2) >= 0.0)
         )
         x = _multisect(
             lambda x: (
-                sgn[:, None] * (self._W0(x, E2[:, None], l2[:, None]) - c2[:, None])
+                sgn[:, None]
+                * (self._W0(x, E2[:, None], l2[:, None], delta=_col(dd)) - c2[:, None])
             ),
             lo,
             hi,
             48,
         )
         um, up = numpy.arcsinh(
-            numpy.exp(numpy.where(deg, numpy.tile(xref, 2), x)) / self._delta
+            numpy.exp(numpy.where(deg, numpy.tile(xref, 2), x)) / dd
         ).reshape(2, -1)
         return (
             um,
             up,
-            numpy.arcsinh(numpy.exp(xref) / self._delta),
+            numpy.arcsinh(numpy.exp(xref) / d),
             udeg,
             numpy.where(split, numpy.where(above, 1, -1), 0),
             valid & ok[:n] & ok[n:],
         )
 
-    def _tori_many(self, E, ell, I3, wells, inner, ntau):
+    def _tori_many(self, E, ell, I3, wells, inner, ntau, delta=None):
         """Many tori from their integrals, without a loop over them: the
         turning points of both librations, and the actions and their
         derivatives with respect to (E, I_3) by the quadratures of
@@ -2442,26 +2468,32 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         of: the u turning points, the u of the libration's maximum,
         whether the u and the v libration are degenerate, the side of a
         barrier's level on which the torus lies (_u_ends), the v turning
-        point, and whether the integrals are those of a torus"""
-        d2 = self._delta**2
-        um, up, uref, udeg, side, valid = self._u_ends(E, ell, I3, wells, inner)
+        point, and whether the integrals are those of a torus; delta: the
+        focal length of each torus, where they differ"""
+        d = self._delta if delta is None else delta
+        d2, dc = d**2, _col(d)
+        um, up, uref, udeg, side, valid = self._u_ends(
+            E, ell, I3, wells, inner, delta=delta
+        )
         c = 2.0 * d2 * I3
         with numpy.errstate(invalid="ignore"):
             vdeg = I3 <= ell**2 / (2.0 * d2) - E + 1e-12 * (
                 1.0 + numpy.fabs(ell**2 / (2.0 * d2) - E) + numpy.fabs(c / d2)
             )
 
-        u0, gE, gI = self._u0_many(E, ell, I3, um, up, uref, udeg, valid, wells)
+        u0, gE, gI = self._u0_many(
+            E, ell, I3, um, up, uref, udeg, valid, wells, delta=delta
+        )
         if u0 is not None:
             valid &= numpy.isfinite(u0)
             u0 = numpy.where(valid, u0, 1.0)[:, None]
 
         def Wv(v, deriv=False):
             sn2 = numpy.sin(v) ** 2
-            V = self._V_many(v, u0, deriv=deriv)
+            V = self._V_many(v, u0, deriv=deriv, delta=delta)
             V, dV = V if deriv else (V, 0.0)
             return (
-                2.0 * d2 * (E[:, None] * sn2 + V + I3[:, None])
+                2.0 * dc**2 * (E[:, None] * sn2 + V + I3[:, None])
                 - ell[:, None] ** 2 / sn2,
                 dV,
             )
@@ -2494,7 +2526,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             pu = numpy.sqrt(
                 numpy.clip(
                     self._W0(
-                        numpy.log(self._delta * numpy.sinh(u)), E[:, None], ell[:, None]
+                        numpy.log(dc * numpy.sinh(u)),
+                        E[:, None],
+                        ell[:, None],
+                        delta=None if delta is None else dc,
                     )
                     - c[:, None],
                     0.0,
@@ -2503,7 +2538,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
             ratio = wu * numpy.sin(t) / pu
             J[:, 0] = numpy.mean(pu * wu * numpy.sin(t), axis=1)
-            M[:, 0, 0] = numpy.mean(d2 * numpy.sinh(u) ** 2 * ratio, axis=1)
+            M[:, 0, 0] = numpy.mean(dc**2 * numpy.sinh(u) ** 2 * ratio, axis=1)
             M[:, 0, 1] = -d2 * numpy.mean(ratio, axis=1)
             t = tau[: ntau // 4] if ntau % 4 == 0 else t
             wv = (0.5 * numpy.pi - vmin)[:, None]
@@ -2512,7 +2547,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             pv = numpy.sqrt(numpy.clip(W, 0.0, None))
             ratio = wv * numpy.sin(t) / pv
             J[:, 1] = numpy.mean(pv * wv * numpy.sin(t), axis=1)
-            M[:, 1, 0] = numpy.mean(d2 * numpy.sin(v) ** 2 * ratio, axis=1)
+            M[:, 1, 0] = numpy.mean(dc**2 * numpy.sin(v) ** 2 * ratio, axis=1)
             M[:, 1, 1] = d2 * numpy.mean(ratio, axis=1)
             # the model follows the torus along its rule
             Ju0 = d2 * numpy.mean(dV * ratio, axis=1)
@@ -2520,7 +2555,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             M[:, 1, 1] += Ju0 * gI
         return J, M, numpy.array([um, up, uref, udeg, vdeg, side, vmin, valid])
 
-    def _action_residual(self, E, f, ell, jr, jz, inner, ntau=256, side=None):
+    def _action_residual(
+        self, E, f, ell, jr, jz, inner, ntau=256, side=None, delta=None
+    ):
         """The residual of the solve for the integrals of many tori from
         their actions, apart from its iteration: at the energies E and the
         fractions f of the way from the planar orbit's I_3 to that of the
@@ -2530,9 +2567,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         actions with respect to (E, f), the I_3, the f and the rows of
         _tori_many. With side (1 or -1), f is instead the fraction of the
         way across the tori on that side of a barrier's level: from it to
-        the shell orbit, or from the planar orbit to it."""
-        d2 = 2.0 * self._delta**2
-        wells = self._wells(E, ell)
+        the shell orbit, or from the planar orbit to it. delta: the focal
+        length of each torus, where they differ."""
+        d2 = 2.0 * (self._delta if delta is None else delta) ** 2
+        wells = self._wells(E, ell, delta=delta)
         own = inner & numpy.isfinite(wells[1])
         Ipl = ell**2 / d2 - E
         with numpy.errstate(invalid="ignore"):
@@ -2543,7 +2581,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 hi = numpy.where(numpy.isfinite(wells[1]) & (side == -1), Ibar, Ish)
                 f = (lo + f * (hi - lo) - Ipl) / (Ish - Ipl)
             I3 = Ipl + f * (Ish - Ipl)
-            J, M, rows = self._tori_many(E, ell, I3, wells, inner, ntau)
+            J, M, rows = self._tori_many(E, ell, I3, wells, inner, ntau, delta=delta)
             ch2 = 1.0 + 2.0 * numpy.exp(2.0 * numpy.where(own, wells[2], wells[0])) / d2
             D = numpy.stack(
                 [
@@ -2556,7 +2594,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             rows[-1] = rows[-1].astype("bool") & (Ish > Ipl)
         return res, D, I3, f, rows
 
-    def _newton_many(self, E, f, ell, jr, jz, Ec, hold, inner, side, ntau, steps):
+    def _newton_many(
+        self, E, f, ell, jr, jz, Ec, hold, inner, side, ntau, steps, delta=None
+    ):
         """Damped Newton iteration on _action_residual for many tori from
         the starting points (E, f), on a fixed schedule: every torus has
         steps trial points, each either accepted (it is a torus, on the
@@ -2579,7 +2619,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         a = numpy.arange(n)
         for _ in range(steps):
             res, D, I3t, _, rowst = self._action_residual(
-                Et[a], ft[a], ell[a], jr[a], jz[a], inner[a], ntau=ntau
+                Et[a],
+                ft[a],
+                ell[a],
+                jr[a],
+                jz[a],
+                inner[a],
+                ntau=ntau,
+                delta=None if delta is None else delta[a],
             )
             h = hold[a]
             # a torus held on a face has that face's libration degenerate;
@@ -2656,15 +2703,26 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         todo = numpy.flatnonzero(~circ)
         for k in range(0, len(todo), chunk):
             sel = todo[k : k + chunk]
-            E[sel], I3[sel], found[sel] = self._integrals_chunk(
+            E[sel], I3[sel], found[sel], rows = self._integrals_chunk(
                 jr[sel], ell[sel], jz[sel]
             )
+            for ii, row in zip(sel[found[sel]], rows.T[found[sel]]):
+                for Lz in (ell[ii], -ell[ii]):
+                    self._u_turning_memo[(E[ii], Lz, I3[ii])] = (
+                        *row[:3],
+                        bool(row[3]),
+                    )
         return E, I3, found
 
-    def _integrals_chunk(self, jr, ell, jz):
+    def _integrals_chunk(self, jr, ell, jz, delta=None):
         """_integrals_many for tori that are evaluated together, none of
-        them the circular orbit"""
+        them the circular orbit, with the rows of _tori_many of the tori
+        found; delta: the focal length of each torus, where they differ"""
         n, tot = len(jr), jr + jz
+
+        def at(sel):
+            return None if delta is None else delta[sel]
+
         Ec, kappa, nu = self._circular_many(ell)
         # an action below 1e-10 of their sum is that of the face
         hold = numpy.where(jr <= 1e-10 * tot, 1, numpy.where(jz <= 1e-10 * tot, 2, 0))
@@ -2695,7 +2753,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             ks = numpy.arange(k0, min(k0 + B, 16))
             rep, kk = numpy.repeat(a, len(ks)), numpy.tile(ks, len(a))
             rws = self._action_residual(
-                lad[rep, kk], f0[rep], ell[rep], jr[rep], jz[rep], inner[rep], ntau=16
+                lad[rep, kk],
+                f0[rep],
+                ell[rep],
+                jr[rep],
+                jz[rep],
+                inner[rep],
+                ntau=16,
+                delta=at(rep),
             )[4]
             good = torus(rws, hold[rep], 0).reshape(len(a), -1)
             hit = numpy.any(good, axis=1)
@@ -2704,7 +2769,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if a.size == 0:
                 break
         E, f, I3, rows, ok = self._newton_many(
-            E, f0, ell, jr, jz, Ec, hold, inner, side, coarse, 40
+            E, f0, ell, jr, jz, Ec, hold, inner, side, coarse, 40, delta=delta
         )
         Es = Ec[:, None] + (kappa * jr + nu * jz)[:, None] * 2.0 ** numpy.arange(
             -8.0, 14.0
@@ -2731,6 +2796,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.full(len(rep), inn),
                 ntau=min(coarse, 64),
                 side=numpy.full(len(rep), sd),
+                delta=at(rep),
             )
             miss = numpy.where(
                 torus(rws, hold[rep], sd), numpy.sum(numpy.fabs(res), axis=1), numpy.inf
@@ -2751,6 +2817,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 side[left],
                 coarse,
                 40,
+                delta=at(left),
             )
         if self._ntau > coarse:
             # on the tori's own anomaly grid, each torus kept on its side
@@ -2768,16 +2835,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 side[done],
                 self._ntau,
                 8,
+                delta=at(done),
             )
-        for ii in numpy.flatnonzero(ok):
-            for Lz in (ell[ii], -ell[ii]):
-                self._u_turning_memo[(E[ii], Lz, I3[ii])] = (
-                    rows[0, ii],
-                    rows[1, ii],
-                    rows[2, ii],
-                    bool(rows[3, ii]),
-                )
-        return numpy.where(ok, E, numpy.nan), numpy.where(ok, I3, numpy.nan), ok
+        return numpy.where(ok, E, numpy.nan), numpy.where(ok, I3, numpy.nan), ok, rows
 
     def _setup_turning_points(self):
         """The turning points of every torus, each in its own Staeckel
@@ -3900,6 +3960,56 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             dold, hold, d = d, h, sec if near else new
         return d, None
 
+    def _rule_fixed_point_many(self, jr, ell, jz, Ec, E0):
+        """_rule_fixed_point for many tori at once, on the solve for their
+        integrals from the actions (J_R, |L_z|, J_z) with a focal length
+        for each (_integrals_chunk): from the rule's focal lengths at the
+        energies E0 and the middle of the third-integral range, the same
+        secant iteration for every torus, which leaves it when it has
+        converged or when the model of its focal length has no torus with
+        its actions. Returns the rows (focal length, E, I_3, 1) of the
+        tori that converged (NaN for the others) and remembers their u
+        turning points in the model of each"""
+        fam = self._rule_family
+
+        def rule(E, ell, f):
+            D = fam._delta_of(E, ell, f, fam._delta_edges(ell))
+            if not numpy.all(D > 0.0):
+                raise ValueError(
+                    "the callable delta= has to return positive focal lengths"
+                )
+            return D
+
+        out = numpy.full((4, len(jr)), numpy.nan)
+        d = rule(E0, ell, 0.5 + 0.0 * E0)
+        dold, hold, a = d.copy(), numpy.full(len(jr), numpy.inf), numpy.arange(len(jr))
+        for _ in range(40):
+            E, I3, found, rows = self._integrals_chunk(jr[a], ell[a], jz[a], delta=d[a])
+            a, E, I3, rows = a[found], E[found], I3[found], rows[:, found]
+            if a.size == 0:
+                break
+            # the rule takes the fraction of the way to the shell orbit's
+            # I_3, that of the highest maximum of p_u^2 (_rule_fraction)
+            wells, d2 = self._wells(E, ell[a], delta=d[a]), 2.0 * d[a] ** 2
+            Ipl, Ish = ell[a] ** 2 / d2 - E, numpy.fmax(wells[3], wells[5]) / d2
+            new = rule(E, ell[a], (I3 - Ipl) / (Ish - Ipl))
+            h = new - d[a]
+            conv = numpy.fabs(h) <= 1e-12 * d[a]
+            for ii, Ei, Ii, row in zip(a[conv], E[conv], I3[conv], rows.T[conv]):
+                out[:, ii] = d[ii], Ei, Ii, 1.0
+                with self._in_chart(Ec[ii], ell[ii], False, d[ii]):
+                    for Lz in (ell[ii], -ell[ii]):
+                        self._u_turning_memo[(Ei, Lz, Ii)] = (*row[:3], bool(row[3]))
+            with numpy.errstate(all="ignore"):
+                sec = d[a] - h * (d[a] - dold[a]) / (h - hold[a])
+            lo, hi = 0.5 * numpy.minimum(d[a], new), 2.0 * numpy.maximum(d[a], new)
+            dold[a], hold[a] = d[a], h
+            d[a] = numpy.where((sec > lo) & (sec < hi), sec, new)
+            a = a[~conv]
+            if a.size == 0:
+                break
+        return out
+
     def _rule_delta(self, E, ell, I3):
         """The focal length of the explicit torus (E, |L_z|, I_3) under the
         rule, I_3 being that of the torus's own model"""
@@ -3920,10 +4030,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _integrals_rule(self, jr, ell, jz):
         """_integrals_many for explicit tori whose focal lengths follow a
-        rule: torus by torus, the fixed point in the focal length of the
-        solve for the integrals in the model of a focal length and the
-        rule at the torus found; sets the tori's focal lengths. The
-        iteration starts from the rule's focal length at the epicycle
+        rule: the fixed point in the focal length of the solve for the
+        integrals in the model of a focal length and the rule at the torus
+        found, for all of the tori at once from the first starting point
+        (_rule_fixed_point_many) and then torus by torus for those that
+        this leaves; sets the tori's focal lengths. The iteration starts from the rule's focal length at the epicycle
         energy and the middle of the third-integral range. The model of
         that focal length need not have a torus with these actions when
         that of the fixed point does (close to the axis the actions jump
@@ -3936,7 +4047,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         until one of them ends on a torus"""
         out = numpy.full((4, len(jr)), numpy.nan)
         Ec, kappa, nu = self._circular_many(ell)
-        for ii in range(len(jr)):
+        # first all at once, from the first of the starting points (not the
+        # tori on the shell face or under the rule u0='shell', whose
+        # reference curve is set in the model of a single focal length);
+        # then one by one those that this leaves
+        tot = jr + jz
+        many = numpy.flatnonzero(
+            (tot > 1e-10 * ell) & (jr > 1e-10 * tot) & (self._u0_rule != "shell")
+        )
+        chunk = max(2000000 // self._ntau, 16)
+        for k in range(0, len(many), chunk):
+            sel = many[k : k + chunk]
+            out[:, sel] = self._rule_fixed_point_many(
+                jr[sel], ell[sel], jz[sel], Ec[sel], (Ec + kappa * jr + nu * jz)[sel]
+            )
+        for ii in numpy.flatnonzero(out[3] != 1.0):
 
             def step(d, ii=ii):
                 with self._in_chart(Ec[ii], ell[ii], False, d):
