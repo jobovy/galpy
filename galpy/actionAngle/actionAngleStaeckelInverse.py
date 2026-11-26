@@ -1919,13 +1919,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Ipl, _, Ish, _ = self._axis_reach_faces(E, Lz)[:4]
         lo, hi = 0.0, 1.0
         f = min(max(y if start is None else (start - Ipl) / (Ish - Ipl), lo), hi)
-        if y <= 0.0 or y >= 1.0:
+        face = y <= 0.0 or y >= 1.0
+        if face:
             # a face is the face exactly
             f = min(max(y, 0.0), 1.0)
         for _ in range(100):
             fe = f
             yf, dy = self._y_of_I3(E, Lz, Ipl + f * (Ish - Ipl))
-            if numpy.fabs(yf - y) < 1e-13 or hi - lo < 4e-16:
+            if numpy.fabs(yf - y) < 1e-13 or hi - lo < 4e-16 or face:
+                # converged, or a face, which no rounding of the variable
+                # there (it grows with the size of I_3) may move the torus
+                # off: the face's torus is degenerate, a neighbor is not
                 break
             lo, hi = (f, hi) if yf < y else (lo, f)
             fn = f - (yf - y) / (dy[1] * (Ish - Ipl))

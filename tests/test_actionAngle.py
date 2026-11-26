@@ -17445,6 +17445,54 @@ def test_actionAngleStaeckelInverse_setup_not_kept():
     return None
 
 
+def test_actionAngleStaeckelInverse_interp_shell_face_large_I3():
+    # The grid's shell face is the shell orbits exactly, however large the
+    # third integral (a focal length far below the tori's size makes it
+    # large, and the grid's third-integral variable then rounds at the face):
+    # a node placed a rounding below the face is a torus whose u libration
+    # all but vanishes, and its tables are not finite. The family below was
+    # refused for that reason; its shell tori have a single radius, up to the
+    # square of the ratio of the focal length to that radius
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    aAI = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta=0.006,
+        u0="torus",
+        setup_interp=True,
+        Rmin=0.0031,
+        Rmax=0.0062,
+        Rinf=16.0,
+        nE=4,
+        nLz=4,
+        nI3=4,
+        mm_npt=64,
+        progressbar=False,
+    )
+    angles = numpy.linspace(0.1, 6.0, 5)
+    for jz in (0.1, 1.0):
+        assert aAI.in_domain(0.0, 0.0015, jz), (
+            "A shell torus of the family with a large third integral is not in its domain"
+        )
+        R, vR, vT, z, vz, phi = aAI(
+            numpy.zeros(5),
+            0.0015 * numpy.ones(5),
+            jz * numpy.ones(5),
+            angles,
+            0.7 * angles,
+            1.3 * angles,
+        )
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
+            "A shell torus of a family with a large third integral is not finite"
+        )
+        assert numpy.all(numpy.fabs(r / numpy.mean(r) - 1.0) < 1e-3), (
+            "A shell torus of a family with a focal length far below its size does not have a single radius"
+        )
+    return None
+
+
 def test_actionAngleStaeckelInverse_from_actions_many():
     # The solve for the integrals of tori from their actions is vectorized
     # over the tori: many tori at once have the requested actions, on the
