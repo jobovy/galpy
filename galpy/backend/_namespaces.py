@@ -151,9 +151,7 @@ def jax_transformations(*xs):
     is not seen inside it), never invent one. Without
     ``jax_use_direct_linearize`` (older jax), reverse mode also runs on
     JVPTracers, which then count as both derivatives."""
-    import sys
-
-    if "jax" not in sys.modules:
+    if not under_jax_trace(*xs):
         return set()
     import jax
 
