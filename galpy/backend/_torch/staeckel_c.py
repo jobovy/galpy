@@ -13,6 +13,7 @@ import numpy
 import torch
 
 from .._namespaces import requires_backend_grad
+from .orbit_stm import _NoSecondOrder
 
 
 def _values_if_no_derivative(host_val, coords):
@@ -35,6 +36,25 @@ def _values_if_no_derivative(host_val, coords):
     )
 
 
+def _jac_backward(ctx, gs):
+    """The gradients sum_o gs[o] * jac[:, o, :] of the coords (saved after
+    jac), tied back to them under create_graph: C's Jacobian is first order,
+    so differentiating these gradients again raises"""
+    jac, *coords = ctx.saved_tensors  # (N,len(gs),len(coords))
+    g = sum(gs[o][:, None] * jac[:, o, :] for o in range(len(gs)))
+    if torch.is_grad_enabled():
+        g = g + sum(
+            _NoSecondOrder.apply(
+                c,
+                "second derivatives through the C actions, frequencies, and "
+                "angles are not supported (they are first-order only); use c=False",
+            )
+            for c in coords
+        )
+    # gradients: host_jac (non-diff) + the coords
+    return (None,) + tuple(g[:, k] for k in range(len(coords)))
+
+
 class _ActionsJacFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, host_jac, R, vR, vT, z, vz):
@@ -42,7 +62,9 @@ class _ActionsJacFunction(torch.autograd.Function):
         cs = [t.detach().to("cpu", torch.float64).numpy() for t in (R, vR, vT, z, vz)]
         jr, jz, jac = host_jac(*cs)
         dev, dt = R.device, R.dtype
-        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,2,5)
+        ctx.save_for_backward(
+            torch.as_tensor(jac, dtype=dt, device=dev), R, vR, vT, z, vz
+        )  # (N,2,5)
         return (
             torch.as_tensor(jr, dtype=dt, device=dev),
             torch.as_tensor(jz, dtype=dt, device=dev),
@@ -50,11 +72,7 @@ class _ActionsJacFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, g_jr, g_jz):
-        (jac,) = ctx.saved_tensors  # (N,2,5)
-        # grad_k = g_jr * dJr/dx_k + g_jz * dJz/dx_k
-        g = g_jr[:, None] * jac[:, 0, :] + g_jz[:, None] * jac[:, 1, :]  # (N,5)
-        # gradients: host_jac (non-diff) + the 5 coords
-        return (None,) + tuple(g[:, k] for k in range(5))
+        return _jac_backward(ctx, (g_jr, g_jz))
 
 
 def actions_with_jac(host_jac, host_val, R, vR, vT, z, vz):
@@ -74,7 +92,9 @@ class _ActionsFreqsJacFunction(torch.autograd.Function):
         cs = [t.detach().to("cpu", torch.float64).numpy() for t in (R, vR, vT, z, vz)]
         jr, jz, Or, Op, Oz, jac = host_jac(*cs)
         dev, dt = R.device, R.dtype
-        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,5,5)
+        ctx.save_for_backward(
+            torch.as_tensor(jac, dtype=dt, device=dev), R, vR, vT, z, vz
+        )  # (N,5,5)
         return tuple(
             torch.as_tensor(numpy.asarray(x, dtype=numpy.float64), dtype=dt, device=dev)
             for x in (jr, jz, Or, Op, Oz)
@@ -82,10 +102,7 @@ class _ActionsFreqsJacFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, g_jr, g_jz, g_Or, g_Op, g_Oz):
-        (jac,) = ctx.saved_tensors  # (N,5,5)
-        gs = (g_jr, g_jz, g_Or, g_Op, g_Oz)
-        g = sum(gs[o][:, None] * jac[:, o, :] for o in range(5))  # (N,5)
-        return (None,) + tuple(g[:, k] for k in range(5))
+        return _jac_backward(ctx, (g_jr, g_jz, g_Or, g_Op, g_Oz))
 
 
 def actionsfreqs_with_jac(host_jac, host_val, R, vR, vT, z, vz):
@@ -106,7 +123,9 @@ class _ActionsFreqsAnglesJacFunction(torch.autograd.Function):
         out = host_jac(*cs)  # 8 values + jac (N,8,5)
         vals, jac = out[:8], out[8]
         dev, dt = R.device, R.dtype
-        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,8,5)
+        ctx.save_for_backward(
+            torch.as_tensor(jac, dtype=dt, device=dev), R, vR, vT, z, vz
+        )  # (N,8,5)
         return tuple(
             torch.as_tensor(numpy.asarray(v, dtype=numpy.float64), dtype=dt, device=dev)
             for v in vals
@@ -114,9 +133,7 @@ class _ActionsFreqsAnglesJacFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, *cts):  # 8 cotangents (jr,jz,Or,Op,Oz,angler,anglephi,anglez)
-        (jac,) = ctx.saved_tensors  # (N,8,5)
-        g = sum(cts[o][:, None] * jac[:, o, :] for o in range(8))  # (N,5)
-        return (None,) + tuple(g[:, k] for k in range(5))
+        return _jac_backward(ctx, cts)
 
 
 def actionsfreqsangles_with_jac(host_jac, R, vR, vT, z, vz, phi):
@@ -146,7 +163,9 @@ class _EccZmaxJacFunction(torch.autograd.Function):
         cs = [t.detach().to("cpu", torch.float64).numpy() for t in coords]
         e, zm, rp, ra, jac = host_jac(*cs)  # 4 values + jac (N,4,n)
         dev, dt = coords[0].device, coords[0].dtype
-        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,4,n)
+        ctx.save_for_backward(
+            torch.as_tensor(jac, dtype=dt, device=dev), *coords
+        )  # (N,4,n)
         return tuple(
             torch.as_tensor(numpy.asarray(x, dtype=numpy.float64), dtype=dt, device=dev)
             for x in (e, zm, rp, ra)
@@ -154,10 +173,7 @@ class _EccZmaxJacFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, g_e, g_zm, g_rp, g_ra):
-        (jac,) = ctx.saved_tensors  # (N,4,n)
-        gs = (g_e, g_zm, g_rp, g_ra)
-        g = sum(gs[o][:, None] * jac[:, o, :] for o in range(4))  # (N,n)
-        return (None,) + tuple(g[:, k] for k in range(jac.shape[-1]))
+        return _jac_backward(ctx, (g_e, g_zm, g_rp, g_ra))
 
 
 def ecczmax_with_jac(host_jac, *coords):

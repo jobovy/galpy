@@ -6546,14 +6546,21 @@ def test_actionAngleAdiabaticApprox_singlepoint():
     o = Orbit([1.0, 0.9, 1.1, 0.1, 0.3, 0.0])
     ts = numpy.linspace(0.0, 10.0, 6)
     o.integrate(ts, np)
-    true = numpy.array(aAS.actionsFreqsAngles(o(ts)))
-    out = numpy.array(aAA.actionsFreqsAngles(o(ts)))
+    true = numpy.array([as_numpy(x) for x in aAS.actionsFreqsAngles(o(ts))])
+    raw = aAA.actionsFreqsAngles(o(ts))
+    out = numpy.array([as_numpy(x) for x in raw])
     assert numpy.all(numpy.fabs(out[:3] / true[:3] - 1.0) < 10.0**-4.5), (
         "actionAngleAdiabaticApprox with npoints=0 does not return the actions"
     )
-    assert numpy.all(numpy.isnan(out[3:6])), (
-        "actionAngleAdiabaticApprox with npoints=0 returns frequencies"
-    )
+    if is_backend_array(raw[3]):
+        # (on a backend: dH/dJ by automatic differentiation)
+        assert numpy.all(numpy.fabs(out[3:6] / true[3:6] - 1.0) < 10.0**-3.5), (
+            "actionAngleAdiabaticApprox with npoints=0 does not return the frequencies"
+        )
+    else:
+        assert numpy.all(numpy.isnan(out[3:6])), (
+            "actionAngleAdiabaticApprox with npoints=0 returns frequencies"
+        )
     assert numpy.all((out[6:] >= 0.0) & (out[6:] < 2.0 * numpy.pi)), (
         "actionAngleAdiabaticApprox with npoints=0 does not return angles in [0, 2 pi)"
     )

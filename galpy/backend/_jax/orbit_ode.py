@@ -73,7 +73,18 @@ def _carries_jvp_tangent(*xs):
 
 
 def integrate(
-    pot, y0, ts, *, dim, rtol, atol, max_steps, solver=None, adjoint=None, nsteps=None
+    pot,
+    y0,
+    ts,
+    *,
+    dim,
+    rtol,
+    atol,
+    max_steps,
+    solver=None,
+    adjoint=None,
+    nsteps=None,
+    tangent=None,
 ):
     """Integrate the EOM with diffrax (Dopri8, adaptive). y0/ys in rectangular
     EOM variables [x, vx, y, vy, z, vz], shape (dim,) for one orbit or (N, dim) for
@@ -91,10 +102,18 @@ def integrate(
     jax.jvp/jacfwd/hessian -- except jvp OF a jax.jit-ed function, whose tangent
     is invisible here: pass adjoint='direct' there). Pass adjoint='direct' for
     SECOND derivatives (jax.hessian / nested jacrev); it scans ``max_steps``
-    steps, so keep ``max_steps`` modest."""
+    steps, so keep ``max_steps`` modest.
+
+    ``tangent`` (shaped like y0): also integrate the variational equations from
+    it, on the orbit's own steps (the error is controlled on the orbit), and
+    return (ys, tangents): the orbit's derivative in that direction, which
+    reverse mode then goes through with the default adjoint's checkpoints,
+    where through jax.jvp of the solve (DirectAdjoint) it stores every one of
+    ``max_steps`` steps."""
     import diffrax
     import jax
     import jax.numpy as jnp
+    import optimistix
 
     from .._reference.inbackend_ode import _eom_rhs
 
@@ -103,6 +122,14 @@ def integrate(
     term = diffrax.ODETerm(
         lambda t, y, args: jnp.stack(_eom_rhs(y, pot, t, jnp, dim), axis=-1)
     )
+    _norm = {}
+    if tangent is not None:
+        _rhs = term.vector_field
+        term = diffrax.ODETerm(
+            lambda t, y, args: jax.jvp(lambda u: _rhs(t, u, args), (y[0],), (y[1],))
+        )
+        y0 = (y0, tangent)
+        _norm = {"norm": lambda err: optimistix.rms_norm(err[0])}
     # None -> 100000 (the integrator's effective default; diffrax's own default of
     # 4096 is too low for galpy's long ~10-Tdyn integrations).
     if max_steps is None:
@@ -117,7 +144,7 @@ def integrate(
     # a tangent can enter via y0, ts or a potential parameter, so probe the EOM
     # at the initial state (unused: dead code under jit)
     _probe = term.vf(jnp.reshape(ts, (-1,))[0], y0, None)
-    if _adjoint is None and _carries_jvp_tangent(y0, ts, _probe):
+    if _adjoint is None and _carries_jvp_tangent(*jax.tree.leaves((y0, ts, _probe))):
         _adjoint = direct_adjoint()
     if (
         nsteps is not None
@@ -155,7 +182,7 @@ def integrate(
             y0=y0i,
             saveat=diffrax.SaveAt(ts=tsi),
             stepsize_controller=(
-                diffrax.PIDController(rtol=rtol, atol=atol)
+                diffrax.PIDController(rtol=rtol, atol=atol, **_norm)
                 if nsteps is None
                 else diffrax.ConstantStepSize()
             ),

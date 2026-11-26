@@ -25,10 +25,16 @@ from ..backend import (
     like,
 )
 from ..backend._namespaces import (
+    device_type,
     has_concrete_truth_value,
+    name_of_namespace,
     namespace_from_arrays,
+    param_grad_array,
+    requires_backend_grad,
     stop_gradient,
+    under_trace,
 )
+from ..backend.optimize import columnwise_jvp
 from ..potential import (
     DehnenSmoothWrapperPotential,
     MWPotential,
@@ -36,7 +42,7 @@ from ..potential import (
     evaluateRforces,
     evaluatezforces,
 )
-from ..potential.Potential import _pot_grad_namespace
+from ..potential.Potential import _check_c, _pot_grad_namespace
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
@@ -53,22 +59,32 @@ def _switch_potential(start, end, tintJ):
     ) + DehnenSmoothWrapperPotential(pot=end, tform=0.0, tsteady=tintJ, decay=False)
 
 
-def _integrate_backend(self, ic, ts, pot):
+def _integrate_backend(self, ic, ts, pot, method=None):
     """The orbits [M,nt,6] of the backend-array initial conditions ic [M,6]
-    in pot at the times ts, with the instance's integrator: differentiable
-    with respect to the initial conditions (for a C method, to first order)
-    and, for an in-backend method, the potential's parameters"""
+    in pot at the times ts, with the instance's integrator (or method):
+    differentiable with respect to the initial conditions (for a C method, to
+    first order) and, for an in-backend method, the potential's parameters"""
     from ..orbit import Orbit
 
     orb = Orbit(ic)
     orb.integrate(
         ts,
         pot,
-        method=self._integrate_method,
+        method=self._integrate_method if method is None else method,
         dt=self._integrate_dt,
         inbackend_kwargs=self._integrate_kwargs,
     )
     return orb.getOrbit()
+
+
+def _orbit_velocity(xp, pot, xv):
+    """The time derivative [M,6] of the phase-space points xv [M,6] along
+    their orbits in pot (at t=0)"""
+    from ..orbit.integrateFullOrbit import _EOM
+
+    R, vR, vT, z, vz, phi = (xv[:, ii] for ii in range(6))
+    d = _EOM([R, vR, phi, vT / R, z, vz], 0.0, pot)
+    return xp.stack([d[0], d[1], d[0] * d[2] + R * d[3], d[4], d[5], d[2]], axis=-1)
 
 
 def _in_namespace(method):
@@ -167,13 +183,13 @@ class actionAngleAdiabaticApprox(actionAngle):
         ntintJ : int, optional
             Number of output times of the orbit integration (only the last one is used).
         integrate_method : str, optional
-            Integration method to use. With 'diffrax' (jax) or 'torchode'/'torchdiffeq' (PyTorch), backend-array inputs are integrated in the backend, which is what derivatives with respect to parameters of the potentials and higher-order derivatives require (the C methods give first derivatives with respect to the phase-space point).
+            Integration method to use. With 'diffrax' (jax) or 'torchode'/'torchdiffeq' (PyTorch), backend-array inputs are integrated in the backend, which is what derivatives with respect to parameters of the potentials and higher-order derivatives require (the C methods give first derivatives with respect to the phase-space point). On jax, the frequencies for npoints=0 integrate with 'diffrax' for more than 100 points or on a GPU, except under a derivative.
         integrate_kwargs : dict, optional
             Options for the in-backend integrator (Orbit.integrate's inbackend_kwargs).
         dt : float, optional
             orbit.integrate dt keyword (for fixed stepsize integration).
         npoints : int, optional
-            Number of points along the orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (an even number). With npoints=0, each point is transformed on its own: the transformation is then exactly canonical and actionAngleAdiabaticApproxInverse with the same tintJ is its inverse, but no frequencies are available (an implementation that can differentiate through the orbit integration can return them for npoints=0 as well, as the derivative of the energy with respect to the actions).
+            Number of points along the orbit, in addition to the point itself, that the actions are averaged over and that the frequencies and angles are fit to (an even number). With npoints=0, each point is transformed on its own: the transformation is then exactly canonical and actionAngleAdiabaticApproxInverse with the same tintJ is its inverse, but on numpy no frequencies are available (they are nan). For backend inputs (or under a forced backend), the frequencies are then the derivatives of the energy with respect to the actions at fixed angles, by automatic differentiation of the transformation along each point's orbit (on jax, the orbits are then integrated with 'diffrax' for more than 100 points or on a GPU, except under a derivative; derivatives of these frequencies with respect to the phase-space point need integrate_method='diffrax' on jax and 'torchode' or 'torchdiffeq' on PyTorch, and an aA= that these backends can differentiate twice, such as one with c=False).
         npoints_dt : float, optional
             Amount of time to integrate forward and backwards for the npoints points (can be Quantity); the frequencies of the potential that is transformed to have to predict the change of each angle over this time to within pi.
         aAI : actionAngleInverse instance, optional
@@ -597,6 +613,11 @@ class actionAngleAdiabaticApprox(actionAngle):
         ic = xp.stack(
             [xp.atleast_1d(x) for x in coerce_coords(xp, *self._coords(*args))], axis=-1
         )
+        if self._npoints == 0 and name != "_evaluate":
+            actions, freqs, angles, end = self._rates_backend(xp, ic)
+            if name == "_actionsFreqs":
+                return (*actions, *freqs)
+            return self._calibrated_backend(xp, actions, freqs, angles, end, ic)
         flip = like(ic, numpy.array([1.0, -1.0, -1.0, 1.0, -1.0, 1.0]))
         pts = ic[:, None, :]
         if self._npoints > 0:
@@ -617,27 +638,111 @@ class actionAngleAdiabaticApprox(actionAngle):
         actions = tuple(xp.mean(o, axis=1) for o in out[:3])
         if name == "_evaluate":
             return actions
-        mid = self._npoints // 2
-        if self._npoints == 0:
-            freqs = (xp.full_like(actions[0], numpy.nan),) * 3
-            angles = [o[:, 0] % (2.0 * numpy.pi) for o in out[6:]]
-        else:
-            ts, pinv = like(ic, self._vanderA[:, 1], linalg.pinv(self._vanderA).T)
-            freqs, angles = (), []
-            for angle, freq in zip(out[6:], out[3:6]):
-                guess = xp.mean(freq, axis=1)[:, None] * ts
-                fit = (_unwrap(xp, angle - guess) + guess) @ pinv
-                angles.append(fit[:, 0] % (2.0 * numpy.pi))
-                freqs += (fit[:, 1],)
+        ts, pinv = like(ic, self._vanderA[:, 1], linalg.pinv(self._vanderA).T)
+        freqs, angles = (), []
+        for angle, freq in zip(out[6:], out[3:6]):
+            guess = xp.mean(freq, axis=1)[:, None] * ts
+            fit = (_unwrap(xp, angle - guess) + guess) @ pinv
+            angles.append(fit[:, 0] % (2.0 * numpy.pi))
+            freqs += (fit[:, 1],)
         if name == "_actionsFreqs":
             return (*actions, *freqs)
+        end = xp.reshape(end, (*shape, 6))[:, self._npoints // 2]
+        return self._calibrated_backend(xp, actions, freqs, angles, end, ic)
+
+    def _calibrated_backend(self, xp, actions, freqs, angles, end, ic):
+        """The actions, frequencies, and angles, the latter calibrated when
+        calibrate_angles is set (end [M,6]: the images of the points ic)"""
         if self._calibrate:
-            end = xp.reshape(end, (*shape, 6))[:, mid]
             angles = xp.stack(angles) - self._offset_backend(xp, actions, end)
             angles = (
                 angles + numpy.pi * self._halfturns_backend(xp, angles, actions, ic)
             ) % (2.0 * numpy.pi)
         return (*actions, *freqs, *angles)
+
+    def _rates_backend(self, xp, ic):
+        """For npoints=0: the actions, frequencies, angles, and images [M,6]
+        of the points ic [M,6]. The transformation of a single point is
+        canonical, so the frequencies dH/dJ at fixed angles are the rates of
+        change of the angles along the orbits: the derivative of the
+        transformation in the direction of each point's orbit"""
+        from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
+        from ..orbit.Orbits import _INBACKEND_SYMPLECTIC
+
+        method = self._integrate_method.lower()
+        derivative = (
+            under_trace(ic)
+            or requires_backend_grad(ic)
+            or param_grad_array(self) is not None
+        )
+        velocity = _orbit_velocity(xp, self._pot, ic)
+        if (
+            name_of_namespace(xp) == "jax"
+            and method not in _INBACKEND_SYMPLECTIC
+            and (
+                method == "diffrax"
+                or (not derivative and (ic.shape[0] > 100 or device_type(ic) != "cpu"))
+                # (C methods that Orbit.integrate runs in diffrax)
+                or (
+                    method in _C_DXDV_METHODS
+                    and (
+                        param_grad_array(self._adiabatic_pot) is not None
+                        or not _check_c(self._adiabatic_pot, dxdv3d=True)
+                    )
+                )
+            )
+        ):
+            # (jax: the orbits with their variational equations in diffrax,
+            # which carry the one direction rather than the C integrators' full
+            # state-transition matrix, and which reverse mode goes through with
+            # checkpoints; a few points on a CPU are faster in C, without
+            # diffrax's compilation, and so are their derivatives)
+            from ..backend._reference import integrate_orbit
+
+            kwargs = dict(self._integrate_kwargs or {})
+            end, rate = (
+                o[-1].T
+                for o in integrate_orbit(
+                    self._adiabatic_pot,
+                    ic,
+                    xp.asarray(self._tsJ),
+                    rtol=kwargs.pop("rtol", 1e-12),
+                    atol=kwargs.pop("atol", 1e-12),
+                    tangent=velocity,
+                    **kwargs,
+                )
+            )
+        else:
+            # the transformed points and their rates of change along the orbits
+            end, rate = columnwise_jvp(
+                lambda p: (
+                    _integrate_backend(self, p.T, self._tsJ, self._adiabatic_pot)[
+                        :, -1
+                    ].T
+                ),
+                ic.T,
+                velocity.T,
+                create_graph=derivative,
+                reverse=None,
+            )
+
+        def auxiliary(p):
+            out = [
+                xp.broadcast_to(xp.reshape(o, (-1,)), p[0].shape)
+                for o in self._aA.actionsFreqsAngles(*p, use_physical=False)
+            ]
+            return xp.stack(out[6:]), xp.stack(out[:3])
+
+        # the angles of aA= there and their rates of change: the frequencies
+        angles, freqs, actions = columnwise_jvp(
+            auxiliary, end, rate, has_aux=True, create_graph=derivative, reverse=None
+        )
+        return (
+            tuple(actions),
+            tuple(freqs),
+            [a % (2.0 * numpy.pi) for a in angles],
+            end.T,
+        )
 
     def _halfturns_backend(self, xp, angles, actions, xv):
         """_halfturns in the backend xp: whether each of the angles [3,M],

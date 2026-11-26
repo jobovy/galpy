@@ -195,3 +195,85 @@ def columnwise_jacobian(f, p, has_aux=False):
     )(tangents)
     J = jax.numpy.moveaxis(out[1], 1, 0)  # (n, m, k)
     return (out[0], J, out[2]) if has_aux else (out[0], J)
+
+
+def columnwise_jvp(f, p, t, has_aux=False, reverse=False):
+    """jax half of optimize.columnwise_jvp: jax.jvp, or with reverse one
+    backward pass per output row (the columns are independent), contracted
+    with t; reverse=None: jax.jvp unless f contains a custom_vjp (such as the
+    C-STM), which only differentiates backward and to first order: then,
+    for traced p or t, the rate comes from backward passes at the stopped p
+    and t, and differentiating it raises"""
+    import jax
+
+    from .._namespaces import under_jax_trace
+
+    first_order = False
+    if reverse is None and under_jax_trace(p, t):
+        # (traced, forward mode stages a custom_vjp as a custom_lin, which
+        # only fails when compiled)
+        first_order = _only_backward(f, p, t, has_aux)
+        if not first_order:
+            return jax.jvp(f, (p,), (t,), has_aux=has_aux)
+    elif reverse is None:  # forward, unless f only differentiates backward
+        try:
+            return jax.jvp(f, (p,), (t,), has_aux=has_aux)
+        except TypeError as e:
+            if "custom_vjp" not in str(e):
+                raise
+    elif not reverse:
+        return jax.jvp(f, (p,), (t,), has_aux=has_aux)
+    sg = jax.lax.stop_gradient if first_order else (lambda x: x)
+    out = jax.vjp(f, sg(p), has_aux=has_aux)
+    fx, back = out[0], out[1]
+    eye = jax.numpy.eye(fx.shape[0], dtype=fx.dtype)[:, :, None]
+    rate = jax.numpy.stack(
+        [
+            jax.numpy.sum(back(eye[i] + 0.0 * fx)[0] * sg(t), axis=0)
+            for i in range(fx.shape[0])
+        ]
+    )
+    if first_order:
+        out = f(p) if has_aux else (f(p),)
+        fx, rate = out[0], _first_order_only(rate, (p, t))
+    return (fx, rate, out[-1]) if has_aux else (fx, rate)
+
+
+def _only_backward(f, p, t, has_aux):
+    """Whether f only differentiates backward: whether forward mode stages
+    a custom_lin"""
+    import jax
+
+    def staged(jaxpr):
+        for eqn in jaxpr.eqns:
+            if eqn.primitive.name == "custom_lin":
+                return True
+            for v in eqn.params.values():
+                for sub in v if isinstance(v, (tuple, list)) else (v,):
+                    sub = getattr(sub, "jaxpr", sub)
+                    if hasattr(sub, "eqns") and staged(sub):
+                        return True
+        return False
+
+    return staged(
+        jax.make_jaxpr(lambda p, t: jax.jvp(f, (p,), (t,), has_aux=has_aux))(p, t).jaxpr
+    )
+
+
+def _first_order_only(x, deps):
+    """x, whose derivative (with respect to deps) raises"""
+    import jax
+
+    @jax.custom_vjp
+    def guard(x, deps):
+        return x
+
+    def bwd(res, ct):
+        raise NotImplementedError(
+            "second derivatives through a function that differentiates only "
+            "to first order (a custom_vjp, such as galpy's C code) are not "
+            "available"
+        )
+
+    guard.defvjp(lambda x, deps: (x, None), bwd)
+    return guard(x, deps)
