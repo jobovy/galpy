@@ -161,6 +161,7 @@ NO_SPEC = {
     "actionAngleInverse": "abstract base",
     "actionAngleTorus": "external C++ Torus library: out of backend scope",
     "actionAngleAdiabaticApprox": "numpy only (no backend support yet)",
+    "actionAngleAdiabaticApproxInverse": "numpy only (no backend support yet)",
     "TruncatedTwoPowerSphericalPotential": "abstract base",
 }
 

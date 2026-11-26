@@ -2,6 +2,7 @@ from . import (
     actionAngle,
     actionAngleAdiabatic,
     actionAngleAdiabaticApprox,
+    actionAngleAdiabaticApproxInverse,
     actionAngleAdiabaticGrid,
     actionAngleHarmonic,
     actionAngleHarmonicInverse,
@@ -37,6 +38,9 @@ actionAngle = actionAngle.actionAngle
 actionAngleInverse = actionAngleInverse.actionAngleInverse
 actionAngleAdiabatic = actionAngleAdiabatic.actionAngleAdiabatic
 actionAngleAdiabaticApprox = actionAngleAdiabaticApprox.actionAngleAdiabaticApprox
+actionAngleAdiabaticApproxInverse = (
+    actionAngleAdiabaticApproxInverse.actionAngleAdiabaticApproxInverse
+)
 actionAngleAdiabaticGrid = actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
 actionAngleStaeckel = actionAngleStaeckel.actionAngleStaeckel
 actionAngleStaeckelGrid = actionAngleStaeckelGrid.actionAngleStaeckelGrid
