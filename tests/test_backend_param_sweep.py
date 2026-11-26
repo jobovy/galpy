@@ -143,6 +143,8 @@ NOT_SWEPT = {
     "quasiisothermaldf[MN,Adiabatic,c=False]": "test_backend_qdf.py",
     "quasiisothermaldf[Staeckel,c=True]": "test_backend_qdf.py",
     "dehnendf[correct]": "test_backend_diskdf.py",
+    "actionAngleAdiabaticApprox": "test_backend_actionAngleAdiabaticApprox.py",
+    "actionAngleAdiabaticApproxInverse": "test_backend_actionAngleAdiabaticApprox.py",
 }
 RTOL, ATOL = 1e-6, 1e-10
 
@@ -160,8 +162,6 @@ NO_SPEC = {
     "actionAngle": "abstract base",
     "actionAngleInverse": "abstract base",
     "actionAngleTorus": "external C++ Torus library: out of backend scope",
-    "actionAngleAdiabaticApprox": "numpy only (no backend support yet)",
-    "actionAngleAdiabaticApproxInverse": "numpy only (no backend support yet)",
     "TruncatedTwoPowerSphericalPotential": "abstract base",
 }
 

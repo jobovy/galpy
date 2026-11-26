@@ -279,7 +279,10 @@ at release.]
 
 - [slot 35]
 
-- [slot 36]
+- ``actionAngleAdiabaticApprox`` and ``actionAngleAdiabaticApproxInverse``
+  run natively on jax and PyTorch and are differentiable, also with
+  respect to the potentials' parameters (the orbits are then integrated
+  in the backend; options in ``integrate_kwargs=``).
 
 - [slot 37]
 
