@@ -41,6 +41,7 @@ from ..backend.optimize import (
     bisect_root,
     fixed_point_implicit_step,
     iterate_bracket,
+    iterate_ladder,
     iterate_to_fixed_point,
 )
 from ..backend.optimize import brentq as _backend_brentq
@@ -151,8 +152,32 @@ def _bk_bracket_fixed_point(xp, g, need, x, scan=_MODEL_SCAN, undefined=False):
     halvings (each section's points are those of the halvings, evaluated
     together: one evaluation of the rule per section, not per halving, which
     is what an eager backend pays for). Returns the fixed points, nan where
-    no bracket holds one; only when a point is in need (lazy_cond)"""
+    no bracket holds one; only when a point is in need (lazy_cond; eagerly,
+    on the points in need alone, as many as the next power of two, so that
+    eager jax compiles few shapes: each point's bracket is its own)"""
     n = need.shape[0]
+    if has_concrete_truth_value(need):
+        sel = numpy.flatnonzero(numpy.asarray(as_numpy(need)))
+        m = 1 << max(len(sel) - 1, 0).bit_length()
+        if len(sel) == 0:
+            return numpy.nan + 0.0 * x[0]
+        if m < n:
+            dev = device_of(x[0])
+            take = asarray_on_device(
+                xp, numpy.concatenate([sel, numpy.full(m - len(sel), sel[0])]), dev
+            )
+            sub = _bk_bracket_fixed_point(
+                xp,
+                g,
+                take == take,
+                tuple(xp.take(stop_gradient(t), take, axis=0) for t in x),
+                scan,
+                undefined,
+            )
+            pos = numpy.clip(numpy.cumsum(numpy.asarray(as_numpy(need))) - 1, 0, None)
+            return xp.where(
+                need, xp.take(sub, asarray_on_device(xp, pos, dev), axis=0), numpy.nan
+            )
 
     def rep(k):  # each point repeated k times, point-major
         return [
@@ -411,10 +436,27 @@ def _staeckel_jr_args(s, pot, delta):
             s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
 
 
+def _stackable(xp, func, args, ref):
+    """func(x, *args) at x of ref's shape, or at points stacked along a new
+    leading axis (iterate_ladder, bisect_root(stacked=True)): there flat, with
+    the arguments of more than one point repeated, as at ref's shape"""
+
+    def f(x):
+        if numpy.shape(x) == numpy.shape(ref):
+            return func(x, *args)
+        flat = [
+            xp.reshape(a + 0.0 * x, (-1,)) if len(getattr(a, "shape", ())) else a
+            for a in args
+        ]
+        return xp.reshape(func(xp.reshape(x, (-1,)), *flat), x.shape)
+
+    return f
+
+
 def _staeckel_uminumax(xp, s, pot, delta):
     """Vectorised (umin, umax): bracket-and-bisect roots of the J_R integrand^2."""
     args = _staeckel_jr_args(s, pot, delta)
-    f = lambda u: _JRStaeckelIntegrandSquared(u, *args)
+    f = _stackable(xp, _JRStaeckelIntegrandSquared, args, s["ux"])
     ux, eps = s["ux"], 1e-8
     at_turn = (xp.abs(s["pux"]) < 1e-7) | (xp.abs(f(ux)) < 1e-10)
     peps, meps = f(ux + eps), f(ux - eps)
@@ -427,18 +469,12 @@ def _staeckel_uminumax(xp, s, pot, delta):
     # turning point of a nearly radial orbit is straddled); traced, the steps
     # stop once every point is bracketed (a while_loop, so no derivative:
     # _refine_tp below supplies it)
-    lo = iterate_to_fixed_point(
-        lambda l: stop_gradient(xp.where((f(l) >= 0.0) & (l > 1e-10), l * 0.9, l)),
-        stop_gradient(ux * 0.9),
-        220,
-    )
+    lo = iterate_ladder(lambda l: (f(l) >= 0.0) & (l > 1e-10), ux * 0.9, 0.9, 220)
     # f still >0 at the floor -> no lower J_R turning point: the orbit reaches the
     # symmetry axis (Lz~0, purely-radial), so umin=0 (mirrors C / Single rstart==0).
     reaches_axis = f(lo) >= 0.0
     # expanding bracket above ux until f<0 (stop at u=100)
-    hi = iterate_bracket(
-        lambda h: xp.where((f(h) >= 0.0) & (h < 100.0), h * 1.1, h), ux * 1.1, 80
-    )
+    hi = iterate_ladder(lambda h: (f(h) >= 0.0) & (h < 100.0), ux * 1.1, 1.1, 80)
     # No upper turning point below u=100 (f(100)>=0 -> u=100 still in the allowed
     # region) -> unbound, mirroring the per-object _uminUmaxFindStart
     # `utry > 100 -> UnboundError`.
@@ -454,8 +490,8 @@ def _staeckel_uminumax(xp, s, pot, delta):
     # (the last step of each bracket, where it took more than one)
     u_lo_umax = xp.where(hi > 1.15 * ux, hi / 1.1, u_lo_umax)
     u_hi_umin = xp.where(lo < 0.85 * ux, lo / 0.9, u_hi_umin)
-    umin = bisect_root(f, lo, u_hi_umin, xp, xtol=1e-13, maxiter=200)
-    umax = bisect_root(f, u_lo_umax, hi, xp, xtol=1e-13, maxiter=200)
+    umin = bisect_root(f, lo, u_hi_umin, xp, xtol=1e-13, maxiter=200, stacked=True)
+    umax = bisect_root(f, u_lo_umax, hi, xp, xtol=1e-13, maxiter=200, stacked=True)
     umin = xp.where(at_umin | circular, ux, umin)
     umax = xp.where(at_umax | circular, ux, umax)
     # A circular orbit is a DOUBLE root of f at ux, so f(ux +- eps) ~ -k eps^2 is
@@ -481,10 +517,10 @@ def _staeckel_vmin(xp, s, pot, delta):
     """Vectorised vmin: bracket-and-bisect root of the J_z integrand^2 below vx."""
     args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
             s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
-    f = lambda v: _JzStaeckelIntegrandSquared(v, *args)
     # (the integrand is symmetric about the midplane: a point below it is
     # searched from its mirror image, which the lower turning point is below)
     vx, eps = xp.minimum(s["vx"], numpy.pi - s["vx"]), 1e-8
+    f = _stackable(xp, _JzStaeckelIntegrandSquared, args, vx)
     at_turn = (xp.abs(s["pvx"]) < 1e-7) | (xp.abs(f(vx)) < 1e-10)
     at_vmin = at_turn & (f(vx + eps) > 0.0) & (f(vx - eps) < 0.0)
     # step below vx by factors of 0.9 until f < 0 (220 steps reach ~1e-10, so
@@ -492,12 +528,8 @@ def _staeckel_vmin(xp, s, pot, delta):
     # comes close to the symmetry axis, is straddled) and bisect the last step;
     # traced, the steps stop once every point is bracketed (a while_loop, so no
     # derivative: _refine_tp below supplies it)
-    vlo = iterate_to_fixed_point(
-        lambda v: stop_gradient(xp.where((f(v) >= 0.0) & (v > 1e-10), v * 0.9, v)),
-        stop_gradient(vx * 0.9),
-        220,
-    )
-    vmin = bisect_root(f, vlo, vlo / 0.9, xp, xtol=1e-13, maxiter=200)
+    vlo = iterate_ladder(lambda v: (f(v) >= 0.0) & (v > 1e-10), vx * 0.9, 0.9, 220)
+    vmin = bisect_root(f, vlo, vlo / 0.9, xp, xtol=1e-13, maxiter=200, stacked=True)
     # f still >= 0 at the floor: the orbit reaches the symmetry axis
     axis = f(vlo) >= 0.0
     vmin = xp.where(at_vmin, vx, xp.where(axis, vlo, vmin))
