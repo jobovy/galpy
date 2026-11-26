@@ -15113,8 +15113,12 @@ def test_actionAngleStaeckelInverse_delta_fit():
     thR, thz = (t.ravel() for t in numpy.meshgrid(th, th))
 
     def spread(fam, jr, Lz, jz):
-        R, vR, vT, z, vz, _ = fam(jr, Lz, jz, thR, 0.0 * thR, thz)
-        return numpy.std(0.5 * (vR**2 + vT**2 + vz**2) + evaluatePotentials(lp, R, z))
+        R, vR, vT, z, vz, _ = (
+            as_numpy(q) for q in fam(jr, Lz, jz, thR, 0.0 * thR, thz)
+        )
+        return numpy.std(
+            0.5 * (vR**2 + vT**2 + vz**2) + as_numpy(evaluatePotentials(lp, R, z))
+        )
 
     single = [
         actionAngleStaeckelInverse(pot=lp, delta=d, u0="torus", **wide)

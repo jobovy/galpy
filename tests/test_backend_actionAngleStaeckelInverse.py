@@ -1662,11 +1662,13 @@ def test_array_actions_fallbacks(interp):
 # ---------- a focal length that follows the tori
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_delta_family_on_backends(backend):
-    # a family whose focal length follows its tori is built on numpy (a
-    # forced backend raises) and evaluates natively with backend inputs, in
-    # the vectorized pass, each point in the coordinates of its torus's own
-    # focal length: numpy's values, and derivatives in the angles and actions that
-    # match a finite difference and keep the map canonical
+    # a family whose focal length follows its tori is built natively under a
+    # forced backend, with numpy's tables (to the callable's finite
+    # differences) and points, and a numpy-built one evaluates natively with
+    # backend inputs, in the vectorized pass, each point in the coordinates
+    # of its torus's own focal length: numpy's values, and derivatives in the
+    # angles and actions that match a finite difference and keep the map
+    # canonical
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.backend import use
 
@@ -1681,13 +1683,20 @@ def test_delta_family_on_backends(backend):
         )
 
     with use(backend, force=True):
-        with pytest.raises(NotImplementedError, match="not yet built"):
-            actionAngleStaeckelInverse(pot=_pot(), delta=rule, **grid)
+        bk = actionAngleStaeckelInverse(pot=_pot(), delta=rule, **grid)
     with use("numpy", force=True):
         aA = actionAngleStaeckelInverse(pot=_pot(), delta=rule, **grid)
+    for k in ("_A_tab", "_A_dx", "_A_dy", "_A_dL", "_U_tab", "_V_tab"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(bk, k)), getattr(aA, k), rtol=0.0, atol=2e-9
+        )
     acts = numpy.array([[0.06, 0.93, 0.10], [0.15, -1.21, 0.03], [0.02, 0.8, 0.2]]).T
     angs = numpy.array([[0.3, 2.0, 4.1], [1.0, 4.0, 0.2], [2.0, 5.5, 3.3]])
     ref = aA.xvFreqs(*acts, *angs)
+    with use(backend, force=True):
+        numpy.testing.assert_allclose(
+            _flat(bk.xvFreqs(*acts, *angs)), _flat(ref), rtol=0.0, atol=1e-10
+        )
     got = aA.xvFreqs(
         *(_arr(backend, q) for q in acts), *(_arr(backend, q) for q in angs)
     )
@@ -1712,3 +1721,152 @@ def test_delta_family_on_backends(backend):
     with pytest.raises(NotImplementedError, match="do not label"):
         aA.JR(E, _arr(backend, 0.93), _arr(backend, 2.0))
     assert aA.delta(E, _arr(backend, 0.93), y) == aA.delta(-1.6, 0.93, 0.5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_per_torus_focal_length_broadcast(backend):
+    # the per-torus focal length of a construction broadcasts along the tori's
+    # axis, and refuses an array whose leading axis does not run over them
+    from galpy.actionAngle.actionAngleStaeckelInverse import _PerTorus
+
+    D = _PerTorus(_arr(backend, numpy.array([1.0, 2.0, 3.0])))
+    x = _arr(backend, numpy.ones((3, 2)))
+    numpy.testing.assert_allclose(as_numpy(2.0 * D * x)[:, 1], [2.0, 4.0, 6.0])
+    numpy.testing.assert_allclose(as_numpy(1.0 / (-D) + x)[:, 0], [0.0, 0.5, 2.0 / 3.0])
+    with pytest.raises(ValueError, match="does not run over the tori"):
+        D * _arr(backend, numpy.ones((2, 3)))
+
+
+def _log_halo(q):
+    from galpy.potential import LogarithmicHaloPotential
+
+    return LogarithmicHaloPotential(normalize=1.0, q=q)
+
+
+_LOG_GRID = dict(
+    setup_interp=True,
+    Rmin=0.7,
+    Rmax=1.5,
+    Rinf=4.0,
+    progressbar=False,
+    nE=4,
+    nLz=4,
+    nI3=4,
+    mm_npt=32,
+    delta_deg=(1, 1, 1),
+)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_delta_fit_family_native(backend):
+    # delta='fit' natively: the fit's optima and polynomial on the device
+    # are numpy's, and so are the family's tables and points
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+
+    with use("numpy", force=True):
+        aA = actionAngleStaeckelInverse(pot=_log_halo(0.8), delta="fit", **_LOG_GRID)
+    with use(backend, force=True):
+        bk = actionAngleStaeckelInverse(pot=_log_halo(0.8), delta="fit", **_LOG_GRID)
+    numpy.testing.assert_allclose(bk._delta_fit[0], aA._delta_fit[0], atol=1e-10)
+    numpy.testing.assert_allclose(bk._delta_fit[1:], aA._delta_fit[1:], atol=1e-12)
+    for k in ("_A_tab", "_A_dx", "_A_dy", "_A_dL"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(bk, k)), getattr(aA, k), rtol=0.0, atol=1e-10
+        )
+    acts = numpy.array([[0.05, 1.0, 0.04], [0.12, 0.95, 0.08], [0.03, 1.15, 0.15]]).T
+    angs = numpy.array([[0.3, 2.0, 4.1], [1.0, 4.0, 0.2], [2.0, 5.5, 3.3]])
+    with use(backend, force=True):
+        got = bk.xvFreqs(*acts, *angs)
+    numpy.testing.assert_allclose(
+        _flat(got), _flat(aA.xvFreqs(*acts, *angs)), rtol=0.0, atol=1e-11
+    )
+    # its delta method is numpy's
+    E, Lz, y = (
+        numpy.array([0.6, 0.9]),
+        numpy.array([0.8, 1.2]),
+        numpy.array([0.2, 0.7]),
+    )
+    numpy.testing.assert_allclose(bk.delta(E, Lz, y), aA.delta(E, Lz, y), atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("rule", ["callable", "fit"])
+def test_delta_family_target_native(backend, rule):
+    # target= with a focal length that follows the tori, natively: each
+    # point labelled in the model of its own focal length (the rule's, or
+    # the fit's optimum at the point), numpy's box and tables; a rule that
+    # is not positive raises as on numpy
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+    from galpy.orbit import Orbit
+
+    lp = _log_halo(0.8)
+    o = Orbit([1.05, 0.12, 1.05, 0.12, 0.06, 0.0])
+    ts = numpy.linspace(0.0, 30.0, 31)
+    o.integrate(ts, lp)
+
+    def callable_rule(E, Lz, f):
+        return 0.8 * (1.0 - 0.25 * f + 0.1 * (Lz - 1.0) + 0.05 * E)
+
+    kw = dict(_LOG_GRID, target=o(ts))
+    delta = callable_rule if rule == "callable" else "fit"
+    with use("numpy", force=True):
+        aA = actionAngleStaeckelInverse(pot=lp, delta=delta, **kw)
+    with use(backend, force=True):
+        bk = actionAngleStaeckelInverse(pot=lp, delta=delta, **kw)
+    numpy.testing.assert_allclose(
+        numpy.array(bk._box), numpy.array(aA._box), rtol=0.0, atol=1e-10
+    )
+    numpy.testing.assert_allclose(as_numpy(bk._A_tab), aA._A_tab, rtol=0.0, atol=1e-10)
+    if rule == "callable":
+        with use(backend, force=True):
+            with pytest.raises(ValueError, match="positive focal length"):
+                actionAngleStaeckelInverse(
+                    pot=lp, delta=lambda E, Lz, f: 0.5 - f, **_LOG_GRID
+                )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.parametrize("rule", ["callable", "fit"])
+def test_delta_family_derivatives_wrt_potential_parameters(rule):
+    # A family whose focal length follows its tori, differentiated in the
+    # potential's parameters with its focal lengths held (a gauge, as its
+    # reference curves): the flattening of a logarithmic halo, which leaves
+    # the midplane, the grid's energies and, with axis_weight=0, its nodes'
+    # fractions of the third integral as they are, so that every node keeps
+    # its focal length; against a 5-point finite difference of the
+    # construction with the rule (the fitted one: the family's delta method)
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    grid = dict(_LOG_GRID, axis_weight=0.0)
+
+    def callable_rule(E, Lz, f):
+        return 0.8 * (1.0 - 0.25 * f + 0.1 * (Lz - 1.0) + 0.05 * E)
+
+    acts = [torch.tensor(v) for v in ([0.05, 0.12], [1.0, 0.95], [0.04, 0.08])]
+    angs = [torch.tensor(v) for v in ([0.3, 2.0], [1.0, 4.0], [2.0, 5.5])]
+
+    def out(fam):
+        return torch.cat([torch.reshape(o, (-1,)) for o in fam.xvFreqs(*acts, *angs)])
+
+    def fam(q, delta):
+        return actionAngleStaeckelInverse(pot=_log_halo(q), delta=delta, **grid)
+
+    q0 = 0.8
+    qt = torch.tensor(q0, requires_grad=True)
+    f0 = fam(qt, callable_rule if rule == "callable" else "fit")
+    y = out(f0)
+    g = numpy.array(
+        [
+            float(torch.autograd.grad(y[k], qt, retain_graph=True)[0])
+            for k in range(len(y))
+        ]
+    )
+    held = callable_rule if rule == "callable" else f0.delta
+    numpy.testing.assert_allclose(
+        g,
+        _fd(lambda q: as_numpy(out(fam(torch.tensor(q), held)).detach()), q0, 1e-3),
+        rtol=0.0,
+        atol=2e-9,
+    )

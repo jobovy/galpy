@@ -95,8 +95,8 @@ at release.]
   three times closer to the best Staeckel torus of each of its tori than
   a family with a single focal length; a single focal length gives the
   same results as before. On the JAX and PyTorch backends such a family
-  evaluates natively, with derivatives; it is built on numpy for now
-  (twin of main's #1938-#1942).
+  is built and evaluates natively, differentiable in the potential's
+  parameters at its tori's focal lengths (twin of main's #1938-#1942).
 
 - On the JAX and PyTorch backends, ``actionAngleStaeckelInverse`` evaluates
   arrays of tori whose reference curve (a ``u0=`` rule) or focal length (a
