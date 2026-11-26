@@ -14815,23 +14815,22 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     # where the family's grid does not reach (small |L_z|, of either sign),
     # the forward transformation in the rule's models returns the actions,
     # the frequencies and the angles of the explicit tori (the first torus
-    # lies on the grid): that of the family, and that of the explicit tori
-    # themselves, with the rule of a family or a callable, in C and in
-    # Python (whose fixed point in the model is that accurate for the
-    # tori on the grid); a pickled instance evaluates identically, and is
-    # not inverted without its rule
+    # lies on the grid: to 1e-9): that of the family, and that of the
+    # explicit tori themselves, with the rule of a family or a callable, in
+    # C and in Python (to the same accuracy: the reference curve of each
+    # point's model is that of the focal length that the iteration ends
+    # at); a pickled instance evaluates identically, and is not inverted
+    # without its rule
     J = numpy.array([(0.08, 1.05, 0.06), (0.2, 0.3, 0.6), (0.05, -0.3, 0.8)])
     aAI, aAU = explicit(fit, fit.delta, J), explicit(vary, rule, J)
     again = pickle.loads(pickle.dumps(aAI))
-    for aA, inverse, c, n, tol in (
-        (aAI, fit, True, 3, 1e-8),
-        (aAI, aAI, True, 3, 1e-8),
-        (aAI, aAI, False, 1, 1e-9),
-        (aAU, aAU, True, 3, 1e-6),
-        (aAU, aAU, False, 1, 1e-9),
+    for aA, inverse, tol, c in (
+        (aA, inverse, tol, c)
+        for aA, inverse, tol in ((aAI, fit, 1e-8), (aAI, aAI, 1e-8), (aAU, aAU, 1e-6))
+        for c in (True, False)
     ):
         aAF = actionAngleStaeckel.from_inverse(inverse, c=c)
-        for jr, Lz, jz in J[:n]:
+        for k, (jr, Lz, jz) in enumerate(J):
             pts = points(aA, (jr, Lz, jz))
             assert numpy.all(points(again, (jr, Lz, jz)) == pts) or aA is aAU, (
                 "A pickled set of explicit tori with a rule does not evaluate "
@@ -14847,7 +14846,7 @@ def test_actionAngleStaeckelInverse_delta_explicit():
                 out - numpy.array([jr, Lz, jz, *pts[6:, 0], 0.0, 0.0, 0.0])[:, None]
             )
             dev[6:] = numpy.fabs(wrap(out[6:] - angs))
-            assert numpy.amax(dev) < tol, (
+            assert numpy.amax(dev) < (1e-9 if k == 0 else tol), (
                 "The forward transformation in the rule's models does not return "
                 "the actions and angles of an explicit torus of the rule (c=%s): %g"
                 % (c, numpy.amax(dev))
