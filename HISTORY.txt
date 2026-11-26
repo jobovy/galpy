@@ -317,7 +317,11 @@ at release.]
   use it for a Staeckel family as the auxiliary, which makes that as
   fast per orbit integration as a single auxiliary potential.
 
-- [slot 37]
+- actionAngleStaeckelInverse: the focal lengths of explicit tori that
+  are set up from their actions with a rule (delta= a callable or the
+  delta method of a family) are found for all of the tori at once
+  rather than torus by torus (setting up many such tori is about four
+  times faster)
 
 - [slot 38]
 

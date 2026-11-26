@@ -14917,6 +14917,55 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     return None
 
 
+def test_actionAngleStaeckelInverse_delta_explicit_many():
+    # The focal lengths of explicit tori that are set up from their actions
+    # with a rule are found for all of the tori at once: the tori are those
+    # that are found one at a time, for every rule for the reference curve
+    # (also for the torus on the shell face and the rule u0='shell', which
+    # are found one by one), and a rule that is not positive is refused for
+    # a torus on the shell face as it is for any other
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    rule = lambda E, Lz, f: 0.8 * (1.0 + 0.2 * (f - 0.5) + 0.05 * E * f + 0.1 * Lz)  # noqa: E731
+    jr = numpy.array([0.0, 0.03, 0.25, 0.1, 0.3])
+    Lz = numpy.array([0.9, 1.1, -0.6, 0.8, 1.2])
+    jz = numpy.array([0.1, 0.2, 0.05, 0.3, 0.02])
+    angs = numpy.array([0.3, 2.0, 4.1])
+
+    def setup(sel, u0, delta=rule):
+        return actionAngleStaeckelInverse(
+            pot=lp,
+            delta=delta,
+            u0=u0,
+            jrs=jr[sel],
+            Lzs=Lz[sel],
+            jzs=jz[sel],
+            mm_npt=32,
+            progressbar=False,
+        )
+
+    for u0 in ("torus", "planar", "shell"):
+        many = setup(slice(None), u0)
+        for ii in range(len(jr)):
+            one = setup([ii], u0)
+            assert numpy.fabs(one._deltas[0] / many._deltas[ii] - 1.0) < 1e-9, (
+                f"The focal length of a torus under a rule with u0={u0} differs "
+                "between many tori and one"
+            )
+            assert numpy.all(
+                numpy.fabs(
+                    numpy.array(many(jr[ii], Lz[ii], jz[ii], *angs))
+                    - numpy.array(one(jr[ii], Lz[ii], jz[ii], *angs))
+                )
+                < 1e-8
+            ), f"A torus under a rule with u0={u0} differs between many tori and one"
+    with pytest.raises(ValueError, match="positive focal lengths"):
+        setup([0], "torus", delta=lambda E, L, f: 0.5 - f)
+    return None
+
+
 def test_actionAngleStaeckelInverse_delta_target():
     # target= with a focal length that follows the tori: the box of the
     # target is found in the rule's models, and a localized family that is
