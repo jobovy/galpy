@@ -254,7 +254,11 @@ at release.]
   ``actionAngleStaeckel(inverse=)`` finds the tori of points close to the
   symmetry axis (nan with a warning for a point on none).
 
-- [slot 23]
+- ``actionAngleStaeckelInverse``: explicit tori set up from traced or
+  differentiated jax/PyTorch actions (``jrs=``, ``jzs=``) are solved for
+  natively, all at once: the set-up traces under ``jax.jit`` and is
+  differentiable in the actions (tori that do not exist are nan under
+  ``jax.jit``).
 
 - New ``actionAngleAdiabaticApprox`` and its inverse,
   ``actionAngleAdiabaticApproxInverse``: actions, frequencies, and angles

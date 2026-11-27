@@ -15405,9 +15405,11 @@ def test_actionAngleStaeckelInverse_delta_explicit_many():
     # are found one by one), and a rule that is not positive is refused for
     # a torus on the shell face as it is for any other
     from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
     from galpy.potential import LogarithmicHaloPotential
 
-    lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    with use("numpy", force=True):
+        lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
     rule = lambda E, Lz, f: 0.8 * (1.0 + 0.2 * (f - 0.5) + 0.05 * E * f + 0.1 * Lz)  # noqa: E731
     jr = numpy.array([0.0, 0.03, 0.25, 0.1, 0.3])
     Lz = numpy.array([0.9, 1.1, -0.6, 0.8, 1.2])
@@ -15415,16 +15417,19 @@ def test_actionAngleStaeckelInverse_delta_explicit_many():
     angs = numpy.array([0.3, 2.0, 4.1])
 
     def setup(sel, u0, delta=rule):
-        return actionAngleStaeckelInverse(
-            pot=lp,
-            delta=delta,
-            u0=u0,
-            jrs=jr[sel],
-            Lzs=Lz[sel],
-            jzs=jz[sel],
-            mm_npt=32,
-            progressbar=False,
-        )
+        # (set up with numpy, as on numpy: the solve of many tori at once is
+        # numpy's for concrete actions also on a backend; evaluated there)
+        with use("numpy", force=True):
+            return actionAngleStaeckelInverse(
+                pot=lp,
+                delta=delta,
+                u0=u0,
+                jrs=jr[sel],
+                Lzs=Lz[sel],
+                jzs=jz[sel],
+                mm_npt=32,
+                progressbar=False,
+            )
 
     for u0 in ("torus", "planar", "shell"):
         many = setup(slice(None), u0)
@@ -17454,34 +17459,41 @@ def test_actionAngleStaeckelInverse_interp_shell_face_large_I3():
     # refused for that reason; its shell tori have a single radius, up to the
     # square of the ratio of the focal length to that radius
     from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
     from galpy.potential import MWPotential2014
 
-    aAI = actionAngleStaeckelInverse(
-        pot=MWPotential2014,
-        delta=0.006,
-        u0="torus",
-        setup_interp=True,
-        Rmin=0.0031,
-        Rmax=0.0062,
-        Rinf=16.0,
-        nE=4,
-        nLz=4,
-        nI3=4,
-        mm_npt=64,
-        progressbar=False,
-    )
+    # (set up with numpy, evaluated on a backend: an eager backend's own
+    # set-up of the family is test_backend_actionAngleStaeckelInverse's
+    # test_shell_face_large_I3_backend)
+    with use("numpy", force=True):
+        aAI = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.006,
+            u0="torus",
+            setup_interp=True,
+            Rmin=0.0031,
+            Rmax=0.0062,
+            Rinf=16.0,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=64,
+            progressbar=False,
+        )
     angles = numpy.linspace(0.1, 6.0, 5)
     for jz in (0.1, 1.0):
         assert aAI.in_domain(0.0, 0.0015, jz), (
             "A shell torus of the family with a large third integral is not in its domain"
         )
-        R, vR, vT, z, vz, phi = aAI(
-            numpy.zeros(5),
-            0.0015 * numpy.ones(5),
-            jz * numpy.ones(5),
-            angles,
-            0.7 * angles,
-            1.3 * angles,
+        R, vR, vT, z, vz, phi = numpy.array(
+            aAI(
+                numpy.zeros(5),
+                0.0015 * numpy.ones(5),
+                jz * numpy.ones(5),
+                angles,
+                0.7 * angles,
+                1.3 * angles,
+            )
         )
         r = numpy.sqrt(R**2.0 + z**2.0)
         assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
