@@ -30,6 +30,7 @@ from ..backend import use as _use_backend
 from ..backend._namespaces import (
     name_of_namespace,
     namespace_from_arrays,
+    searchsorted,
     under_trace,
     untraceable_setup,
 )
@@ -2866,7 +2867,7 @@ class MultipoleExpansionPotential(
         """
         tg = asarray_on_device(xp, data["tgrid"], device_of(t))
         n_t = data["tgrid"].shape[0]
-        i_t = xp.clip(xp.searchsorted(tg, t, side="right") - 1, 0, n_t - 2)
+        i_t = xp.clip(searchsorted(xp, tg, t, side="right") - 1, 0, n_t - 2)
         return i_t, t - tg[i_t]
 
     def _backend_radial(self, xp, r, t, mode=0):
@@ -2922,7 +2923,7 @@ class MultipoleExpansionPotential(
         in_grid = r <= rmax
         # --- in-grid branch: searchsorted + Horner on r clipped into the grid
         r_in = xp.clip(r, rmin, rmax)
-        idx = xp.clip(xp.searchsorted(breaks, r_in, side="right") - 1, 0, nint - 1)
+        idx = xp.clip(searchsorted(xp, breaks, r_in, side="right") - 1, 0, nint - 1)
         dr = r_in - breaks[idx]
         if self._tdep:
             # effective radial PPoly coefficients and boundary integrals at
@@ -3232,7 +3233,7 @@ class MultipoleExpansionPotential(
         nint = data["rho_breaks"].shape[0] - 1
         # below rmin the numpy path clamps r to rmin; above rmax it returns 0
         rd = xp.clip(r, rmin, rmax)
-        idx = xp.clip(xp.searchsorted(rho_breaks, rd, side="right") - 1, 0, nint - 1)
+        idx = xp.clip(searchsorted(xp, rho_breaks, rd, side="right") - 1, 0, nint - 1)
         dr = rd - rho_breaks[idx]
         if self._tdep:
             # effective cubic-in-r spline coefficients at time t (linearity

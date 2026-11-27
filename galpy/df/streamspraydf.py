@@ -20,6 +20,7 @@ from ..backend._namespaces import (
     namespace_from_arrays,
     param_grad_array,
     requires_backend_grad,
+    searchsorted,
     under_trace,
 )
 from ..df.df import df
@@ -729,7 +730,7 @@ class basestreamspraydf(df):
             u = u if is_backend_array(u) else xp.asarray(u)
             # linear inverse-CDF: bracket u in the (monotonic) CDF, interpolate t; the
             # bracket index is frozen (piecewise), the interp weight is differentiable.
-            idx = xp.clip(xp.searchsorted(cdf_vals, u), 1, cdf_vals.shape[0] - 1)
+            idx = xp.clip(searchsorted(xp, cdf_vals, u), 1, cdf_vals.shape[0] - 1)
             c0, c1 = cdf_vals[idx - 1], cdf_vals[idx]
             t0, t1 = t_grid[idx - 1], t_grid[idx]
             denom = c1 - c0

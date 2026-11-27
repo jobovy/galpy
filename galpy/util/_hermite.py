@@ -14,6 +14,7 @@ from ..backend._namespaces import (
     namespace_from_arrays,
     picklable_state,
     restore_state,
+    searchsorted,
     stop_gradient,
     under_jax_trace,
 )
@@ -288,7 +289,7 @@ class HermiteFamily2D:
         x, y = (xp.reshape(t, (-1,)) for t in xp.broadcast_arrays(x, y))
         i, j = (
             xp.clip(
-                xp.searchsorted(stop_gradient(g), _dense(t), side="right") - 1,
+                searchsorted(xp, stop_gradient(g), _dense(t), side="right") - 1,
                 0,
                 g.shape[0] - 2,
             )
@@ -563,7 +564,7 @@ class HermiteFamily3D:
         def cells(g, t, M):
             # batch_all's cells: (npoints, 2, node, order) weights
             i = xp.clip(
-                xp.searchsorted(stop_gradient(g), _dense(t), side="right") - 1,
+                searchsorted(xp, stop_gradient(g), _dense(t), side="right") - 1,
                 0,
                 g.shape[0] - 2,
             )

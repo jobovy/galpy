@@ -778,6 +778,16 @@ def device_type(x):
     return None if device is None else device.platform
 
 
+def searchsorted(xp, a, v, side="left"):
+    """``xp.searchsorted(a, v, side=side)``; on jax off the CPU with the
+    binary search unrolled (``method="scan_unrolled"``): jax's default scan
+    is a loop, of which a GPU pays every step (26x slower for 1000 points
+    in a table of 4000; the unrolled search is 8x slower on the CPU)"""
+    if name_of_namespace(xp) == "jax" and device_type(v) != "cpu":
+        return xp.searchsorted(a, v, side=side, method="scan_unrolled")
+    return xp.searchsorted(a, v, side=side)
+
+
 class _ModuleRef(str):
     """A pickled array namespace (module), by its import name"""
 

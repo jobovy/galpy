@@ -351,6 +351,31 @@ def test_device_type(backend_name, monkeypatch):
     return None
 
 
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_searchsorted(backend_name, monkeypatch):
+    # xp.searchsorted's indices, on either side; on jax off the CPU (here a
+    # trace staged for a GPU) through the unrolled binary search
+    from galpy.backend._namespaces import namespace_for_name, searchsorted
+
+    if backend_name not in _NS:
+        pytest.skip(f"{backend_name} not installed")
+    xp = namespace_for_name(backend_name)
+    knots = numpy.array([0.0, 0.5, 0.5, 1.0, 2.0, 3.5])
+    vals = numpy.array([-1.0, 0.0, 0.25, 0.5, 1.0, 1.7, 3.5, 4.0])
+    a, v = xp.asarray(knots), xp.asarray(vals)
+    for side in ("left", "right"):
+        want = numpy.searchsorted(knots, vals, side=side)
+        assert numpy.array_equal(as_numpy(searchsorted(xp, a, v, side=side)), want)
+        if backend_name == "jax":
+            import jax
+
+            monkeypatch.setattr(jax, "default_backend", lambda: "gpu")
+            got = jax.jit(lambda y, side=side: searchsorted(xp, a, y, side=side))(v)
+            monkeypatch.undo()
+            assert numpy.array_equal(as_numpy(got), want)
+    return None
+
+
 # --- tracing never reads a jax tracer's .device -------------------------------
 # A jax tracer has no device, and asking for one raises an AttributeError whose
 # message, the trace's provenance, jax builds by walking the trace: ~0.4 s per
