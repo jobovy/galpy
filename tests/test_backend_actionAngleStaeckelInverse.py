@@ -2339,7 +2339,7 @@ def test_rule_tori_on_backends(backend, rule):
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_bracket_compaction_on_backends():
-    # actionAngleStaeckel(inverse=) of many points, of which a few need the
+    # actionAngleStaeckel.from_inverse() of many points, of which a few need the
     # reference curve bracketed (close to the symmetry axis, where the
     # iteration does not converge on its own) and one is on no torus
     # (unbound): eagerly, the brackets run on the points in need alone, and
@@ -2384,7 +2384,7 @@ def test_bracket_compaction_on_backends():
             )
         )
     ]
-    aAS = actionAngleStaeckel(inverse=fam, c=False)
+    aAS = actionAngleStaeckel.from_inverse(fam, c=False)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", galpyWarning)
         ref = numpy.array(aAS(*x))

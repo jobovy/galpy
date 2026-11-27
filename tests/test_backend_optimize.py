@@ -113,6 +113,26 @@ def test_backend_root_value(backend):
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_backend_root_follows_the_data(backend):
+    # backend arrays take their own backend's solver, also under another
+    # forced backend
+    from galpy import backend as gb
+
+    xp = _xp(backend)
+    for other in [b for b in BACKENDS if b != backend]:
+        with gb.use(other, force=True):
+            root = brentq(
+                lambda x, t: xp.cos(x) - t,
+                xp.asarray(0.0),
+                xp.asarray(numpy.pi / 2.0),
+                args=(xp.asarray(0.3),),
+            )
+        numpy.testing.assert_allclose(
+            float(_to_np(root)), float(numpy.arccos(0.3)), rtol=1e-15
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_backend_root_is_polished_not_bracket_limited(backend):
     # The FORWARD value must be Newton-polished, not the bisection midpoint.
     # Bisection stops at the final bracket half-width (~1e-14 here); callers

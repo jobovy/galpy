@@ -2,4 +2,4 @@ actionAngleStaeckel
 =====================
 
 .. autoclass:: galpy.actionAngle.actionAngleStaeckel
-   :members: __init__
+   :members: __init__, from_inverse

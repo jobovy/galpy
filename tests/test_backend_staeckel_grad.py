@@ -442,7 +442,7 @@ def test_staeckel_c_useu0_unbound_grad_finite(backend):
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_staeckel_inverse_c_true_backend(backend):
-    # actionAngleStaeckel(inverse=, c=True) with backend inputs: each point in
+    # actionAngleStaeckel.from_inverse(, c=True) with backend inputs: each point in
     # its own model runs the backend (c=False) code, for the actions, the
     # frequencies, and the orbital parameters, equal to C's (a family with a
     # single model)
@@ -458,7 +458,7 @@ def test_staeckel_inverse_c_true_backend(backend):
         pot=MWPotential2014, delta=0.45, jrs=jr, Lzs=Lz, jzs=jz, mm_npt=64,
         progressbar=False,
     )  # fmt: skip
-    aAS = actionAngleStaeckel(inverse=aAI, c=True)
+    aAS = actionAngleStaeckel.from_inverse(aAI, c=True)
     x = numpy.array(
         aAI(jr, Lz, jz, *numpy.array([[0.7, 1.0, 2.0], [2.5, 0.3, 4.0]]).T)[:5]
     )
@@ -473,10 +473,10 @@ def test_staeckel_inverse_c_true_backend(backend):
 
 
 def _inverse_model_grad_check(backend, aAI, x0, polish=False):
-    # actionAngleStaeckel(inverse=aAI) at the point x0 = (R, vR, vT, z, vz) on
+    # actionAngleStaeckel.from_inverse(aAI) at the point x0 = (R, vR, vT, z, vz) on
     # a backend: equal to numpy's, and its Jacobian of (J_R, J_z, Omega_R,
     # Omega_z, theta_R, theta_z) in x0 equal to central differences
-    aAS = actionAngleStaeckel(inverse=aAI, order=20, polish=polish)
+    aAS = actionAngleStaeckel.from_inverse(aAI, order=20, polish=polish)
     keep = (0, 2, 3, 5, 6, 8)
 
     def f_np(x):
@@ -546,7 +546,7 @@ _INVERSE_RULES = [
 
 @pytest.mark.parametrize("backend,u0", _INVERSE_RULES)
 def test_staeckel_inverse_torus_model_grad(backend, u0):
-    # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
+    # actionAngleStaeckel.from_inverse() of tori that each have their own Staeckel
     # model (a rule for the reference curve) on a backend: the backend
     # (c=False) code in each point's model, equal to numpy's, and
     # differentiable in the phase-space point through the model's fixed point
@@ -590,7 +590,7 @@ def test_staeckel_inverse_deltafit_model_grad(backend):
     from galpy.util import galpyWarning
 
     far = numpy.array([[1.0], [0.1], [1.6], [0.1], [0.01]])
-    aAS = actionAngleStaeckel(inverse=aAI)
+    aAS = actionAngleStaeckel.from_inverse(aAI)
     ref = numpy.array(aAS.actionsFreqs(*far))
     with pytest.warns(galpyWarning, match="1 of the 1 points lie outside"):
         out = aAS.actionsFreqs(*[torch.tensor(q) for q in far])
@@ -601,7 +601,7 @@ def test_staeckel_inverse_deltafit_model_grad(backend):
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_staeckel_inverse_delta_callable_backend(backend):
-    # actionAngleStaeckel(inverse=) of a family with a callable rule for its
+    # actionAngleStaeckel.from_inverse() of a family with a callable rule for its
     # focal length, with backend inputs, equal to numpy's, for the actions
     # alone and with the frequencies: the rule itself, and for a pickled
     # family, which does not keep the callable, the focal lengths of its table
@@ -624,7 +624,7 @@ def test_staeckel_inverse_delta_callable_backend(backend):
     T, N = (jnp.asarray, numpy.asarray) if backend == "jax" else (torch.tensor, None)
     N = N or (lambda a: a.numpy())
     for fam in (aAI, pickle.loads(pickle.dumps(aAI))):
-        aAS = actionAngleStaeckel(inverse=fam)
+        aAS = actionAngleStaeckel.from_inverse(fam)
         for method in (aAS, aAS.actionsFreqs):
             ref = numpy.array(method(*x))
             out = numpy.array([N(q) for q in method(*[T(q) for q in x])])
@@ -634,7 +634,7 @@ def test_staeckel_inverse_delta_callable_backend(backend):
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_staeckel_inverse_delta_rule_in_backend(backend):
     # a delta='fit' family's focal-length rule in the backend (the rule of the
-    # models of actionAngleStaeckel(inverse=)): equal to numpy's over the whole
+    # models of actionAngleStaeckel.from_inverse()): equal to numpy's over the whole
     # range of the energy variable, beyond the grid's energies and |L_z| (held
     # at the edge), and nan for a non-finite energy; its closed-form partials
     # equal numpy's and the backend's autodiff of the value (off the energy
@@ -690,7 +690,7 @@ def test_staeckel_inverse_delta_rule_in_backend(backend):
     [(bk, rule) for bk in BACKENDS for rule in ("const", "fit")],
 )
 def test_staeckel_inverse_polish_grad(backend, rule):
-    # actionAngleStaeckel(inverse=, polish=True) on a backend: the family's
+    # actionAngleStaeckel.from_inverse(, polish=True) on a backend: the family's
     # torus through the point, equal to numpy's, and differentiable in the
     # point (the implicit-function step of the family's map); at a torus
     # inside a cell (at a node, the interpolant's second derivatives jump)
@@ -711,8 +711,8 @@ def test_staeckel_inverse_polish_grad(backend, rule):
 
     xp = jnp if backend == "jax" else torch
     xb = xp.asarray(numpy.array([1.0, 0.9, 1.0, 0.0, 2.0, 0.0]))
-    aAS = actionAngleStaeckel(inverse=aAI, polish=True)
-    with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+    aAS = actionAngleStaeckel.from_inverse(aAI, polish=True)
+    with pytest.warns(galpyWarning, match="not on a torus of the inverse"):
         off = aAS.actionsFreqsAngles(*[xb[i : i + 1] for i in range(6)])
     off = numpy.array([float(o[0]) for o in off])
     assert numpy.all(numpy.isnan(off[[0, 2, 3, 4, 5, 6, 7, 8]])) and off[1] == 1.0
@@ -722,7 +722,7 @@ def test_staeckel_inverse_polish_grad(backend, rule):
         unb = numpy.array([1.0, 0.9, 1.0, 0.0, 2.0, 0.0])
         both = [numpy.array([c, u]) for c, u in zip([*x0, 0.0], unb)]
         ref = numpy.array(aAS.actionsFreqsAngles(*[b[:1] for b in both]))[:, 0]
-        with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+        with pytest.warns(galpyWarning, match="not on a torus of the inverse"):
             mixed = aAS.actionsFreqsAngles(*[torch.tensor(b) for b in both])
         mixed = numpy.array([o.detach().numpy() for o in mixed])
         numpy.testing.assert_allclose(mixed[:, 0], ref, rtol=0.0, atol=1e-9)

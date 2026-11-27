@@ -107,7 +107,7 @@ at release.]
   points (with one chunk's memory, and under ``jax.jit`` one chunk's
   compiled program).
 
-- Added the ``inverse=`` keyword of actionAngleStaeckel: set up from an
+- Added actionAngleStaeckel.from_inverse: set up from an
   actionAngleStaeckelInverse instance, actionAngleStaeckel computes the
   actions, frequencies, and angles of the instance's torus through each
   phase-space point, such that it inverts that instance. Each point is
@@ -251,7 +251,7 @@ at release.]
 - ``actionAngleStaeckelInverse``: explicit tori (``jrs=``/``jzs=`` or
   ``Es=``/``I3s=``) whose focal lengths follow a rule, ``delta=`` a callable
   or a family's ``delta`` method, also on jax and PyTorch; and
-  ``actionAngleStaeckel(inverse=)`` finds the tori of points close to the
+  ``actionAngleStaeckel.from_inverse`` finds the tori of points close to the
   symmetry axis (nan with a warning for a point on none).
 
 - ``actionAngleStaeckelInverse``: explicit tori set up from traced or
@@ -268,7 +268,12 @@ at release.]
   ``aA=`` (isochrone, spherical, adiabatic, or Staeckel);
   ``calibrate_angles=True`` gives angles in the usual convention.
 
-- [slot 25]
+- ``actionAngleAdiabaticApprox`` and its inverse take a Staeckel family whose
+  potential follows its tori as the auxiliary (one family for a whole galaxy),
+  also on jax and PyTorch. Transformations are set up from their inverses with
+  class methods: ``actionAngleStaeckel.from_inverse`` (was ``inverse=``),
+  ``actionAngleAdiabaticApprox.from_inverse`` and
+  ``actionAngleAdiabaticApproxInverse.from_forward``.
 
 - [slot 26]
 

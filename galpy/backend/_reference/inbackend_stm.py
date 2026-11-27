@@ -53,6 +53,12 @@ def _snap_equispaced(ts, method):
     return ts
 
 
+def _orbit_pot(pot, oi):
+    """The potential of orbit oi: pot, or its own for a list of potentials,
+    one for each orbit"""
+    return pot[oi] if isinstance(pot, (list, tuple)) else pot
+
+
 def c_stm_forward(pot, vxvv, ts, method, rtol, atol):
     """Run the C variational integrator and return (x(t), M(t)).
 
@@ -67,7 +73,7 @@ def c_stm_forward(pot, vxvv, ts, method, rtol, atol):
 
     Parameters
     ----------
-    pot : Potential
+    pot : Potential, or a list of potentials, one for each orbit
     vxvv : numpy.ndarray, shape (d,) or (N, d) with d in {6, 4, 2}: Orbit order
         [R,vR,vT,z,vz,phi] (3D), [R,vR,vT,phi] (planar), or [x,vx] (1D).
     ts : numpy.ndarray, shape (nt,), output times (ts[0] is the initial time).
@@ -121,7 +127,13 @@ def _c_stm_forward_augmented(pot, vxvv, ts, method, rtol, atol):
         jac0 = coords.cyl_to_rect_jac(R, vR, vT, z, vz, phi)  # (6,6)
         dyo_block = jac0.T.reshape(-1)  # column k at offset 6k
         out, _err = integrateFullOrbit_stm_c(
-            pot, yo_rect, dyo_block, ts_o, int_method, rtol=rtol, atol=atol
+            _orbit_pot(pot, oi),
+            yo_rect,
+            dyo_block,
+            ts_o,
+            int_method,
+            rtol=rtol,
+            atol=atol,
         )  # (nt, 42)
         # base rect -> cyl (Orbit order); copy Z/vz before any reuse (views).
         Rout, phiout, Zout = coords.rect_to_cyl(
@@ -203,7 +215,7 @@ def _c_stm_forward_loop(pot, vxvv, ts, method, rtol, atol):
             o.integrate_dxdv(
                 basis[i],
                 ts_o,
-                pot,
+                _orbit_pot(pot, oi),
                 method=method,
                 rectIn=False,
                 rectOut=False,
@@ -235,8 +247,9 @@ def c_tangent_forward(pot, vxvv, tangent, ts, method, rtol, atol):
     ``tangent`` (forward mode: one variational solve per orbit, where
     ``c_stm_forward`` propagates all d columns of the state-transition matrix).
 
-    Pure numpy; no autodiff. ``vxvv`` and ``tangent`` (d,) or (N, d) in Orbit
-    order, ``ts`` a shared (nt,) grid; both outputs (nt, d) or (N, nt, d).
+    Pure numpy; no autodiff. ``pot`` a Potential, or a list of potentials, one
+    for each orbit; ``vxvv`` and ``tangent`` (d,) or (N, d) in Orbit order,
+    ``ts`` a shared (nt,) grid; both outputs (nt, d) or (N, nt, d).
     """
     from ...orbit import Orbit
     from .. import use
@@ -246,22 +259,31 @@ def c_tangent_forward(pot, vxvv, tangent, ts, method, rtol, atol):
     ics = vxvv[None] if single else vxvv
     devs = numpy.broadcast_to(numpy.asarray(tangent, dtype=numpy.float64), ics.shape)
     d = ics.shape[-1]
+    ts = _snap_equispaced(numpy.asarray(ts, dtype=numpy.float64), method)
+    # (a list of potentials, one for each orbit: orbit by orbit)
+    groups = (
+        [(numpy.arange(len(ics)), pot)]
+        if not isinstance(pot, (list, tuple))
+        else [(numpy.array([oi]), p) for oi, p in enumerate(pot)]
+    )
+    xt, dxt = numpy.empty((len(ics), len(ts), d)), numpy.empty((len(ics), len(ts), d))
     with use("numpy", force=True):  # (host-side, also under a forced backend)
-        o = Orbit(ics)
-        o.integrate_dxdv(
-            devs,
-            _snap_equispaced(numpy.asarray(ts, dtype=numpy.float64), method),
-            pot,
-            method=method,
-            progressbar=False,
-            numcores=1,
-            rectIn=False,
-            rectOut=False,
-            rtol=rtol,
-            atol=atol,
-        )
-        xt = numpy.array(o.getOrbit())
-        dxt = numpy.array(o.getOrbit_dxdv())
+        for sel, p in groups:
+            o = Orbit(ics[sel])
+            o.integrate_dxdv(
+                devs[sel],
+                ts,
+                p,
+                method=method,
+                progressbar=False,
+                numcores=1,
+                rectIn=False,
+                rectOut=False,
+                rtol=rtol,
+                atol=atol,
+            )
+            xt[sel] = numpy.array(o.getOrbit()).reshape(len(sel), len(ts), d)
+            dxt[sel] = numpy.array(o.getOrbit_dxdv()).reshape(len(sel), len(ts), d)
     if d in (4, 6):  # phi in (-pi, pi], as Orbit.integrate (see _c_stm_forward_loop)
         xt[..., -1] = numpy.mod(xt[..., -1] + numpy.pi, 2.0 * numpy.pi) - numpy.pi
     if single:
@@ -276,7 +298,7 @@ def integrate_stm(
 
     Parameters
     ----------
-    pot : Potential.
+    pot : Potential, or a list of potentials, one for each orbit.
     vxvv : backend array, (d,) or (N, d) with d in {6, 4, 2}: Orbit order
         [R,vR,vT,z,vz,phi] (3D), [R,vR,vT,phi] (planar), or [x,vx] (1D). Its
         namespace (jax/torch) selects the autodiff wrapper.

@@ -220,6 +220,12 @@ def test_actionAngleAdiabaticApprox_calibrate_unbound_in_auxiliary_backend(
     with pytest.warns(galpyWarning, match="may be half a turn off"):
         fd = _finite_difference(aAA.actionsFreqsAngles, fast, 6, wrap=True)
     assert numpy.allclose(grad, fd, rtol=1e-5, atol=1e-5)
+    # (also among other points, without a derivative, as numpy: aA='s
+    # Python angles also have none for the second point)
+    xp = namespace_for_name(backend_name)
+    two = numpy.hstack([fast, [[1.0], [0.05], [0.5], [0.02], [0.05], [0.5]]])
+    with pytest.warns(galpyWarning, match=f"{1 if c else 2} of the 2 points"):
+        aAA.actionsFreqsAngles(*(xp.asarray(x) for x in two))
 
 
 @pytest.mark.parametrize("backend_name", BACKENDS)
@@ -499,3 +505,130 @@ def test_columnwise_jvp(backend_name):
             columnwise_jvp(f, p, t, create_graph=True)[1][1, 0], p
         )
     assert numpy.allclose(as_numpy(d), [[2.0, 0.0], [0.0, 0.0]])
+
+
+# a Staeckel family whose potential follows its tori as the auxiliary
+_XF = numpy.array(
+    [
+        [1.0, 0.3, 0.9, 0.3, 0.5, 0.5],
+        [1.1, -0.1, 1.0, 0.05, 0.1, 2.0],
+    ]
+).T
+
+
+def _family_auxiliary():
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MiyamotoNagaiPotential
+
+    # (set up with numpy, as such families are; transformed on a backend: a
+    # disc and halo whose forces the backends evaluate without special
+    # functions)
+    with backend.use("numpy", force=True):
+        pot = MiyamotoNagaiPotential(a=0.5, b=0.05, normalize=0.6) + NFWPotential(
+            a=4.0, normalize=0.4
+        )
+        fam = actionAngleStaeckelInverse(
+            pot=pot,
+            delta="fit",
+            u0="torus",
+            setup_interp=True,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=32,
+            progressbar=False,
+        )
+    return pot, actionAngleStaeckel.from_inverse(fam)
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_staeckel_family_auxiliary_backend(backend_name):
+    # A Staeckel family as the auxiliary on a backend: each point integrated
+    # in the Staeckel potential of its own torus (one wrapper with a focal
+    # length and reference curve per point, held), with its actions and
+    # angles in it, and the inverse from each torus set up natively in its
+    # own potential: numpy's values, and the inverse numpy's
+    from galpy.actionAngle import actionAngleAdiabaticApproxInverse
+
+    pot, aAS = _family_auxiliary()
+    xp = namespace_for_name(backend_name)
+    aAA = actionAngleAdiabaticApprox(pot=pot, aA=aAS, tintJ=2.0, npoints=0)
+    ref = numpy.array(aAA.actionsFreqsAngles(*_XF))
+    got = numpy.array(
+        [as_numpy(g) for g in aAA.actionsFreqsAngles(*(xp.asarray(x) for x in _XF))]
+    )
+    assert numpy.allclose(got[:3], ref[:3], rtol=0.0, atol=1e-9)
+    assert numpy.all(
+        numpy.fabs((got[6:] - ref[6:] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi) < 1e-8
+    )
+    # (numpy has no frequencies for npoints=0; the backend dH/dJ)
+    assert numpy.all(numpy.isfinite(got[3:6]))
+    aAAI = actionAngleAdiabaticApproxInverse.from_forward(aAA)
+    # (and a torus that the family does not have: nan, as on numpy)
+    acts = numpy.concatenate([ref[:3], [[5.0], [1.0], [0.1]]], axis=1)
+    angs = numpy.concatenate([ref[6:], [[1.0], [2.0], [3.0]]], axis=1)
+    xn = numpy.array(aAAI(*acts, *angs))
+    xb = numpy.array(
+        [as_numpy(g) for g in aAAI(*(xp.asarray(t) for t in (*acts, *angs)))]
+    )
+    assert numpy.all(numpy.isnan(xn[:, -1])) and numpy.all(numpy.isnan(xb[:, -1]))
+    assert numpy.allclose(xb[:, :-1], xn[:, :-1], rtol=0.0, atol=1e-8)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_staeckel_family_auxiliary_inbackend_and_derivatives():
+    # A Staeckel family as the auxiliary with the backend's own integrator
+    # (each point in its own potential: one wrapper with a focal length and a
+    # reference curve for each point): numpy's values to the integrators'
+    # precision; with the C integrator and differentiated points, the
+    # derivatives through the state-transition matrix, each point in its own
+    # potential (on torch: eager jax takes minutes for the Staeckel actions of
+    # the points' own potentials; its C-STM with a potential for each orbit
+    # in test_backend_orbit_stm)
+    backend_name = "torch"
+    pot, aAS = _family_auxiliary()
+    xp = namespace_for_name(backend_name)
+    # (npoints=0 for one point: its derivatives in a direction through
+    # torchode take most of the time)
+    for npoints, x in ((0, _XF[:, :1]), (2, _XF)):
+        ref = numpy.array(
+            actionAngleAdiabaticApprox(
+                pot=pot, aA=aAS, tintJ=2.0, npoints=npoints
+            ).actionsFreqsAngles(*x)
+        )
+        aAB = actionAngleAdiabaticApprox(
+            pot=pot, aA=aAS, tintJ=2.0, npoints=npoints, integrate_method="torchode"
+        )
+        got = numpy.array(
+            [as_numpy(g) for g in aAB.actionsFreqsAngles(*(xp.asarray(t) for t in x))]
+        )
+        assert numpy.allclose(got[:3], ref[:3], rtol=0.0, atol=1e-7)
+        assert numpy.all(
+            numpy.fabs((got[6:] - ref[6:] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+            < 1e-6
+        )
+    # (the Staeckel potentials held: the transformation of a point in its
+    # own potential is canonical, so its Jacobian in canonical coordinates is
+    # symplectic; finite differences would also move the potentials)
+    aAA = actionAngleAdiabaticApprox(pot=pot, aA=aAS, tintJ=2.0, npoints=0)
+
+    def thetaJ(qp):
+        R, z, phi, pR, pz, Lz = (qp[k] for k in range(6))
+        out = aAA.actionsFreqsAngles(R, pR, Lz / R, z, pz, phi)
+        return [out[6], out[7], out[8], out[0], out[1], out[2]]
+
+    R, vR, vT, z, vz, phi = _XF[:, 0]
+    qp = numpy.array([R, z, phi, vR, vz, R * vT])
+    jac = as_numpy(
+        torch.autograd.functional.jacobian(
+            lambda x: torch.stack([torch.ravel(t)[0] for t in thetaJ(x)]),
+            torch.tensor(qp),
+        )
+    )
+    omega = numpy.block(
+        [[numpy.zeros((3, 3)), numpy.eye(3)], [-numpy.eye(3), numpy.zeros((3, 3))]]
+    )
+    assert numpy.amax(numpy.fabs(jac @ omega @ jac.T - omega)) < 1e-6, (
+        "The Jacobian of actionAngleAdiabaticApprox with a Staeckel family as "
+        "the auxiliary is not symplectic"
+    )

@@ -957,7 +957,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             for instance the localized families of many targets; beyond
             the range of energy and |L_z| of the fitted family's grid it
             is that family's focal length at the edge of the range, as for
-            actionAngleStaeckel(inverse=family), and its partials are the
+            actionAngleStaeckel.from_inverse(family), and its partials are the
             fitted polynomial's own). Explicit
             tori (from Es, Lzs and I3s, the third integral being that of
             each torus's own model, or from jrs, Lzs and jzs) take a
@@ -1050,6 +1050,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
           upward midplane crossing at pericentre.
         - 2026-09-24 - Started - Bovy (UofT)
         """
+        # (private: explicit tori in given Staeckel models, (deltas, u0s) one
+        # per torus, on jax/torch, held)
+        models = kwargs.pop("_models", None)
+        if models is not None:
+            delta, u0 = (lambda E, Lz, f: 1.0), "torus"
+        self._fixed_models = models
         actionAngleInverse.__init__(self, *[], **kwargs)
         if pot is None:
             raise OSError("Must specify pot= for actionAngleStaeckelInverse")
@@ -1119,7 +1125,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             not setup_interp
             and xp_bk is not None
             and jrs is not None
-            and (under_trace(Lzs, jrs, jzs) or requires_backend_grad(Lzs, jrs, jzs))
+            and (
+                models is not None
+                or under_trace(Lzs, jrs, jzs)
+                or requires_backend_grad(Lzs, jrs, jzs)
+            )
         )
         found_bk = None
         if traced:
@@ -1149,7 +1159,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     "from their integrals (Es=, Lzs=, I3s=)"
                 )
             ell = xp_bk.abs(self._Lzs)
-            if varies:
+            if models is not None:
+                D = stop_gradient(models[0])
+                E, I3, found_bk, rows = self._bk_integrals_many(
+                    xp_bk, jrs, ell, jzs, delta=D, u0s=stop_gradient(models[1])
+                )
+            elif varies:
                 E, I3, found_bk, rows, D = self._bk_integrals_rule(xp_bk, jrs, ell, jzs)
             else:
                 E, I3, found_bk, rows = self._bk_integrals_many(xp_bk, jrs, ell, jzs)
@@ -1275,6 +1290,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 Lzspacing=Lzspacing,
                 host_u=host_u,
             )
+            self._fixed_models = None
             if found_bk is not None:
                 # the tori not found: their own actions, and nan
                 self._bk["found"] = found_bk
@@ -2649,7 +2665,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             valid & ok[:n] & ok[n:],
         )
 
-    def _tori_many(self, E, ell, I3, wells, inner, ntau, delta=None, frozen=False):
+    def _tori_many(
+        self, E, ell, I3, wells, inner, ntau, delta=None, frozen=False, u0s=None
+    ):
         """Many tori from their integrals, without a loop over them: the
         turning points of both librations, and the actions and their
         derivatives with respect to (E, I_3) by the quadratures of
@@ -2665,7 +2683,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         focal length of each torus, where they differ; frozen: the models
         held at the tori's (the derivatives of the actions without their
         variation along a rule for the reference curve, and on jax/torch
-        none through the reference curve)"""
+        none through the reference curve); u0s: the reference curve of each
+        torus, held (jax/torch)"""
         xp = _ns(E, ell, I3)
         d = self._delta if delta is None else delta
         d2, dc = d**2, _col(d)
@@ -2678,9 +2697,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 1.0 + xp.abs(ell**2 / (2.0 * d2) - E) + xp.abs(c / d2)
             )
 
-        u0, gE, gI = self._u0_many(
-            E, ell, I3, um, up, uref, udeg, valid, wells, delta=delta
-        )
+        if u0s is None:
+            u0, gE, gI = self._u0_many(
+                E, ell, I3, um, up, uref, udeg, valid, wells, delta=delta
+            )
+        else:
+            u0, gE, gI = u0s, 0.0, 0.0
         if u0 is not None:
             valid = valid & xp.isfinite(u0)
             u0 = xp.where(valid, u0, 1.0)[:, None]
@@ -2767,7 +2789,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return J, M, xp.stack([xp.astype(r, E.dtype) for r in rows])
 
     def _action_residual(
-        self, E, f, ell, jr, jz, inner, ntau=256, side=None, delta=None, frozen=False
+        self,
+        E,
+        f,
+        ell,
+        jr,
+        jz,
+        inner,
+        ntau=256,
+        side=None,
+        delta=None,
+        frozen=False,
+        u0s=None,
     ):
         """The residual of the solve for the integrals of many tori from
         their actions, apart from its iteration: at the energies E and the
@@ -2795,7 +2828,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 f = (lo + f * (hi - lo) - Ipl) / (Ish - Ipl)
             I3 = Ipl + f * (Ish - Ipl)
             J, M, rows = self._tori_many(
-                E, ell, I3, wells, inner, ntau, delta=delta, frozen=frozen
+                E, ell, I3, wells, inner, ntau, delta=delta, frozen=frozen, u0s=u0s
             )
             ch2 = 1.0 + 2.0 * xp.exp(2.0 * xp.where(own, wells[2], wells[0])) / d2
             D = xp.stack(
@@ -3074,6 +3107,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         steps,
         delta=None,
         active=None,
+        u0s=None,
     ):
         """_newton_many in jax/torch, on fixed shapes: every torus is
         evaluated at every step and a frozen one (converged, its step halved
@@ -3091,7 +3125,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             E, f, Et, ft, I3, norm, t, tol, dE, df = (s[k] for k in range(10))
             a, rows = s[10] > 0.5, s[11:]
             res, D, I3t, _, rowst = self._action_residual(
-                Et, ft, ell, jr, jz, inner, ntau=ntau, delta=delta
+                Et, ft, ell, jr, jz, inner, ntau=ntau, delta=delta, u0s=u0s
             )
             valid = (
                 (rowst[-1] == 1.0)
@@ -3154,27 +3188,36 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         return s[0], s[1], s[4], s[11:], s[5] < s[7]
 
-    def _bk_integrals_many(self, xp, jr, ell, jz, delta=None):
+    def _bk_integrals_many(self, xp, jr, ell, jz, delta=None, u0s=None):
         """_integrals_many in jax/torch, for all of the tori at once, in
         chunks (a lax.map under jax.jit): (E, I_3), which of the actions are
         those of a torus, and the rows of _tori_many (where p_u^2 has two
-        maxima, the u libration that has the actions); delta: the focal
-        length of each torus, where they differ"""
+        maxima, the u libration that has the actions); delta and u0s: the
+        focal length and reference curve of each torus, where they differ
+        (u0s: held, not a rule's)"""
         sg = stop_gradient
         tot = jr + jz
         circ = tot <= 1e-10 * ell
         # (stand-ins for the circular tori, which are not solved for)
         jrc, jzc = (xp.where(circ, 1e-3 * ell, j) for j in (jr, jz))
-        args = (jrc, ell, jzc) + (() if delta is None else (delta,))
+        opt = [t for t in (delta, u0s) if t is not None]
+        args = (jrc, ell, jzc, *opt)
         deriv = under_trace(*args) or requires_backend_grad(*args)
 
-        def solve(jr, ell, jz, *d):
-            d = d[0] if d else None
+        def solve(jr, ell, jz, *o):
+            o = iter(o)
+            d = None if delta is None else next(o)
+            u = None if u0s is None else sg(next(o))
             E, I3, ok, rows, f, inner = self._bk_integrals_chunk(
-                xp, *(sg(t) for t in (jr, ell, jz)), delta=None if d is None else sg(d)
+                xp,
+                *(sg(t) for t in (jr, ell, jz)),
+                delta=None if d is None else sg(d),
+                u0s=u,
             )
             if deriv:
-                E, I3 = self._bk_integrals_step(xp, E, I3, ok, f, inner, jr, ell, jz, d)
+                E, I3 = self._bk_integrals_step(
+                    xp, E, I3, ok, f, inner, jr, ell, jz, d, u0s=u
+                )
             return E, I3, ok, rows.T
 
         E, I3, ok, rows = map_row_chunks(
@@ -3292,7 +3335,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         E, I3, found, rows = self._bk_integrals_many(xp, jr, ell, jz, delta=sg(delta))
         return E, I3, found & conv, rows, delta
 
-    def _bk_integrals_step(self, xp, E, I3, ok, f, inner, jr, ell, jz, delta):
+    def _bk_integrals_step(self, xp, E, I3, ok, f, inner, jr, ell, jz, delta, u0s=None):
         """The derivatives of the integrals (E, I_3) of tori found from
         their actions (_bk_integrals_chunk, which also returns the fractions
         f and inner) with respect to the actions (and |L_z| and the focal
@@ -3303,7 +3346,16 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         d2 = (self._delta if delta is None else delta) ** 2
         Es, fs = xp.where(ok, E, 1.0), xp.where(ok, f, 0.5)
         res, D = self._action_residual(
-            Es, fs, ell, jr, jz, inner, ntau=self._ntau, delta=delta, frozen=True
+            Es,
+            fs,
+            ell,
+            jr,
+            jz,
+            inner,
+            ntau=self._ntau,
+            delta=delta,
+            frozen=True,
+            u0s=u0s,
         )[:2]
         D, r0, r1 = sg(D), res[:, 0], res[:, 1]
         t = jr + jz
@@ -3332,7 +3384,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             xp.where(ok, Ipl + fs * (Ish - Ipl), numpy.nan),
         )
 
-    def _bk_integrals_chunk(self, xp, jr, ell, jz, delta=None):
+    def _bk_integrals_chunk(self, xp, jr, ell, jz, delta=None, u0s=None):
         """_integrals_chunk in jax/torch, on fixed shapes (none of the tori
         the circular orbit): the ladder's rungs one at a time for every
         torus until all have a torus on one, the Newton iteration on all of
@@ -3373,7 +3425,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             E, hit, k = s[0], s[1] > 0.5, s[2]
             Ek = column(lad, k)
             rws = self._action_residual(
-                Ek, f0, ell, jr, jz, inner, ntau=16, delta=delta
+                Ek, f0, ell, jr, jz, inner, ntau=16, delta=delta, u0s=u0s
             )[4]
             take = torus(rws, hold, 0) & ~hit
             return stop_gradient(
@@ -3424,6 +3476,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     ntau=min(coarse, 64),
                     side=rep(side),
                     delta=rep(delta),
+                    u0s=rep(u0s),
                 )
                 miss = xp.where(
                     torus(rws, rep(hold), rep(side)),
@@ -3476,6 +3529,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 40,
                 delta=delta,
                 active=left,
+                u0s=u0s,
             )
             E, f, I3 = (xp.where(left, b, a) for a, b in ((E, E2), (f, f2), (I3, I32)))
             rows = xp.where(left[None, :], rows2, rows)
@@ -3526,6 +3580,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 8,
                 delta=delta,
                 active=ok,
+                u0s=u0s,
             )
             E, f, I3 = (xp.where(ok, b, a) for a, b in ((E, E2), (f, f2), (I3, I32)))
             rows, ok = xp.where(ok[None, :], rows2, rows), xp.where(ok, ok2, ok)
@@ -6745,7 +6800,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         - The method is itself a rule: delta=family.delta gives another
           family of the same potential, or explicit tori, the same focal
           lengths without fitting them again, which are also those of
-          actionAngleStaeckel(inverse=family).
+          actionAngleStaeckel.from_inverse(family).
         - 2026-11-17 - Written - Bovy (UofT)
         """
         E = conversion.parse_energy(E, vo=self._vo)
@@ -8361,7 +8416,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # (frozen: a gauge), placed before anything that reads V: 'torus'
         # from the turning points just found, which U(u) alone sets
         u0s = None
-        if self._u0_rule == "torus":
+        if getattr(self, "_fixed_models", None) is not None:
+            u0s = stop_gradient(self._fixed_models[1])
+        elif self._u0_rule == "torus":
             Rm = self._bk_dl() * xp.sinh(xp.where(udeg, ush, umin))
             Rp = self._bk_dl() * xp.sinh(xp.where(udeg, ush, umax))
             u0s = stop_gradient(
@@ -8599,6 +8656,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 ),
                 0.0,
             )
+            if getattr(self, "_fixed_models", None) is not None:
+                # (the models are held: they do not follow the tori)
+                du0 = 0.0 * du0
             M1f, M1f_s = M1 + col(Ju) * du0, M1_s + col(Ju) * du0
             dsup2f = dsup2_s + col(wu0) * du0
         nan = f64(numpy.nan)
@@ -8795,7 +8855,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 # tables carrying the variation along the rule (along the
                 # focal length at fixed integrals times the rule's frozen
                 # derivatives in (E, I_3, L_z))
-                dD = self._bk_rule_gradient(xp, f64, concrete, Es, Es_s, Lzs, I3s, circ)
+                dD = (
+                    xp.zeros((n, 3), dtype=Es.dtype, device=dev)
+                    if getattr(self, "_fixed_models", None) is not None
+                    else self._bk_rule_gradient(
+                        xp, f64, concrete, Es, Es_s, Lzs, I3s, circ
+                    )
+                )
 
                 def fold(t):
                     return t[..., :3] + t[..., 3:] * xp.reshape(
