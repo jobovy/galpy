@@ -1144,7 +1144,14 @@ def _native_points(aA, J):
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 @pytest.mark.parametrize(
-    "rule,u0", [(False, "torus"), (True, "torus"), (True, "shell"), (False, "callable")]
+    "rule,u0",
+    [
+        (False, "torus"),
+        (True, "torus"),
+        (False, "shell"),
+        (True, "shell"),
+        (False, "callable"),
+    ],
 )
 def test_tori_from_actions_native(rule, u0):
     # tori set up from differentiated actions are solved for natively, all at
@@ -1274,6 +1281,31 @@ def test_tori_unconverged_angles_jit():
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_native_fine_anomalies():
+    # many tori on a fine anomaly grid: the native solve first on a coarser
+    # grid, then on the tori's own, numpy's integrals
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    rng = numpy.random.default_rng(3)
+    n = 130
+    J = dict(
+        jrs=10 ** rng.uniform(-2.0, -1.0, n),
+        Lzs=rng.uniform(0.5, 1.5, n),
+        jzs=10 ** rng.uniform(-2.3, -1.3, n),
+    )
+    kw = dict(pot=MWPotential2014, delta=0.45, mm_npt=32, mm_nta=264, progressbar=False)
+    aN = actionAngleStaeckelInverse(**J, **kw)
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(
+            **{k: torch.tensor(v, requires_grad=True) for k, v in J.items()}, **kw
+        )
+    numpy.testing.assert_allclose(as_numpy(aB._Es), aN._Es, rtol=1e-13, atol=0.0)
+    numpy.testing.assert_allclose(as_numpy(aB._I3s), aN._I3s, rtol=1e-13, atol=1e-14)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_tori_from_actions_native_inputs():
     # set up natively from differentiated actions: numpy actions among them
     # (on the device of the set-up), the frequencies of one torus, and the
@@ -1384,6 +1416,31 @@ def test_jax_jit_construction_from_actions():
             actionAngleStaeckelInverse(
                 **{k: torch.tensor(v, requires_grad=True) for k, v in J.items()}, **kw
             )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_construction_from_actions_single_curve():
+    # tori on the model's single reference curve set up from their actions
+    # under jax.jit: the model, set up in the trace, gives V itself
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.27, mm_npt=32, progressbar=False)
+    J = {k: numpy.array(v[:2]) for k, v in _NATIVE_J.items()}
+
+    def f(jr, Lz, jz):
+        with gb.use("jax", force=True):
+            aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
+            return jnp.stack(aB(jr, Lz, jz, _ANGLES[:2], 1.0, 2.0))
+
+    out = numpy.asarray(jax.jit(f)(*(jnp.asarray(J[k]) for k in ("jrs", "Lzs", "jzs"))))
+    ref = numpy.array(
+        actionAngleStaeckelInverse(**J, **kw)(
+            J["jrs"], J["Lzs"], J["jzs"], _ANGLES[:2], 1.0, 2.0
+        )
+    )
+    numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-9)
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
