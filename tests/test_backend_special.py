@@ -1570,10 +1570,14 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
         "a small staged array on an accelerator should use the rolled series/CF"
     )
     # the rolled loops perform the unrolled loops' operations in their order
+    # (the series, on a GPU in a conditional of their own, compile separately:
+    # to the last bit)
     for upper_ in (False, True):
         unrolled = jax.jit(lambda aa, xx: both(jnp, aa, xx)[int(upper_)])(a, x)
         rolled = jax.jit(lambda aa, xx: both(jnp, aa, xx, True)[int(upper_)])(a, x)
-        numpy.testing.assert_array_equal(numpy.asarray(rolled), numpy.asarray(unrolled))
+        numpy.testing.assert_array_max_ulp(
+            numpy.asarray(rolled), numpy.asarray(unrolled), maxulp=1
+        )
     # the two kernels agree to rounding (the series/CF is the one checked
     # against mpmath above; the native kernel differs from it by ~1e-14)
     numpy.testing.assert_allclose(
@@ -1586,6 +1590,57 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
         ),
         rtol=5e-14,
         atol=0.0,
+    )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_gammainc_gpu_runs_series_only_where_needed(monkeypatch):
+    # On a GPU (here forced) each of the two series runs under a conditional,
+    # only for arrays with a point that needs it: arrays wholly in one
+    # branch's domain, and mixed ones, give the CPU form's values to rounding
+    # (rolled and unrolled loops compile differently: up to ~20 ulp here
+    # before the conditionals too), and its derivatives in the order
+    import importlib
+
+    from galpy.backend.special._fallback import gammainc as mod
+
+    _ns = importlib.import_module("galpy.backend._namespaces")
+    monkeypatch.setattr(_ns, "device_type", lambda x: "gpu")
+    rng = numpy.random.default_rng(4)
+    n = 300
+    a = rng.uniform(0.6, 30.0, n)
+    a_small = rng.uniform(0.01, 0.45, n)
+    cases = {
+        "continued fraction": (a, a + 1.0 + 10.0 ** rng.uniform(-3.0, 3.0, n)),
+        "series": (a, a * rng.uniform(0.0, 1.0, n)),
+        "small order": (a_small, rng.uniform(0.05, 1.7, n)),
+    }
+    cases["mixed"] = tuple(
+        numpy.concatenate([c[k] for c in cases.values()]) for k in (0, 1)
+    )
+    for name, (aa, xx) in cases.items():
+        aa, xx = jnp.asarray(aa), jnp.asarray(xx)
+        jaxpr = str(jax.make_jaxpr(lambda u, v: mod._both(jnp, u, v, True))(aa, xx))
+        assert jaxpr.count("cond[") == 2, name
+        got, want = jax.jit(
+            lambda u, v: (mod._both(jnp, u, v, True), mod._both(jnp, u, v))
+        )(aa, xx)
+        for g, w in zip(got, want):
+            numpy.testing.assert_allclose(
+                numpy.asarray(g), numpy.asarray(w), rtol=1e-14, atol=0.0, err_msg=name
+            )
+    # (derivatives in the order of P + Q / 2, through the public functions)
+    aa, xx = (jnp.asarray(c) for c in cases["mixed"])
+    ga = jax.jit(
+        jax.grad(lambda u: jnp.sum(gsp.gammainc(u, xx) + 0.5 * gsp.gammaincc(u, xx)))
+    )(aa)
+    ga_cpu = jax.jit(
+        jax.grad(
+            lambda u: jnp.sum((lambda pq: pq[0] + 0.5 * pq[1])(mod._both(jnp, u, xx)))
+        )
+    )(aa)
+    numpy.testing.assert_allclose(
+        numpy.asarray(ga), numpy.asarray(ga_cpu), rtol=1e-13, atol=1e-300
     )
 
 

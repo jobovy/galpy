@@ -208,7 +208,8 @@ def _small_Q(xp, a, x, rolled=False):
 
 def _both(xp, a, x, rolled=False):
     """Return (P, Q), each computed by whichever branch is valid there;
-    ``rolled``: the loops as lax.fori_loop (jax on a GPU, see _GPU_UNROLL)."""
+    ``rolled``: the loops as lax.fori_loop (jax on a GPU, see _GPU_UNROLL),
+    with the two series run only for arrays that need them."""
     f64 = _backend_dtype(xp, numpy.float64)
     a = xp.astype(xp.asarray(a), f64)
     x = xp.astype(xp.asarray(x), f64)
@@ -227,13 +228,38 @@ def _both(xp, a, x, rolled=False):
     x_cf = xp.where(
         xp.logical_or(use_series, at_inf), a + 1.0, x
     )  # a+1 is the CF's boundary
-    p = _series_P(xp, a, x_ser, _prefix(xp, a, x_ser), rolled)
+    if rolled:
+        # (a GPU pays for every step of a rolled loop: the series, which
+        # takes the most steps, runs only for arrays with a point that needs
+        # it -- a potential's points outside a cutoff radius need only the
+        # continued fraction; the continued fraction, which nearly every
+        # array needs, runs always)
+        from ..._coerce import lazy_cond
+
+        p = lazy_cond(
+            xp,
+            xp.any(use_series),
+            lambda: _series_P(xp, a, x_ser, _prefix(xp, a, x_ser), True),
+            lambda: xp.zeros_like(a),
+        )
+    else:
+        p = _series_P(xp, a, x_ser, _prefix(xp, a, x_ser))
     q = _cf_Q(xp, a, x_cf, _prefix(xp, a, x_cf), rolled)
     p_out = xp.where(use_series, p, 1.0 - q)
     q_out = xp.where(use_series, 1.0 - p, q)
     small = (a < _A_SMALL) & (x > 0.0) & (x < _X_SMALL)
     # dead branch -> a point inside the region (log(0) / the lgamma series' radius)
-    qs = _small_Q(xp, xp.where(small, a, 0.25), xp.where(small, x, 1.0), rolled)
+    a_s, x_s = xp.where(small, a, 0.25), xp.where(small, x, 1.0)
+    if rolled:
+        # (likewise the direct series of Q for small orders)
+        qs = lazy_cond(
+            xp,
+            xp.any(small),
+            lambda: _small_Q(xp, a_s, x_s, True),
+            lambda: xp.zeros_like(a),
+        )
+    else:
+        qs = _small_Q(xp, a_s, x_s)
     q_out = xp.where(small, qs, q_out)
     p_out = xp.where(small & ~use_series, 1.0 - qs, p_out)
     return (

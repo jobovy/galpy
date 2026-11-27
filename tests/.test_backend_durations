@@ -15896,6 +15896,7 @@
 "tests/test_backend_special.py::test_gammainc_endpoints_zero_and_infinity[torch]": 0.0,
 "tests/test_backend_special.py::test_gammainc_float_order_cuda_argument[False]": 0.0,
 "tests/test_backend_special.py::test_gammainc_float_order_cuda_argument[True]": 0.0,
+"tests/test_backend_special.py::test_gammainc_gpu_runs_series_only_where_needed": 36.0,
 "tests/test_backend_special.py::test_gammainc_grad_with_an_integer_order_dtype": 0.01,
 "tests/test_backend_special.py::test_gammainc_grad_wrt_argument_at_endpoints[jax]": 0.07,
 "tests/test_backend_special.py::test_gammainc_grad_wrt_argument_at_endpoints[torch]": 0.0,
