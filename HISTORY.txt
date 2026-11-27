@@ -248,7 +248,11 @@ at release.]
   up to several percent; with ``c=False``, the vertical action of orbits with
   |L_z| below about 1e-3 came out as zero or too small.
 
-- [slot 22]
+- ``actionAngleStaeckelInverse``: explicit tori (``jrs=``/``jzs=`` or
+  ``Es=``/``I3s=``) whose focal lengths follow a rule, ``delta=`` a callable
+  or a family's ``delta`` method, also on jax and PyTorch; and
+  ``actionAngleStaeckel(inverse=)`` finds the tori of points close to the
+  symmetry axis (nan with a warning for a point on none).
 
 - [slot 23]
 

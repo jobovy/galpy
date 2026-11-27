@@ -53,9 +53,11 @@ import numpy
 from ._namespaces import (
     concretely_true,
     is_backend_array,
+    like,
     name_of_namespace,
     namespace_from_arrays,
     prefer_backend_namespace,
+    stop_gradient,
     to_host,
     under_jax_trace,
     under_trace,
@@ -69,6 +71,10 @@ _MAXITER = 100
 # sections per step of a concrete single-root bracket (eager cost is per dispatch,
 # not per point: 513 points cost about one, and shrink the bracket 512x)
 _SECTIONS = 512
+# elements per stacked call of a function that cost about as much as one
+# unstacked call does, eagerly (its dispatch): bisect_root(stacked=True), and
+# iterate_ladder's blocks (up to 16x that)
+_STACK_SIZE = 4096
 
 
 def brentq(
@@ -393,11 +399,13 @@ def iterate_bracket(step, x0, n):
     return x0
 
 
-def iterate_to_fixed_point(step, x0, n):
+def iterate_to_fixed_point(step, x0, n, done=None):
     """Run ``x = step(x)`` until a step leaves ``x`` unchanged, at most ``n``
     times -- for an iteration whose ``step`` freezes the converged elements
     (``xp.where(converged, x, update)``), so that the fixed point is reached
-    exactly once every element has converged.
+    exactly once every element has converged. With ``done``, until
+    ``done(x)`` holds instead (a state that carries its own convergence mask:
+    no step to confirm the fixed point).
 
     Unlike :func:`iterate_bracket`, whose traced form runs all ``n`` steps (a
     ``lax.fori_loop``), this one stops at convergence under a jax trace too (a
@@ -411,14 +419,55 @@ def iterate_to_fixed_point(step, x0, n):
     if under_jax_trace(x0):
         from ._jax.optimize import iterate_to_fixed_point as _bk
 
-        return _bk(step, x0, n)
+        return _bk(step, x0, n, done)
     xp = namespace_from_arrays((x0,)) or numpy
     for _ in range(n):
         x1 = step(x0)
-        if concretely_true(xp.all(x1 == x0)):
+        if concretely_true(xp.all(x1 == x0) if done is None else done(x1)):
             return x1
         x0 = x1
     return x0
+
+
+def iterate_ladder(ok, x0, factor, n):
+    """The first rung of ``x0, x0 * factor, (x0 * factor) * factor, ...`` (at
+    most ``n`` steps) at which the elementwise ``ok`` fails, else the n-th:
+    :func:`iterate_to_fixed_point` of the step that multiplies by ``factor``
+    while ``ok`` holds (no derivative). Eager on jax/torch, blocks of rungs
+    (each the previous times ``factor``, as the steps compute them; a fixed
+    number, which eager jax compiles once) are checked by ONE call of ``ok``
+    on the rungs stacked along a new leading axis, which ``ok`` must accept:
+    eager cost is per call, and a ladder takes as many steps as its longest
+    point does."""
+    xp = namespace_from_arrays((x0,)) or numpy
+    x0 = stop_gradient(x0)
+
+    def step(x):
+        return stop_gradient(xp.where(ok(x), x * factor, x))
+
+    if not is_backend_array(x0) or under_trace(x0):
+        return iterate_to_fixed_point(step, x0, n)
+    b = 16 if math.prod(x0.shape) <= _STACK_SIZE else 4
+    idx = like(x0, numpy.arange(float(b)).reshape((-1,) + (1,) * x0.ndim))
+    out, done, rung = x0, x0 != x0, x0
+    for k in range(0, n + 1, b):
+        rungs = [rung]
+        for _ in range(b - 1):
+            rungs.append(rungs[-1] * factor)
+        stacked = xp.stack(rungs)
+        # (the rungs that are ok before the first that is not: b if none;
+        # the n-th rung ends the ladder)
+        # (as floats without astype: also for the torch module itself)
+        ok_ = ok(stacked) & (idx < n - k)
+        keep = xp.cumprod(xp.where(ok_, 1.0 + 0.0 * stacked, 0.0 * stacked), axis=0)
+        j = xp.sum(keep, axis=0)
+        first = xp.sum(xp.where(idx == j, stacked, 0.0 * x0), axis=0)
+        out = xp.where(~done & (j < b), first, out)
+        done = done | (j < b)
+        if concretely_true(xp.all(done)):
+            break
+        rung = rungs[-1] * factor
+    return out
 
 
 def sectionable(a, b, sections):
@@ -440,8 +489,6 @@ def section_root(f, a, b, xp, *, xtol, maxiter, width=None, sections=_SECTIONS):
 
     Returns ``(root, f at the final bracket's low end)``; the latter says whether
     ``f`` is traced (it closes over a differentiated parameter)."""
-    from ._namespaces import like
-
     shape = numpy.shape(a)
     lo = xp.reshape(xp.asarray(a) * 1.0, ())
     hi = xp.reshape(xp.asarray(b) * 1.0, ())
@@ -463,7 +510,37 @@ def section_root(f, a, b, xp, *, xtol, maxiter, width=None, sections=_SECTIONS):
     return xp.reshape(x, shape), flo
 
 
-def bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
+def bisect_levels(lo, hi, slo, f, xp, levels, walk=None):
+    """``walk`` (default: ``levels``) steps of :func:`bisect_step` with ONE
+    call of ``f``: on the ``2**levels - 1`` midpoints that ``levels`` steps can
+    reach, each computed by bisect_step's arithmetic from its own bracket's
+    ends, stacked along a new leading axis (which ``f`` must accept
+    elementwise; a fixed ``levels`` keeps that shape fixed, which eager jax
+    compiles once); the same steps are then taken on their signs, so the
+    bracket is bit-for-bit bisect_step's."""
+    nodes = [lo, hi]
+    for _ in range(levels):
+        finer = [nodes[0]]
+        for left, right in zip(nodes[:-1], nodes[1:]):
+            finer += [0.5 * (left + right), right]
+        nodes = finer
+    same = xp.sign(f(xp.stack(nodes[1:-1]))) == slo
+    stacked = xp.stack(nodes)
+    k = 2**levels
+    idx = like(lo, numpy.arange(k + 1.0).reshape((-1,) + (1,) * lo.ndim))
+
+    def at(t, i):  # t[i] for each point's own index i
+        return xp.sum(xp.where(idx[: t.shape[0]] == i, t, xp.zeros_like(t[:1])), axis=0)
+
+    ilo, ihi = 0.0 * lo, 0.0 * lo + k
+    for _ in range(levels if walk is None else walk):
+        mid = 0.5 * (ilo + ihi)
+        up = at(xp.where(same, 1.0 + 0.0 * lo, 0.0 * lo), mid - 1.0) > 0.5
+        ilo, ihi = xp.where(up, mid, ilo), xp.where(up, ihi, mid)
+    return at(stacked, ilo), at(stacked, ihi)
+
+
+def bisect_root(f, a, b, xp, *, xtol, maxiter, width=None, stacked=False):
     """Vectorised, sign-preserving bisection root of ``f`` on ``[a, b]`` in ``xp``.
 
     Runs a FIXED schedule of ``n_bisect_steps`` halvings (no data-dependent
@@ -481,6 +558,11 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
     ``f`` must change sign on ``[a, b]`` (``f(a)``, ``f(b)`` opposite sign), as
     for ``scipy.optimize.brentq``; same-sign brackets are a caller error and
     return a midpoint without a guarantee.
+
+    With ``stacked``, ``f`` accepts points stacked along a new leading axis,
+    and eager jax/torch take several halvings per call of ``f``
+    (:func:`bisect_levels`: the same bracket, bit for bit) while the points
+    stacked stay below ``_STACK_SIZE`` elements; eager cost is per call.
     """
     # Under a jax trace (jit/grad/vmap), roll the fixed halving schedule into a
     # lax.fori_loop so the n copies of f do not unroll into the jaxpr. This makes
@@ -496,8 +578,16 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter, width=None):
     hi = xp.asarray(b) * 1.0
     slo = xp.sign(f(lo))  # sign of f at the low endpoint
     n = n_bisect_steps(a, b, xtol, maxiter, width=width)
-    for _ in range(n):
-        lo, hi = bisect_step(lo, hi, slo, f, xp)
+    levels = 1
+    if stacked and is_backend_array(lo) and not under_trace(lo):
+        levels = int(math.log2(_STACK_SIZE / max(1, math.prod(lo.shape)) + 1))
+        levels = max(1, min(levels, 5))
+    if levels == 1:
+        for _ in range(n):
+            lo, hi = bisect_step(lo, hi, slo, f, xp)
+        return 0.5 * (lo + hi)
+    for done in range(0, n, levels):
+        lo, hi = bisect_levels(lo, hi, slo, f, xp, levels, min(levels, n - done))
     return 0.5 * (lo + hi)
 
 

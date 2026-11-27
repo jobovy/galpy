@@ -1870,3 +1870,139 @@ def test_delta_family_derivatives_wrt_potential_parameters(rule):
         rtol=0.0,
         atol=2e-9,
     )
+
+
+def _rule_tori_args():
+    # the families and explicit tori of test_actionAngleStaeckelInverse_
+    # delta_explicit: a fitted rule and a callable, on and off the grid
+    lp = _log_halo(0.8)
+    wide = dict(setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=4.0, progressbar=False)
+    wide.update(nE=4, nLz=4, nI3=4, mm_npt=32)
+    J = numpy.array([(0.08, 1.05, 0.06), (0.2, 0.3, 0.6)])
+    angs = numpy.array([[0.3, 2.0], [1.0, 4.0], [2.0, 5.5]])
+    return lp, wide, J, angs
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("rule", ["callable", "family", "backend_family"])
+def test_rule_tori_on_backends(backend, rule):
+    # Explicit tori whose focal lengths follow a rule (delta= a callable, or
+    # the delta method of a fitted family set up with numpy or on the
+    # backend), set up on a backend from their actions (the integrals on the
+    # host, the tables natively) and from their integrals (the rule's fixed
+    # point natively, on every torus at once): numpy's tori, their focal
+    # lengths and their map; a rule that is not positive raises, and one
+    # without a fixed point does not converge, as on numpy
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+
+    if rule == "backend_family" and backend != "torch":
+        pytest.skip("a fitted family built on jax: test_delta_fit_family_native")
+    lp, wide, J, angs = _rule_tori_args()
+    with use("numpy", force=True):
+        fit = actionAngleStaeckelInverse(
+            pot=lp, delta="fit", delta_deg=(1, 1, 1), **wide
+        )
+
+    def callable_rule(E, Lz, f):
+        return 0.8 * (1.0 + 0.2 * (f - 0.5) + 0.05 * E * f + 0.1 * Lz)
+
+    def explicit(delta, **kw):
+        if "Es" not in kw:
+            kw.update(jrs=J[:, 0], jzs=J[:, 2])
+        kw.update(mm_npt=32, auxiliary=fit.auxiliary, progressbar=False)
+        return actionAngleStaeckelInverse(pot=lp, delta=delta, Lzs=J[:, 1], **kw)
+
+    def points(aA, k):
+        out = aA.xvFreqs(*J[k], *angs)
+        return numpy.array([as_numpy(o) + 0.0 * angs[0] for o in out])
+
+    if rule == "backend_family":
+        with use(backend, force=True):
+            fam = actionAngleStaeckelInverse(
+                pot=lp, delta="fit", delta_deg=(1, 1, 1), **wide
+            )
+        delta = fam.delta
+    else:
+        delta = callable_rule if rule == "callable" else fit.delta
+    with use("numpy", force=True):
+        ref = explicit(callable_rule if rule == "callable" else fit.delta)
+        refs = [points(ref, k) for k in range(len(J))]
+    with use(backend, force=True):
+        aA = explicit(delta)
+        aE = explicit(delta, Es=ref._Es, I3s=ref._I3s)
+    for k in range(len(J)):
+        for bk in (aA, aE):
+            numpy.testing.assert_allclose(points(bk, k), refs[k], rtol=0.0, atol=1e-8)
+    with use(backend, force=True):
+        with pytest.raises(ValueError, match="positive focal lengths"):
+            explicit(lambda E, L, f: 0.5 - f + 0.0 * E, Es=ref._Es, I3s=ref._I3s)
+        with pytest.raises(RuntimeError, match="did not converge"):
+            actionAngleStaeckelInverse(
+                pot=lp,
+                delta=lambda E, L, f: numpy.where(f < 0.4, 0.9, 0.5),
+                Es=[0.84],
+                Lzs=[0.9],
+                I3s=[0.9],
+                mm_npt=32,
+                auxiliary=fit.auxiliary,
+                progressbar=False,
+            )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_bracket_compaction_on_backends():
+    # actionAngleStaeckel(inverse=) of many points, of which a few need the
+    # reference curve bracketed (close to the symmetry axis, where the
+    # iteration does not converge on its own) and one is on no torus
+    # (unbound): eagerly, the brackets run on the points in need alone, and
+    # give numpy's tori
+    import warnings
+
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.backend import use
+    from galpy.potential import MWPotential2014
+    from galpy.util import galpyWarning
+
+    with use("numpy", force=True):
+        fam = actionAngleStaeckelInverse(
+            pot=MWPotential2014, delta=0.3, u0="torus", setup_interp=True,
+            nE=4, nLz=4, nI3=4, mm_npt=16, progressbar=False,
+        )  # fmt: skip
+    rng = numpy.random.default_rng(4)
+    n = 29
+    # (the points close to the axis of test_actionAngleStaeckel_inverse_nearaxis)
+    near = numpy.array(
+        [
+            [1.3267761370656899, -0.2848181700458333, 0.008451579340850553,
+             3.1377831825578557, -0.44892690709616395],
+            [0.021903441859716655, -1.8349049193596925, -1.146280448585597,
+             0.3001546680366327, 0.3538612503538491],
+            [1.853481323788396, 0.04553761502142584, 0.0006463128272536712,
+             -2.433172469481341, -0.28105638136566685],
+            [0.003737462681295734, -2.115570785838872, -0.26604529254019094,
+             -0.31242862791340587, 0.09782480253575135],
+            [1.0, 3.0, 1.0, 0.1, 0.2],  # (unbound)
+        ]
+    )  # fmt: skip
+    x = [
+        numpy.concatenate([t, near[:, k]])
+        for k, t in enumerate(
+            (
+                rng.uniform(0.8, 1.2, n),
+                rng.normal(0.0, 0.05, n),
+                rng.uniform(0.9, 1.1, n),
+                rng.normal(0.0, 0.05, n),
+                rng.normal(0.0, 0.05, n),
+            )
+        )
+    ]
+    aAS = actionAngleStaeckel(inverse=fam, c=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", galpyWarning)
+        ref = numpy.array(aAS(*x))
+        out = numpy.array([as_numpy(o) for o in aAS(*[torch.tensor(a) for a in x])])
+    assert numpy.all(numpy.isnan(out[[0, 2], -1])) and numpy.all(
+        numpy.isfinite(out[:, :-1])
+    )
+    numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-8)
