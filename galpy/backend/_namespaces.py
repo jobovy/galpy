@@ -56,6 +56,11 @@ def has_concrete_truth_value(x):
     multi-element numpy array has no truth value either, and would be reported
     here as non-concrete.
     """
+    if jax_transformations(x) & {"jit", "vmap"}:
+        # (a staged or batched jax tracer has none, and asking for it raises
+        # an error whose message jax builds by walking the trace: ~0.15 s a
+        # call deep in a large trace)
+        return False
     try:
         bool(x)
     except Exception:
@@ -776,6 +781,16 @@ def device_type(x):
         return jax.default_backend()
     device = device_of(x)
     return None if device is None else device.platform
+
+
+def searchsorted(xp, a, v, side="left"):
+    """``xp.searchsorted(a, v, side=side)``; on jax off the CPU with the
+    binary search unrolled (``method="scan_unrolled"``): jax's default scan
+    is a loop, of which a GPU pays every step (26x slower for 1000 points
+    in a table of 4000; the unrolled search is 8x slower on the CPU)"""
+    if name_of_namespace(xp) == "jax" and device_type(v) != "cpu":
+        return xp.searchsorted(a, v, side=side, method="scan_unrolled")
+    return xp.searchsorted(a, v, side=side)
 
 
 class _ModuleRef(str):

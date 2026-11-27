@@ -48,6 +48,7 @@ from ._namespaces import (
     prefer_backend_namespace,
     requires_backend_grad,
     restore_state,
+    searchsorted,
     to_host,
     under_trace,
 )
@@ -212,7 +213,7 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
         # [x[0], x[-1]]. xp.clip on both ends is itself dead-branch-safe (no
         # division/log), so this stays AD-friendly.
         r = xp.clip(r, xb[0], xb[-1])
-    idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, cb.shape[1] - 1)
+    idx = xp.clip(searchsorted(xp, xb, r, side="right") - 1, 0, cb.shape[1] - 1)
     dr = r - _take0(xp, xb, idx)
     if cb.ndim == 3:
         # Batched coefficients (4, n-1, m): m independent splines on the SAME grid
@@ -526,7 +527,7 @@ def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
             )
         r = xp.clip(r, xb[0], xb[-1])
     # interval index in [0, n-2]
-    idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, xb.shape[0] - 2)
+    idx = xp.clip(searchsorted(xp, xb, r, side="right") - 1, 0, xb.shape[0] - 2)
     x0 = xb[idx]
     x1 = xb[idx + 1]
     y0 = yb[idx]
@@ -601,8 +602,8 @@ def interp_bilinear(xp, x, y, Z, X, Y, *, extrapolate=True):
         X = xp.clip(X, xb[0], xb[-1])
         Y = xp.clip(Y, yb[0], yb[-1])
     # per-axis interval index in [0, n-2]
-    ix = xp.clip(xp.searchsorted(xb, X, side="right") - 1, 0, xb.shape[0] - 2)
-    iy = xp.clip(xp.searchsorted(yb, Y, side="right") - 1, 0, yb.shape[0] - 2)
+    ix = xp.clip(searchsorted(xp, xb, X, side="right") - 1, 0, xb.shape[0] - 2)
+    iy = xp.clip(searchsorted(xp, yb, Y, side="right") - 1, 0, yb.shape[0] - 2)
     x0 = xb[ix]
     x1 = xb[ix + 1]
     y0 = yb[iy]
@@ -760,8 +761,8 @@ def eval_rect_ppoly(xp, xbr, ybr, c, X, Y, *, extrapolate=True):
     kx = cb.shape[0] - 1
     ky = cb.shape[1] - 1
     ny = cb.shape[3]
-    ix = xp.clip(xp.searchsorted(xb, X, side="right") - 1, 0, cb.shape[2] - 1)
-    iy = xp.clip(xp.searchsorted(yb, Y, side="right") - 1, 0, ny - 1)
+    ix = xp.clip(searchsorted(xp, xb, X, side="right") - 1, 0, cb.shape[2] - 1)
+    iy = xp.clip(searchsorted(xp, yb, Y, side="right") - 1, 0, ny - 1)
     dx = X - _take0(xp, xb, ix)
     dy = Y - _take0(xp, yb, iy)
     # ONE gather for all (kx+1)*(ky+1) coefficients of the cell. `cb[px,py,ix,iy]`

@@ -351,6 +351,31 @@ def test_device_type(backend_name, monkeypatch):
     return None
 
 
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_searchsorted(backend_name, monkeypatch):
+    # xp.searchsorted's indices, on either side; on jax off the CPU (here a
+    # trace staged for a GPU) through the unrolled binary search
+    from galpy.backend._namespaces import namespace_for_name, searchsorted
+
+    if backend_name not in _NS:
+        pytest.skip(f"{backend_name} not installed")
+    xp = namespace_for_name(backend_name)
+    knots = numpy.array([0.0, 0.5, 0.5, 1.0, 2.0, 3.5])
+    vals = numpy.array([-1.0, 0.0, 0.25, 0.5, 1.0, 1.7, 3.5, 4.0])
+    a, v = xp.asarray(knots), xp.asarray(vals)
+    for side in ("left", "right"):
+        want = numpy.searchsorted(knots, vals, side=side)
+        assert numpy.array_equal(as_numpy(searchsorted(xp, a, v, side=side)), want)
+        if backend_name == "jax":
+            import jax
+
+            monkeypatch.setattr(jax, "default_backend", lambda: "gpu")
+            got = jax.jit(lambda y, side=side: searchsorted(xp, a, y, side=side))(v)
+            monkeypatch.undo()
+            assert numpy.array_equal(as_numpy(got), want)
+    return None
+
+
 # --- tracing never reads a jax tracer's .device -------------------------------
 # A jax tracer has no device, and asking for one raises an AttributeError whose
 # message, the trace's provenance, jax builds by walking the trace: ~0.4 s per
@@ -384,6 +409,32 @@ def test_tracing_never_reads_a_tracer_device(monkeypatch):
         lambda x: rl(lp, x, use_physical=False),
     ):
         jax.make_jaxpr(f)(jnp.asarray(1.1))
+
+
+@pytest.mark.skipif("jax" not in _NS, reason="jax not installed")
+def test_tracing_never_asks_a_staged_tracer_for_a_truth_value(monkeypatch):
+    # likewise for a truth value: under jax.jit or jax.vmap a tracer has
+    # none, and the error that says so walks the trace (a Staeckel family as
+    # the adiabatic auxiliary spent 821 of its 1080 s of tracing in them);
+    # an eager derivative's tracer keeps its concrete one
+    import jax.numpy as jnp
+    from jax._src import core as jax_core
+
+    from galpy.backend._namespaces import has_concrete_truth_value
+
+    asked = []
+
+    def read(self):
+        asked.append(type(self).__name__)
+        raise RuntimeError("asked a staged jax tracer for its truth value")
+
+    seen = []
+    monkeypatch.setattr(jax_core.Tracer, "__bool__", read)
+    jax.jit(lambda x: seen.append(has_concrete_truth_value(x > 0.0)) or x)(1.0)
+    jax.vmap(lambda x: seen.append(has_concrete_truth_value(x > 0.0)) or x)(jnp.ones(2))
+    monkeypatch.undo()
+    jax.grad(lambda x: seen.append(has_concrete_truth_value(x > 0.0)) or x)(1.0)
+    assert seen == [False, False, True] and asked == []
 
 
 @pytest.mark.skipif("jax" not in _NS, reason="jax not installed")

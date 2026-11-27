@@ -37,6 +37,7 @@ from ..backend._namespaces import (
     namespace_for_name,
     namespace_from_arrays,
     pad_edge,
+    searchsorted,
     untraceable_setup,
 )
 from ..backend.interpolate import Spline1D, interp_bilinear
@@ -2469,12 +2470,12 @@ class quasiisothermaldf(df):
         # probability, so the sampled distribution is preserved.
         FvT = ensure_strictly_increasing(xp, FvT)
         vT = linear_inverse_cdf_sample(xp, vTg, FvT, u[0])
-        iT = xp.clip(xp.searchsorted(vTg, vT) - 1, 0, nvT - 2)
+        iT = xp.clip(searchsorted(xp, vTg, vT) - 1, 0, nvT - 2)
         wT = xp.reshape((vT - vTg[iT]) / (vTg[1] - vTg[0]), (n, 1))
         vR = batched_inverse_cdf_sample(
             xp, vRg, (1.0 - wT) * FvR[iT] + wT * FvR[iT + 1], u[1]
         )
-        iR = xp.clip(xp.searchsorted(vRg, vR) - 1, 0, nvR - 2)
+        iR = xp.clip(searchsorted(xp, vRg, vR) - 1, 0, nvR - 2)
         wR = xp.reshape((vR - vRg[iR]) / (vRg[1] - vRg[0]), (n, 1))
         Fvzj = (1.0 - wT) * ((1.0 - wR) * Fvz[iT, iR] + wR * Fvz[iT, iR + 1]) + wT * (
             (1.0 - wR) * Fvz[iT + 1, iR] + wR * Fvz[iT + 1, iR + 1]
