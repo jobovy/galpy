@@ -457,7 +457,9 @@ def iterate_ladder(ok, x0, factor, n):
         stacked = xp.stack(rungs)
         # (the rungs that are ok before the first that is not: b if none;
         # the n-th rung ends the ladder)
-        keep = xp.cumprod(xp.astype(ok(stacked) & (idx < n - k), x0.dtype), axis=0)
+        # (as floats without astype: also for the torch module itself)
+        ok_ = ok(stacked) & (idx < n - k)
+        keep = xp.cumprod(xp.where(ok_, 1.0 + 0.0 * stacked, 0.0 * stacked), axis=0)
         j = xp.sum(keep, axis=0)
         first = xp.sum(xp.where(idx == j, stacked, 0.0 * x0), axis=0)
         out = xp.where(~done & (j < b), first, out)
@@ -533,7 +535,7 @@ def bisect_levels(lo, hi, slo, f, xp, levels, walk=None):
     ilo, ihi = 0.0 * lo, 0.0 * lo + k
     for _ in range(levels if walk is None else walk):
         mid = 0.5 * (ilo + ihi)
-        up = at(xp.astype(same, lo.dtype), mid - 1.0) > 0.5
+        up = at(xp.where(same, 1.0 + 0.0 * lo, 0.0 * lo), mid - 1.0) > 0.5
         ilo, ihi = xp.where(up, mid, ilo), xp.where(up, ihi, mid)
     return at(stacked, ilo), at(stacked, ihi)
 
