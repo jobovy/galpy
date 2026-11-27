@@ -10,6 +10,7 @@
 # the construction's and evaluation's checks
 ###############################################################################
 import copy
+import importlib
 
 import numpy
 import pytest
@@ -1112,6 +1113,374 @@ def test_tori_from_actions_sheets_backend():
             )
 
 
+# tori set up from their actions natively (traced or differentiated actions,
+# or on a GPU): a generic torus and one on each face, in MWPotential2014
+_NATIVE_J = dict(jrs=[0.05, 0.0, 0.02], Lzs=[1.0, 0.8, -1.2], jzs=[0.03, 0.04, 0.0])
+# actions of no torus of MWPotential2014's model of delta=0.27, u0='torus' (the
+# actions jump close to the axis)
+_NO_TORUS = (0.01662122421268204, 0.017912561242134813, 0.20920350851878325)
+
+
+def _native_kw(rule, u0="torus"):
+    from galpy.potential import MWPotential2014
+
+    if rule:
+        delta = lambda E, Lz, f: 0.45 * (1.0 + 0.1 * (f - 0.5) + 0.05 * Lz)  # noqa: E731
+    else:
+        delta = 0.45
+    if u0 == "callable":
+        u0 = lambda E, Lz: 1.0 + 0.1 * Lz  # noqa: E731
+    return dict(pot=MWPotential2014, delta=delta, u0=u0, mm_npt=32, progressbar=False)
+
+
+def _native_points(aA, J):
+    return numpy.array(
+        [
+            _flat(aA(jr, Lz, jz, _ANGLES[:3], 1.0, 2.0))
+            for jr, Lz, jz in zip(J["jrs"], J["Lzs"], J["jzs"])
+        ]
+    )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.parametrize(
+    "rule,u0",
+    [
+        (False, "torus"),
+        (True, "torus"),
+        (False, "shell"),
+        (True, "shell"),
+        (False, "callable"),
+    ],
+)
+def test_tori_from_actions_native(rule, u0):
+    # tori set up from differentiated actions are solved for natively, all at
+    # once (as on a GPU and under jax.jit): their integrals (and focal
+    # lengths under a rule) are numpy's, and their points numpy's to the
+    # precision of the turning points that the solve finds (which numpy's
+    # tori are set up on)
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    kw = _native_kw(rule, u0)
+    aN = actionAngleStaeckelInverse(**_NATIVE_J, **kw)
+    J = {k: torch.tensor(v, requires_grad=True) for k, v in _NATIVE_J.items()}
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(**J, **kw)
+        pB = _native_points(aB, _NATIVE_J)
+    # (under a rule, to the 1e-12 to which its focal lengths converge)
+    rtol = 1e-12 if rule else 1e-13
+    numpy.testing.assert_allclose(as_numpy(aB._Es), aN._Es, rtol=rtol, atol=0.0)
+    numpy.testing.assert_allclose(as_numpy(aB._I3s), aN._I3s, rtol=rtol, atol=1e-15)
+    if rule:
+        numpy.testing.assert_allclose(
+            as_numpy(aB._bk["deltas"]), aN._deltas, rtol=rtol, atol=0.0
+        )
+    numpy.testing.assert_allclose(
+        pB, _native_points(aN, _NATIVE_J), rtol=0.0, atol=1e-9
+    )
+
+
+def _unconverged_tori():
+    # two near-axis tori of a fitted rule at angles whose vectorized Newton
+    # iteration for the anomalies does not converge: the keywords that set
+    # them up, the angles, and numpy's points
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    with gb.use("numpy", force=True):
+        fam = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta="fit",
+            u0="torus",
+            setup_interp=True,
+            Rmin=0.08,
+            Rmax=14.5,
+            Rinf=30.0,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=32,
+            progressbar=False,
+        )
+    kw = dict(
+        pot=MWPotential2014,
+        delta=fam.delta,
+        u0="torus",
+        mm_npt=128,
+        progressbar=False,
+        jrs=[1.445704293904461, 0.02952728077189904],
+        Lzs=[0.0017666654511333476, 0.022944891605053343],
+        jzs=[0.0056624704253855455, 0.791342968271593],
+    )
+    angles = ([6.154419250568444, 2.508819429227821], [0.0, 0.0])
+    angles = (*angles, [2.314008829991801, 4.505178120075055])
+    xn = numpy.array(
+        actionAngleStaeckelInverse(**kw).xvFreqs(
+            kw["jrs"], kw["Lzs"], kw["jzs"], *angles
+        )
+    )
+    return kw, angles, xn
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_unconverged_angles_vectorized(monkeypatch):
+    # points whose vectorized Newton iteration for the anomalies does not
+    # converge (near-axis tori of a fitted rule): solved all at once from
+    # their requested angles within brackets as wide as their angle
+    # relations can need, as numpy, not torus by torus
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    mod = importlib.import_module("galpy.actionAngle.actionAngleStaeckelInverse")
+    kw, angles, xn = _unconverged_tori()
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(**kw)
+    steps = []
+    brentq = mod._backend_brentq
+
+    def spy(*args, **kwargs):
+        steps.append(kwargs.get("newton_steps"))
+        return brentq(*args, **kwargs)
+
+    def per_torus(*args, **kwargs):
+        raise AssertionError("a point went torus by torus")
+
+    monkeypatch.setattr(mod, "_backend_brentq", spy)
+    monkeypatch.setattr(mod.actionAngleStaeckelInverse, "_bk_per_torus", per_torus)
+    xb = numpy.array(
+        [
+            as_numpy(t)
+            for t in aB.xvFreqs(
+                *(torch.tensor(t) for t in (kw["jrs"], kw["Lzs"], kw["jzs"], *angles))
+            )
+        ]
+    )
+    assert 24 in steps, "the points were not solved from their requested angles"
+    assert numpy.allclose(xb[:6], xn[:6], rtol=0.0, atol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_tori_unconverged_angles_jit():
+    # under jax.jit, the points that the Newton iteration for the anomalies
+    # leaves far from their roots are solved again from their requested
+    # angles within wide brackets, a few at a time: numpy's points
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    kw, angles, xn = _unconverged_tori()
+    with gb.use("jax", force=True):
+        aB = actionAngleStaeckelInverse(**kw)
+    xb = numpy.asarray(
+        jax.jit(lambda *a: jnp.stack(aB.xvFreqs(*a)))(
+            *(jnp.asarray(t) for t in (kw["jrs"], kw["Lzs"], kw["jzs"], *angles))
+        )
+    )
+    assert numpy.allclose(xb[:6], xn[:6], rtol=0.0, atol=1e-9)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_native_fine_anomalies():
+    # many tori on a fine anomaly grid: the native solve first on a coarser
+    # grid, then on the tori's own, numpy's integrals
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    rng = numpy.random.default_rng(3)
+    n = 130
+    J = dict(
+        jrs=10 ** rng.uniform(-2.0, -1.0, n),
+        Lzs=rng.uniform(0.5, 1.5, n),
+        jzs=10 ** rng.uniform(-2.3, -1.3, n),
+    )
+    kw = dict(pot=MWPotential2014, delta=0.45, mm_npt=32, mm_nta=264, progressbar=False)
+    aN = actionAngleStaeckelInverse(**J, **kw)
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(
+            **{k: torch.tensor(v, requires_grad=True) for k, v in J.items()}, **kw
+        )
+    numpy.testing.assert_allclose(as_numpy(aB._Es), aN._Es, rtol=1e-13, atol=0.0)
+    numpy.testing.assert_allclose(as_numpy(aB._I3s), aN._I3s, rtol=1e-13, atol=1e-14)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_native_inputs():
+    # set up natively from differentiated actions: numpy actions among them
+    # (on the device of the set-up), the frequencies of one torus, and the
+    # errors for unequal lengths, L_z = 0, negative actions, a rule with
+    # negative focal lengths, and actions that are not one of the tori
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.45, mm_npt=32, progressbar=False)
+    Lz, jz = numpy.array([1.0, 0.8]), numpy.array([0.03, 0.01])
+    aN = actionAngleStaeckelInverse(jrs=[0.05, 0.02], Lzs=Lz, jzs=jz, **kw)
+    jr = torch.tensor([0.05, 0.02], requires_grad=True)
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
+        numpy.testing.assert_allclose(
+            [
+                float(as_numpy(t))
+                for t in aB.Freqs(*(torch.tensor(v) for v in (0.05, 1.0, 0.03)))
+            ],
+            [float(numpy.ravel(t)[0]) for t in aN.Freqs(0.05, 1.0, 0.03)],
+            rtol=1e-9,
+        )
+        with pytest.raises(ValueError, match="not one of the set-up tori"):
+            aB(
+                torch.tensor([0.05, 0.07]),
+                torch.tensor(Lz),
+                torch.tensor(jz),
+                0.1,
+                0.2,
+                0.3,
+            )
+        for bad, match in (
+            (dict(jrs=jr, Lzs=numpy.array([1.0]), jzs=jz), "same length"),
+            (dict(jrs=jr, Lzs=numpy.array([1.0, 0.0]), jzs=jz), "L_z = 0"),
+            (dict(jrs=-jr, Lzs=Lz, jzs=jz), "non-negative"),
+            (
+                dict(jrs=jr, Lzs=Lz, jzs=jz, delta=lambda E, L, f: 0.0 * E - 0.45),
+                "positive focal lengths",
+            ),
+        ):
+            with pytest.raises(ValueError, match=match):
+                actionAngleStaeckelInverse(**{**kw, **bad})
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_native_derivatives():
+    # the derivatives of a torus's points in its actions through its set-up
+    # from them equal finite differences of numpy's tori set up at the
+    # displaced actions (a single model: the reference curve and focal length
+    # held, as a family's derivatives hold them)
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.45, mm_npt=32, progressbar=False)
+    j0 = numpy.array([0.05, 1.0, 0.03])
+
+    def numpy_R(j):
+        aN = actionAngleStaeckelInverse(jrs=[j[0]], Lzs=[j[1]], jzs=[j[2]], **kw)
+        return numpy.array([numpy.ravel(t)[0] for t in aN(*j, 0.4, 1.0, 2.0)[:2]])
+
+    x = torch.tensor(j0, requires_grad=True)
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(jrs=x[0:1], Lzs=x[1:2], jzs=x[2:3], **kw)
+        out = aB(x[0], x[1], x[2], 0.4, 1.0, 2.0)[:2]
+    for k in range(2):
+        g = as_numpy(torch.autograd.grad(out[k], x, retain_graph=True)[0])
+        fd = numpy.array(
+            [_fd(lambda h: numpy_R(j0 + h * e)[k], 0.0, 1e-4) for e in numpy.eye(3)]
+        )
+        numpy.testing.assert_allclose(g, fd, rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_construction_from_actions():
+    # the whole set-up of tori from their actions, and their evaluation,
+    # traces under jax.jit; actions of no torus return nan under the trace
+    # (the others unchanged) and raise for concrete actions
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.27, u0="torus", mm_npt=32, progressbar=False)
+    J = {k: list(v) for k, v in _NATIVE_J.items()}
+    for k, v in zip(("jrs", "Lzs", "jzs"), _NO_TORUS):
+        J[k].append(v)
+    J = {k: numpy.array(v) for k, v in J.items()}
+
+    # (each torus at its own angles, in one call: one trace of the evaluation)
+    angs = (_ANGLES[:4], 1.0, 2.0)
+
+    def f(jr, Lz, jz):
+        with gb.use("jax", force=True):
+            aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
+            return jnp.stack(aB(jr, Lz, jz, *angs))
+
+    out = numpy.asarray(jax.jit(f)(*(jnp.asarray(J[k]) for k in ("jrs", "Lzs", "jzs"))))
+    good = {k: v[:3] for k, v in J.items()}
+    aN = actionAngleStaeckelInverse(**good, **kw)
+    ref = numpy.array(aN(good["jrs"], good["Lzs"], good["jzs"], _ANGLES[:3], 1.0, 2.0))
+    numpy.testing.assert_allclose(out[:, :3], ref, rtol=0.0, atol=1e-9)
+    assert numpy.all(numpy.isnan(out[:, 3])), (
+        "actions of no torus do not return nan under jax.jit"
+    )
+    with pytest.raises(ValueError, match="No torus with the actions"):
+        with gb.use("torch", force=True):
+            actionAngleStaeckelInverse(
+                **{k: torch.tensor(v, requires_grad=True) for k, v in J.items()}, **kw
+            )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_jax_jit_construction_from_actions_single_curve():
+    # tori on the model's single reference curve set up from their actions
+    # under jax.jit: the model, set up in the trace, gives V itself
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.27, mm_npt=32, progressbar=False)
+    J = {k: numpy.array(v[:2]) for k, v in _NATIVE_J.items()}
+
+    def f(jr, Lz, jz):
+        with gb.use("jax", force=True):
+            aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
+            return jnp.stack(aB(jr, Lz, jz, _ANGLES[:2], 1.0, 2.0))
+
+    out = numpy.asarray(jax.jit(f)(*(jnp.asarray(J[k]) for k in ("jrs", "Lzs", "jzs"))))
+    ref = numpy.array(
+        actionAngleStaeckelInverse(**J, **kw)(
+            J["jrs"], J["Lzs"], J["jzs"], _ANGLES[:2], 1.0, 2.0
+        )
+    )
+    numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-9)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_shell_face_large_I3_backend():
+    # a family set up on a backend: its nodes on the shell face stay on it
+    # however large the third integral (as numpy's since main #2046: the
+    # backend's node solve stops at a face), and their tori are finite and
+    # of a single radius
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.006, u0="torus", setup_interp=True)
+    kw.update(Rmin=0.0031, Rmax=0.0062, Rinf=16.0, nE=4, nLz=4, nI3=4)
+    with gb.use("torch", force=True):
+        aAI = actionAngleStaeckelInverse(**kw, mm_npt=64, progressbar=False)
+        angles = numpy.linspace(0.1, 6.0, 5)
+        for jz in (0.1, 1.0):
+            R, vR, vT, z, vz, phi = numpy.array(
+                [
+                    as_numpy(t)
+                    for t in aAI(
+                        numpy.zeros(5),
+                        0.0015 * numpy.ones(5),
+                        jz * numpy.ones(5),
+                        angles,
+                        0.7 * angles,
+                        1.3 * angles,
+                    )
+                ]
+            )
+            r = numpy.sqrt(R**2.0 + z**2.0)
+            assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
+                "A shell torus of a backend family with a large third integral is not finite"
+            )
+            assert numpy.all(numpy.fabs(r / numpy.mean(r) - 1.0) < 1e-3), (
+                "A shell torus of a backend family does not have a single radius"
+            )
+
+
 # ---------- the construction's contract and checks
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_construction_contract(backend):
@@ -1611,12 +1980,13 @@ def test_jax_jit_array_actions_adaptive(kind):
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
-def test_array_actions_fallbacks(interp):
-    # points whose vectorized solve does not converge take the one-torus
-    # path: an angle solve cut at one Newton step, and the label inversion of
-    # tiny actions; a torus beyond the family and an |L_z| beyond the grid
-    # raise as for one torus (torch: under eager jax the one-torus path's
-    # safeguarded steps take minutes)
+def test_array_actions_fallbacks(interp, monkeypatch):
+    # points whose vectorized Newton iteration is cut at one step are solved
+    # again all at once, from their requested angles; tiny actions; points
+    # whose label inversion does not converge in the backend (here: flagged)
+    # take the one-torus path; a torus beyond the family and an |L_z| beyond
+    # the grid raise as for one torus (torch: under eager jax the one-torus
+    # path's safeguarded steps take minutes)
     J, ang = _ARR_TORI[[0, 1, 5, 0]], _ARR_ANG[:, [0, 1, 5, 2]]
     J[3] = (0.09, 1.05, 0.05)
     fb = copy.copy(interp)
@@ -1637,6 +2007,23 @@ def test_array_actions_fallbacks(interp):
         rtol=0.0,
         atol=1e-11,
     )
+    coords = type(interp)._bk_interp_coords_rows
+
+    def flagged(self, *args, **kwargs):
+        x, y, bad = coords(self, *args, **kwargs)
+        if bad is not None:
+            bad = numpy.array(bad)
+            bad[0] = True
+        return x, y, bad
+
+    with monkeypatch.context() as m:
+        m.setattr(type(interp), "_bk_interp_coords_rows", flagged)
+        numpy.testing.assert_allclose(
+            _flat(interp.xvFreqs(*tt, *ang)),
+            _flat(interp.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)),
+            rtol=0.0,
+            atol=1e-9,
+        )
     # an array of one distinct torus takes the one-torus path
     numpy.testing.assert_allclose(
         _flat(interp(*(torch.tensor([v, v]) for v in J[0]), ang[0, :2], 1.0, 2.0)),

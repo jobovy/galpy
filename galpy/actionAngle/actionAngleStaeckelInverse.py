@@ -32,6 +32,7 @@ from ..backend import (
     has_concrete_truth_value,
     host_eval,
     is_backend_array,
+    lazy_cond,
     map_row_chunks,
     match_input_dtype,
     to_host,
@@ -40,6 +41,7 @@ from ..backend import (
 from ..backend._namespaces import (
     as_numpy_constant,
     host_copy,
+    like,
     name_of_namespace,
     namespace_from_arrays,
     picklable_state,
@@ -175,11 +177,38 @@ def _hermite_table(x, y, yp):
 def _hermite_eval(tab, x, deriv=False):
     """The value at x of the cubic Hermite interpolant of _hermite_table,
     and with deriv also its slope; x is held inside the table, and a NaN
-    stays one"""
-    val = eval_ppoly(numpy, *tab, x, extrapolate="clip")
+    stays one (x a jax/torch array: in its namespace)"""
+    xp = _ns(x)
+    val = eval_ppoly(xp, *tab, x, extrapolate="clip")
     if not deriv:
         return val
-    return val, eval_ppoly(numpy, *tab, x, nu=1, extrapolate="clip")
+    return val, eval_ppoly(xp, *tab, x, nu=1, extrapolate="clip")
+
+
+def _col(d):
+    """A focal length against arrays with a point axis after the tori's:
+    itself for the single one of a model, a column for one per torus"""
+    return d if numpy.ndim(d) == 0 else d[:, None]
+
+
+def _rep(d, k):
+    """A focal length against the tori taken k times in a row (tiled)"""
+    return d if numpy.ndim(d) == 0 else _tile(d, k)
+
+
+def _sqrt_pos(W):
+    """sqrt(max(W, 0)), also in jax/torch, without the infinite derivative
+    where W vanishes (a degenerate libration's momenta)"""
+    xp = _ns(W)
+    if xp is numpy:
+        return numpy.sqrt(numpy.clip(W, 0.0, None))
+    pos = W > 0.0
+    return xp.where(pos, xp.sqrt(xp.where(pos, W, 1.0)), 0.0)
+
+
+def _tile(a, k):
+    """numpy.tile(a, k) of a 1D array, also in jax/torch"""
+    return numpy.tile(a, k) if _ns(a) is numpy else _ns(a).concatenate([a] * k)
 
 
 def _multisect(f, lo, hi, bits):
@@ -190,14 +219,30 @@ def _multisect(f, lo, hi, bits):
     by the number of brackets alone (bisection for many, 64 sections for a
     few, where the number of calls and not that of evaluations is the
     cost), so that the schedule is fixed."""
+    xp = _ns(lo, hi)
     logK = int(numpy.clip(numpy.log2(2048.0 / max(len(lo), 1)), 1, 6))
-    w = numpy.arange(1, 2**logK) / 2**logK
-    for _ in range(-(-bits // logK)):
+    w = like(lo, numpy.arange(1, 2**logK) / 2**logK)
+
+    def step(s):
+        lo, hi = s
         d = (hi - lo) / 2**logK
         with numpy.errstate(invalid="ignore"):
             neg = f(lo[:, None] + (hi - lo)[:, None] * w) < 0.0
-        lo = lo + numpy.sum(numpy.cumprod(neg, axis=1), axis=1) * d
-        hi = lo + d
+        if xp is not numpy:
+            neg = xp.astype(neg, lo.dtype)
+        lo = lo + xp.sum(xp.cumprod(neg, axis=1), axis=1) * d
+        return lo, lo + d
+
+    if under_jax_trace(lo, hi):
+        # (a rolled loop)
+        s = iterate_bracket(
+            lambda s: xp.stack(step((s[0], s[1]))),
+            xp.stack([lo, hi]),
+            -(-bits // logK),
+        )
+        return 0.5 * (s[0] + s[1])
+    for _ in range(-(-bits // logK)):
+        lo, hi = step((lo, hi))
     return 0.5 * (lo + hi)
 
 
@@ -1068,7 +1113,69 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             # _rule_family; it is not pickled, so that the instance pickles
             # whatever the callable)
             self._delta_callable = self._delta_rule
-        if not setup_interp:
+        # tori set up from traced or differentiated actions: natively, the
+        # actions and L_z kept on the backend
+        traced = (
+            not setup_interp
+            and xp_bk is not None
+            and jrs is not None
+            and (under_trace(Lzs, jrs, jzs) or requires_backend_grad(Lzs, jrs, jzs))
+        )
+        found_bk = None
+        if traced:
+            self._Lzs, jrs, jzs = (
+                1.0 * conversion.parse_angmom(t, ro=self._ro, vo=self._vo)
+                for t in (Lzs, jrs, jzs)
+            )
+            # (numpy actions among them: on the device of the set-up)
+            self._Lzs, jrs, jzs = (
+                t if is_backend_array(t) else self._bk_on_device(xp_bk, t)[0]
+                for t in (self._Lzs, jrs, jzs)
+            )
+            if not self._Lzs.shape == jrs.shape == jzs.shape:
+                raise ValueError("jrs, Lzs, and jzs have to have the same length")
+            if concretely_true(xp_bk.any(self._Lzs == 0.0)):
+                raise ValueError(
+                    "L_z = 0 is not supported: the v libration of a polar orbit reaches the axis"
+                )
+            if concretely_true(xp_bk.any((jrs < 0.0) | (jzs < 0.0))):
+                raise ValueError("J_R and J_z have to be non-negative")
+            # (the potential's own parameters: under jax.jit, the model's,
+            # set up in the trace, are traced)
+            if _pot_grad_namespace(self._chart_pot) is not None:
+                raise NotImplementedError(
+                    "tori set up from their actions (jrs=, jzs=) in a Staeckel "
+                    "model with differentiated jax/torch parameters: set them up "
+                    "from their integrals (Es=, Lzs=, I3s=)"
+                )
+            ell = xp_bk.abs(self._Lzs)
+            if varies:
+                E, I3, found_bk, rows, D = self._bk_integrals_rule(xp_bk, jrs, ell, jzs)
+            else:
+                E, I3, found_bk, rows = self._bk_integrals_many(xp_bk, jrs, ell, jzs)
+            allf = xp_bk.all(found_bk)
+            if has_concrete_truth_value(allf) and not concretely_true(allf):
+                raise self._not_found_error(
+                    *(
+                        numpy.asarray(as_numpy(stop_gradient(t)))
+                        for t in (found_bk, jrs, ell, jzs)
+                    ),
+                    False,
+                )
+            # (the tori not found, under a trace, are set up as the circular
+            # orbit and return nan: _bk_explicit_tables)
+            if varies:
+                self._delta_tab = D
+            Ec = self._circular_many(stop_gradient(ell))[0]
+            self._Es = xp_bk.where(found_bk, E, Ec)
+            self._I3s = xp_bk.where(
+                found_bk,
+                I3,
+                ell**2 / (2.0 * (D if varies else self._delta) ** 2) - Ec,
+            )
+            host_u = rows[:3].T
+            self._ddelta_tab, self._delta_col = numpy.zeros((jrs.shape[0], 3)), None
+        elif not setup_interp:
             self._Lzs = conversion._parse_grid_quantity(
                 to_host(Lzs), conversion.parse_angmom, ro=self._ro, vo=self._vo
             ).astype("float")
@@ -1118,7 +1225,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 # the integrals (and, with a rule, the focal lengths) on numpy;
                 # for a backend build, by a host copy of the model with caches
                 # of its own (the tori are then built on the backend from
-                # these integrals)
+                # these integrals: those of numpy's tori; traced or
+                # differentiated actions are solved for natively, above)
                 host = self
                 if xp_bk is not None:
                     host = host_copy(self)
@@ -1147,18 +1255,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                                 host_u.append(host._u_turning(*t)[:3])
                         host_u = numpy.array(host_u)
                 if not numpy.all(found):
-                    first = numpy.argmin(found)
-                    raise ValueError(
-                        "No torus with the actions (J_R, |L_z|, J_z) of "
-                        f"{numpy.sum(~found)} of the {len(found)} tori was found "
-                        "in this Staeckel model; the first is "
-                        f"({jrs[first]}, {numpy.fabs(self._Lzs[first])}, "
-                        f"{jzs[first]}). Either the model has no such torus "
-                        "(close to the axis the tori of a Staeckel approximation "
-                        "are not one continuous family, and the actions jump "
-                        "where two of them merge) or the torus is unbound"
-                        + " (or no focal length is the rule delta='s own at it)"
-                        * varies
+                    raise self._not_found_error(
+                        found, jrs, numpy.fabs(self._Lzs), jzs, varies
                     )
             # (the derivatives of the focal lengths with respect to the
             # actions along the rule: _setup_tori)
@@ -1177,6 +1275,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 Lzspacing=Lzspacing,
                 host_u=host_u,
             )
+            if found_bk is not None:
+                # the tori not found: their own actions, and nan
+                self._bk["found"] = found_bk
+                for k, j in (("jrs", jrs), ("jzs", jzs)):
+                    self._bk[k] = xp_bk.where(found_bk, self._bk[k], j)
             self._check_consistent_units()
             for k in ("_delta_tab", "_ddelta_tab", "_delta_col"):
                 self.__dict__.pop(k, None)
@@ -1218,6 +1321,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             del self._delta_tab, self._ddelta_tab, self._delta_col
         self._forget_delta_rule()
         return None
+
+    @staticmethod
+    def _not_found_error(found, jr, ell, jz, varies):
+        """The error for explicit tori whose actions no torus has"""
+        first = numpy.argmin(found)
+        return ValueError(
+            "No torus with the actions (J_R, |L_z|, J_z) of "
+            f"{numpy.sum(~found)} of the {len(found)} tori was found "
+            "in this Staeckel model; the first is "
+            f"({jr[first]}, {ell[first]}, "
+            f"{jz[first]}). Either the model has no such torus "
+            "(close to the axis the tori of a Staeckel approximation "
+            "are not one continuous family, and the actions jump "
+            "where two of them merge) or the torus is unbound"
+            + " (or no focal length is the rule delta='s own at it)"
+            * varies
+        )
 
     def _forget_delta_rule(self):
         """After a family whose focal length follows its tori is set up: the
@@ -1512,10 +1632,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return self._staeckelwrap._U(u.ravel()).reshape(u.shape)
 
     def _dU(self, u):
+        if is_backend_array(u):
+            return self._bk_U(u, 1)
         u = numpy.asarray(u, dtype="float")
         return self._staeckelwrap._dUdu(u.ravel()).reshape(u.shape)
 
     def _d2U(self, u):
+        if is_backend_array(u):
+            return self._bk_U(u, 2)
         u = numpy.asarray(u, dtype="float")
         return self._staeckelwrap._d2Udu2(u.ravel()).reshape(u.shape)
 
@@ -1543,9 +1667,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _dWu(self, u, E, Lz):
         """d p_u^2 / du (independent of I_3)"""
+        xp = _ns(u, E, Lz)
         return (
-            2.0 * self._delta**2 * (E * numpy.sinh(2.0 * u) - self._dU(u))
-            + 2.0 * Lz**2 * numpy.cosh(u) / numpy.sinh(u) ** 3
+            2.0 * self._delta**2 * (E * xp.sinh(2.0 * u) - self._dU(u))
+            + 2.0 * Lz**2 * xp.cosh(u) / xp.sinh(u) ** 3
         )
 
     def _dWv(self, v, E, Lz):
@@ -1557,9 +1682,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _d2Wu(self, u, E, Lz):
         """d^2 p_u^2 / du^2 (independent of I_3)"""
-        sh2 = numpy.sinh(u) ** 2
+        xp = _ns(u, E, Lz)
+        sh2 = xp.sinh(u) ** 2
         return (
-            2.0 * self._delta**2 * (2.0 * E * numpy.cosh(2.0 * u) - self._d2U(u))
+            2.0 * self._delta**2 * (2.0 * E * xp.cosh(2.0 * u) - self._d2U(u))
             - Lz**2 * (6.0 + 4.0 * sh2) / sh2**2
         )
 
@@ -1908,13 +2034,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Ipl, _, Ish, _ = self._axis_reach_faces(E, Lz)[:4]
         lo, hi = 0.0, 1.0
         f = min(max(y if start is None else (start - Ipl) / (Ish - Ipl), lo), hi)
-        if y <= 0.0 or y >= 1.0:
+        face = y <= 0.0 or y >= 1.0
+        if face:
             # a face is the face exactly
             f = min(max(y, 0.0), 1.0)
         for _ in range(100):
             fe = f
             yf, dy = self._y_of_I3(E, Lz, Ipl + f * (Ish - Ipl))
-            if numpy.fabs(yf - y) < 1e-13 or hi - lo < 4e-16:
+            if numpy.fabs(yf - y) < 1e-13 or hi - lo < 4e-16 or face:
+                # converged, or a face, which no rounding of the variable
+                # there (it grows with the size of I_3) may move the torus
+                # off: the face's torus is degenerate, a neighbor is not
                 break
             lo, hi = (f, hi) if yf < y else (lo, f)
             fn = f - (yf - y) / (dy[1] * (Ish - Ipl))
@@ -2154,7 +2284,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.log(1e-8 * d), numpy.log(d * numpy.sinh(20.0)), 12001
             )
             R = numpy.exp(lnR)
-            with numpy.errstate(all="ignore"):
+            # (a table on numpy, also under a forced backend)
+            with numpy.errstate(all="ignore"), use("numpy", force=True):
                 Phi = evaluatePotentials(
                     self._chart_pot, R, 0.0 * R, use_physical=False
                 )
@@ -2168,13 +2299,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._midplane_tab = (tab, (scan, *_hermite_eval(tab, scan, deriv=True)))
         return self._midplane_tab
 
-    def _W0(self, lnR, E, ell, deriv=False):
+    def _W0(self, lnR, E, ell, deriv=False, delta=None):
         """p_u^2 + 2 delta^2 I_3 for tori of energies E and angular momenta
         ell where the u spheroid crosses the midplane at ln R (R = delta
         sinh u), from the tabulated midplane potential: 2 E R^2 - 2
         (delta^2 + R^2) Phi(R) - L_z^2 delta^2 / R^2; with deriv, its
-        derivative with respect to ln R instead"""
-        d2, R2 = self._delta**2, numpy.exp(2.0 * lnR)
+        derivative with respect to ln R instead; delta: the focal lengths
+        of the tori where each has its own (of the shape of E)"""
+        d2 = (self._delta if delta is None else delta) ** 2
+        R2 = _ns(lnR).exp(2.0 * lnR)
         if not deriv:
             return (
                 2.0 * R2 * E
@@ -2184,7 +2317,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Phi, dPhi = _hermite_eval(self._midplane()[0], lnR, deriv=True)
         return 4.0 * R2 * (E - Phi) - 2.0 * (d2 + R2) * dPhi + 2.0 * ell**2 * d2 / R2
 
-    def _wells(self, E, ell):
+    def _wells(self, E, ell, delta=None):
         """The extrema of p_u^2 for tori of energies E and angular momenta
         ell (I_3 only shifts it): the ln R (R = delta sinh u) of its
         outermost maximum, of the barrier next to that on the inside and of
@@ -2194,74 +2327,99 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         |L_z|: below the barrier's level one libration spans both wells,
         above it the libration about the outer maximum and that about the
         inner one coexist at the same integrals. Each extremum is located
-        on a fixed scan and refined by sectioning."""
-        xs, Phi, dPhi = self._midplane()[1]
-        d2, R2 = self._delta**2, numpy.exp(2.0 * xs)
+        on a fixed scan and refined by sectioning. delta: the focal length
+        of each torus, where they differ."""
+        xp = _ns(E)
+        xs, Phi, dPhi = like(E, *self._midplane()[1])
+        d = self._delta if delta is None else delta
+        d2, R2, d3 = _col(d) ** 2, xp.exp(2.0 * xs), _rep(d, 3)
         pos = (
             4.0 * R2 * (E[:, None] - Phi)
             - 2.0 * (d2 + R2) * dPhi
             + 2.0 * ell[:, None] ** 2 * d2 / R2
         ) > 0.0
         down, up = pos[:, :-1] & ~pos[:, 1:], ~pos[:, :-1] & pos[:, 1:]
-        k = numpy.arange(len(xs) - 1)
-        ko = numpy.amax(numpy.where(down, k, -1), axis=1)
-        kb = numpy.amax(numpy.where(up & (k < ko[:, None]), k, -1), axis=1)
-        ki = numpy.amax(numpy.where(down & (k < kb[:, None]), k, -1), axis=1)
+        k = like(E, numpy.arange(len(xs) - 1))
+        ko = xp.max(xp.where(down, k, -1), axis=1)
+        kb = xp.max(xp.where(up & (k < ko[:, None]), k, -1), axis=1)
+        ki = xp.max(xp.where(down & (k < kb[:, None]), k, -1), axis=1)
         # (a barrier counts with the maximum inside it)
-        kb = numpy.where(ki >= 0, kb, -1)
+        kb = xp.where(ki >= 0, kb, -1)
         # (the three in one pass)
-        kk = numpy.concatenate([ko, kb, ki])
-        sgn = numpy.repeat([-1.0, 1.0, -1.0], len(E))[:, None]
-        E3, l3 = numpy.tile(E, 3), numpy.tile(ell, 3)
+        kk = xp.concatenate([ko, kb, ki])
+        sgn = like(E, numpy.repeat([-1.0, 1.0, -1.0], len(E))[:, None])
+        E3, l3 = _tile(E, 3), _tile(ell, 3)
+        lo = xp.clip(kk, 0, len(xs) - 2)
+        if xp is not numpy:
+            lo = xp.astype(lo, xp.int64)
         x = _multisect(
-            lambda x: sgn * self._W0(x, E3[:, None], l3[:, None], deriv=True),
-            xs[numpy.maximum(kk, 0)],
-            xs[numpy.maximum(kk, 0) + 1],
+            lambda x: (
+                sgn * self._W0(x, E3[:, None], l3[:, None], deriv=True, delta=_col(d3))
+            ),
+            xp.take(xs, lo, axis=0),
+            xp.take(xs, lo + 1, axis=0),
             36,
         )
-        x = numpy.where(kk >= 0, x, numpy.nan)
+        x = xp.where(kk >= 0, x, numpy.nan)
         with numpy.errstate(invalid="ignore"):
-            return (*x.reshape(3, -1), *self._W0(x, E3, l3).reshape(3, -1))
+            if xp is numpy:
+                W = self._W0(x, E3, l3, delta=d3)
+            else:
+                # (at a stand-in where there is no extremum: no NaN derivative)
+                W = xp.where(
+                    kk >= 0,
+                    self._W0(xp.where(kk >= 0, x, xs[0]), E3, l3, delta=d3),
+                    numpy.nan,
+                )
+            return (*xp.reshape(x, (3, -1)), *xp.reshape(W, (3, -1)))
 
     def _circular_many(self, ell):
         """The energies and the epicycle and vertical frequencies of the
         circular orbits of many angular momenta: the radius bracketed on
         the tabulated midplane potential and solved on the potential
         itself"""
+        xp = _ns(ell)
         lnR, _, dPhi = self._midplane()[1]
         pot = self._chart_pot
 
         def dphi(R):
-            return -evaluateRforces(
-                pot, R.ravel(), 0.0 * R.ravel(), use_physical=False
-            ).reshape(R.shape)
+            return xp.reshape(
+                -evaluateRforces(
+                    pot,
+                    xp.reshape(R, (-1,)),
+                    0.0 * xp.reshape(R, (-1,)),
+                    use_physical=False,
+                ),
+                R.shape,
+            )
 
         L2 = numpy.maximum.accumulate(numpy.exp(2.0 * lnR) * dPhi)
-        k = numpy.clip(numpy.searchsorted(L2, ell**2), 1, len(L2) - 1)
+        k = xp.clip(xp.searchsorted(like(ell, L2), ell**2), 1, len(L2) - 1)
         # (a point of the scan further on either side: the table's and the
         # potential's own slopes differ in the last digits)
-        Rc = numpy.exp(
+        lnR = like(ell, lnR)
+        Rc = xp.exp(
             _multisect(
-                lambda x: numpy.exp(3.0 * x) * dphi(numpy.exp(x)) - ell[:, None] ** 2,
-                lnR[numpy.maximum(k - 2, 0)],
-                lnR[numpy.minimum(k + 1, len(L2) - 1)],
+                lambda x: xp.exp(3.0 * x) * dphi(xp.exp(x)) - ell[:, None] ** 2,
+                xp.take(lnR, xp.clip(k - 2, 0, len(L2) - 1), axis=0),
+                xp.take(lnR, xp.clip(k + 1, 0, len(L2) - 1), axis=0),
                 44,
             )
         )
-        kappa = numpy.sqrt(
+        kappa = xp.sqrt(
             evaluateR2derivs(pot, Rc, 0.0 * Rc, use_physical=False)
             + 3.0 * dphi(Rc) / Rc
         )
         with numpy.errstate(invalid="ignore"):
-            nu = numpy.sqrt(evaluatez2derivs(pot, Rc, 0.0 * Rc, use_physical=False))
+            nu = xp.sqrt(evaluatez2derivs(pot, Rc, 0.0 * Rc, use_physical=False))
         return (
             evaluatePotentials(pot, Rc, 0.0 * Rc, use_physical=False)
             + ell**2 / (2.0 * Rc**2),
             kappa,
-            numpy.where(numpy.isfinite(nu), nu, kappa),
+            xp.where(xp.isfinite(nu), nu, kappa),
         )
 
-    def _V_many(self, v, u0, deriv=False):
+    def _V_many(self, v, u0, deriv=False, delta=None):
         """V(v) for many tori, each on the reference curve u0 that its rule
         gives it (from the potential on that spheroid; with deriv, also
         dV/du0), or all on the family's single curve (u0 is None: V is
@@ -2269,20 +2427,42 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if u0 is None:
             if self._Vref_tab is None:
                 vs = numpy.linspace(1e-10, 0.5 * numpy.pi, 4001)
-                self._Vref_tab = _hermite_table(vs, self._V(vs), self._dV(vs))
+                ref = getattr(self._staeckelwrap, "_refpot", None)
+                if is_backend_array(ref):
+                    # (a model set up under a forced backend: in its arrays)
+                    Vf, vb = self._bk_Vfun(None), like(ref, vs)
+                    V, dV = Vf(vb), Vf(vb, 1)
+                else:
+                    with use("numpy", force=True):
+                        V, dV = self._V(vs), self._dV(vs)
+                if under_trace(V, dV):
+                    # (a model set up in a jax trace: its own V)
+                    return self._bk_Vfun(None)(v)
+                # (on the host: a model set up under a forced backend holds
+                # its constants there)
+                self._Vref_tab = _hermite_table(
+                    vs, *(numpy.asarray(as_numpy(t)) for t in (V, dV))
+                )
             return _hermite_eval(self._Vref_tab, v)
-        d = self._delta
-        sh, ch = numpy.sinh(u0), numpy.cosh(u0)
-        sn, cs = numpy.sin(v), numpy.cos(v)
+        xp = _ns(v, u0)
+        d = _col(self._delta if delta is None else delta)
+        sh, ch = xp.sinh(u0), xp.cosh(u0)
+        sn, cs = xp.sin(v), xp.cos(v)
         R, z, pre = d * sh * sn, d * ch * cs, sh**2 + sn**2
         # (the midplane radius of each torus's spheroid: once per torus)
         R0 = d * sh
 
         def at(func, R, z):
             # (the potentials take flat arrays)
-            return func(
-                self._chart_pot, R.ravel(), z.ravel(), use_physical=False
-            ).reshape(R.shape)
+            return xp.reshape(
+                func(
+                    self._chart_pot,
+                    xp.reshape(R, (-1,)),
+                    xp.reshape(z, (-1,)),
+                    use_physical=False,
+                ),
+                R.shape,
+            )
 
         Phi, Phi0 = at(evaluatePotentials, R, z), at(evaluatePotentials, R0, 0.0 * R0)
         V = ch**2 * Phi0 - pre * Phi
@@ -2299,47 +2479,70 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
         )
 
-    def _u0_many(self, E, ell, I3, um, up, uref, udeg, valid, wells):
+    def _u0_many(self, E, ell, I3, um, up, uref, udeg, valid, wells, delta=None):
         """The reference u0 that the rule gives each of many tori, with its
         partials in (E, I_3) (None and zeros without a rule). The built-in
         rules are vectorized: 'torus' is the closed form of _u0_torus on
         the torus's own turning points, 'planar' the same on those of the
         planar orbit of (E, L_z), 'shell' the u of the highest maximum of
         p_u^2; a callable, which need not take arrays, is evaluated torus by
-        torus, with one-sided differences"""
+        torus, with one-sided differences. With delta, the focal length of
+        each torus ('torus' and 'planar'), the partials of a torus on the
+        shell face are not computed (NaN: its curve is the shell orbit's
+        spheroid in the model of a single focal length)"""
         if not self._adaptive:
             return None, 0.0, 0.0
-        d, d2 = self._delta, self._delta**2
+        xp = _ns(E, ell, I3)
+        d = self._delta if delta is None else delta
+        d2 = d**2
 
         def dWdu(u):
-            return self._W0(numpy.log(d * numpy.sinh(u)), E, ell, deriv=True) / (
-                numpy.tanh(u)
+            return self._W0(xp.log(d * xp.sinh(u)), E, ell, deriv=True, delta=delta) / (
+                xp.tanh(u)
+            )
+
+        def dWu(u, k):
+            # d^k p_u^2 / du^k (k = 1, 2); on jax/torch also in the model of
+            # each torus's focal length
+            if delta is None or xp is numpy:
+                return (self._dWu if k == 1 else self._d2Wu)(u, E, ell)
+            with self._bk_in_models(delta):
+                Uk = self._bk_U(u, k)
+            if k == 1:
+                return (
+                    2.0 * d2 * (E * xp.sinh(2.0 * u) - Uk)
+                    + 2.0 * ell**2 * xp.cosh(u) / xp.sinh(u) ** 3
+                )
+            sh2 = xp.sinh(u) ** 2
+            return (
+                2.0 * d2 * (2.0 * E * xp.cosh(2.0 * u) - Uk)
+                - ell**2 * (6.0 + 4.0 * sh2) / sh2**2
             )
 
         def dushell(u):
-            # the level-set rule on the maximum of p_u^2
-            return -2.0 * d2 * numpy.sinh(2.0 * u) / self._d2Wu(u, E, ell)
+            # the level-set rule on the maximum of p_u^2 (on numpy, not for
+            # a focal length per torus: those tori are solved one by one)
+            if delta is not None and xp is numpy:
+                return numpy.nan * u
+            return -2.0 * d2 * xp.sinh(2.0 * u) / dWu(u, 2)
 
         def mean(um, up, udeg, uref):
             # the harmonic mean of the radii of the two turning points, and
             # the level-set rule on them; on the shell face the curve is the
             # shell orbit's own spheroid
-            Rm, Rp = d * numpy.sinh(um), d * numpy.sinh(up)
-            u0 = numpy.arcsinh(2.0 * Rm * Rp / (Rm + Rp) / d)
-            wm = 2.0 * d * Rp**2 * numpy.cosh(um) / (Rm + Rp) ** 2 / dWdu(um)
-            wp = 2.0 * d * Rm**2 * numpy.cosh(up) / (Rm + Rp) ** 2 / dWdu(up)
-            scale = d * numpy.cosh(u0)
+            Rm, Rp = d * xp.sinh(um), d * xp.sinh(up)
+            u0 = xp.asinh(2.0 * Rm * Rp / (Rm + Rp) / d)
+            wm = 2.0 * d * Rp**2 * xp.cosh(um) / (Rm + Rp) ** 2 / dWdu(um)
+            wp = 2.0 * d * Rm**2 * xp.cosh(up) / (Rm + Rp) ** 2 / dWdu(up)
+            scale = d * xp.cosh(u0)
             return (
                 u0,
-                numpy.where(
+                xp.where(
                     udeg,
                     dushell(uref),
-                    -2.0
-                    * d2
-                    * (numpy.sinh(um) ** 2 * wm + numpy.sinh(up) ** 2 * wp)
-                    / scale,
+                    -2.0 * d2 * (xp.sinh(um) ** 2 * wm + xp.sinh(up) ** 2 * wp) / scale,
                 ),
-                numpy.where(udeg, 0.0, 2.0 * d2 * (wm + wp) / scale),
+                xp.where(udeg, 0.0, 2.0 * d2 * (wm + wp) / scale),
             )
 
         with numpy.errstate(divide="ignore", invalid="ignore"):
@@ -2347,19 +2550,31 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 return mean(um, up, udeg, uref)
             if self._u0_rule == "planar":
                 pm, pp, _, _, _, ok = self._u_ends(
-                    E, ell, ell**2 / (2.0 * d2) - E, wells, False
+                    E, ell, ell**2 / (2.0 * d2) - E, wells, False, delta=delta
                 )
                 u0, gE, gI = mean(pm, pp, ~ok, uref)
-                return numpy.where(ok, u0, numpy.nan), gE - gI, 0.0 * gI
+                return xp.where(ok, u0, numpy.nan), gE - gI, 0.0 * gI
             if self._u0_rule == "shell":
-                inner = numpy.isfinite(wells[5]) & (wells[5] > wells[3])
-                u0 = numpy.arcsinh(
-                    numpy.exp(numpy.where(inner, wells[2], wells[0])) / d
-                )
+                inner = xp.isfinite(wells[5]) & (wells[5] > wells[3])
+                u0 = xp.asinh(xp.exp(xp.where(inner, wells[2], wells[0])) / d)
                 # (refined on the potential itself, on which the torus is
                 # set up)
-                u0 = u0 - self._dWu(u0, E, ell) / self._d2Wu(u0, E, ell)
+                u0 = u0 - dWu(u0, 1) / dWu(u0, 2)
                 return u0, dushell(u0), 0.0 * u0
+        if xp is not numpy:
+            # (a callable rule on the host, all tori at once: _bk_u0)
+            hE, hI = 1e-6 * (1.0 + xp.abs(E)), 1e-6 * (1.0 + xp.abs(I3))
+            u0 = self._bk_u0(
+                xp.concatenate([E, E + hE, E]),
+                xp.concatenate([ell] * 3),
+                xp.concatenate([I3, I3, I3 + hI]),
+            )
+            n = E.shape[0]
+            u0, u0E, u0I = u0[:n], u0[n : 2 * n], u0[2 * n :]
+            return tuple(
+                xp.where(valid, t, numpy.nan)
+                for t in (u0, (u0E - u0) / hE, (u0I - u0) / hI)
+            )
         out = numpy.full((3, len(E)), numpy.nan)
         for ii in numpy.flatnonzero(valid):
             Ei, li, Ii = E[ii], ell[ii], I3[ii]
@@ -2369,7 +2584,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             out[2, ii] = (self._u0_of(Ei, li, Ii + hI) - out[0, ii]) / hI
         return tuple(out)
 
-    def _u_ends(self, E, ell, I3, wells, inner):
+    def _u_ends(self, E, ell, I3, wells, inner, delta=None):
         """The u librations of many tori from their integrals: the turning
         points of the libration about the outermost maximum of p_u^2 (it
         ends at a barrier that I_3 leaves below zero, and spans both wells
@@ -2378,59 +2593,63 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         maximum inside the barrier; the u of the libration's maximum,
         whether the libration is degenerate, the side of the barrier's
         level on which the torus lies (1 above, -1 below, 0 where there is
-        no barrier), and whether the integrals are those of a torus"""
-        d2 = self._delta**2
+        no barrier), and whether the integrals are those of a torus; delta:
+        the focal length of each torus, where they differ"""
+        xp = _ns(E, ell, I3)
+        d = self._delta if delta is None else delta
+        d2, dd = d**2, _rep(d, 2)
         xo, xb, xi, Wo, Wb, Wi = wells
         c = 2.0 * d2 * I3
-        split = numpy.isfinite(xb)
+        split = xp.isfinite(xb)
         with numpy.errstate(invalid="ignore"):
             above = split & (c > Wb)
             own = above & inner
-            xref, Wref = numpy.where(own, xi, xo), numpy.where(own, Wi, Wo)
+            xref, Wref = xp.where(own, xi, xo), xp.where(own, Wi, Wo)
             Ipl, Ish = ell**2 / (2.0 * d2) - E, Wref / (2.0 * d2)
-            tolI = 1e-12 * (1.0 + numpy.fabs(Ipl) + numpy.fabs(Ish))
+            tolI = 1e-12 * (1.0 + xp.abs(Ipl) + xp.abs(Ish))
             udeg = I3 >= Ish - tolI
             valid = (I3 <= Ish + tolI) & (I3 >= Ipl - tolI)
         # the inner and the outer turning point in one pass
         xs, n = self._midplane()[0][0], len(E)
-        lo = numpy.concatenate(
-            [numpy.where(above & ~own, xb, xs[1]), numpy.where(own, xi, xo)]
+        lo = xp.concatenate(
+            [xp.where(above & ~own, xb, float(xs[1])), xp.where(own, xi, xo)]
         )
-        hi = numpy.concatenate(
+        hi = xp.concatenate(
             [
-                numpy.where(split & ~(above & ~own), xi, xo),
-                numpy.where(own, xb, xs[-2]),
+                xp.where(split & ~(above & ~own), xi, xo),
+                xp.where(own, xb, float(xs[-2])),
             ]
         )
-        sgn = numpy.repeat([1.0, -1.0], n)
-        E2, l2, c2, deg = (numpy.tile(q, 2) for q in (E, ell, c, udeg))
-        lo = numpy.where(numpy.tile(valid, 2), lo, 0.0)
-        hi = numpy.where(numpy.tile(valid, 2), hi, 1.0)
+        sgn = like(E, numpy.repeat([1.0, -1.0], n))
+        E2, l2, c2, deg = (_tile(q, 2) for q in (E, ell, c, udeg))
+        lo = xp.where(_tile(valid, 2), lo, 0.0)
+        hi = xp.where(_tile(valid, 2), hi, 1.0)
         ok = deg | (
-            (sgn * (self._W0(lo, E2, l2) - c2) < 0.0)
-            & (sgn * (self._W0(hi, E2, l2) - c2) >= 0.0)
+            (sgn * (self._W0(lo, E2, l2, delta=dd) - c2) < 0.0)
+            & (sgn * (self._W0(hi, E2, l2, delta=dd) - c2) >= 0.0)
         )
         x = _multisect(
             lambda x: (
-                sgn[:, None] * (self._W0(x, E2[:, None], l2[:, None]) - c2[:, None])
+                sgn[:, None]
+                * (self._W0(x, E2[:, None], l2[:, None], delta=_col(dd)) - c2[:, None])
             ),
             lo,
             hi,
             48,
         )
-        um, up = numpy.arcsinh(
-            numpy.exp(numpy.where(deg, numpy.tile(xref, 2), x)) / self._delta
-        ).reshape(2, -1)
+        um, up = xp.reshape(
+            xp.asinh(xp.exp(xp.where(deg, _tile(xref, 2), x)) / dd), (2, -1)
+        )
         return (
             um,
             up,
-            numpy.arcsinh(numpy.exp(xref) / self._delta),
+            xp.asinh(xp.exp(xref) / d),
             udeg,
-            numpy.where(split, numpy.where(above, 1, -1), 0),
+            xp.where(split, xp.where(above, 1, -1), 0),
             valid & ok[:n] & ok[n:],
         )
 
-    def _tori_many(self, E, ell, I3, wells, inner, ntau):
+    def _tori_many(self, E, ell, I3, wells, inner, ntau, delta=None, frozen=False):
         """Many tori from their integrals, without a loop over them: the
         turning points of both librations, and the actions and their
         derivatives with respect to (E, I_3) by the quadratures of
@@ -2442,26 +2661,38 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         of: the u turning points, the u of the libration's maximum,
         whether the u and the v libration are degenerate, the side of a
         barrier's level on which the torus lies (_u_ends), the v turning
-        point, and whether the integrals are those of a torus"""
-        d2 = self._delta**2
-        um, up, uref, udeg, side, valid = self._u_ends(E, ell, I3, wells, inner)
+        point, and whether the integrals are those of a torus; delta: the
+        focal length of each torus, where they differ; frozen: the models
+        held at the tori's (the derivatives of the actions without their
+        variation along a rule for the reference curve, and on jax/torch
+        none through the reference curve)"""
+        xp = _ns(E, ell, I3)
+        d = self._delta if delta is None else delta
+        d2, dc = d**2, _col(d)
+        um, up, uref, udeg, side, valid = self._u_ends(
+            E, ell, I3, wells, inner, delta=delta
+        )
         c = 2.0 * d2 * I3
         with numpy.errstate(invalid="ignore"):
             vdeg = I3 <= ell**2 / (2.0 * d2) - E + 1e-12 * (
-                1.0 + numpy.fabs(ell**2 / (2.0 * d2) - E) + numpy.fabs(c / d2)
+                1.0 + xp.abs(ell**2 / (2.0 * d2) - E) + xp.abs(c / d2)
             )
 
-        u0, gE, gI = self._u0_many(E, ell, I3, um, up, uref, udeg, valid, wells)
+        u0, gE, gI = self._u0_many(
+            E, ell, I3, um, up, uref, udeg, valid, wells, delta=delta
+        )
         if u0 is not None:
-            valid &= numpy.isfinite(u0)
-            u0 = numpy.where(valid, u0, 1.0)[:, None]
+            valid = valid & xp.isfinite(u0)
+            u0 = xp.where(valid, u0, 1.0)[:, None]
+            if frozen:
+                u0, gE, gI = stop_gradient(u0), 0.0, 0.0
 
         def Wv(v, deriv=False):
-            sn2 = numpy.sin(v) ** 2
-            V = self._V_many(v, u0, deriv=deriv)
+            sn2 = xp.sin(v) ** 2
+            V = self._V_many(v, u0, deriv=deriv, delta=delta)
             V, dV = V if deriv else (V, 0.0)
             return (
-                2.0 * d2 * (E[:, None] * sn2 + V + I3[:, None])
+                2.0 * dc**2 * (E[:, None] * sn2 + V + I3[:, None])
                 - ell[:, None] ** 2 / sn2,
                 dV,
             )
@@ -2470,57 +2701,74 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # it (_v_turning)
         vs = 0.5 * numpy.pi * (1.0 - numpy.linspace(0.0, 1.0, 49)[:-1])
         with numpy.errstate(invalid="ignore"):
-            neg = ~(Wv(vs[None, :] + 0.0 * E[:, None])[0] > 0.0)
-        first = numpy.where(numpy.any(neg, axis=1), numpy.argmax(neg, axis=1), len(vs))
-        vmin = numpy.exp(
+            neg = ~(Wv(like(E, vs)[None, :] + 0.0 * E[:, None])[0] > 0.0)
+        if xp is numpy:
+            first = numpy.where(
+                numpy.any(neg, axis=1), numpy.argmax(neg, axis=1), len(vs)
+            )
+        else:
+            first = xp.where(
+                xp.any(neg, axis=1),
+                xp.argmax(xp.astype(neg, xp.int64), axis=1),
+                len(vs),
+            )
+        vs1 = like(E, numpy.append(vs, 1e-9))
+        vmin = xp.exp(
             _multisect(
-                lambda x: Wv(numpy.exp(x))[0],
-                numpy.log(numpy.append(vs, 1e-9)[first]),
-                numpy.log(vs[numpy.maximum(first - 1, 0)]),
+                lambda x: Wv(xp.exp(x))[0],
+                xp.log(xp.take(vs1, first, axis=0)),
+                xp.log(xp.take(vs1, xp.clip(first - 1, 0, len(vs) - 1), axis=0)),
                 48,
             )
         )
-        vmin = numpy.where(vdeg, 0.5 * numpy.pi, vmin)
+        vmin = xp.where(vdeg, 0.5 * numpy.pi, vmin)
         # the actions and their derivatives: the mean over the anomalies of
         # a libration is that over the first half of them (a libration is
         # even about its turning points) or the first quarter (the v
         # libration also about the midplane)
-        tau = 2.0 * numpy.pi * (numpy.arange(ntau) + 0.5) / ntau
-        J, M = numpy.zeros((len(E), 2)), numpy.zeros((len(E), 2, 2))
+        tau = like(E, 2.0 * numpy.pi * (numpy.arange(ntau) + 0.5) / ntau)
         with numpy.errstate(divide="ignore", invalid="ignore"):
             t = tau[: ntau // 2]
             wu = 0.5 * (up - um)[:, None]
-            u = 0.5 * (up + um)[:, None] - wu * numpy.cos(t)
-            pu = numpy.sqrt(
-                numpy.clip(
-                    self._W0(
-                        numpy.log(self._delta * numpy.sinh(u)), E[:, None], ell[:, None]
-                    )
-                    - c[:, None],
-                    0.0,
-                    None,
+            u = 0.5 * (up + um)[:, None] - wu * xp.cos(t)
+            pu = _sqrt_pos(
+                self._W0(
+                    xp.log(dc * xp.sinh(u)),
+                    E[:, None],
+                    ell[:, None],
+                    delta=None if delta is None else dc,
                 )
+                - c[:, None]
             )
-            ratio = wu * numpy.sin(t) / pu
-            J[:, 0] = numpy.mean(pu * wu * numpy.sin(t), axis=1)
-            M[:, 0, 0] = numpy.mean(d2 * numpy.sinh(u) ** 2 * ratio, axis=1)
-            M[:, 0, 1] = -d2 * numpy.mean(ratio, axis=1)
+            ratio = wu * xp.sin(t) / pu
+            Ju = xp.mean(pu * wu * xp.sin(t), axis=1)
+            M00 = xp.mean(dc**2 * xp.sinh(u) ** 2 * ratio, axis=1)
+            M01 = -d2 * xp.mean(ratio, axis=1)
             t = tau[: ntau // 4] if ntau % 4 == 0 else t
             wv = (0.5 * numpy.pi - vmin)[:, None]
-            v = 0.5 * numpy.pi - wv * numpy.cos(t)
+            v = 0.5 * numpy.pi - wv * xp.cos(t)
             W, dV = Wv(v, deriv=u0 is not None)
-            pv = numpy.sqrt(numpy.clip(W, 0.0, None))
-            ratio = wv * numpy.sin(t) / pv
-            J[:, 1] = numpy.mean(pv * wv * numpy.sin(t), axis=1)
-            M[:, 1, 0] = numpy.mean(d2 * numpy.sin(v) ** 2 * ratio, axis=1)
-            M[:, 1, 1] = d2 * numpy.mean(ratio, axis=1)
+            pv = _sqrt_pos(W)
+            ratio = wv * xp.sin(t) / pv
+            Jv = xp.mean(pv * wv * xp.sin(t), axis=1)
+            M10 = xp.mean(dc**2 * xp.sin(v) ** 2 * ratio, axis=1)
+            M11 = d2 * xp.mean(ratio, axis=1)
             # the model follows the torus along its rule
-            Ju0 = d2 * numpy.mean(dV * ratio, axis=1)
-            M[:, 1, 0] += Ju0 * gE
-            M[:, 1, 1] += Ju0 * gI
-        return J, M, numpy.array([um, up, uref, udeg, vdeg, side, vmin, valid])
+            Ju0 = d2 * xp.mean(dV * ratio, axis=1)
+            M10 = M10 + Ju0 * gE
+            M11 = M11 + Ju0 * gI
+        J = xp.stack([Ju, Jv], axis=1)
+        M = xp.stack(
+            [xp.stack([M00, M01], axis=1), xp.stack([M10, M11], axis=1)], axis=1
+        )
+        rows = [um, up, uref, udeg, vdeg, side, vmin, valid]
+        if xp is numpy:
+            return J, M, numpy.array(rows)
+        return J, M, xp.stack([xp.astype(r, E.dtype) for r in rows])
 
-    def _action_residual(self, E, f, ell, jr, jz, inner, ntau=256, side=None):
+    def _action_residual(
+        self, E, f, ell, jr, jz, inner, ntau=256, side=None, delta=None, frozen=False
+    ):
         """The residual of the solve for the integrals of many tori from
         their actions, apart from its iteration: at the energies E and the
         fractions f of the way from the planar orbit's I_3 to that of the
@@ -2530,33 +2778,44 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         actions with respect to (E, f), the I_3, the f and the rows of
         _tori_many. With side (1 or -1), f is instead the fraction of the
         way across the tori on that side of a barrier's level: from it to
-        the shell orbit, or from the planar orbit to it."""
-        d2 = 2.0 * self._delta**2
-        wells = self._wells(E, ell)
-        own = inner & numpy.isfinite(wells[1])
+        the shell orbit, or from the planar orbit to it. delta: the focal
+        length of each torus, where they differ; frozen: as for
+        _tori_many."""
+        xp = _ns(E, f, ell, jr, jz)
+        d2 = 2.0 * (self._delta if delta is None else delta) ** 2
+        wells = self._wells(E, ell, delta=delta)
+        own = inner & xp.isfinite(wells[1])
         Ipl = ell**2 / d2 - E
         with numpy.errstate(invalid="ignore"):
-            Ish = numpy.where(own, wells[5], wells[3]) / d2
+            Ish = xp.where(own, wells[5], wells[3]) / d2
             if side is not None:
-                Ibar = numpy.clip(wells[4] / d2, Ipl, Ish)
-                lo = numpy.where(numpy.isfinite(wells[1]) & (side == 1), Ibar, Ipl)
-                hi = numpy.where(numpy.isfinite(wells[1]) & (side == -1), Ibar, Ish)
+                Ibar = xp.clip(wells[4] / d2, Ipl, Ish)
+                lo = xp.where(xp.isfinite(wells[1]) & (side == 1), Ibar, Ipl)
+                hi = xp.where(xp.isfinite(wells[1]) & (side == -1), Ibar, Ish)
                 f = (lo + f * (hi - lo) - Ipl) / (Ish - Ipl)
             I3 = Ipl + f * (Ish - Ipl)
-            J, M, rows = self._tori_many(E, ell, I3, wells, inner, ntau)
-            ch2 = 1.0 + 2.0 * numpy.exp(2.0 * numpy.where(own, wells[2], wells[0])) / d2
-            D = numpy.stack(
+            J, M, rows = self._tori_many(
+                E, ell, I3, wells, inner, ntau, delta=delta, frozen=frozen
+            )
+            ch2 = 1.0 + 2.0 * xp.exp(2.0 * xp.where(own, wells[2], wells[0])) / d2
+            D = xp.stack(
                 [
                     M[:, :, 0] + M[:, :, 1] * (f * ch2 - 1.0)[:, None],
                     M[:, :, 1] * (Ish - Ipl)[:, None],
                 ],
                 axis=2,
             )
-            res = (J - numpy.stack([jr, jz], axis=1)) / (jr + jz)[:, None]
-            rows[-1] = rows[-1].astype("bool") & (Ish > Ipl)
+            res = (J - xp.stack([jr, jz], axis=1)) / (jr + jz)[:, None]
+            if xp is numpy:
+                rows[-1] = rows[-1].astype("bool") & (Ish > Ipl)
+            else:
+                ok = (rows[-1] == 1.0) & (Ish > Ipl)
+                rows = xp.concatenate([rows[:-1], xp.astype(ok, rows.dtype)[None]])
         return res, D, I3, f, rows
 
-    def _newton_many(self, E, f, ell, jr, jz, Ec, hold, inner, side, ntau, steps):
+    def _newton_many(
+        self, E, f, ell, jr, jz, Ec, hold, inner, side, ntau, steps, delta=None
+    ):
         """Damped Newton iteration on _action_residual for many tori from
         the starting points (E, f), on a fixed schedule: every torus has
         steps trial points, each either accepted (it is a torus, on the
@@ -2579,7 +2838,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         a = numpy.arange(n)
         for _ in range(steps):
             res, D, I3t, _, rowst = self._action_residual(
-                Et[a], ft[a], ell[a], jr[a], jz[a], inner[a], ntau=ntau
+                Et[a],
+                ft[a],
+                ell[a],
+                jr[a],
+                jz[a],
+                inner[a],
+                ntau=ntau,
+                delta=None if delta is None else delta[a],
             )
             h = hold[a]
             # a torus held on a face has that face's libration degenerate;
@@ -2656,15 +2922,26 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         todo = numpy.flatnonzero(~circ)
         for k in range(0, len(todo), chunk):
             sel = todo[k : k + chunk]
-            E[sel], I3[sel], found[sel] = self._integrals_chunk(
+            E[sel], I3[sel], found[sel], rows = self._integrals_chunk(
                 jr[sel], ell[sel], jz[sel]
             )
+            for ii, row in zip(sel[found[sel]], rows.T[found[sel]]):
+                for Lz in (ell[ii], -ell[ii]):
+                    self._u_turning_memo[(E[ii], Lz, I3[ii])] = (
+                        *row[:3],
+                        bool(row[3]),
+                    )
         return E, I3, found
 
-    def _integrals_chunk(self, jr, ell, jz):
+    def _integrals_chunk(self, jr, ell, jz, delta=None):
         """_integrals_many for tori that are evaluated together, none of
-        them the circular orbit"""
+        them the circular orbit, with the rows of _tori_many of the tori
+        found; delta: the focal length of each torus, where they differ"""
         n, tot = len(jr), jr + jz
+
+        def at(sel):
+            return None if delta is None else delta[sel]
+
         Ec, kappa, nu = self._circular_many(ell)
         # an action below 1e-10 of their sum is that of the face
         hold = numpy.where(jr <= 1e-10 * tot, 1, numpy.where(jz <= 1e-10 * tot, 2, 0))
@@ -2695,7 +2972,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             ks = numpy.arange(k0, min(k0 + B, 16))
             rep, kk = numpy.repeat(a, len(ks)), numpy.tile(ks, len(a))
             rws = self._action_residual(
-                lad[rep, kk], f0[rep], ell[rep], jr[rep], jz[rep], inner[rep], ntau=16
+                lad[rep, kk],
+                f0[rep],
+                ell[rep],
+                jr[rep],
+                jz[rep],
+                inner[rep],
+                ntau=16,
+                delta=at(rep),
             )[4]
             good = torus(rws, hold[rep], 0).reshape(len(a), -1)
             hit = numpy.any(good, axis=1)
@@ -2704,7 +2988,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if a.size == 0:
                 break
         E, f, I3, rows, ok = self._newton_many(
-            E, f0, ell, jr, jz, Ec, hold, inner, side, coarse, 40
+            E, f0, ell, jr, jz, Ec, hold, inner, side, coarse, 40, delta=delta
         )
         Es = Ec[:, None] + (kappa * jr + nu * jz)[:, None] * 2.0 ** numpy.arange(
             -8.0, 14.0
@@ -2731,6 +3015,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 numpy.full(len(rep), inn),
                 ntau=min(coarse, 64),
                 side=numpy.full(len(rep), sd),
+                delta=at(rep),
             )
             miss = numpy.where(
                 torus(rws, hold[rep], sd), numpy.sum(numpy.fabs(res), axis=1), numpy.inf
@@ -2751,6 +3036,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 side[left],
                 coarse,
                 40,
+                delta=at(left),
             )
         if self._ntau > coarse:
             # on the tori's own anomaly grid, each torus kept on its side
@@ -2768,16 +3054,489 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 side[done],
                 self._ntau,
                 8,
+                delta=at(done),
             )
-        for ii in numpy.flatnonzero(ok):
-            for Lz in (ell[ii], -ell[ii]):
-                self._u_turning_memo[(E[ii], Lz, I3[ii])] = (
-                    rows[0, ii],
-                    rows[1, ii],
-                    rows[2, ii],
-                    bool(rows[3, ii]),
+        return numpy.where(ok, E, numpy.nan), numpy.where(ok, I3, numpy.nan), ok, rows
+
+    def _bk_newton_many(
+        self,
+        xp,
+        E,
+        f,
+        ell,
+        jr,
+        jz,
+        Ec,
+        hold,
+        inner,
+        side,
+        ntau,
+        steps,
+        delta=None,
+        active=None,
+    ):
+        """_newton_many in jax/torch, on fixed shapes: every torus is
+        evaluated at every step and a frozen one (converged, its step halved
+        below 1e-8 of a Newton step, or not active) keeps its state; the
+        iteration stops once all are frozen (a while_loop under jax.jit)"""
+        z = 0.0 * E
+        act = (E == E) if active is None else active
+        state = xp.stack(
+            [E, f, E, f, z + numpy.nan, z + numpy.inf, z + 1.0, z + 1e-11, z, z]
+            + [xp.astype(act, E.dtype)]
+            + [z + numpy.nan] * 8
+        )
+
+        def step(s):
+            E, f, Et, ft, I3, norm, t, tol, dE, df = (s[k] for k in range(10))
+            a, rows = s[10] > 0.5, s[11:]
+            res, D, I3t, _, rowst = self._action_residual(
+                Et, ft, ell, jr, jz, inner, ntau=ntau, delta=delta
+            )
+            valid = (
+                (rowst[-1] == 1.0)
+                & (rowst[3] == xp.astype(hold == 1, E.dtype))
+                & (rowst[4] == xp.astype(hold == 2, E.dtype))
+                & ((side == 0) | (rowst[5] == 0.0) | (rowst[5] == side))
+            )
+            r0, r1, tot = res[:, 0], res[:, 1], jr + jz
+            new = xp.where(
+                hold == 0,
+                xp.maximum(xp.abs(r0), xp.abs(r1)),
+                xp.where(hold == 1, xp.abs(r1), xp.abs(r0)),
+            )
+            det = D[:, 0, 0] * D[:, 1, 1] - D[:, 0, 1] * D[:, 1, 0]
+            sE = tot * xp.where(
+                hold == 0,
+                -(D[:, 1, 1] * r0 - D[:, 0, 1] * r1) / det,
+                xp.where(hold == 1, -r1 / D[:, 1, 0], -r0 / D[:, 0, 0]),
+            )
+            sf = tot * xp.where(
+                hold == 0, (D[:, 1, 0] * r0 - D[:, 0, 0] * r1) / det, 0.0
+            )
+            acc = a & valid & (new < norm) & xp.isfinite(sE) & xp.isfinite(sf)
+            E, f, I3 = (
+                xp.where(acc, Et, E),
+                xp.where(acc, ft, f),
+                xp.where(acc, I3t, I3),
+            )
+            norm, dE, df = (
+                xp.where(acc, new, norm),
+                xp.where(acc, sE, dE),
+                xp.where(acc, sf, df),
+            )
+            rows = xp.where(acc[None, :], rowst, rows)
+            # (close to the circular orbit the energy above it, and with it
+            # the actions, are only known to the round-off of the energy)
+            tol = xp.where(
+                acc, xp.clip(1.5e-14 * (1.0 + xp.abs(E)) / (E - Ec), 1e-11, None), tol
+            )
+            t = xp.where(acc, 1.0, xp.where(a, 0.5 * t, t))
+            a = a & (norm >= tol) & (t >= 1e-8)
+            Et = xp.where(a, xp.maximum(E + t * dE, Ec + 0.1 * (E - Ec)), Et)
+            ft = xp.where(
+                a & (hold == 0),
+                xp.clip(f + t * df, 1e-13, 1.0 - 1e-13),
+                xp.where(a, f, ft),
+            )
+            return stop_gradient(
+                xp.concatenate(
+                    [
+                        xp.stack([E, f, Et, ft, I3, norm, t, tol, dE, df]),
+                        xp.astype(a, E.dtype)[None],
+                        rows,
+                    ]
                 )
-        return numpy.where(ok, E, numpy.nan), numpy.where(ok, I3, numpy.nan), ok
+            )
+
+        s = iterate_to_fixed_point(
+            step, stop_gradient(state), steps, done=lambda s: ~xp.any(s[10] > 0.5)
+        )
+        return s[0], s[1], s[4], s[11:], s[5] < s[7]
+
+    def _bk_integrals_many(self, xp, jr, ell, jz, delta=None):
+        """_integrals_many in jax/torch, for all of the tori at once, in
+        chunks (a lax.map under jax.jit): (E, I_3), which of the actions are
+        those of a torus, and the rows of _tori_many (where p_u^2 has two
+        maxima, the u libration that has the actions); delta: the focal
+        length of each torus, where they differ"""
+        sg = stop_gradient
+        tot = jr + jz
+        circ = tot <= 1e-10 * ell
+        # (stand-ins for the circular tori, which are not solved for)
+        jrc, jzc = (xp.where(circ, 1e-3 * ell, j) for j in (jr, jz))
+        args = (jrc, ell, jzc) + (() if delta is None else (delta,))
+        deriv = under_trace(*args) or requires_backend_grad(*args)
+
+        def solve(jr, ell, jz, *d):
+            d = d[0] if d else None
+            E, I3, ok, rows, f, inner = self._bk_integrals_chunk(
+                xp, *(sg(t) for t in (jr, ell, jz)), delta=None if d is None else sg(d)
+            )
+            if deriv:
+                E, I3 = self._bk_integrals_step(xp, E, I3, ok, f, inner, jr, ell, jz, d)
+            return E, I3, ok, rows.T
+
+        E, I3, ok, rows = map_row_chunks(
+            xp,
+            solve,
+            args,
+            max(2000000 // self._ntau, 16) if self.chunk is None else self.chunk,
+        )
+        d2 = (self._delta if delta is None else delta) ** 2
+        Ec = self._circular_many(ell)[0]
+        return (
+            xp.where(circ, Ec, E),
+            xp.where(circ, ell**2 / (2.0 * d2) - Ec, I3),
+            ok | circ,
+            rows.T,
+        )
+
+    def _bk_integrals_rule(self, xp, jr, ell, jz):
+        """_integrals_rule in jax/torch, for all of the tori at once: the
+        secant iteration in the focal length of _rule_fixed_point_many, each
+        step a solve for the integrals of every torus (_bk_integrals_many),
+        from the rule's focal length at the epicycle energy and the middle of
+        the third-integral range and then, for the tori that it leaves, from
+        the other starting focal lengths of _integrals_rule in turn (not one
+        within 1e-3 of one tried); the focal lengths are then frozen (a
+        gauge). Returns (E, I_3, found, rows) and the focal lengths"""
+        sg = stop_gradient
+        jr0, ell0, jz0 = (sg(t) for t in (jr, ell, jz))
+        Ec, kappa, nu = self._circular_many(ell0)
+        E0 = Ec + kappa * jr0 + nu * jz0
+
+        def rule(E, f):
+            return self._bk_rule_of(xp, False, E, ell0, f)
+
+        d0 = rule(E0, 0.5 + 0.0 * E0)
+        pos = xp.all(d0 > 0.0)
+        if has_concrete_truth_value(pos) and not concretely_true(pos):
+            raise ValueError("the callable delta= has to return positive focal lengths")
+
+        def secant(s):
+            d, dold, hold, act = s[0], s[1], s[2], s[3] > 0.5
+            E, I3, found = self._bk_integrals_many(xp, jr0, ell0, jz0, delta=d)[:3]
+            act = act & found
+            E = xp.where(found, E, Ec + 0.5 * (E0 - Ec))
+            # the rule takes the fraction of the way to the shell orbit's
+            # I_3, that of the highest maximum of p_u^2 (_rule_fraction)
+            wells, d2 = self._wells(E, ell0, delta=d), 2.0 * d**2
+            top = xp.where(
+                xp.isfinite(wells[5]), xp.maximum(wells[3], wells[5]), wells[3]
+            )
+            Ipl, Ish = ell0**2 / d2 - E, top / d2
+            new = rule(E, xp.where(found, (I3 - Ipl) / (Ish - Ipl), 0.5))
+            h = new - d
+            conv = act & (xp.abs(h) <= 1e-12 * d)
+            sec = d - h * (d - dold) / (h - hold)
+            near = (sec > 0.5 * xp.minimum(d, new)) & (sec < 2.0 * xp.maximum(d, new))
+            go = act & ~conv
+            return sg(
+                xp.stack(
+                    [
+                        xp.where(go, xp.where(near, sec, new), d),
+                        xp.where(go, d, dold),
+                        xp.where(go, h, hold),
+                        xp.astype(go, d.dtype),
+                        xp.where(conv, 1.0, s[4]),
+                    ]
+                )
+            )
+
+        # the starting focal lengths, those of _integrals_rule's starts()
+        fr = [0.5, 0.0, 1.0]
+        starts = [d0] + [rule(E0, 0.0 * E0 + g) for g in fr[1:]]
+        ds = xp.stack([rule(E0, 0.0 * E0 + g) for g in numpy.linspace(0.0, 1.0, 9)])
+        lo, hi = xp.min(ds, axis=0), xp.max(ds, axis=0)
+        starts += [lo * (hi / lo) ** q for q in (0.25, 0.5, 0.75)]
+        starts = xp.stack(starts)
+
+        def attempt(s):
+            d, conv, k = s[0], s[1] > 0.5, s[2]
+            d0 = xp.reshape(
+                xp.take(starts, xp.reshape(xp.astype(k[0], xp.int64), (1,)), axis=0),
+                (-1,),
+            )
+            # (not from one within 1e-3 of one tried)
+            idx = like(d0, numpy.arange(starts.shape[0]))[:, None]
+            tried = xp.any(
+                (idx < k[0]) & (xp.abs(d0 - starts) <= 1e-3 * starts), axis=0
+            )
+            todo = ~conv & ~tried
+
+            def run():
+                z = 0.0 * d0
+                t = iterate_to_fixed_point(
+                    secant,
+                    sg(xp.stack([d0, d0, z + numpy.inf, xp.astype(todo, d0.dtype), z])),
+                    40,
+                    done=lambda t: ~xp.any(t[3] > 0.5),
+                )
+                ok = t[4] > 0.5
+                return xp.where(ok, t[0], d), xp.where(ok, 1.0, s[1])
+
+            dn, cn = lazy_cond(xp, xp.any(todo), run, lambda: (d, s[1]))
+            return sg(xp.stack([dn, cn, k + 1.0]))
+
+        z = 0.0 * E0
+        s = iterate_to_fixed_point(
+            attempt,
+            xp.stack([starts[0], z, z]),
+            starts.shape[0],
+            done=lambda s: xp.all(s[1] > 0.5) | (s[2][0] > starts.shape[0] - 0.5),
+        )
+        delta, conv = s[0], s[1] > 0.5
+        # (a torus not found: in the model of the first start)
+        delta = xp.where(conv, delta, starts[0])
+        E, I3, found, rows = self._bk_integrals_many(xp, jr, ell, jz, delta=sg(delta))
+        return E, I3, found & conv, rows, delta
+
+    def _bk_integrals_step(self, xp, E, I3, ok, f, inner, jr, ell, jz, delta):
+        """The derivatives of the integrals (E, I_3) of tori found from
+        their actions (_bk_integrals_chunk, which also returns the fractions
+        f and inner) with respect to the actions (and |L_z| and the focal
+        lengths): one Newton step on the traced relation at the solution,
+        whose value is the solution's, in the tori's models held (a
+        gauge); the faces are held as the solve holds them"""
+        sg = stop_gradient
+        d2 = (self._delta if delta is None else delta) ** 2
+        Es, fs = xp.where(ok, E, 1.0), xp.where(ok, f, 0.5)
+        res, D = self._action_residual(
+            Es, fs, ell, jr, jz, inner, ntau=self._ntau, delta=delta, frozen=True
+        )[:2]
+        D, r0, r1 = sg(D), res[:, 0], res[:, 1]
+        t = jr + jz
+        hold = xp.where(
+            sg(jr) <= 1e-10 * sg(t), 1, xp.where(sg(jz) <= 1e-10 * sg(t), 2, 0)
+        )
+        # (finite coefficients on every branch: no NaN derivative)
+        D = xp.where(xp.isfinite(D), D, 0.0)
+        det = D[:, 0, 0] * D[:, 1, 1] - D[:, 0, 1] * D[:, 1, 0]
+        det = xp.where((hold == 0) & (det != 0.0), det, 1.0)
+        d10 = xp.where((hold == 1) & (D[:, 1, 0] != 0.0), D[:, 1, 0], 1.0)
+        d00 = xp.where((hold == 2) & (D[:, 0, 0] != 0.0), D[:, 0, 0], 1.0)
+        sE = t * xp.where(
+            hold == 0,
+            -(D[:, 1, 1] * r0 - D[:, 0, 1] * r1) / det,
+            xp.where(hold == 1, -r1 / d10, -r0 / d00),
+        )
+        sf = t * xp.where(hold == 0, (D[:, 1, 0] * r0 - D[:, 0, 0] * r1) / det, 0.0)
+        Es, fs = Es + (sE - sg(sE)), fs + (sf - sg(sf))
+        wells = self._wells(Es, ell, delta=delta)
+        own = inner & xp.isfinite(wells[1])
+        Ipl = ell**2 / (2.0 * d2) - Es
+        Ish = xp.where(own, wells[5], wells[3]) / (2.0 * d2)
+        return (
+            xp.where(ok, Es, numpy.nan),
+            xp.where(ok, Ipl + fs * (Ish - Ipl), numpy.nan),
+        )
+
+    def _bk_integrals_chunk(self, xp, jr, ell, jz, delta=None):
+        """_integrals_chunk in jax/torch, on fixed shapes (none of the tori
+        the circular orbit): the ladder's rungs one at a time for every
+        torus until all have a torus on one, the Newton iteration on all of
+        them, and each scan for the tori that it leaves on all of them, one
+        energy at a time, while any is left (loops that jax.jit keeps
+        rolled)"""
+        n = jr.shape[0]
+        tot = jr + jz
+        Ec, kappa, nu = self._circular_many(ell)
+        hold = xp.where(jr <= 1e-10 * tot, 1, xp.where(jz <= 1e-10 * tot, 2, 0))
+        f0 = xp.where(
+            hold == 0, xp.clip(jz / tot, 0.05, 0.95), xp.astype(hold == 1, jr.dtype)
+        )
+        coarse = min(self._ntau, 256) if n * self._ntau > 2**15 else self._ntau
+        inner, side = hold < 0, 0 * hold
+
+        def torus(rows, hold, side):
+            return (
+                (rows[-1] == 1.0)
+                & (rows[3] == xp.astype(hold == 1, rows.dtype))
+                & (rows[4] == xp.astype(hold == 2, rows.dtype))
+                & ((side == 0) | (rows[5] == 0.0) | (rows[5] == side))
+            )
+
+        def column(a, k):
+            # a[:, k] for a traced k
+            idx = xp.reshape(xp.astype(k[0], xp.int64), (1,))
+            return xp.reshape(xp.take(a, idx, axis=1), (-1,))
+
+        # from the epicycle energy at the vertical fraction of the actions,
+        # lowered until a torus exists there: the highest rung of the
+        # ladder at which one does
+        lad = Ec[:, None] + (kappa * jr + nu * jz)[:, None] * like(
+            jr, 2.0 ** -numpy.arange(16.0)
+        )
+
+        def rung(s):
+            E, hit, k = s[0], s[1] > 0.5, s[2]
+            Ek = column(lad, k)
+            rws = self._action_residual(
+                Ek, f0, ell, jr, jz, inner, ntau=16, delta=delta
+            )[4]
+            take = torus(rws, hold, 0) & ~hit
+            return stop_gradient(
+                xp.stack(
+                    [xp.where(take, Ek, E), xp.astype(hit | take, E.dtype), k + 1.0]
+                )
+            )
+
+        s = iterate_to_fixed_point(
+            rung,
+            stop_gradient(xp.stack([lad[:, -1], 0.0 * jr, 0.0 * jr])),
+            16,
+            done=lambda s: xp.all(s[1] > 0.5) | (s[2][0] > 15.5),
+        )
+        Elad = s[0]
+        Es = Ec[:, None] + (kappa * jr + nu * jz)[:, None] * like(
+            jr, 2.0 ** numpy.arange(-8.0, 14.0)
+        )
+        gs = numpy.linspace(0.04, 0.96, 9)
+        ng = len(gs)
+        # the passes: from the ladder, then for the tori left from the best
+        # of a scan on either side of a barrier's level and about the inner
+        # maximum (inner, side)
+        inns = like(jr, numpy.array([0.0, 0.0, 0.0, 0.0, 1.0]))
+        sds = like(jr, numpy.array([0.0, 0.0, 1.0, -1.0, 1.0]))
+
+        def rep(t):
+            return None if t is None else _tile(t, ng)
+
+        gg = xp.where(
+            rep(hold) == 0, xp.concatenate([0.0 * jr + g for g in gs]), rep(f0)
+        )
+
+        def scan(E, f, inner, side):
+            # the best of a scan of energies and fractions among the tori on
+            # the side asked for (the first of the smallest misses, from the
+            # first point of the scan where none is a torus)
+            def energy(t):
+                best, Eb, fb, k = t[0], t[1], t[2], t[3]
+                Ek = column(Es, k)
+                res, _, _, fg, rws = self._action_residual(
+                    rep(Ek),
+                    gg,
+                    rep(ell),
+                    rep(jr),
+                    rep(jz),
+                    rep(inner),
+                    ntau=min(coarse, 64),
+                    side=rep(side),
+                    delta=rep(delta),
+                )
+                miss = xp.where(
+                    torus(rws, rep(hold), rep(side)),
+                    xp.sum(xp.abs(res), axis=1),
+                    numpy.inf,
+                )
+                miss, fg = (xp.reshape(q, (ng, n)) for q in (miss, fg))
+                first = k < 0.5
+                Eb, fb = xp.where(first, Ek, Eb), xp.where(first, fg[0], fb)
+                for jj in range(ng):
+                    better = miss[jj] < best
+                    best = xp.where(better, miss[jj], best)
+                    Eb, fb = xp.where(better, Ek, Eb), xp.where(better, fg[jj], fb)
+                return stop_gradient(xp.stack([best, Eb, fb, k + 1.0]))
+
+            t = iterate_to_fixed_point(
+                energy,
+                stop_gradient(xp.stack([E + numpy.inf, E, f, 0.0 * E])),
+                Es.shape[1],
+                done=lambda t: t[3][0] > Es.shape[1] - 0.5,
+            )
+            return t[1], t[2]
+
+        def one_pass(st):
+            E, f, I3, ok, inner, side, p = (st[k] for k in range(7))
+            rows, ok, inner, p = st[7:], ok > 0.5, inner > 0.5, p[0]
+            first = p < 0.5
+            left = ~ok | first
+            pi = xp.reshape(xp.astype(p, xp.int64), (1,))
+            inner = xp.where(left, xp.take(inns, pi) > 0.5, inner)
+            side = xp.where(left, xp.take(sds, pi), side)
+            Eb, fb = lazy_cond(
+                xp,
+                first,
+                lambda: (Elad, f0),
+                lambda: scan(E, f, inner, side),
+            )
+            E2, f2, I32, rows2, ok2 = self._bk_newton_many(
+                xp,
+                Eb,
+                fb,
+                ell,
+                jr,
+                jz,
+                Ec,
+                hold,
+                inner,
+                side,
+                coarse,
+                40,
+                delta=delta,
+                active=left,
+            )
+            E, f, I3 = (xp.where(left, b, a) for a, b in ((E, E2), (f, f2), (I3, I32)))
+            rows = xp.where(left[None, :], rows2, rows)
+            ok = xp.where(left, ok2, ok)
+            return stop_gradient(
+                xp.concatenate(
+                    [
+                        xp.stack(
+                            [
+                                E,
+                                f,
+                                I3,
+                                xp.astype(ok, E.dtype),
+                                xp.astype(inner, E.dtype),
+                                side,
+                                0.0 * E + p + 1.0,
+                            ]
+                        ),
+                        rows,
+                    ]
+                )
+            )
+
+        z = 0.0 * jr
+        st = iterate_to_fixed_point(
+            one_pass,
+            stop_gradient(xp.stack([Elad, f0, z, z, z, z, z] + [z + numpy.nan] * 8)),
+            5,
+            done=lambda st: xp.all(st[3] > 0.5) | (st[6][0] > 4.5),
+        )
+        E, f, I3, ok, inner = st[0], st[1], st[2], st[3] > 0.5, st[4] > 0.5
+        side, rows = xp.astype(st[5], hold.dtype), st[7:]
+        if self._ntau > coarse:
+            # on the tori's own anomaly grid, each torus kept on its side
+            side = xp.where(ok, xp.astype(rows[5], side.dtype), side)
+            E2, f2, I32, rows2, ok2 = self._bk_newton_many(
+                xp,
+                E,
+                f,
+                ell,
+                jr,
+                jz,
+                Ec,
+                hold,
+                inner,
+                side,
+                self._ntau,
+                8,
+                delta=delta,
+                active=ok,
+            )
+            E, f, I3 = (xp.where(ok, b, a) for a, b in ((E, E2), (f, f2), (I3, I32)))
+            rows, ok = xp.where(ok[None, :], rows2, rows), xp.where(ok, ok2, ok)
+        return (
+            xp.where(ok, E, numpy.nan),
+            xp.where(ok, I3, numpy.nan),
+            ok,
+            rows,
+            f,
+            inner,
+        )
 
     def _setup_turning_points(self):
         """The turning points of every torus, each in its own Staeckel
@@ -3900,6 +4659,57 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             dold, hold, d = d, h, sec if near else new
         return d, None
 
+    def _rule_fixed_point_many(self, jr, ell, jz, Ec, E0):
+        """_rule_fixed_point for many tori at once, on the solve for their
+        integrals from the actions (J_R, |L_z|, J_z) with a focal length
+        for each (_integrals_chunk): from the rule's focal lengths at the
+        energies E0 and the middle of the third-integral range, the same
+        secant iteration for every torus, which leaves it when it has
+        converged or when the model of its focal length has no torus with
+        its actions. Returns the rows (focal length, E, I_3, 1) of the
+        tori that converged (NaN for the others) and remembers their u
+        turning points in the model of each"""
+        fam = self._rule_family
+
+        def rule(E, ell, f):
+            # (on the host also for a family built on a backend)
+            D = fam._delta_on_host(E, ell, f)
+            if not numpy.all(D > 0.0):
+                raise ValueError(
+                    "the callable delta= has to return positive focal lengths"
+                )
+            return D
+
+        out = numpy.full((4, len(jr)), numpy.nan)
+        d = rule(E0, ell, 0.5 + 0.0 * E0)
+        dold, hold, a = d.copy(), numpy.full(len(jr), numpy.inf), numpy.arange(len(jr))
+        for _ in range(40):
+            E, I3, found, rows = self._integrals_chunk(jr[a], ell[a], jz[a], delta=d[a])
+            a, E, I3, rows = a[found], E[found], I3[found], rows[:, found]
+            if a.size == 0:
+                break
+            # the rule takes the fraction of the way to the shell orbit's
+            # I_3, that of the highest maximum of p_u^2 (_rule_fraction)
+            wells, d2 = self._wells(E, ell[a], delta=d[a]), 2.0 * d[a] ** 2
+            Ipl, Ish = ell[a] ** 2 / d2 - E, numpy.fmax(wells[3], wells[5]) / d2
+            new = rule(E, ell[a], (I3 - Ipl) / (Ish - Ipl))
+            h = new - d[a]
+            conv = numpy.fabs(h) <= 1e-12 * d[a]
+            for ii, Ei, Ii, row in zip(a[conv], E[conv], I3[conv], rows.T[conv]):
+                out[:, ii] = d[ii], Ei, Ii, 1.0
+                with self._in_chart(Ec[ii], ell[ii], False, d[ii]):
+                    for Lz in (ell[ii], -ell[ii]):
+                        self._u_turning_memo[(Ei, Lz, Ii)] = (*row[:3], bool(row[3]))
+            with numpy.errstate(all="ignore"):
+                sec = d[a] - h * (d[a] - dold[a]) / (h - hold[a])
+            lo, hi = 0.5 * numpy.minimum(d[a], new), 2.0 * numpy.maximum(d[a], new)
+            dold[a], hold[a] = d[a], h
+            d[a] = numpy.where((sec > lo) & (sec < hi), sec, new)
+            a = a[~conv]
+            if a.size == 0:
+                break
+        return out
+
     def _rule_delta(self, E, ell, I3):
         """The focal length of the explicit torus (E, |L_z|, I_3) under the
         rule, I_3 being that of the torus's own model"""
@@ -3920,10 +4730,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _integrals_rule(self, jr, ell, jz):
         """_integrals_many for explicit tori whose focal lengths follow a
-        rule: torus by torus, the fixed point in the focal length of the
-        solve for the integrals in the model of a focal length and the
-        rule at the torus found; sets the tori's focal lengths. The
-        iteration starts from the rule's focal length at the epicycle
+        rule: the fixed point in the focal length of the solve for the
+        integrals in the model of a focal length and the rule at the torus
+        found, for all of the tori at once from the first starting point
+        (_rule_fixed_point_many) and then torus by torus for those that
+        this leaves; sets the tori's focal lengths. The iteration starts from the rule's focal length at the epicycle
         energy and the middle of the third-integral range. The model of
         that focal length need not have a torus with these actions when
         that of the fixed point does (close to the axis the actions jump
@@ -3936,7 +4747,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         until one of them ends on a torus"""
         out = numpy.full((4, len(jr)), numpy.nan)
         Ec, kappa, nu = self._circular_many(ell)
-        for ii in range(len(jr)):
+        # first all at once, from the first of the starting points (not the
+        # tori on the shell face or under the rule u0='shell', whose
+        # reference curve is set in the model of a single focal length);
+        # then one by one those that this leaves
+        tot = jr + jz
+        many = numpy.flatnonzero(
+            (tot > 1e-10 * ell) & (jr > 1e-10 * tot) & (self._u0_rule != "shell")
+        )
+        chunk = max(2000000 // self._ntau, 16)
+        for k in range(0, len(many), chunk):
+            sel = many[k : k + chunk]
+            out[:, sel] = self._rule_fixed_point_many(
+                jr[sel], ell[sel], jz[sel], Ec[sel], (Ec + kappa * jr + nu * jz)[sel]
+            )
+        for ii in numpy.flatnonzero(out[3] != 1.0):
 
             def step(d, ii=ii):
                 with self._in_chart(Ec[ii], ell[ii], False, d):
@@ -6627,6 +7452,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # them are constructed, each torus's (_bk_Dt, of shape (n,))
     _bk_Dt = None
 
+    def _bk_on_device(self, xp, *arrays):
+        """numpy arrays on the device of a backend construction: that of
+        the Staeckel model's jax/torch parameters, else the default"""
+        from ..backend._input import _grad_param
+
+        par = _grad_param(self._staeckelwrap)
+        dev = device_of(
+            self._bk_Phi(
+                asarray_on_device(
+                    xp, numpy.ones(1), None if par is None else device_of(par)
+                )
+            )
+        )
+        return tuple(
+            asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev) for a in arrays
+        )
+
     def _bk_dl(self):
         """The focal length of the tori of the backend construction under
         way: the family's, or each torus's (_PerTorus)"""
@@ -7379,7 +8221,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
         )
         dev = device_of(probe)
-        concrete = has_concrete_truth_value(probe[0])
+        # (explicit tori set up from traced actions: their integrals are
+        # traced too)
+        concrete = has_concrete_truth_value(probe[0]) and not (
+            not self._interp and under_trace(self._Es, self._Lzs, self._I3s)
+        )
 
         def f64(a):
             return asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev)
@@ -7395,7 +8241,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._bk = None
         grid = None
         if not self._interp:
-            Es, Lzs, I3s = f64(self._Es), f64(self._Lzs), f64(self._I3s)
+            Es, Lzs, I3s = (
+                t if is_backend_array(t) else f64(t)
+                for t in (self._Es, self._Lzs, self._I3s)
+            )
+            if concrete:
+                # (on numpy, for the messages)
+                self._Es, self._Lzs, self._I3s = tonp(Es), tonp(Lzs), tonp(I3s)
             ell = xp.abs(Lzs)
             Rc = rl(self._bk_plane_pot(), ell, use_physical=False)
             Ec = self._bk_Phi(Rc) + ell**2 / (2.0 * Rc**2)
@@ -7414,7 +8266,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 # caller resets the model)
                 Es_c = xp.where(circ, Ec + 0.02 * (ell / Rc) ** 2, Es)
                 self._bk_Dt = (
-                    f64(self._delta_tab)
+                    (
+                        self._delta_tab
+                        if is_backend_array(self._delta_tab)
+                        else f64(self._delta_tab)
+                    )
                     if "_delta_tab" in self.__dict__
                     else self._bk_rule_deltas(
                         xp, f64, concrete, Es, Es_c, ell, I3s, circ
@@ -7463,7 +8319,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         ush_g = ush_s
         if host_u is not None:
             # the maximum that each torus librates about (_u_turning)
-            ush_s = xp.where(circ, ush_s, f64(host_u[:, 2]))
+            hu = host_u if is_backend_array(host_u) else f64(host_u)
+            ush_s = xp.where(circ, ush_s, hu[:, 2])
         unbound = unbound & ~circ
         sh2 = xp.sinh(ush_s) ** 2
         Ipl_s = Lzs**2 / (2.0 * d2) - Es_s
@@ -7489,10 +8346,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         ush = xp.where(circ, xp.asinh(Rc / self._bk_dl()), ush_s)
         umin, umax = self._bk_u_turning(xp, Es_s, Lzs, I3u, ush_s, bars)
         if host_u is not None:
-            # (these tori are not differentiated: their integrals are not)
+            # (with the derivatives of the turning points in the integrals:
+            # one Newton step on p_u^2 = 0 at them, whose value is theirs)
             keep = circ | udeg
-            umin = xp.where(keep, umin, f64(host_u[:, 0]))
-            umax = xp.where(keep, umax, f64(host_u[:, 1]))
+            hm, hp = (xp.where(keep, 1.0, hu[:, k]) for k in (0, 1))
+
+            def tp(u):
+                du = -Wu(u, Es_s, Lzs, I3u) / dWu(u, Es_s, Lzs, U(u, 1))
+                return u + (du - stop_gradient(du))
+
+            umin = xp.where(keep, umin, tp(hm))
+            umax = xp.where(keep, umax, tp(hp))
         # each torus's Staeckel model under a rule for its reference curve
         # (frozen: a gauge), placed before anything that reads V: 'torus'
         # from the turning points just found, which U(u) alone sets
@@ -7692,7 +8556,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         dush = _bk_dush(xp, d2, ush, Lzs, d2Wush, self._bk_dush_D(xp, ush, Lzs, d2Wush))
         dush_g = dush
         if host_u is not None and self._u0_rule == "shell":
-            dush_g = _bk_dush(xp, d2, ush_g, Lzs, d2Wu(ush_g, Es_s, Lzs, U(ush_g, 2)))
+            d2Wg = d2Wu(ush_g, Es_s, Lzs, U(ush_g, 2))
+            dush_g = _bk_dush(
+                xp, d2, ush_g, Lzs, d2Wg, self._bk_dush_D(xp, ush_g, Lzs, d2Wg)
+            )
         # ----- a rule for the reference curve (as _node_tables, and the fold
         # of _setup_tori and _setup_tori_interp): along u0 at fixed integrals,
         # J_z (Ju) and the v half-width (wu0) vary, as (below) do both maps;
@@ -9826,6 +10693,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if "deltas" in tabs
             else {}
         )
+        if "found" in tabs:
+            # (a torus not found, under a trace: nan)
+            own["found"] = tabs["found"][ii]
         return {
             **own,
             "ii": ii,
@@ -9843,6 +10713,109 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "udeg": udeg,
             "vdeg": vdeg,
         }
+
+    def _bk_explicit_tables_rows(self, xp, jr, jz, Lz):
+        """_bk_explicit_tables for many points at once, each at its own
+        torus, in the layout of _bk_interp_tables_rows (a leading point
+        axis; the maps' coefficients as (M, npoints), their chains as (M,
+        npoints, 3))"""
+        sg = stop_gradient
+        tabs = self._bk_node_tables(xp, device_of(jr))
+        dist = (
+            xp.abs(tabs["jrs"][None, :] - jr[:, None])
+            + xp.abs(tabs["jzs"][None, :] - jz[:, None])
+            + xp.abs(tabs["Lzs"][None, :] - Lz[:, None])
+        )
+        ii = xp.argmin(sg(dist), axis=1)
+        miss = xp.min(sg(dist), axis=1) > 1e-8 * (
+            1.0 + xp.abs(jr) + xp.abs(jz) + xp.abs(Lz)
+        )
+        if concretely_true(xp.any(miss)):
+            k = int(numpy.flatnonzero(as_numpy(miss))[0])
+            self._bk_match_node(xp, tabs, jr[k], jz[k], Lz[k])
+
+        def take(t):
+            return xp.take(t, ii, axis=0)
+
+        N = take(tabs["Ns"])
+        dev = device_of(N)
+        d = xp.stack(
+            [jr - take(tabs["jrs"]), jz - take(tabs["jzs"]), Lz - take(tabs["Lzs"])],
+            axis=-1,
+        )
+        d = d - sg(d)
+        idx = asarray_on_device(xp, numpy.array([0, 1, 2, 1, 3, 4, 2, 4, 5]), dev)
+
+        def sym(x6):  # the six pairs as a symmetric 3 x 3 (last axis)
+            m = xp.take(x6, idx, axis=-1)
+            return xp.reshape(m, tuple(m.shape[:-1]) + (3, 3))
+
+        n = N.shape[0]
+        JJ = (getattr(xp, "concat", None) or xp.concatenate)(
+            [
+                sym(take(tabs["d2Ms"])),
+                xp.zeros((n, 1, 3, 3), dtype=N.dtype, device=dev),
+            ],
+            axis=1,
+        )
+        d2alpha = -xp.einsum("ngk,nai,nkab,nbj->ngij", N, N, JJ, N)
+        udeg, vdeg = take(tabs["wus"]) == 0.0, take(tabs["wvs"]) == 0.0
+        dsups = take(tabs["dsups"])
+        dsup = xp.where(xp.isfinite(dsups), dsups, 0.0)
+        d2sup = take(tabs["d2sups"])
+
+        def family(x0, x1, x6, flag=None):
+            # the value and its J-gradient at the departure d, to second
+            # order; x0 (n, ...), x1 (n, ..., 3), x6 (n, ..., 6)
+            xJ = xp.einsum("n...a,nai->n...i", x1, N)
+            xJJ = xp.einsum("nai,n...ab,nbj->n...ij", N, sym(x6), N) + xp.einsum(
+                "n...a,naij->n...ij", x1, d2alpha
+            )
+            val = (
+                x0
+                + xp.einsum("n...i,ni->n...", xJ, d)
+                + 0.5 * xp.einsum("n...ij,ni,nj->n...", xJJ, d, d)
+            )
+            grad = xJ + xp.einsum("n...ij,nj->n...i", xJJ, d)
+            if flag is not None:  # a degenerate libration has no derivatives
+                grad = xp.where(flag[:, None], 0.0 * grad, grad)
+            return val, grad
+
+        def maps(val, grad):  # to (M, npoints), (M, npoints, 3)
+            return xp.permute_dims(val, (1, 0)), xp.permute_dims(grad, (1, 0, 2))
+
+        uc, duc = family(take(tabs["ucs"]), dsup[:, 0], d2sup[:, 0])
+        wu, dwu = family(take(tabs["wus"]), dsup[:, 1], d2sup[:, 1], udeg)
+        wv, dwv = family(take(tabs["wvs"]), dsup[:, 2], d2sup[:, 2], vdeg)
+        Dmu, dDmu = maps(
+            *family(take(tabs["Dmus"]), take(tabs["dDmus"]), take(tabs["d2Dmus"]))
+        )
+        Dmv, dDmv = maps(
+            *family(take(tabs["Dmvs"]), take(tabs["dDmvs"]), take(tabs["d2Dmvs"]))
+        )
+        tab = {
+            "Om": N[:, 0] + xp.einsum("nij,nj->ni", d2alpha[:, 0], d),
+            "uc": uc,
+            "duc": duc,
+            "wu": wu,
+            "dwu": dwu,
+            "Dmu": Dmu,
+            "dDmu": dDmu,
+            "wv": wv,
+            "dwv": dwv,
+            "Dmv": Dmv,
+            "dDmv": dDmv,
+            "udeg": udeg,
+            "vdeg": vdeg,
+            "bad": numpy.zeros(n, dtype="bool"),
+        }
+        if "deltas" in tabs:
+            # (with a rule for the focal length, the torus's own and its chain)
+            tab["delta"], tab["ddelta"] = take(tabs["deltas"]), take(tabs["ddeltas"])
+        if "found" in tabs:
+            # (a torus not found, under a trace: nan)
+            tab["found"] = take(tabs["found"])
+        return tab
 
     def _bk_kernel_u(self, xp, tau, a, e, L, Dm, uc, wu, chains):
         """_kernel_u in jax/torch"""
@@ -10227,27 +11200,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             def torus(a, ang):
                 return self._bk_xvFreqs_torus(xp, *a, *ang)
 
-            if self._interp:
-
-                def points(*cols):
-                    acts, angs = cols[:3], cols[3:]
-                    return self._bk_points(
+            def points(*cols):
+                acts, angs = cols[:3], cols[3:]
+                return self._bk_points(
+                    xp,
+                    acts,
+                    angs,
+                    torus,
+                    lambda t, rows, pts, traced: self._bk_xvFreqs_rows(
                         xp,
-                        acts,
-                        angs,
-                        torus,
-                        lambda t, rows, pts, traced: self._bk_xvFreqs_rows(
-                            xp,
-                            *t,
-                            rows,
-                            *(angs if pts is None else (xp.take(a, pts) for a in angs)),
-                            traced,
-                        ),
-                    )
+                        *t,
+                        rows,
+                        *(angs if pts is None else (xp.take(a, pts) for a in angs)),
+                        traced,
+                    ),
+                )
 
-                out = self._bk_chunked(xp, points, (*acts, *angs))
-            else:
-                out = self._bk_per_torus(xp, acts, angs, torus)
+            out = self._bk_chunked(xp, points, (*acts, *angs))
             res = tuple(xp.reshape(o, shape) for o in out)
         return tuple(match_input_dtype(t, *ins) for t in res)
 
@@ -10364,6 +11333,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if not concrete:  # a traced circular orbit
             on_c = (jr == 0.0) & (jz == 0.0)
             res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
+        if "found" in tab:
+            res = tuple(xp.where(tab["found"], r, numpy.nan) for r in res)
         return res
 
     def _bk_point(self, xp, T, Lz, L, anglephi, delta=None):
@@ -10404,22 +11375,19 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             def torus(a, ang):
                 return self._bk_Freqs_torus(xp, *a)
 
-            if self._interp:
-                out = self._bk_chunked(
+            out = self._bk_chunked(
+                xp,
+                lambda *a: self._bk_points(
                     xp,
-                    lambda *a: self._bk_points(
-                        xp,
-                        a,
-                        (),
-                        torus,
-                        lambda t, rows, pts, traced: self._bk_Freqs_rows(
-                            xp, *t, rows, traced
-                        ),
+                    a,
+                    (),
+                    torus,
+                    lambda t, rows, pts, traced: self._bk_Freqs_rows(
+                        xp, *t, rows, traced
                     ),
-                    acts,
-                )
-            else:
-                out = self._bk_per_torus(xp, acts, (), torus)
+                ),
+                acts,
+            )
             res = tuple(xp.reshape(o, shape) for o in out)
         return tuple(match_input_dtype(t, *ins) for t in res)
 
@@ -10441,11 +11409,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     xp, self._bk_node_tables(xp, device_of(jr)), jr, jz, Lz
                 )
             return circular()
-        Om = self._bk_tables(xp, jr, jz, Lz)["Om"]
+        tab = self._bk_tables(xp, jr, jz, Lz)
+        Om = tab["Om"]
         res = (Om[0], Om[2], Om[1])
         if not concrete:
             on_c = (jr == 0.0) & (jz == 0.0)
             res = tuple(xp.where(on_c, c, r) for c, r in zip(circular(), res))
+        if "found" in tab:
+            res = tuple(xp.where(tab["found"], r, numpy.nan) for r in res)
         return res
 
     # ---------- the family on a backend: many tori in one vectorized pass
@@ -10688,55 +11659,178 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """_bk_solve_angles with every point on its own torus: the Newton
         iteration, vectorized over the points, then the nested backend
         brentq from there, whose final Newton steps carry the implicit-function
-        derivative; also returns which points did not converge (None when
-        traced: the iteration has then run to convergence)"""
+        derivative; the points that this leaves unconverged all at once once
+        more, from their requested angles within brackets as wide as their
+        angle relations can need (as _bk_solve_angles for one torus, whose
+        result is final; traced, before the final steps, those that the
+        Newton iteration leaves far from their roots, a few at a time); also
+        returns which points did not converge (none; None when traced)"""
         sgc = lambda cs: [tuple(stop_gradient(t) for t in c) for c in cs]  # noqa: E731
         cu_sg, cv_sg = sgc(chains_u), sgc(chains_v)
         thR_sg, thz_sg = stop_gradient(thR), stop_gradient(thz)
+        cat = getattr(xp, "concat", None) or xp.concatenate
 
         def wrap(f):
             return xp.remainder(f + numpy.pi, 2.0 * numpy.pi) - numpy.pi
 
-        def resid(x, y, a, cu, cv, tR, tz):
-            T = self._bk_torus_at(xp, x, y, a, cu, cv)
-            return (
-                wrap(T["thetaAr"] + T["comps"][0] - tR),
-                wrap(T["thetaAz"] + T["comps"][1] - tz),
-                T,
+        def nested(a, cu, cv, tR, tz, x0, y0, sR, sz, ns):
+            def fz(yy, xx_):
+                T = self._bk_torus_at(xp, xx_, yy, a, cu, cv)
+                return wrap(T["thetaAz"] + T["comps"][1] - tz)
+
+            def tv_of(xx):
+                return _backend_brentq(
+                    fz, y0 - sz, y0 + sz, args=(xx,), guess=y0, newton_steps=ns
+                )
+
+            def fR(xx):
+                T = self._bk_torus_at(xp, xx, tv_of(xx), a, cu, cv)
+                return wrap(T["thetaAr"] + T["comps"][0] - tR)
+
+            tu = _backend_brentq(fR, x0 - sR, x0 + sR, guess=x0, newton_steps=ns)
+            return tu, tv_of(tu)
+
+        def residual(tu, tv, a, cu, cv, tR, tz):
+            T = self._bk_torus_at(xp, stop_gradient(tu), stop_gradient(tv), a, cu, cv)
+            return xp.maximum(
+                xp.abs(wrap(T["thetaAr"] + T["comps"][0] - tR)),
+                xp.abs(wrap(T["thetaAz"] + T["comps"][1] - tz)),
             )
+
+        def sub(v, idx):
+            if not is_backend_array(v):
+                return v
+            return xp.take(v, idx, axis=v.ndim - 1)
+
+        def subs(a, cu, cv, idx):
+            return (
+                {k: sub(v, idx) for k, v in a.items()},
+                [tuple(sub(t, idx) for t in c) for c in cu],
+                [tuple(sub(t, idx) for t in c) for c in cv],
+            )
+
+        g = numpy.linspace(0.0, 2.0 * numpy.pi, 48, endpoint=False)
+        GU, GV = (q.flatten() for q in numpy.meshgrid(g, g))
+
+        def wide(idx, k):
+            # the points idx (k of them) from their requested angles within
+            # brackets as wide as their angle relations can need: how far
+            # those stray from the anomalies on a grid, plus 2 pi
+            rep = xp.reshape(xp.broadcast_to(idx[:, None], (k, len(GU))), (-1,))
+            gu, gv = (asarray_on_device(xp, numpy.tile(q, k), dev) for q in (GU, GV))
+            Ts = self._bk_torus_at(xp, gu, gv, *subs(aux_sg, cu_sg, cv_sg, rep))
+            wR, wz = (
+                xp.max(xp.reshape(xp.abs(T - q), (k, -1)), axis=1) + 6.3
+                for T, q in (
+                    (Ts["thetaAr"] + Ts["comps"][0], gu),
+                    (Ts["thetaAz"] + Ts["comps"][1], gv),
+                )
+            )
+            return wR, wz
 
         xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
-        FR, Fz, _ = resid(xc, yc, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
-        bad, ns = None, 2
-        if not under_trace(FR):
-            bad = as_numpy(xp.maximum(xp.abs(FR), xp.abs(Fz))) >= self._angle_tol
-            ns = 1
-        sR = sz = 1e-3 + 0.0 * xc
+        near = 1e-3 + 0.0 * xc
+        dev = device_of(xc)
+        if under_trace(xc):
+            # (the points that the Newton iteration leaves far from their
+            # roots, K at a time, the farthest first, with no derivative: the
+            # final steps carry it)
+            n = xc.shape[0]
+            K = min(8, n)
+            ar = xp.arange(n)
 
-        def fz(yy, xx_):
-            T = self._bk_torus_at(xp, xx_, yy, aux, chains_u, chains_v)
-            return wrap(T["thetaAz"] + T["comps"][1] - thz)
+            def step(state):
+                x, y, done = state[0], state[1], state[2]
+                r = residual(x, y, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
+                need = (r >= 1e-6) & (done < 0.5)
 
-        def tv_of(xx):
-            return _backend_brentq(
-                fz, yc - sz, yc + sz, args=(xx,), guess=yc, newton_steps=ns
+                def solve():
+                    idx = xp.argsort(-xp.where(need, r, -1.0))[:K]
+                    wR, wz = wide(idx, K)
+                    tR_k, tz_k = sub(thR_sg, idx), sub(thz_sg, idx)
+                    tu_k, tv_k = nested(
+                        *subs(aux_sg, cu_sg, cv_sg, idx),
+                        tR_k,
+                        tz_k,
+                        tR_k * 1.0,
+                        tz_k * 1.0,
+                        wR,
+                        wz,
+                        24,
+                    )
+                    hit = (ar[:, None] == idx[None, :]) & sub(need, idx)[None, :]
+                    got = xp.any(hit, axis=1)
+
+                    def put(t_k, t):
+                        return xp.where(
+                            got, xp.sum(xp.where(hit, t_k[None, :], 0.0), axis=1), t
+                        )
+
+                    return stop_gradient(
+                        xp.stack([put(tu_k, x), put(tv_k, y), xp.where(got, 1.0, done)])
+                    )
+
+                return lazy_cond(xp, xp.any(need), solve, lambda: state)
+
+            state = iterate_to_fixed_point(
+                step, stop_gradient(xp.stack([xc, yc, 0.0 * xc])), -(-n // K) + 1
             )
-
-        def fR(xx):
-            T = self._bk_torus_at(xp, xx, tv_of(xx), aux, chains_u, chains_v)
-            return wrap(T["thetaAr"] + T["comps"][0] - thR)
-
-        tu = _backend_brentq(
-            lambda xx: fR(xx), xc - sR, xc + sR, guess=xc, newton_steps=ns
+            tu, tv = nested(
+                aux, chains_u, chains_v, thR, thz, state[0], state[1], near, near, 2
+            )
+            return tu, tv, None
+        tu, tv = nested(aux, chains_u, chains_v, thR, thz, xc, yc, near, near, 1)
+        bad = (
+            as_numpy(residual(tu, tv, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg))
+            >= self._angle_tol
         )
-        return tu, tv_of(tu), bad
+        if not numpy.any(bad):
+            return tu, tv, bad
+        ib = numpy.flatnonzero(bad)
+        # (the brackets in chunks of points)
+        wR, wz = (
+            cat(list(w))
+            for w in zip(
+                *(
+                    wide(
+                        asarray_on_device(xp, ib[c0 : c0 + 32], dev),
+                        len(ib[c0 : c0 + 32]),
+                    )
+                    for c0 in range(0, len(ib), 32)
+                )
+            )
+        )
+        idx = asarray_on_device(xp, ib, dev)
+        tR_b, tz_b = sub(thR, idx), sub(thz, idx)
+        tu_b, tv_b = nested(
+            *subs(aux, chains_u, chains_v, idx),
+            tR_b,
+            tz_b,
+            stop_gradient(tR_b) * 1.0,
+            stop_gradient(tz_b) * 1.0,
+            wR,
+            wz,
+            24,
+        )
+        perm = numpy.arange(len(bad))
+        perm[ib] = len(bad) + numpy.arange(len(ib))
+        perm = asarray_on_device(xp, perm, dev)
+        tu, tv = (
+            xp.take(cat([t, t_b]), perm, axis=0) for t, t_b in ((tu, tu_b), (tv, tv_b))
+        )
+        # (from there, as numpy and the one-torus path, the solve is final)
+        return tu, tv, numpy.zeros_like(bad)
 
     def _bk_rows_setup(self, xp, jr, jphi, jz, rows, traced):
         """The tables, auxiliary tori and action chains of the tori (jr, jphi,
         jz), gathered to the points they are read at (rows: the torus of each
         point, None when every point is its own torus); with the tori's
         "bad" flags"""
-        tab = self._bk_interp_tables_rows(xp, jr, jz, jphi, traced)
+        tab = (
+            self._bk_interp_tables_rows(xp, jr, jz, jphi, traced)
+            if self._interp
+            else self._bk_explicit_tables_rows(xp, jr, jz, jphi)
+        )
         aux, chains_u, chains_v = self._bk_aux(xp, jr, jz, jphi, tab)
         if "delta" in tab:
             # each torus in the coordinates of its own focal length (as
@@ -10806,11 +11900,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         else:
             tbad = tab["bad"] if rows is None else tab["bad"][as_numpy(rows)]
             bad = bad | tbad
-        return res, bad
+        return self._bk_found_rows(xp, tab, rows, res), bad
+
+    @staticmethod
+    def _bk_found_rows(xp, tab, rows, res):
+        """res with nan for the points on tori that were not found (explicit
+        tori set up from their actions under a trace)"""
+        if "found" not in tab:
+            return res
+        found = tab["found"] if rows is None else xp.take(tab["found"], rows, axis=0)
+        return tuple(xp.where(found, r, numpy.nan) for r in res)
 
     def _bk_Freqs_rows(self, xp, jr, jphi, jz, rows, traced):
         """The frequencies of the vectorized pass (as _bk_xvFreqs_rows)"""
-        tab = self._bk_interp_tables_rows(xp, jr, jz, jphi, traced)
+        tab = (
+            self._bk_interp_tables_rows(xp, jr, jz, jphi, traced)
+            if self._interp
+            else self._bk_explicit_tables_rows(xp, jr, jz, jphi)
+        )
         Om, Lz, bad = tab["Om"], jphi, tab["bad"]
         if rows is not None:
             Om, Lz = xp.take(Om, rows, axis=0), xp.take(jphi, rows, axis=0)
@@ -10825,7 +11932,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                     (circ["kappa"], xp.sign(Lz) * circ["Omc"], circ["nu"]), res
                 )
             )
-        return res, bad
+        return self._bk_found_rows(xp, tab, rows, res), bad
 
     def _bk_invert_family(
         self, xp, R, vR, vT, z, vz, phi, jr, jz, tol=1e-12, maxiter=8
@@ -10974,7 +12081,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         return xp.where(solved[None, :], out, numpy.nan)
 
     def _bk_points(self, xp, actions, angles, torus, rows_fn):
-        """An interpolated family at flat arrays of actions (and angles of the
+        """A family or explicit tori at flat arrays of actions (and angles of the
         same length, possibly none): the tori with both librations through the
         vectorized pass rows_fn(tori, rows, points), read once per distinct
         torus when the actions carry no derivative (else every point its own

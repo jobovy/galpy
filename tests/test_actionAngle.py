@@ -15397,6 +15397,60 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     return None
 
 
+def test_actionAngleStaeckelInverse_delta_explicit_many():
+    # The focal lengths of explicit tori that are set up from their actions
+    # with a rule are found for all of the tori at once: the tori are those
+    # that are found one at a time, for every rule for the reference curve
+    # (also for the torus on the shell face and the rule u0='shell', which
+    # are found one by one), and a rule that is not positive is refused for
+    # a torus on the shell face as it is for any other
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+    from galpy.potential import LogarithmicHaloPotential
+
+    with use("numpy", force=True):
+        lp = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    rule = lambda E, Lz, f: 0.8 * (1.0 + 0.2 * (f - 0.5) + 0.05 * E * f + 0.1 * Lz)  # noqa: E731
+    jr = numpy.array([0.0, 0.03, 0.25, 0.1, 0.3])
+    Lz = numpy.array([0.9, 1.1, -0.6, 0.8, 1.2])
+    jz = numpy.array([0.1, 0.2, 0.05, 0.3, 0.02])
+    angs = numpy.array([0.3, 2.0, 4.1])
+
+    def setup(sel, u0, delta=rule):
+        # (set up with numpy, as on numpy: the solve of many tori at once is
+        # numpy's for concrete actions also on a backend; evaluated there)
+        with use("numpy", force=True):
+            return actionAngleStaeckelInverse(
+                pot=lp,
+                delta=delta,
+                u0=u0,
+                jrs=jr[sel],
+                Lzs=Lz[sel],
+                jzs=jz[sel],
+                mm_npt=32,
+                progressbar=False,
+            )
+
+    for u0 in ("torus", "planar", "shell"):
+        many = setup(slice(None), u0)
+        for ii in range(len(jr)):
+            one = setup([ii], u0)
+            assert numpy.fabs(one._deltas[0] / many._deltas[ii] - 1.0) < 1e-9, (
+                f"The focal length of a torus under a rule with u0={u0} differs "
+                "between many tori and one"
+            )
+            assert numpy.all(
+                numpy.fabs(
+                    numpy.array(many(jr[ii], Lz[ii], jz[ii], *angs))
+                    - numpy.array(one(jr[ii], Lz[ii], jz[ii], *angs))
+                )
+                < 1e-8
+            ), f"A torus under a rule with u0={u0} differs between many tori and one"
+    with pytest.raises(ValueError, match="positive focal lengths"):
+        setup([0], "torus", delta=lambda E, L, f: 0.5 - f)
+    return None
+
+
 def test_actionAngleStaeckelInverse_delta_target():
     # target= with a focal length that follows the tori: the box of the
     # target is found in the rule's models, and a localized family that is
@@ -17392,6 +17446,61 @@ def test_actionAngleStaeckelInverse_setup_not_kept():
         assert sizes[1] < 2**16 + ntori * 2**14, (
             "A pickled actionAngleStaeckelInverse instance holds more than "
             "about ten kB per torus"
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_interp_shell_face_large_I3():
+    # The grid's shell face is the shell orbits exactly, however large the
+    # third integral (a focal length far below the tori's size makes it
+    # large, and the grid's third-integral variable then rounds at the face):
+    # a node placed a rounding below the face is a torus whose u libration
+    # all but vanishes, and its tables are not finite. The family below was
+    # refused for that reason; its shell tori have a single radius, up to the
+    # square of the ratio of the focal length to that radius
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.backend import use
+    from galpy.potential import MWPotential2014
+
+    # (set up with numpy, evaluated on a backend: an eager backend's own
+    # set-up of the family is test_backend_actionAngleStaeckelInverse's
+    # test_shell_face_large_I3_backend)
+    with use("numpy", force=True):
+        aAI = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.006,
+            u0="torus",
+            setup_interp=True,
+            Rmin=0.0031,
+            Rmax=0.0062,
+            Rinf=16.0,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=64,
+            progressbar=False,
+        )
+    angles = numpy.linspace(0.1, 6.0, 5)
+    for jz in (0.1, 1.0):
+        assert aAI.in_domain(0.0, 0.0015, jz), (
+            "A shell torus of the family with a large third integral is not in its domain"
+        )
+        R, vR, vT, z, vz, phi = numpy.array(
+            aAI(
+                numpy.zeros(5),
+                0.0015 * numpy.ones(5),
+                jz * numpy.ones(5),
+                angles,
+                0.7 * angles,
+                1.3 * angles,
+            )
+        )
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        assert numpy.all(numpy.isfinite([R, vR, vT, z, vz, phi])), (
+            "A shell torus of a family with a large third integral is not finite"
+        )
+        assert numpy.all(numpy.fabs(r / numpy.mean(r) - 1.0) < 1e-3), (
+            "A shell torus of a family with a focal length far below its size does not have a single radius"
         )
     return None
 
