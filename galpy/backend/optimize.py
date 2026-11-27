@@ -62,7 +62,6 @@ from ._namespaces import (
     under_jax_trace,
     under_trace,
 )
-from ._resolver import get_namespace
 
 # Default bracketing tolerance (matches scipy.optimize.brentq's xtol default, so
 # the backend path converges to the same neighbourhood as the numpy path).
@@ -166,7 +165,8 @@ def brentq(
 
         kw = {} if rtol is None else {"rtol": rtol}
         return _sopt.brentq(func, a, b, args=args, xtol=xtol, maxiter=maxiter, **kw)
-    xp = get_namespace(a, b, *args)
+    # (the data's namespace, also under another forced backend)
+    xp = namespace_from_arrays((a, b, *args))
     name = getattr(xp, "__name__", "")
     f = (lambda x: func(x, *args)) if args else func
     if "jax" in name:

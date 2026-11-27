@@ -79,7 +79,7 @@ from . import actionAngleStaeckel_c
 from .actionAngle import UnboundError, _c_cannot_carry, actionAngle
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 
-# the fixed point of the Staeckel model of a torus of inverse= through a
+# the fixed point of the Staeckel model of a torus of the inverse through a
 # point: tolerance on the step of the reference curve, and cap on the cycles
 _MODEL_TOL = 1e-9
 _MODEL_MAXITER = 10
@@ -1835,10 +1835,6 @@ class actionAngleStaeckel(actionAngle):
             be left out for a potential that supplies its own (an exact
             Staeckel potential such as KuzminKutuzovStaeckelPotential, or an
             OblateStaeckelWrapperPotential), whose focal length is then used.
-        inverse : actionAngleStaeckelInverse, optional
-            Set up the transformation that inverts this instance, in place of pot= and delta=: (x,v) -> (J,theta) such that inverse(J,theta) returns (x,v). Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning. Explicit tori whose focal lengths follow a rule (delta= a callable or a family's delta method) are transformed with that rule, like a family's. Points that no torus passes through return nan with a warning: unbound points and, close to the symmetry axis, points in the gaps that a reference curve or focal length that follows the tori leaves between them. With jax/torch inputs, the transformation runs in the backend (c=False) implementation, with derivatives through each point's model.
-        polish : bool, optional
-            With inverse= a family (setup_interp=True): make the transformation the exact inverse of the family's interpolated map, by Newton's method on that map from the actions and angles of the family's tori; points that no torus of the family passes through return nan with a warning. Default is False: the actions and angles of the family's tori, to which the interpolated map agrees to its interpolation error.
         useu0 : bool, optional
             Use u0 to calculate dV (not recommended). Default is False.
         c : bool, optional
@@ -1852,16 +1848,15 @@ class actionAngleStaeckel(actionAngle):
 
         Notes
         -----
+        - Use actionAngleStaeckel.from_inverse to set up the transformation that an actionAngleStaeckelInverse instance inverts.
         - 2012-11-27 - Started - Bovy (IAS).
         """
-        self._inverse = kwargs.get("inverse", None)
+        self._inverse = kwargs.get("_inverse", None)
         # whether the energy is that of the Staeckel model of (delta, u0)
         self._model = False
         self._polish = kwargs.get("polish", False)
         if self._polish and not (self._inverse is not None and self._inverse._interp):
-            raise ValueError(
-                "polish= requires inverse= to be a family (setup_interp=True)"
-            )
+            raise ValueError("polish= requires a family (setup_interp=True)")
         if self._inverse is not None:
             kwargs = self._setup_inverse(kwargs)
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
@@ -1902,15 +1897,41 @@ class actionAngleStaeckel(actionAngle):
         self._check_consistent_units()
         return None
 
+    @classmethod
+    def from_inverse(cls, aAI, polish=False, **kwargs):
+        """
+        Set up the transformation (x,v) -> (J,theta) that an actionAngleStaeckelInverse instance inverts.
+
+        Parameters
+        ----------
+        aAI : actionAngleStaeckelInverse instance
+            The inverse transformation, which supplies the potential and the focal length. Each phase-space point is transformed in the Staeckel model of the torus of the instance that passes through it: the instance's single model or, for a reference curve that follows the tori (u0='torus'), the model whose reference curve is that of the point's own torus and, for a focal length that follows the tori (delta='fit' or a callable), whose focal length is the family's at that torus's actions. For a family (setup_interp=True), these are the exact actions of the family's tori, to which the family's interpolated map agrees to its interpolation error. Points beyond the family's grid are transformed in the same way: the rules for the reference curve do not depend on the grid, and a fitted focal length (delta='fit') is held at its value at the edge of the grid's range of energy and angular momentum, with a warning. Explicit tori whose focal lengths follow a rule (delta= a callable or a family's delta method) are transformed with that rule, like a family's. Points that no torus passes through return nan with a warning: unbound points and, close to the symmetry axis, points in the gaps that a reference curve or focal length that follows the tori leaves between them. With jax/torch inputs, the transformation runs in the backend (c=False) implementation, with derivatives through each point's model.
+        polish : bool, optional
+            For a family (setup_interp=True): make the transformation the exact inverse of the family's interpolated map, by Newton's method on that map from the actions and angles of the family's tori; points that no torus of the family passes through return nan with a warning. Default is False: the actions and angles of the family's tori, to which the interpolated map agrees to its interpolation error.
+        **kwargs
+            Other keywords of actionAngleStaeckel (c=, order=, ro=, vo=); pot= and delta= cannot be given.
+
+        Returns
+        -------
+        actionAngleStaeckel instance
+            Such that aAI(J,theta) returns (x,v) for its (J,theta) at (x,v).
+
+        Notes
+        -----
+        - 2026-11-24 - Written as a class method (was the inverse= keyword) - Bovy (UofT)
+
+        """
+        return cls(_inverse=aAI, polish=polish, **kwargs)
+
     def _setup_inverse(self, kwargs):
         """The set-up that inverts the actionAngleStaeckelInverse instance
-        inverse=: its Staeckel model or, for tori that each have their own
+        inverse: its Staeckel model or, for tori that each have their own
         model, the potential that those models approximate, with the
         energy of every point evaluated in its own model"""
         aAI = self._inverse
         if "pot" in kwargs or "delta" in kwargs:
             raise TypeError(
-                "pot= and delta= cannot be given with inverse=, which supplies them"
+                "pot= and delta= cannot be given to from_inverse: the inverse supplies them"
             )
         # the rule of the reference curve, as the C code numbers them: 2,
         # u0='torus', 3, 'planar', and 5, 'shell', which it evaluates
@@ -1926,7 +1947,7 @@ class actionAngleStaeckel(actionAngle):
             # (a placeholder: every point gets the focal length of its torus)
             if not aAI._interp and aAI._delta_callable is None:
                 raise RuntimeError(
-                    "The callable delta= of the explicit tori inverse= was not "
+                    "The callable delta= of the explicit tori was not "
                     "pickled with them: they can only be inverted by the "
                     "instance that was set up with the callable"
                 )
@@ -1941,7 +1962,7 @@ class actionAngleStaeckel(actionAngle):
 
     def _polished(self, *args, **kwargs):
         """(J_R, L_z, J_z, Omega_R, Omega_phi, Omega_z, theta_R, theta_phi,
-        theta_z) such that the family inverse= maps the actions and angles
+        theta_z) such that the family inverse maps the actions and angles
         to the points exactly: Newton's method on the family's interpolated
         map, from those of its tori, with the family's frequencies"""
         aAI = self._inverse
@@ -1982,7 +2003,7 @@ class actionAngleStaeckel(actionAngle):
         bad = numpy.isnan(sol[0])
         if numpy.any(bad):
             warnings.warn(
-                f"{numpy.sum(bad)} points are not on a torus of inverse=: their "
+                f"{numpy.sum(bad)} points are not on a torus of the inverse: their "
                 "actions, frequencies and angles are nan",
                 galpyWarning,
             )
@@ -2020,7 +2041,7 @@ class actionAngleStaeckel(actionAngle):
         concrete = has_concrete_truth_value(nbad)
         if concrete and int(nbad) > 0:
             warnings.warn(
-                f"{int(nbad)} points are not on a torus of inverse=: their "
+                f"{int(nbad)} points are not on a torus of the inverse: their "
                 "actions, frequencies and angles are nan",
                 galpyWarning,
             )
@@ -2041,7 +2062,7 @@ class actionAngleStaeckel(actionAngle):
         self, R, vR, vT, z, vz, c=True, deriv=True, flag_unbound=False, npts=None
     ):
         """The focal length and reference curve of the Staeckel model of
-        the torus of inverse= through each phase-space point. A reference
+        the torus of the inverse through each phase-space point. A reference
         curve that follows the tori depends on the torus's energy and third
         integral in its own model, which depend on the reference curve: a
         fixed point, found by iterating the rule on the turning points in
@@ -2128,7 +2149,7 @@ class actionAngleStaeckel(actionAngle):
 
     def _inverse_missing(self, delta, u0, *out):
         """out with nan for the points without a model: those that no torus
-        of inverse= passes through (on jax/torch, the warning for concrete
+        of the inverse passes through (on jax/torch, the warning for concrete
         points only)"""
         xp = get_namespace(u0, *out)
         missing = ~xp.isfinite(delta + u0)
@@ -2137,7 +2158,7 @@ class actionAngleStaeckel(actionAngle):
             if has_concrete_truth_value(nmiss) and int(nmiss) > 0:
                 warnings.warn(
                     f"{int(nmiss)} of the {missing.shape[0]} points are not on "
-                    "a torus of inverse= (a reference curve or focal length "
+                    "a torus of the inverse (a reference curve or focal length "
                     "that follows the tori leaves gaps between them close to "
                     "the symmetry axis, and unbound points are on none): their "
                     "actions, frequencies, and angles are nan",
@@ -2147,7 +2168,7 @@ class actionAngleStaeckel(actionAngle):
         if numpy.any(missing):
             warnings.warn(
                 f"{numpy.sum(missing)} of the {len(missing)} points are not on "
-                "a torus of inverse= (a reference curve or focal length that "
+                "a torus of the inverse (a reference curve or focal length that "
                 "follows the tori leaves gaps between them close to the "
                 "symmetry axis, and unbound points are on none): their "
                 "actions, frequencies, and angles are nan",
@@ -2158,7 +2179,7 @@ class actionAngleStaeckel(actionAngle):
     def _inverse_rule(self, x, delta, u0, partials=False):
         """One application, in the models (delta, u0) of the points x = (R,
         vR, vT, z, vz), of a rule for the reference curve that is evaluated
-        here: u0='shell' of inverse=, the shell orbit of each point's energy
+        here: u0='shell' of the inverse, the shell orbit of each point's energy
         and angular momentum, or its callable u0(E, |L_z|[, I_3]). With
         partials, the rule's partials with respect to (E, I_3, L_z, delta)
         instead"""
@@ -2368,7 +2389,7 @@ class actionAngleStaeckel(actionAngle):
                 warnings.warn(
                     f"{numpy.sum(off)} of the {len(R)} points lie outside the "
                     "range of energy or angular momentum of the grid of "
-                    "inverse=: their focal lengths are those of the family's "
+                    "the inverse: their focal lengths are those of the family's "
                     "rule at the edge of that range",
                     galpyWarning,
                 )
@@ -2635,7 +2656,7 @@ class actionAngleStaeckel(actionAngle):
                 warnings.warn(
                     f"{numpy.sum(off)} of the {len(off)} points lie outside the "
                     "range of energy or angular momentum of the grid of "
-                    "inverse=: their focal lengths are those of the family's "
+                    "the inverse: their focal lengths are those of the family's "
                     "rule at the edge of that range",
                     galpyWarning,
                 )

@@ -273,6 +273,29 @@ def test_cstm_tangent(backend):
             torch.autograd.grad(dx.sum(), c)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+def test_cstm_potential_per_orbit(backend, method):
+    # a list of potentials, one for each orbit: each orbit, its state-transition
+    # matrix and its tangent are those of that orbit alone in its potential
+    from galpy.backend._reference.inbackend_stm import c_stm_forward, integrate_stm
+
+    pots = [MWPotential2014, MiyamotoNagaiPotential(normalize=1.0)]
+    ic = numpy.array([_IC, [1.2, -0.1, 0.95, -0.1, 0.05, 2.0]])
+    v = numpy.array([[0.1, -0.2, 0.3, 0.05, 0.1, 0.2], [0.0, 0.1, -0.1, 0.2, 0.0, 1.0]])
+    ts = numpy.linspace(0.0, 2.0, 41)
+    xt, M = c_stm_forward(pots, ic, ts, method, 1e-12, 1e-12)
+    kw = dict(method=method, rtol=1e-12, atol=1e-12)
+    x, dx = integrate_stm(pots, _arr(backend, ic), ts, tangent=_arr(backend, v), **kw)
+    for k, p in enumerate(pots):
+        xk, Mk = c_stm_forward(p, ic[k], ts, method, 1e-12, 1e-12)
+        assert numpy.array_equal(xt[k], xk) and numpy.array_equal(M[k], Mk)
+        assert numpy.allclose(as_numpy(x)[k], xk, rtol=1e-9, atol=1e-9)
+        assert numpy.allclose(
+            as_numpy(dx)[k], numpy.einsum("tab,b->ta", Mk, v[k]), rtol=1e-8, atol=1e-8
+        )
+
+
 def test_numpy_ic_raises():
     from galpy.backend._reference.inbackend_stm import integrate_stm
 

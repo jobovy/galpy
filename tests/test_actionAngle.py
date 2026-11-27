@@ -6756,8 +6756,8 @@ def test_actionAngleAdiabaticApproxInverse_freqs_shapes():
     )
     with pytest.raises(RuntimeError, match="require aA= at initialization"):
         nofreq.Freqs(0.1, 1.0, 0.05)
-    with pytest.raises(ValueError, match="aA= is necessary with aAAI="):
-        actionAngleAdiabaticApprox(aAAI=nofreq)
+    with pytest.raises(ValueError, match="aA= is necessary when"):
+        actionAngleAdiabaticApprox.from_inverse(nofreq)
     return None
 
 
@@ -6820,6 +6820,7 @@ def test_actionAngleAdiabaticApprox_from_each_other():
         actionAngleStaeckel,
         actionAngleStaeckelInverse,
     )
+    from galpy.backend import use
     from galpy.orbit import Orbit
     from galpy.potential import (
         HernquistPotential,
@@ -6834,95 +6835,117 @@ def test_actionAngleAdiabaticApprox_from_each_other():
     aAA = actionAngleAdiabaticApprox(
         pot=np, aA=actionAngleIsochrone(b=0.5), tintJ=30.0, npoints=0, dt=0.01
     )
-    aAAI = actionAngleAdiabaticApproxInverse(aAA=aAA)
+    aAAI = actionAngleAdiabaticApproxInverse.from_forward(aAA)
     jfa = numpy.array(aAA.actionsFreqsAngles(*x))[:, 0]
     assert numpy.allclose(
         numpy.array(aAAI(*jfa[:3], *jfa[6:]))[:, 0], x, rtol=0.0, atol=1e-8
-    ), "actionAngleAdiabaticApproxInverse(aAA=) is not the inverse of aAA"
+    ), "actionAngleAdiabaticApproxInverse.from_forward() is not the inverse of aAA"
     assert numpy.allclose(
         numpy.array(
-            actionAngleAdiabaticApprox(aAAI=aAAI, npoints=0).actionsFreqsAngles(*x)
+            actionAngleAdiabaticApprox.from_inverse(aAAI, npoints=0).actionsFreqsAngles(
+                *x
+            )
         )[[0, 1, 2, 6, 7, 8], 0],
         jfa[[0, 1, 2, 6, 7, 8]],
         rtol=0.0,
         atol=1e-10,
-    ), "actionAngleAdiabaticApprox(aAAI=) is not the transformation aAAI inverts"
+    ), (
+        "actionAngleAdiabaticApprox.from_inverse() is not the transformation aAAI inverts"
+    )
     # also when the inverse was set up without aA=, or with aA= given here
     bare = actionAngleAdiabaticApproxInverse(
         pot=np, aAI=actionAngleIsochroneInverse(b=0.5), tintJ=30.0, dt=0.01
     )
     for kw in ({}, dict(aA=actionAngleIsochrone(b=0.5))):
         assert numpy.allclose(
-            numpy.array(actionAngleAdiabaticApprox(aAAI=bare, npoints=0, **kw)(*x))[
-                :, 0
-            ],
+            numpy.array(
+                actionAngleAdiabaticApprox.from_inverse(bare, npoints=0, **kw)(*x)
+            )[:, 0],
             jfa[:3],
             rtol=0.0,
             atol=1e-10,
-        ), "actionAngleAdiabaticApprox(aAAI=) differs from the direct set-up"
+        ), "actionAngleAdiabaticApprox.from_inverse() differs from the direct set-up"
     # the frequencies with points on either side of a point are fit about the
     # advance of the angles at the auxiliary's frequencies, such that
     # npoints_dt does not have to resolve half a period
     aAS = actionAngleSpherical(pot=np)
     wide = numpy.array(
-        actionAngleAdiabaticApprox(aAAI=aAAI, npoints_dt=4.0).actionsFreqs(*x)
+        actionAngleAdiabaticApprox.from_inverse(aAAI, npoints_dt=4.0).actionsFreqs(*x)
     )[3:, 0]
     assert numpy.all(
         numpy.fabs(wide / numpy.array(aAS.actionsFreqs(*x[:5]))[3:, 0] - 1.0) < 1e-3
     ), "actionAngleAdiabaticApprox frequencies fail for a large npoints_dt"
-    # a Staeckel auxiliary: the forward transformation from its inverse
-    aux = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45, u0=1.0)
-    aAAI = actionAngleAdiabaticApproxInverse(
-        pot=MWPotential2014,
-        aAI=actionAngleStaeckelInverse(
-            pot=aux, delta=0.45, jrs=[0.05], Lzs=[1.0], jzs=[0.03], progressbar=False
-        ),
-        tintJ=30.0,
-    )
-    xv = numpy.array(aAAI(0.05, 1.0, 0.03, 1.0, 2.0, 3.0))[:, 0]
-    back = numpy.array(
-        actionAngleAdiabaticApprox(aAAI=aAAI, npoints=0).actionsFreqsAngles(*xv)
-    )[:, 0]
-    assert numpy.allclose(
-        back[[0, 1, 2, 6, 7, 8]], [0.05, 1.0, 0.03, 1.0, 2.0, 3.0], rtol=0.0, atol=1e-5
-    ), "actionAngleAdiabaticApprox(aAAI=) with a Staeckel auxiliary is not the inverse"
-    assert numpy.all(numpy.isfinite(numpy.array(aAAI.Freqs(0.05, 1.0, 0.03))))
+    # a Staeckel auxiliary: the forward transformation from its inverse (on
+    # a backend, with numpy: eager jax takes minutes for its Staeckel actions;
+    # the backends' are test_backend_actionAngleAdiabaticApprox's)
+    with use("numpy", force=True):
+        aux = OblateStaeckelWrapperPotential(pot=MWPotential2014, delta=0.45, u0=1.0)
+        aAAI = actionAngleAdiabaticApproxInverse(
+            pot=MWPotential2014,
+            aAI=actionAngleStaeckelInverse(
+                pot=aux,
+                delta=0.45,
+                jrs=[0.05],
+                Lzs=[1.0],
+                jzs=[0.03],
+                progressbar=False,
+            ),
+            tintJ=30.0,
+        )
+        xv = numpy.array(aAAI(0.05, 1.0, 0.03, 1.0, 2.0, 3.0))[:, 0]
+        back = numpy.array(
+            actionAngleAdiabaticApprox.from_inverse(aAAI, npoints=0).actionsFreqsAngles(
+                *xv
+            )
+        )[:, 0]
+        assert numpy.allclose(
+            back[[0, 1, 2, 6, 7, 8]],
+            [0.05, 1.0, 0.03, 1.0, 2.0, 3.0],
+            rtol=0.0,
+            atol=1e-5,
+        ), (
+            "actionAngleAdiabaticApprox.from_inverse() with a Staeckel auxiliary is not the inverse"
+        )
+        assert numpy.all(numpy.isfinite(numpy.array(aAAI.Freqs(0.05, 1.0, 0.03))))
     # a Staeckel inverse set up with delta= from the potential itself: the
     # auxiliary potential is the Staeckel potential that it approximates the
     # potential with, not the potential
-    direct = actionAngleAdiabaticApproxInverse(
-        pot=MWPotential2014,
-        aAI=actionAngleStaeckelInverse(
+    with use("numpy", force=True):
+        direct = actionAngleAdiabaticApproxInverse(
             pot=MWPotential2014,
-            delta=0.45,
-            u0=1.0,
-            jrs=[0.05],
-            Lzs=[1.0],
-            jzs=[0.03],
-            progressbar=False,
-        ),
-        tintJ=30.0,
-    )
-    assert numpy.allclose(
-        numpy.array(direct(0.05, 1.0, 0.03, 1.0, 2.0, 3.0))[:, 0],
-        xv,
-        rtol=0.0,
-        atol=1e-9,
-    ), (
-        "actionAngleAdiabaticApproxInverse does not transform from the "
-        "Staeckel potential of an actionAngleStaeckelInverse with delta="
-    )
-    assert numpy.allclose(
-        numpy.array(
-            actionAngleAdiabaticApprox(aAAI=direct, npoints=0).actionsFreqsAngles(*xv)
-        )[[0, 1, 2, 6, 7, 8], 0],
-        back[[0, 1, 2, 6, 7, 8]],
-        rtol=0.0,
-        atol=1e-9,
-    ), (
-        "actionAngleAdiabaticApprox does not transform to the Staeckel "
-        "potential of an actionAngleStaeckelInverse with delta="
-    )
+            aAI=actionAngleStaeckelInverse(
+                pot=MWPotential2014,
+                delta=0.45,
+                u0=1.0,
+                jrs=[0.05],
+                Lzs=[1.0],
+                jzs=[0.03],
+                progressbar=False,
+            ),
+            tintJ=30.0,
+        )
+        assert numpy.allclose(
+            numpy.array(direct(0.05, 1.0, 0.03, 1.0, 2.0, 3.0))[:, 0],
+            xv,
+            rtol=0.0,
+            atol=1e-9,
+        ), (
+            "actionAngleAdiabaticApproxInverse does not transform from the "
+            "Staeckel potential of an actionAngleStaeckelInverse with delta="
+        )
+        assert numpy.allclose(
+            numpy.array(
+                actionAngleAdiabaticApprox.from_inverse(
+                    direct, npoints=0
+                ).actionsFreqsAngles(*xv)
+            )[[0, 1, 2, 6, 7, 8], 0],
+            back[[0, 1, 2, 6, 7, 8]],
+            rtol=0.0,
+            atol=1e-9,
+        ), (
+            "actionAngleAdiabaticApprox does not transform to the Staeckel "
+            "potential of an actionAngleStaeckelInverse with delta="
+        )
     # an actionAngleStaeckel for a potential that is not of Staeckel form
     # (its Staeckel approximation) stands for the Staeckel potential with
     # its focal length
@@ -6950,22 +6973,35 @@ def test_actionAngleAdiabaticApprox_from_each_other():
             "potential that is not of Staeckel form does not transform to the "
             "Staeckel potential of its focal length"
         )
-    # one whose Staeckel potential follows its tori has no single auxiliary
-    # potential
-    follows = actionAngleStaeckelInverse(
-        pot=MWPotential2014,
-        delta=0.45,
-        u0="torus",
-        jrs=[0.05],
-        Lzs=[1.0],
-        jzs=[0.03],
-        progressbar=False,
-    )
-    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
-        actionAngleAdiabaticApproxInverse(pot=MWPotential2014, aAI=follows)
-    with pytest.raises(NotImplementedError, match="different Staeckel potential"):
-        actionAngleAdiabaticApprox(
-            pot=MWPotential2014, aA=actionAngleStaeckel(inverse=follows)
+    # one whose Staeckel potential follows its tori: each torus is transformed
+    # from its own Staeckel potential (on a backend, with numpy: the backends
+    # are test_backend_actionAngleAdiabaticApprox's, where eager jax takes
+    # minutes for it)
+    with use("numpy", force=True):
+        follows = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=0.45,
+            u0="torus",
+            jrs=[0.05],
+            Lzs=[1.0],
+            jzs=[0.03],
+            progressbar=False,
+        )
+        aAAI = actionAngleAdiabaticApproxInverse(
+            pot=MWPotential2014, aAI=follows, tintJ=30.0
+        )
+        angles = numpy.array([[1.0, 2.0], [0.5, 3.0], [2.0, 4.0]])
+        back = numpy.array(
+            actionAngleAdiabaticApprox.from_inverse(aAAI, npoints=0).actionsFreqsAngles(
+                *aAAI(0.05, 1.0, 0.03, *angles)
+            )
+        )
+        assert numpy.allclose(
+            back[:3], [[0.05], [1.0], [0.03]], rtol=0.0, atol=1e-6
+        ) and numpy.allclose(back[6:], angles, rtol=0.0, atol=1e-6), (
+            "actionAngleAdiabaticApprox does not invert "
+            "actionAngleAdiabaticApproxInverse for an explicit torus whose "
+            "reference curve follows it"
         )
     # a spherical auxiliary other than the isochrone: likewise
     hp = HernquistPotential(a=1.5, normalize=1.0)
@@ -6982,22 +7018,193 @@ def test_actionAngleAdiabaticApprox_from_each_other():
     )
     xv = numpy.array(aAAI(jr, lz, jz, 1.0, 2.0, 3.0))[:, 0]
     back = numpy.array(
-        actionAngleAdiabaticApprox(aAAI=aAAI, npoints=0).actionsFreqsAngles(*xv)
+        actionAngleAdiabaticApprox.from_inverse(aAAI, npoints=0).actionsFreqsAngles(*xv)
     )[:, 0]
     assert numpy.allclose(
         back[[0, 1, 2, 6, 7, 8]], [jr, lz, jz, 1.0, 2.0, 3.0], rtol=0.0, atol=1e-5
-    ), "actionAngleAdiabaticApprox(aAAI=) with a spherical auxiliary is not the inverse"
+    ), (
+        "actionAngleAdiabaticApprox.from_inverse() with a spherical auxiliary is not the inverse"
+    )
     assert numpy.all(numpy.isfinite(numpy.array(aAAI.Freqs(jr, lz, jz))))
     # the inverse of a transformation to a potential without a known inverse
-    with pytest.raises(ValueError, match="aAI= is necessary with aAA="):
-        actionAngleAdiabaticApproxInverse(
-            aAA=actionAngleAdiabaticApprox(pot=np, aA=actionAngleSpherical(pot=np))
+    with pytest.raises(ValueError, match="aAI= is necessary when"):
+        actionAngleAdiabaticApproxInverse.from_forward(
+            actionAngleAdiabaticApprox(pot=np, aA=actionAngleSpherical(pot=np))
         )
     return None
 
 
 # Test the calibrated angles of actionAngleAdiabaticApprox and its inverse
 # against the angles of a spherical potential
+def test_actionAngleAdiabaticApprox_staeckel_family():
+    # A family of tori whose Staeckel potential follows its tori (a fitted
+    # focal length and u0="torus", for the whole of a galaxy) as the
+    # auxiliary: each point is transformed to the Staeckel potential of its
+    # own torus
+    from galpy.actionAngle import (
+        actionAngleAdiabaticApprox,
+        actionAngleAdiabaticApproxInverse,
+        actionAngleStaeckel,
+        actionAngleStaeckelInverse,
+    )
+    from galpy.backend import use
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # (on a backend, set up and transformed with numpy: the C integration
+    # over long times that it checks; a family as the auxiliary on a
+    # backend is test_backend_actionAngleAdiabaticApprox's
+    # test_staeckel_family_auxiliary_backend)
+    with use("numpy", force=True):
+
+        def wrap(x):
+            return (x + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+
+        fam = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta="fit",
+            u0="torus",
+            setup_interp=True,
+            nE=5,
+            nLz=5,
+            nI3=5,
+            mm_npt=32,
+            progressbar=False,
+        )
+        aAS = actionAngleStaeckel.from_inverse(fam)
+        o = Orbit([1.0, 0.3, 0.9, 0.3, 0.5, 0.5])
+        ts = numpy.linspace(0.0, 30.0, 6)
+        o.integrate(ts, MWPotential2014)
+        x = numpy.array([o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts), o.phi(ts)])
+        # The C integrators integrate all points at once, each in its own
+        # potential; the Python ones one at a time, with the same result
+        assert numpy.all(
+            numpy.fabs(
+                numpy.array(
+                    actionAngleAdiabaticApprox(
+                        pot=MWPotential2014, aA=aAS, tintJ=2.0, npoints=0
+                    )(*x[:, :2])
+                )
+                - numpy.array(
+                    actionAngleAdiabaticApprox(
+                        pot=MWPotential2014,
+                        aA=aAS,
+                        tintJ=2.0,
+                        npoints=0,
+                        integrate_method="dop853",
+                    )(*x[:, :2])
+                )
+            )
+            < 1e-7
+        ), (
+            "actionAngleAdiabaticApprox with a Staeckel family as the auxiliary "
+            "differs between the C and Python orbit integrators"
+        )
+        # Actions and frequencies are constant along the orbit and the angles
+        # advance at the frequencies, far better than those of the family (the
+        # Staeckel approximation) itself
+        out = numpy.array(
+            actionAngleAdiabaticApprox(
+                pot=MWPotential2014, aA=aAS, tintJ=50.0
+            ).actionsFreqsAngles(*x)
+        )
+        fudge = numpy.array(aAS.actionsFreqsAngles(*x))
+        for ii in (0, 2, 3, 4, 5):
+            assert numpy.std(out[ii]) < 3e-4 * numpy.mean(out[ii]), (
+                "Actions or frequencies of actionAngleAdiabaticApprox with a "
+                "Staeckel family as the auxiliary are not constant along an orbit"
+            )
+        assert numpy.std(fudge[0]) > 100.0 * numpy.std(out[0]) and numpy.std(
+            fudge[2]
+        ) > 100.0 * numpy.std(out[2]), (
+            "Actions of actionAngleAdiabaticApprox with a Staeckel family as the "
+            "auxiliary are not far better conserved than those of the family"
+        )
+        for ii in range(3):
+            resid = numpy.unwrap(wrap(out[6 + ii] - numpy.mean(out[3 + ii]) * ts))
+            assert numpy.ptp(resid) < 2e-3, (
+                "Angles of actionAngleAdiabaticApprox with a Staeckel family as "
+                "the auxiliary do not advance at the frequencies along an orbit"
+            )
+        # Each point on its own, and the inverse: exact inverses
+        for calibrate in (False, True):
+            aAA = actionAngleAdiabaticApprox(
+                pot=MWPotential2014,
+                aA=aAS,
+                tintJ=50.0,
+                npoints=0,
+                calibrate_angles=calibrate,
+            )
+            aAAI = actionAngleAdiabaticApproxInverse.from_forward(
+                aAA, aAI=fam, calibrate_angles=calibrate
+            )
+            out = numpy.array(aAA.actionsFreqsAngles(*x))
+            back = numpy.array(aAAI(*out[:3], *out[6:]))
+            assert numpy.all(numpy.fabs(back[:5] - x[:5]) < 1e-6) and numpy.all(
+                numpy.fabs(wrap(back[5] - x[5])) < 1e-6
+            ), (
+                "actionAngleAdiabaticApproxInverse with a Staeckel family as the "
+                "auxiliary is not the inverse of actionAngleAdiabaticApprox "
+                f"(calibrate_angles={calibrate})"
+            )
+            if calibrate:
+                # (the usual convention: close to the angles of the family)
+                assert numpy.all(numpy.fabs(wrap(out[6:] - fudge[6:])) < 0.03), (
+                    "Calibrated angles of actionAngleAdiabaticApprox with a "
+                    "Staeckel family as the auxiliary are not close to the "
+                    "family's"
+                )
+        # The inverse set up from the family alone; tori that the family does not
+        # have are nan
+        aAAI = actionAngleAdiabaticApproxInverse(
+            pot=MWPotential2014, aAI=fam, tintJ=50.0
+        )
+        jr, lz, jz = numpy.mean(out[:3], axis=1)
+        angles = numpy.array([[1.0, 4.0], [2.0, 5.0], [3.0, 0.5]])
+        xvf = numpy.array(
+            aAAI.xvFreqs(
+                numpy.array([jr, jr, 50.0]),
+                lz,
+                numpy.array([jz, jz, 0.1]),
+                *numpy.hstack([angles, [[1.0], [2.0], [3.0]]]),
+            )
+        )
+        assert numpy.all(numpy.isnan(xvf[:, 2])) and numpy.all(
+            numpy.isfinite(xvf[:, :2])
+        ), (
+            "actionAngleAdiabaticApproxInverse with a Staeckel family as the "
+            "auxiliary does not return nan for tori that the family does not have"
+        )
+        assert numpy.all(
+            numpy.isnan(numpy.array(aAAI.xvFreqs(50.0, lz, 0.1, 1.0, 2.0, 3.0)))
+        ), (
+            "actionAngleAdiabaticApproxInverse with a Staeckel family as the "
+            "auxiliary does not return nan for a torus that the family does not have"
+        )
+        back = numpy.array(
+            actionAngleAdiabaticApprox.from_inverse(aAAI, npoints=0).actionsFreqsAngles(
+                *xvf[:6, :2]
+            )
+        )
+        assert numpy.all(
+            numpy.fabs(back[:3] - numpy.array([[jr], [lz], [jz]])) < 1e-6
+        ) and numpy.all(numpy.fabs(wrap(back[6:] - angles)) < 1e-6), (
+            "actionAngleAdiabaticApprox with a Staeckel family as the auxiliary "
+            "does not return the actions and angles of the points of "
+            "actionAngleAdiabaticApproxInverse"
+        )
+        assert numpy.all(
+            numpy.fabs(
+                xvf[6:, :2] / numpy.array(aAAI.Freqs(jr, lz, jz)).reshape((3, 1)) - 1.0
+            )
+            < 1e-3
+        ), (
+            "Frequencies of actionAngleAdiabaticApproxInverse with a Staeckel "
+            "family as the auxiliary are not those of the torus"
+        )
+        return None
+
+
 def test_actionAngleAdiabaticApprox_calibrate_angles():
     from galpy.actionAngle import (
         actionAngleAdiabaticApprox,
@@ -7105,8 +7312,8 @@ def test_actionAngleAdiabaticApprox_calibrate_angles():
     # precision of the orbit integration: the offset is the same function of
     # the actions in both
     back = numpy.array(
-        actionAngleAdiabaticApprox(
-            aAAI=aAAI, npoints=0, calibrate_angles=True
+        actionAngleAdiabaticApprox.from_inverse(
+            aAAI, npoints=0, calibrate_angles=True
         ).actionsFreqsAngles(*xv)
     )
     assert numpy.all(
@@ -7124,7 +7331,7 @@ def test_actionAngleAdiabaticApprox_calibrate_angles():
     )
     jfa = numpy.array(aAA.actionsFreqsAngles(*x))
     xb = numpy.array(
-        actionAngleAdiabaticApproxInverse(aAA=aAA, calibrate_angles=True)(
+        actionAngleAdiabaticApproxInverse.from_forward(aAA, calibrate_angles=True)(
             *jfa[:3], *jfa[6:]
         )
     )
@@ -15313,7 +15520,7 @@ def test_actionAngleStaeckelInverse_delta_explicit():
         for aA, inverse, tol in ((aAI, fit, 1e-8), (aAI, aAI, 1e-8), (aAU, aAU, 1e-6))
         for c in ((True, False) if on_numpy else (True,))
     ):
-        aAF = actionAngleStaeckel(inverse=inverse, c=c)
+        aAF = actionAngleStaeckel.from_inverse(inverse, c=c)
         x = numpy.concatenate(pts[id(aA)], axis=1)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", galpyWarning)
@@ -15335,7 +15542,7 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     with pytest.raises(RuntimeError, match="was not pickled"):
         again.delta(0.5, 1.0, 0.5)
     with pytest.raises(RuntimeError, match="was not pickled with them"):
-        actionAngleStaeckel(inverse=again)
+        actionAngleStaeckel.from_inverse(again)
 
     # the map of the explicit tori of a rule is canonical (to the central
     # differences across neighbouring tori); it is not without the terms of
@@ -17609,7 +17816,7 @@ def test_actionAngleStaeckelInverse_from_actions_sheets():
 
 
 def test_actionAngleStaeckel_inverse_single_model():
-    # actionAngleStaeckel(inverse=) of tori in a single Staeckel model is
+    # actionAngleStaeckel.from_inverse() of tori in a single Staeckel model is
     # the transformation of that model
     from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
@@ -17623,31 +17830,31 @@ def test_actionAngleStaeckel_inverse_single_model():
     aAI = actionAngleStaeckelInverse(delta=0.45, u0=1.2, progressbar=False, **kw)
     angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(jr)))
     for c in (True, False):
-        aAS = actionAngleStaeckel(inverse=aAI, c=c, order=20)
+        aAS = actionAngleStaeckel.from_inverse(aAI, c=c, order=20)
         out = numpy.array(aAS.actionsFreqsAngles(*aAI(jr, Lz, jz, *angs)))
         dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-8, (
-            f"actionAngleStaeckel(inverse=) does not return the actions of tori "
+            f"actionAngleStaeckel.from_inverse() does not return the actions of tori "
             f"in a single Staeckel model (c={c})"
         )
         assert (
             numpy.amax(numpy.fabs(out[3:6] - numpy.array(aAI.Freqs(jr, Lz, jz)))) < 1e-7
         ), (
-            f"actionAngleStaeckel(inverse=) does not return the frequencies of "
+            f"actionAngleStaeckel.from_inverse() does not return the frequencies of "
             f"tori in a single Staeckel model (c={c})"
         )
         assert numpy.amax(numpy.fabs(dang)) < 1e-6, (
-            f"actionAngleStaeckel(inverse=) does not return the angles of tori "
+            f"actionAngleStaeckel.from_inverse() does not return the angles of tori "
             f"in a single Staeckel model (c={c})"
         )
     # the units of the inverse carry over
     phys = actionAngleStaeckelInverse(delta=0.45, ro=8.0, vo=220.0, **kw)
-    fwd = actionAngleStaeckel(inverse=phys)
+    fwd = actionAngleStaeckel.from_inverse(phys)
     assert fwd._roSet and fwd._voSet and fwd._ro == 8.0 and fwd._vo == 220.0, (
-        "actionAngleStaeckel(inverse=) does not take over the inverse's units"
+        "actionAngleStaeckel.from_inverse() does not take over the inverse's units"
     )
-    with pytest.raises(TypeError, match="cannot be given with inverse="):
-        actionAngleStaeckel(inverse=aAI, delta=0.4)
+    with pytest.raises(TypeError, match="cannot be given to from_inverse"):
+        actionAngleStaeckel.from_inverse(aAI, delta=0.4)
     return None
 
 
@@ -17663,7 +17870,7 @@ def _inverse_u0_of_ELzI3(E, Lz, I3):
     "u0", ["torus", "planar", "shell", _inverse_u0_of_ELz, _inverse_u0_of_ELzI3]
 )
 def test_actionAngleStaeckel_inverse_u0torus(u0):
-    # actionAngleStaeckel(inverse=) of tori that each have their own Staeckel
+    # actionAngleStaeckel.from_inverse() of tori that each have their own Staeckel
     # model (every rule for the reference curve: the built-in ones and
     # callables of two and of three integrals): every point is transformed in
     # the model of the torus through it, with the energy of that model
@@ -17677,7 +17884,7 @@ def test_actionAngleStaeckel_inverse_u0torus(u0):
     )
     kw = dict(pot=MWPotential2014, jrs=jr, Lzs=Lz, jzs=jz, mm_npt=256)
     aAI = actionAngleStaeckelInverse(delta=0.45, u0=u0, progressbar=False, **kw)
-    aAS = actionAngleStaeckel(inverse=aAI, order=20)
+    aAS = actionAngleStaeckel.from_inverse(aAI, order=20)
     sel = numpy.tile(numpy.arange(len(jr)), 8)
     angs = numpy.random.default_rng(1).uniform(0.0, 2.0 * numpy.pi, (3, len(sel)))
     x = aAI(jr[sel], Lz[sel], jz[sel], *angs)
@@ -17687,7 +17894,7 @@ def test_actionAngleStaeckel_inverse_u0torus(u0):
     assert numpy.amax(numpy.fabs(out - numpy.array([jr[sel], Lz[sel], jz[sel]]))) < (
         1e-8 if u0 == "shell" else 1e-9
     ), (
-        "actionAngleStaeckel(inverse=) does not return the actions of tori "
+        "actionAngleStaeckel.from_inverse() does not return the actions of tori "
         "that each have their own Staeckel model"
     )
     # the Staeckel approximation in the potential itself does not
@@ -17703,11 +17910,11 @@ def test_actionAngleStaeckel_inverse_u0torus(u0):
         full = numpy.array(aAS.actionsFreqsAngles(*x, c=c))
         dang = (full[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         assert numpy.amax(numpy.fabs(full[3:6] - freqs)) < 1e-7, (
-            f"actionAngleStaeckel(inverse=) does not return the frequencies of "
+            f"actionAngleStaeckel.from_inverse() does not return the frequencies of "
             f"tori that each have their own Staeckel model (c={c})"
         )
         assert numpy.amax(numpy.fabs(dang)) < 1e-6, (
-            f"actionAngleStaeckel(inverse=) does not return the angles of tori "
+            f"actionAngleStaeckel.from_inverse() does not return the angles of tori "
             f"that each have their own Staeckel model (c={c})"
         )
         assert numpy.allclose(
@@ -17718,7 +17925,7 @@ def test_actionAngleStaeckel_inverse_u0torus(u0):
     assert numpy.amax(numpy.fabs(numpy.array(own.actionsFreqs(*x))[3:] - freqs)) > 1e-4
     # the pure-Python implementation is the same transformation
     assert numpy.amax(numpy.fabs(numpy.array(aAS(*x, c=False)) - out)) < 1e-8, (
-        "actionAngleStaeckel(inverse=) in Python does not agree with C for "
+        "actionAngleStaeckel.from_inverse() in Python does not agree with C for "
         "tori that each have their own Staeckel model"
     )
     assert numpy.allclose(
@@ -17728,7 +17935,7 @@ def test_actionAngleStaeckel_inverse_u0torus(u0):
 
 
 def test_actionAngleStaeckel_inverse_deltafit():
-    # actionAngleStaeckel(inverse=) of a family whose focal length follows
+    # actionAngleStaeckel.from_inverse() of a family whose focal length follows
     # its tori (delta='fit'): every point is transformed in the model of the
     # torus through it, whose focal length is the family's at that torus's
     # actions; at the family's grid nodes, where its map is not interpolated,
@@ -17753,7 +17960,7 @@ def test_actionAngleStaeckel_inverse_deltafit():
             mm_npt=128,
             progressbar=False,
         )
-    aAS = actionAngleStaeckel(inverse=aAI, order=20)
+    aAS = actionAngleStaeckel.from_inverse(aAI, order=20)
     nodes = [(i, j, k) for i in (1, 2) for j in (1, 2) for k in (1, 2)] * 3
     jr, jz = numpy.array([aAI._A_tab[n][:2] for n in nodes]).T
     Lz = numpy.array([aAI._Lzgrid[n[2]] for n in nodes]) * numpy.tile(
@@ -17768,15 +17975,15 @@ def test_actionAngleStaeckel_inverse_deltafit():
         out = numpy.array(aAS.actionsFreqsAngles(*x, c=c))
         dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-7, (
-            f"actionAngleStaeckel(inverse=) does not return the actions of a "
+            f"actionAngleStaeckel.from_inverse() does not return the actions of a "
             f"family whose focal length follows its tori (c={c})"
         )
         assert numpy.amax(numpy.fabs(out[3:6] - freqs)) < 1e-7, (
-            f"actionAngleStaeckel(inverse=) does not return the frequencies of "
+            f"actionAngleStaeckel.from_inverse() does not return the frequencies of "
             f"a family whose focal length follows its tori (c={c})"
         )
         assert numpy.amax(numpy.fabs(dang)) < 1e-7, (
-            f"actionAngleStaeckel(inverse=) does not return the angles of a "
+            f"actionAngleStaeckel.from_inverse() does not return the angles of a "
             f"family whose focal length follows its tori (c={c})"
         )
         assert numpy.allclose(
@@ -17802,7 +18009,9 @@ def test_actionAngleStaeckel_inverse_deltafit():
             py = numpy.array(aAS.actionsFreqsAngles(*far, 0.0 * one, c=False))
     assert numpy.all(numpy.isfinite(out)) and numpy.allclose(
         py, out, rtol=0.0, atol=1e-7
-    ), "actionAngleStaeckel(inverse=) does not transform a point off a family's grid"
+    ), (
+        "actionAngleStaeckel.from_inverse() does not transform a point off a family's grid"
+    )
     with pytest.warns(galpyWarning, match="lie outside"):
         assert numpy.allclose(numpy.array(aAS(*far)), out[:3], atol=1e-8)
     # the family's delta method is that rule: held at the edge of the range
@@ -17819,10 +18028,12 @@ def test_actionAngleStaeckel_inverse_deltafit():
             pot=MWPotential2014, delta=aAI.delta, setup_interp=True, progressbar=False
         )
     two = numpy.array(
-        actionAngleStaeckel(inverse=wider, order=20).actionsFreqsAngles(*far, 0.0 * one)
+        actionAngleStaeckel.from_inverse(wider, order=20).actionsFreqsAngles(
+            *far, 0.0 * one
+        )
     )
     assert numpy.allclose(two, out, rtol=0.0, atol=1e-7), (
-        "actionAngleStaeckel(inverse=) of a family that was given another's delta "
+        "actionAngleStaeckel.from_inverse() of a family that was given another's delta "
         "method does not agree with that of the other off its grid"
     )
     with use("numpy", force=True):
@@ -17841,7 +18052,7 @@ def test_actionAngleStaeckel_inverse_deltafit():
     dev = numpy.amax(numpy.fabs(back - numpy.array(far)), axis=0)
     assert numpy.all(dev < [1e-8, 2e-6, 1e-8]), (
         "Explicit tori that were given a family's delta method do not return "
-        "the points off its grid that actionAngleStaeckel(inverse=) transforms"
+        "the points off its grid that actionAngleStaeckel.from_inverse() transforms"
     )
     # a family with a callable rule: the rule itself where the family has
     # it, and the family's table of it for a pickled family, which does not
@@ -17858,27 +18069,29 @@ def test_actionAngleStaeckel_inverse_deltafit():
     freqs = numpy.array(cbI.Freqs(jr, Lz, jz))
     for fam in (cbI, pickle.loads(pickle.dumps(cbI))):
         out = numpy.array(
-            actionAngleStaeckel(inverse=fam, order=20).actionsFreqsAngles(*x)
+            actionAngleStaeckel.from_inverse(fam, order=20).actionsFreqsAngles(*x)
         )
         dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-7, (
-            "actionAngleStaeckel(inverse=) does not return the actions of a "
+            "actionAngleStaeckel.from_inverse() does not return the actions of a "
             "family with a callable delta="
         )
         assert (
             numpy.amax(numpy.fabs(out[3:6] - freqs)) < 1e-7
             and numpy.amax(numpy.fabs(dang)) < 1e-7
         ), (
-            "actionAngleStaeckel(inverse=) does not return the frequencies and "
+            "actionAngleStaeckel.from_inverse() does not return the frequencies and "
             "angles of a family with a callable delta="
         )
         assert not on_numpy or numpy.allclose(
-            numpy.array(actionAngleStaeckel(inverse=fam, order=20)(*x[:5], c=False)),
+            numpy.array(
+                actionAngleStaeckel.from_inverse(fam, order=20)(*x[:5], c=False)
+            ),
             out[:3],
             rtol=0.0,
             atol=1e-8,
         ), (
-            "actionAngleStaeckel(inverse=) in Python does not return the actions "
+            "actionAngleStaeckel.from_inverse() in Python does not return the actions "
             "of the C code for a family with a callable delta="
         )
     return None
@@ -17902,7 +18115,7 @@ def _polish_setup(rule):
             aAI = actionAngleStaeckelInverse(**{**kw, **rule})
     else:
         aAI = actionAngleStaeckelInverse(**{**kw, **rule})
-    aAS = actionAngleStaeckel(inverse=aAI, polish=True)
+    aAS = actionAngleStaeckel.from_inverse(aAI, polish=True)
     rng = numpy.random.default_rng(2)
     jr, Lz, jz = (
         rng.uniform(0.0, 0.2, 400),
@@ -17917,7 +18130,7 @@ def _polish_setup(rule):
 
 @pytest.mark.parametrize("rule", _POLISH_RULES)
 def test_actionAngleStaeckel_inverse_polish(rule):
-    # actionAngleStaeckel(inverse=, polish=True) of a family returns the
+    # actionAngleStaeckel.from_inverse(, polish=True) of a family returns the
     # actions and angles that the family's interpolated map sends to each
     # point, whether the family has one Staeckel model or one per torus
     # (main's test, split in two for the backends' time per test; the
@@ -17929,19 +18142,19 @@ def test_actionAngleStaeckel_inverse_polish(rule):
     out = numpy.array(aAS.actionsFreqsAngles(*x))
     dang = (out[6:] - angs + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
     assert numpy.amax(numpy.fabs(out[:3] - numpy.array([jr, Lz, jz]))) < 1e-10, (
-        "actionAngleStaeckel(inverse=, polish=True) does not invert a family's actions"
+        "actionAngleStaeckel.from_inverse(, polish=True) does not invert a family's actions"
     )
     assert (
         numpy.amax(numpy.fabs(out[3:6] - numpy.array(aAI.Freqs(jr, Lz, jz)))) < 1e-9
     ), (
-        "actionAngleStaeckel(inverse=, polish=True) does not return a family's frequencies"
+        "actionAngleStaeckel.from_inverse(, polish=True) does not return a family's frequencies"
     )
     assert numpy.amax(numpy.fabs(dang)) < 1e-9, (
-        "actionAngleStaeckel(inverse=, polish=True) does not invert a family's angles"
+        "actionAngleStaeckel.from_inverse(, polish=True) does not invert a family's angles"
     )
     # without the polish, the family's map is inverted to its interpolation
     # error only
-    rough = numpy.array(actionAngleStaeckel(inverse=aAI)(*x[:5]))
+    rough = numpy.array(actionAngleStaeckel.from_inverse(aAI)(*x[:5]))
     assert 1e-8 < numpy.amax(numpy.fabs(rough[0] - jr)) < 1e-2
     # the polish is of a family's map
     if not rule:
@@ -17952,7 +18165,7 @@ def test_actionAngleStaeckel_inverse_polish(rule):
 
 @pytest.mark.parametrize("rule", _POLISH_RULES)
 def test_actionAngleStaeckel_inverse_polish_few_points(rule):
-    # actionAngleStaeckel(inverse=, polish=True) of a few points: tori
+    # actionAngleStaeckel.from_inverse(, polish=True) of a few points: tori
     # without one or both of the librations, the other methods and inputs,
     # and points that no torus of the family passes through
     from galpy.orbit import Orbit
@@ -17967,7 +18180,7 @@ def test_actionAngleStaeckel_inverse_polish_few_points(rule):
     )
     flat = numpy.array(aAS.actionsFreqsAngles(*aAI(fjr, fLz, fjz, 1.0, 2.0, 3.0)))
     assert numpy.amax(numpy.fabs(flat[:3] - numpy.array([fjr, fLz, fjz]))) < 1e-10, (
-        "actionAngleStaeckel(inverse=, polish=True) does not invert a family's "
+        "actionAngleStaeckel.from_inverse(, polish=True) does not invert a family's "
         "tori with a vanishing action"
     )
     # the other methods and inputs: actions alone without phi, an Orbit
@@ -17980,7 +18193,7 @@ def test_actionAngleStaeckel_inverse_polish_few_points(rule):
         atol=1e-11,
     )
     # points that no torus of the family passes through
-    with pytest.warns(galpyWarning, match="not on a torus of inverse="):
+    with pytest.warns(galpyWarning, match="not on a torus of the inverse"):
         off = numpy.array(
             aAS.actionsFreqsAngles(
                 numpy.array([1.0, x[0, 0]]),
@@ -17993,11 +18206,13 @@ def test_actionAngleStaeckel_inverse_polish_few_points(rule):
         )
     assert numpy.all(numpy.isnan(off[[0, 2, 3, 4, 5, 6, 7, 8], 0])) and numpy.all(
         numpy.isfinite(off[:, 1])
-    ), "actionAngleStaeckel(inverse=, polish=True) does not return nan off the family"
+    ), (
+        "actionAngleStaeckel.from_inverse(, polish=True) does not return nan off the family"
+    )
     return None
 
 
-# actionAngleStaeckel(inverse=) close to the symmetry axis, where the
+# actionAngleStaeckel.from_inverse() close to the symmetry axis, where the
 # momentum function of the u libration has two lobes and the iteration for
 # the reference curve of a point's torus does not converge on its own
 def test_actionAngleStaeckel_inverse_nearaxis():
@@ -18049,21 +18264,21 @@ def test_actionAngleStaeckel_inverse_nearaxis():
         ]
     ).T  # fmt: skip
     for c in (True, False) if on_numpy else (True,):
-        aAS = actionAngleStaeckel(inverse=fam, c=c)
+        aAS = actionAngleStaeckel.from_inverse(fam, c=c)
         out = numpy.array(aAS.actionsFreqsAngles(*x))
         assert numpy.allclose(out[:3], jt[:3], rtol=0.0, atol=3e-6), (
-            f"actionAngleStaeckel(inverse=, c={c}) does not return the actions "
+            f"actionAngleStaeckel.from_inverse(, c={c}) does not return the actions "
             "of tori close to the symmetry axis"
         )
         assert numpy.allclose(out[6:], jt[3:], rtol=0.0, atol=1e-3), (
-            f"actionAngleStaeckel(inverse=, c={c}) does not return the angles "
+            f"actionAngleStaeckel.from_inverse(, c={c}) does not return the angles "
             "of tori close to the symmetry axis"
         )
         assert numpy.allclose(
             numpy.array(aAS(*x[:5])), out[:3], rtol=0.0, atol=1e-10
         ) and numpy.allclose(
             numpy.array(aAS.actionsFreqs(*x[:5])), out[:6], rtol=0.0, atol=1e-10
-        ), f"actionAngleStaeckel(inverse=, c={c}) methods differ close to the axis"
+        ), f"actionAngleStaeckel.from_inverse(, c={c}) methods differ close to the axis"
         # points that no torus passes through: in a gap between the tori
         # (where the inner turning point jumps between the lobes), unbound
         gap = [0.09240174859677441, -0.33436781352537776, 0.01642332461550298,
@@ -18081,7 +18296,7 @@ def test_actionAngleStaeckel_inverse_nearaxis():
                 numpy.all(numpy.isnan(numpy.delete(off, 1, axis=0)[:, :2]))
                 and numpy.all(numpy.isfinite(off[:, 2]))
                 and numpy.allclose(off[1], pts[0] * pts[2])
-            ), f"actionAngleStaeckel(inverse=, c={c}) is not nan off the tori"
+            ), f"actionAngleStaeckel.from_inverse(, c={c}) is not nan off the tori"
         with pytest.warns(galpyWarning, match="1 of the 1 points are not on"):
             assert numpy.isnan(aAS(*unbound[:5])[0][0])
     # a focal length that follows the tori as well: C against Python
@@ -18113,12 +18328,14 @@ def test_actionAngleStaeckel_inverse_nearaxis():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", galpyWarning)
         out = [
-            numpy.array(actionAngleStaeckel(inverse=fam, c=c)(*x))
+            numpy.array(actionAngleStaeckel.from_inverse(fam, c=c)(*x))
             for c in (True, False)
         ]
     assert numpy.all(numpy.isfinite(out[0][:, :2])) and numpy.allclose(
         out[0][:, :2], out[1][:, :2], rtol=0.0, atol=1e-6
-    ), "actionAngleStaeckel(inverse=) with delta='fit' differs between C and Python"
+    ), (
+        "actionAngleStaeckel.from_inverse() with delta='fit' differs between C and Python"
+    )
     return None
 
 
@@ -18170,7 +18387,7 @@ def test_actionAngleStaeckel_inverse_nearaxis_fit():
     nfound, x = (4, x) if on_numpy else (1, x[:, [0, 4]])
     out = {}
     for c in (True, False) if on_numpy else (True,):
-        aAS = actionAngleStaeckel(inverse=fam, c=c)
+        aAS = actionAngleStaeckel.from_inverse(fam, c=c)
         with pytest.warns(
             galpyWarning,
             match=f"{x.shape[1] - nfound} of the {x.shape[1]} points are not on a torus",
@@ -18180,14 +18397,14 @@ def test_actionAngleStaeckel_inverse_nearaxis_fit():
         assert numpy.all(numpy.isfinite(out[c][:, :nfound])) and numpy.all(
             numpy.isnan(numpy.delete(out[c][:, nfound:], 1, axis=0))
         ), (
-            f"actionAngleStaeckel(inverse=, c={c}) with a fitted focal length "
+            f"actionAngleStaeckel.from_inverse(, c={c}) with a fitted focal length "
             "does not find the tori of points close to the symmetry axis, or "
             "returns values for points that are on none"
         )
     assert numpy.allclose(
         out[True][:3, :nfound], out[not on_numpy][:3, :nfound], rtol=0.0, atol=1e-6
     ), (
-        "actionAngleStaeckel(inverse=) with a fitted focal length: the actions "
+        "actionAngleStaeckel.from_inverse() with a fitted focal length: the actions "
         "from C and Python differ close to the symmetry axis"
     )
     # and the first of them is where its explicit torus puts it
@@ -18205,7 +18422,7 @@ def test_actionAngleStaeckel_inverse_nearaxis_fit():
         )
     xt = numpy.array(tor(jr, lz, jz, ar, ap, az)).ravel()
     assert numpy.allclose(xt[:5], x[:, 0], rtol=0.0, atol=1e-3), (
-        "actionAngleStaeckel(inverse=) with a fitted focal length: a point "
+        "actionAngleStaeckel.from_inverse() with a fitted focal length: a point "
         "close to the symmetry axis is not on the torus that it is assigned"
     )
     return None
