@@ -664,6 +664,7 @@
 "tests/test_backend_actionAngleAdiabaticApprox.py::test_actionAngleAdiabaticApprox_inbackend_and_parameters[jax]": 34.37,
 "tests/test_backend_actionAngleAdiabaticApprox.py::test_staeckel_family_auxiliary_backend[jax]": 82.07,
 "tests/test_backend_actionAngleAdiabaticApprox.py::test_staeckel_family_auxiliary_backend[torch]": 4.92,
+"tests/test_backend_actionAngleAdiabaticApprox.py::test_staeckel_family_auxiliary_calibrated_backend_models": 59.0,
 "tests/test_backend_actionAngleAdiabaticApprox.py::test_staeckel_family_auxiliary_inbackend_and_derivatives": 85.0,
 "tests/test_backend_actionAngleHarmonicInverse.py::test_frequency_gradient_wrt_omega[jax]": 0.05,
 "tests/test_backend_actionAngleHarmonicInverse.py::test_frequency_gradient_wrt_omega[torch]": 0.0,

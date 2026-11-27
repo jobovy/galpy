@@ -954,22 +954,35 @@ class actionAngleAdiabaticApprox(actionAngle):
         """_models_of_tori on jax/torch: the Staeckel potential (rows,
         held) of the family's tori with these actions, from the family's
         point of each at the angles (1,0,1); the rows of fallback for tori
-        that the family does not have (on the host for concrete actions;
-        under a trace, those whose point or model is not finite)"""
+        that the family does not have (outside its domain, decided on the
+        host for concrete actions, where for a family set up with numpy the
+        models are found too; under a trace, those whose point or model is
+        not finite)"""
         jr, lz, jz = (stop_gradient(t) for t in actions)
         fallback = stop_gradient(fallback)
-        if self._bk_host() and has_concrete_truth_value(
+        concrete = has_concrete_truth_value(
             xp.all(jr == jr) & xp.all(lz == lz) & xp.all(fallback == fallback)
-        ):
+        )
+        if concrete and self._bk_host():
             h = [numpy.asarray(as_numpy(t), dtype="float") for t in (jr, lz, jz)]
             fb = numpy.asarray(as_numpy(fallback), dtype="float")
             with use("numpy", force=True):
                 return like(jr, self._models_of_tori(*h, fb))
+        ok = None
+        if concrete:
+            ok = like(jr, numpy.atleast_1d(self._aAI.in_domain(jr, lz, jz)))
+            if not bool(xp.any(ok)):
+                return fallback
+            # (stand-in actions, of a torus that the family has, elsewhere)
+            first = int(numpy.argmax(numpy.asarray(as_numpy(ok))))
+            jr, lz, jz = (xp.where(ok, t, t[first]) for t in (jr, lz, jz))
         pts = self._aAI(jr, lz, jz, 1.0, 0.0, 1.0, use_physical=False)[:5]
         models = _staeckel_models(
             self._aA, *(xp.broadcast_to(xp.reshape(x, (-1,)), jr.shape) for x in pts)
         )
         good = xp.all(xp.isfinite(models), axis=1)
+        if ok is not None:
+            good = good & ok
         return stop_gradient(xp.where(good[:, None], models, fallback))
 
     def _bk_stand_ins(self, xp, xv, models):
@@ -977,9 +990,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         Staeckel potentials (rows of models) with a stand-in for each point
         whose potential is not defined (on no torus of the family), which
         the backends' integrators cannot integrate; and which are not
-        stand-ins (None without models)"""
-        if models is None:
-            return xv, None, None
+        stand-ins"""
         ok = xp.all(xp.isfinite(models), axis=1) & xp.all(xp.isfinite(xv), axis=1)
         pt, md = like(
             xv, numpy.array([1.0, 0.0, 1.0, 0.0, 0.0, 0.0]), numpy.array([0.5, 1.0])

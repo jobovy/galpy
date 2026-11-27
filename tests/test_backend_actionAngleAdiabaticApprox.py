@@ -576,6 +576,53 @@ def test_staeckel_family_auxiliary_backend(backend_name):
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_staeckel_family_auxiliary_calibrated_backend_models(monkeypatch):
+    # A Staeckel family as the auxiliary with calibrated angles on a backend,
+    # forward and inverse: numpy's values, also with the points' Staeckel
+    # potentials found in the backend (as for a family set up on a backend)
+    from galpy.actionAngle import actionAngleAdiabaticApproxInverse
+
+    pot, aAS = _family_auxiliary()
+    aAA = actionAngleAdiabaticApprox(
+        pot=pot, aA=aAS, tintJ=2.0, npoints=0, calibrate_angles=True
+    )
+    aAAI = actionAngleAdiabaticApproxInverse.from_forward(aAA)
+    ref = numpy.array(aAA.actionsFreqsAngles(*_XF))
+    xn = numpy.array(aAAI(*ref[:3], *ref[6:]))
+    for host in (True, False):
+        if not host:
+            monkeypatch.setattr(
+                actionAngleAdiabaticApprox, "_bk_host", lambda self: False
+            )
+        got = numpy.array(
+            [
+                as_numpy(g)
+                for g in aAA.actionsFreqsAngles(*(torch.tensor(x) for x in _XF))
+            ]
+        )
+        assert numpy.allclose(got[:3], ref[:3], rtol=0.0, atol=1e-9)
+        assert numpy.all(
+            numpy.fabs((got[6:] - ref[6:] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+            < 1e-8
+        )
+        xb = numpy.array(
+            [
+                as_numpy(g)
+                for g in aAAI(*(torch.tensor(t) for t in (*ref[:3], *ref[6:])))
+            ]
+        )
+        assert numpy.allclose(xb, xn, rtol=0.0, atol=1e-8)
+    # (only tori that the family does not have: nan)
+    off = aAAI(
+        *(
+            torch.tensor([v], dtype=torch.float64)
+            for v in (5.0, 1.0, 0.1, 1.0, 2.0, 3.0)
+        )
+    )
+    assert numpy.all(numpy.isnan(numpy.array([as_numpy(g) for g in off])))
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_staeckel_family_auxiliary_inbackend_and_derivatives():
     # A Staeckel family as the auxiliary with the backend's own integrator
     # (each point in its own potential: one wrapper with a focal length and a
