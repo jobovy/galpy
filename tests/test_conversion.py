@@ -780,3 +780,58 @@ def test_physical_compatible_combos():
         "pot_default_phys does not behave as expected for combinations of different objects"
     )
     return None
+
+
+def test_physical_compatible_array_scales():
+    import pytest
+
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential
+    from galpy.util.conversion import physical_compatible
+
+    vxvv2 = [
+        [1.0, 0.1, 1.1, 0.1, 0.3, -0.9],
+        [1.1, -0.1, 1.0, 0.2, 0.1, 0.4],
+    ]
+    vxvv3 = vxvv2 + [[0.9, 0.05, 1.05, -0.1, 0.2, 0.1]]
+
+    pot = HernquistPotential(amp=0.55, a=2.0, ro=8.0, vo=220.0)
+    pot_other_ro = HernquistPotential(amp=0.55, a=2.0, ro=9.0, vo=220.0)
+    pot_other_vo = HernquistPotential(amp=0.55, a=2.0, ro=8.0, vo=230.0)
+
+    orb_uniform = Orbit(
+        vxvv2, ro=numpy.array([8.0, 8.0]), vo=numpy.array([220.0, 220.0])
+    )
+    orb_uniform3 = Orbit(
+        vxvv3, ro=numpy.array([8.0, 8.0, 8.0]), vo=numpy.array([220.0, 220.0, 220.0])
+    )
+    orb_other_uniform3 = Orbit(
+        vxvv3, ro=numpy.array([9.0, 9.0, 9.0]), vo=numpy.array([220.0, 220.0, 220.0])
+    )
+    orb_varied = Orbit(vxvv2, ro=numpy.array([8.0, 9.0]), vo=220.0)
+    orb_varied_same = Orbit(vxvv2, ro=numpy.array([8.0, 9.0]), vo=220.0)
+    orb_varied_diff = Orbit(vxvv2, ro=numpy.array([8.0, 10.0]), vo=220.0)
+    orb_varied3 = Orbit(vxvv3, ro=numpy.array([8.0, 9.0, 10.0]), vo=220.0)
+
+    res = physical_compatible(orb_uniform, pot)
+    assert type(res) is bool and res
+    assert physical_compatible(pot, orb_uniform)
+    assert physical_compatible(orb_uniform, orb_uniform)
+    assert physical_compatible(orb_uniform, orb_uniform3)
+    assert not physical_compatible(orb_uniform, pot_other_ro)
+    assert not physical_compatible(orb_uniform, pot_other_vo)
+    assert not physical_compatible(orb_uniform, orb_other_uniform3)
+
+    assert not physical_compatible(orb_varied, pot)
+    assert not physical_compatible(pot, orb_varied)
+    assert physical_compatible(orb_varied, orb_varied_same)
+    assert not physical_compatible(orb_varied, orb_varied_diff)
+    assert not physical_compatible(orb_varied, orb_varied3)
+    assert not physical_compatible(orb_varied3, orb_varied)
+
+    # Consistent units allow Orbit-Potential energy evaluation; inconsistent raise AssertionError
+    E = orb_uniform.E(pot=pot)
+    assert numpy.shape(E) == (2,)
+    with pytest.raises(AssertionError):
+        orb_varied.E(pot=pot)
+    return None

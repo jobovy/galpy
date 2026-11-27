@@ -491,6 +491,23 @@ def extract_physical_kwargs(kwargs: dict) -> dict:
     return out
 
 
+def _scales_compatible(val: Any, other_val: Any) -> bool:
+    if numpy.ndim(val) == 0 and numpy.ndim(other_val) == 0:
+        val_f = float(val)
+        return m.fabs((val_f - float(other_val)) / val_f) < 1e-8
+    val_arr = numpy.asarray(val, dtype=float)
+    other_arr = numpy.asarray(other_val, dtype=float)
+    if val_arr.size == 0 or other_arr.size == 0:
+        return True
+    if val_arr.shape == other_arr.shape or val_arr.ndim == 0 or other_arr.ndim == 0:
+        return bool(numpy.all(numpy.fabs((val_arr - other_arr) / val_arr) < 1e-8))
+    ref = val_arr.flat[0]
+    return bool(
+        numpy.all(numpy.fabs((val_arr - ref) / ref) < 1e-8)
+        and numpy.all(numpy.fabs((other_arr - ref) / ref) < 1e-8)
+    )
+
+
 def physical_compatible(obj: Any, other_obj: Any) -> bool:
     """
     Test whether the velocity and length units for converting between physical and internal units are compatible for two galpy objects.
@@ -518,9 +535,9 @@ def physical_compatible(obj: Any, other_obj: Any) -> bool:
     other_phys = get_physical(other_obj, include_set=True)
     out = True
     if phys["roSet"] and other_phys["roSet"]:
-        out = out and m.fabs((phys["ro"] - other_phys["ro"]) / phys["ro"]) < 1e-8
+        out = out and _scales_compatible(phys["ro"], other_phys["ro"])
     if phys["voSet"] and other_phys["voSet"]:
-        out = out and m.fabs((phys["vo"] - other_phys["vo"]) / phys["vo"]) < 1e-8
+        out = out and _scales_compatible(phys["vo"], other_phys["vo"])
     return out
 
 
