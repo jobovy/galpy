@@ -2422,8 +2422,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         if u0 is None:
             if self._Vref_tab is None:
                 vs = numpy.linspace(1e-10, 0.5 * numpy.pi, 4001)
-                with use("numpy", force=True):
-                    V, dV = self._V(vs), self._dV(vs)
+                ref = getattr(self._staeckelwrap, "_refpot", None)
+                if is_backend_array(ref):
+                    # (a model set up under a forced backend: in its arrays)
+                    Vf, vb = self._bk_Vfun(None), like(ref, vs)
+                    V, dV = Vf(vb), Vf(vb, 1)
+                else:
+                    with use("numpy", force=True):
+                        V, dV = self._V(vs), self._dV(vs)
                 if under_trace(V, dV):
                     # (a model set up in a jax trace: its own V)
                     return self._bk_Vfun(None)(v)
