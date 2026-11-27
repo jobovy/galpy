@@ -11654,48 +11654,105 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         """_bk_solve_angles with every point on its own torus: the Newton
         iteration, vectorized over the points, then the nested backend
         brentq from there, whose final Newton steps carry the implicit-function
-        derivative; also returns which points did not converge (None when
-        traced: the iteration has then run to convergence)"""
+        derivative; the points that this leaves unconverged all at once once
+        more, from their requested angles within brackets as wide as their
+        angle relations can need (as _bk_solve_angles for one torus, whose
+        result is final); also returns which points did not converge (none;
+        None when traced: the iteration has then run to convergence)"""
         sgc = lambda cs: [tuple(stop_gradient(t) for t in c) for c in cs]  # noqa: E731
         cu_sg, cv_sg = sgc(chains_u), sgc(chains_v)
         thR_sg, thz_sg = stop_gradient(thR), stop_gradient(thz)
+        cat = getattr(xp, "concat", None) or xp.concatenate
 
         def wrap(f):
             return xp.remainder(f + numpy.pi, 2.0 * numpy.pi) - numpy.pi
 
-        def resid(x, y, a, cu, cv, tR, tz):
-            T = self._bk_torus_at(xp, x, y, a, cu, cv)
-            return (
-                wrap(T["thetaAr"] + T["comps"][0] - tR),
-                wrap(T["thetaAz"] + T["comps"][1] - tz),
-                T,
+        def nested(a, cu, cv, tR, tz, x0, y0, sR, sz, ns):
+            def fz(yy, xx_):
+                T = self._bk_torus_at(xp, xx_, yy, a, cu, cv)
+                return wrap(T["thetaAz"] + T["comps"][1] - tz)
+
+            def tv_of(xx):
+                return _backend_brentq(
+                    fz, y0 - sz, y0 + sz, args=(xx,), guess=y0, newton_steps=ns
+                )
+
+            def fR(xx):
+                T = self._bk_torus_at(xp, xx, tv_of(xx), a, cu, cv)
+                return wrap(T["thetaAr"] + T["comps"][0] - tR)
+
+            tu = _backend_brentq(fR, x0 - sR, x0 + sR, guess=x0, newton_steps=ns)
+            return tu, tv_of(tu)
+
+        def unconverged(tu, tv, a, cu, cv, tR, tz):
+            T = self._bk_torus_at(xp, stop_gradient(tu), stop_gradient(tv), a, cu, cv)
+            F = xp.maximum(
+                xp.abs(wrap(T["thetaAr"] + T["comps"][0] - tR)),
+                xp.abs(wrap(T["thetaAz"] + T["comps"][1] - tz)),
             )
+            return as_numpy(F) >= self._angle_tol
 
         xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
-        FR, Fz, _ = resid(xc, yc, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
-        bad, ns = None, 2
-        if not under_trace(FR):
-            bad = as_numpy(xp.maximum(xp.abs(FR), xp.abs(Fz))) >= self._angle_tol
-            ns = 1
-        sR = sz = 1e-3 + 0.0 * xc
+        near = 1e-3 + 0.0 * xc
+        if under_trace(xc):
+            tu, tv = nested(aux, chains_u, chains_v, thR, thz, xc, yc, near, near, 2)
+            return tu, tv, None
+        tu, tv = nested(aux, chains_u, chains_v, thR, thz, xc, yc, near, near, 1)
+        bad = unconverged(tu, tv, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
+        if not numpy.any(bad):
+            return tu, tv, bad
+        dev = device_of(xc)
 
-        def fz(yy, xx_):
-            T = self._bk_torus_at(xp, xx_, yy, aux, chains_u, chains_v)
-            return wrap(T["thetaAz"] + T["comps"][1] - thz)
+        def sub(v, idx):
+            if not is_backend_array(v):
+                return v
+            return xp.take(v, idx, axis=v.ndim - 1)
 
-        def tv_of(xx):
-            return _backend_brentq(
-                fz, yc - sz, yc + sz, args=(xx,), guess=yc, newton_steps=ns
+        def subs(a, cu, cv, idx):
+            return (
+                {k: sub(v, idx) for k, v in a.items()},
+                [tuple(sub(t, idx) for t in c) for c in cu],
+                [tuple(sub(t, idx) for t in c) for c in cv],
             )
 
-        def fR(xx):
-            T = self._bk_torus_at(xp, xx, tv_of(xx), aux, chains_u, chains_v)
-            return wrap(T["thetaAr"] + T["comps"][0] - thR)
-
-        tu = _backend_brentq(
-            lambda xx: fR(xx), xc - sR, xc + sR, guess=xc, newton_steps=ns
+        ib = numpy.flatnonzero(bad)
+        # (the brackets: each point's angle relations on a grid, in chunks of
+        # points)
+        g = numpy.linspace(0.0, 2.0 * numpy.pi, 48, endpoint=False)
+        GU, GV = (q.flatten() for q in numpy.meshgrid(g, g))
+        wR, wz = [], []
+        for c0 in range(0, len(ib), 32):
+            pts = ib[c0 : c0 + 32]
+            rep = asarray_on_device(xp, numpy.repeat(pts, len(GU)), dev)
+            gu, gv = (
+                asarray_on_device(xp, numpy.tile(q, len(pts)), dev) for q in (GU, GV)
+            )
+            Ts = self._bk_torus_at(xp, gu, gv, *subs(aux_sg, cu_sg, cv_sg, rep))
+            for w, T, q in (
+                (wR, Ts["thetaAr"] + Ts["comps"][0], gu),
+                (wz, Ts["thetaAz"] + Ts["comps"][1], gv),
+            ):
+                w.append(xp.max(xp.reshape(xp.abs(T - q), (len(pts), -1)), axis=1))
+        idx = asarray_on_device(xp, ib, dev)
+        tR_b, tz_b = sub(thR, idx), sub(thz, idx)
+        tu_b, tv_b = nested(
+            *subs(aux, chains_u, chains_v, idx),
+            tR_b,
+            tz_b,
+            stop_gradient(tR_b) * 1.0,
+            stop_gradient(tz_b) * 1.0,
+            cat(wR) + 6.3,
+            cat(wz) + 6.3,
+            24,
         )
-        return tu, tv_of(tu), bad
+        perm = numpy.arange(len(bad))
+        perm[ib] = len(bad) + numpy.arange(len(ib))
+        perm = asarray_on_device(xp, perm, dev)
+        tu, tv = (
+            xp.take(cat([t, t_b]), perm, axis=0) for t, t_b in ((tu, tu_b), (tv, tv_b))
+        )
+        # (from there, as numpy and the one-torus path, the solve is final)
+        return tu, tv, numpy.zeros_like(bad)
 
     def _bk_rows_setup(self, xp, jr, jphi, jz, rows, traced):
         """The tables, auxiliary tori and action chains of the tori (jr, jphi,

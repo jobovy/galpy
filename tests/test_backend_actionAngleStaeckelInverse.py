@@ -10,6 +10,7 @@
 # the construction's and evaluation's checks
 ###############################################################################
 import copy
+import importlib
 
 import numpy
 import pytest
@@ -1174,6 +1175,75 @@ def test_tori_from_actions_native(rule, u0):
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_unconverged_angles_vectorized(monkeypatch):
+    # points whose vectorized Newton iteration for the anomalies does not
+    # converge (near-axis tori of a fitted rule): solved all at once from
+    # their requested angles within brackets as wide as their angle
+    # relations can need, as numpy, not torus by torus
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    mod = importlib.import_module("galpy.actionAngle.actionAngleStaeckelInverse")
+    with gb.use("numpy", force=True):
+        fam = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta="fit",
+            u0="torus",
+            setup_interp=True,
+            Rmin=0.08,
+            Rmax=14.5,
+            Rinf=30.0,
+            nE=4,
+            nLz=4,
+            nI3=4,
+            mm_npt=32,
+            progressbar=False,
+        )
+    kw = dict(
+        pot=MWPotential2014,
+        delta=fam.delta,
+        u0="torus",
+        mm_npt=128,
+        progressbar=False,
+        jrs=[1.445704293904461, 0.02952728077189904],
+        Lzs=[0.0017666654511333476, 0.022944891605053343],
+        jzs=[0.0056624704253855455, 0.791342968271593],
+    )
+    angles = ([6.154419250568444, 2.508819429227821], [0.0, 0.0])
+    angles = (*angles, [2.314008829991801, 4.505178120075055])
+    xn = numpy.array(
+        actionAngleStaeckelInverse(**kw).xvFreqs(
+            kw["jrs"], kw["Lzs"], kw["jzs"], *angles
+        )
+    )
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(**kw)
+    steps = []
+    brentq = mod._backend_brentq
+
+    def spy(*args, **kwargs):
+        steps.append(kwargs.get("newton_steps"))
+        return brentq(*args, **kwargs)
+
+    def per_torus(*args, **kwargs):
+        raise AssertionError("a point went torus by torus")
+
+    monkeypatch.setattr(mod, "_backend_brentq", spy)
+    monkeypatch.setattr(mod.actionAngleStaeckelInverse, "_bk_per_torus", per_torus)
+    xb = numpy.array(
+        [
+            as_numpy(t)
+            for t in aB.xvFreqs(
+                *(torch.tensor(t) for t in (kw["jrs"], kw["Lzs"], kw["jzs"], *angles))
+            )
+        ]
+    )
+    assert 24 in steps, "the points were not solved from their requested angles"
+    assert numpy.allclose(xb[:6], xn[:6], rtol=0.0, atol=1e-9)
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_tori_from_actions_native_derivatives():
     # the derivatives of a torus's points in its actions through its set-up
     # from them equal finite differences of numpy's tori set up at the
@@ -1778,11 +1848,11 @@ def test_jax_jit_array_actions_adaptive(kind):
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_array_actions_fallbacks(interp):
-    # points whose vectorized solve does not converge take the one-torus
-    # path: an angle solve cut at one Newton step, and the label inversion of
-    # tiny actions; a torus beyond the family and an |L_z| beyond the grid
-    # raise as for one torus (torch: under eager jax the one-torus path's
-    # safeguarded steps take minutes)
+    # points whose vectorized Newton iteration is cut at one step are solved
+    # again all at once, from their requested angles; the label inversion of
+    # tiny actions takes the one-torus path; a torus beyond the family and an
+    # |L_z| beyond the grid raise as for one torus (torch: under eager jax the
+    # one-torus path's safeguarded steps take minutes)
     J, ang = _ARR_TORI[[0, 1, 5, 0]], _ARR_ANG[:, [0, 1, 5, 2]]
     J[3] = (0.09, 1.05, 0.05)
     fb = copy.copy(interp)
