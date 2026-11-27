@@ -412,6 +412,32 @@ def test_tracing_never_reads_a_tracer_device(monkeypatch):
 
 
 @pytest.mark.skipif("jax" not in _NS, reason="jax not installed")
+def test_tracing_never_asks_a_staged_tracer_for_a_truth_value(monkeypatch):
+    # likewise for a truth value: under jax.jit or jax.vmap a tracer has
+    # none, and the error that says so walks the trace (a Staeckel family as
+    # the adiabatic auxiliary spent 821 of its 1080 s of tracing in them);
+    # an eager derivative's tracer keeps its concrete one
+    import jax.numpy as jnp
+    from jax._src import core as jax_core
+
+    from galpy.backend._namespaces import has_concrete_truth_value
+
+    asked = []
+
+    def read(self):
+        asked.append(type(self).__name__)
+        raise RuntimeError("asked a staged jax tracer for its truth value")
+
+    seen = []
+    monkeypatch.setattr(jax_core.Tracer, "__bool__", read)
+    jax.jit(lambda x: seen.append(has_concrete_truth_value(x > 0.0)) or x)(1.0)
+    jax.vmap(lambda x: seen.append(has_concrete_truth_value(x > 0.0)) or x)(jnp.ones(2))
+    monkeypatch.undo()
+    jax.grad(lambda x: seen.append(has_concrete_truth_value(x > 0.0)) or x)(1.0)
+    assert seen == [False, False, True] and asked == []
+
+
+@pytest.mark.skipif("jax" not in _NS, reason="jax not installed")
 def test_rl_bracket_search_is_one_loop_under_a_trace():
     # rl's bracket search is a lax loop under a jax trace: its residual is in
     # the traced program once, not once per step of its fixed schedule (2972

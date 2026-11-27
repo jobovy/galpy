@@ -56,6 +56,11 @@ def has_concrete_truth_value(x):
     multi-element numpy array has no truth value either, and would be reported
     here as non-concrete.
     """
+    if jax_transformations(x) & {"jit", "vmap"}:
+        # (a staged or batched jax tracer has none, and asking for it raises
+        # an error whose message jax builds by walking the trace: ~0.15 s a
+        # call deep in a large trace)
+        return False
     try:
         bool(x)
     except Exception:
