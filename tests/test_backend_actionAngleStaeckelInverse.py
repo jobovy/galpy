@@ -1980,12 +1980,13 @@ def test_jax_jit_array_actions_adaptive(kind):
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
-def test_array_actions_fallbacks(interp):
+def test_array_actions_fallbacks(interp, monkeypatch):
     # points whose vectorized Newton iteration is cut at one step are solved
-    # again all at once, from their requested angles; the label inversion of
-    # tiny actions takes the one-torus path; a torus beyond the family and an
-    # |L_z| beyond the grid raise as for one torus (torch: under eager jax the
-    # one-torus path's safeguarded steps take minutes)
+    # again all at once, from their requested angles; tiny actions; points
+    # whose label inversion does not converge in the backend (here: flagged)
+    # take the one-torus path; a torus beyond the family and an |L_z| beyond
+    # the grid raise as for one torus (torch: under eager jax the one-torus
+    # path's safeguarded steps take minutes)
     J, ang = _ARR_TORI[[0, 1, 5, 0]], _ARR_ANG[:, [0, 1, 5, 2]]
     J[3] = (0.09, 1.05, 0.05)
     fb = copy.copy(interp)
@@ -2006,6 +2007,23 @@ def test_array_actions_fallbacks(interp):
         rtol=0.0,
         atol=1e-11,
     )
+    coords = type(interp)._bk_interp_coords_rows
+
+    def flagged(self, *args, **kwargs):
+        x, y, bad = coords(self, *args, **kwargs)
+        if bad is not None:
+            bad = numpy.array(bad)
+            bad[0] = True
+        return x, y, bad
+
+    with monkeypatch.context() as m:
+        m.setattr(type(interp), "_bk_interp_coords_rows", flagged)
+        numpy.testing.assert_allclose(
+            _flat(interp.xvFreqs(*tt, *ang)),
+            _flat(interp.xvFreqs(J[:, 0], J[:, 1], J[:, 2], *ang)),
+            rtol=0.0,
+            atol=1e-9,
+        )
     # an array of one distinct torus takes the one-torus path
     numpy.testing.assert_allclose(
         _flat(interp(*(torch.tensor([v, v]) for v in J[0]), ang[0, :2], 1.0, 2.0)),
