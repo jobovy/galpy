@@ -11662,8 +11662,9 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         derivative; the points that this leaves unconverged all at once once
         more, from their requested angles within brackets as wide as their
         angle relations can need (as _bk_solve_angles for one torus, whose
-        result is final); also returns which points did not converge (none;
-        None when traced: the iteration has then run to convergence)"""
+        result is final; traced, before the final steps, those that the
+        Newton iteration leaves far from their roots, a few at a time); also
+        returns which points did not converge (none; None when traced)"""
         sgc = lambda cs: [tuple(stop_gradient(t) for t in c) for c in cs]  # noqa: E731
         cu_sg, cv_sg = sgc(chains_u), sgc(chains_v)
         thR_sg, thz_sg = stop_gradient(thR), stop_gradient(thz)
@@ -11689,24 +11690,12 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             tu = _backend_brentq(fR, x0 - sR, x0 + sR, guess=x0, newton_steps=ns)
             return tu, tv_of(tu)
 
-        def unconverged(tu, tv, a, cu, cv, tR, tz):
+        def residual(tu, tv, a, cu, cv, tR, tz):
             T = self._bk_torus_at(xp, stop_gradient(tu), stop_gradient(tv), a, cu, cv)
-            F = xp.maximum(
+            return xp.maximum(
                 xp.abs(wrap(T["thetaAr"] + T["comps"][0] - tR)),
                 xp.abs(wrap(T["thetaAz"] + T["comps"][1] - tz)),
             )
-            return as_numpy(F) >= self._angle_tol
-
-        xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
-        near = 1e-3 + 0.0 * xc
-        if under_trace(xc):
-            tu, tv = nested(aux, chains_u, chains_v, thR, thz, xc, yc, near, near, 2)
-            return tu, tv, None
-        tu, tv = nested(aux, chains_u, chains_v, thR, thz, xc, yc, near, near, 1)
-        bad = unconverged(tu, tv, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
-        if not numpy.any(bad):
-            return tu, tv, bad
-        dev = device_of(xc)
 
         def sub(v, idx):
             if not is_backend_array(v):
@@ -11720,24 +11709,97 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 [tuple(sub(t, idx) for t in c) for c in cv],
             )
 
-        ib = numpy.flatnonzero(bad)
-        # (the brackets: each point's angle relations on a grid, in chunks of
-        # points)
         g = numpy.linspace(0.0, 2.0 * numpy.pi, 48, endpoint=False)
         GU, GV = (q.flatten() for q in numpy.meshgrid(g, g))
-        wR, wz = [], []
-        for c0 in range(0, len(ib), 32):
-            pts = ib[c0 : c0 + 32]
-            rep = asarray_on_device(xp, numpy.repeat(pts, len(GU)), dev)
-            gu, gv = (
-                asarray_on_device(xp, numpy.tile(q, len(pts)), dev) for q in (GU, GV)
-            )
+
+        def wide(idx, k):
+            # the points idx (k of them) from their requested angles within
+            # brackets as wide as their angle relations can need: how far
+            # those stray from the anomalies on a grid, plus 2 pi
+            rep = xp.reshape(xp.broadcast_to(idx[:, None], (k, len(GU))), (-1,))
+            gu, gv = (asarray_on_device(xp, numpy.tile(q, k), dev) for q in (GU, GV))
             Ts = self._bk_torus_at(xp, gu, gv, *subs(aux_sg, cu_sg, cv_sg, rep))
-            for w, T, q in (
-                (wR, Ts["thetaAr"] + Ts["comps"][0], gu),
-                (wz, Ts["thetaAz"] + Ts["comps"][1], gv),
-            ):
-                w.append(xp.max(xp.reshape(xp.abs(T - q), (len(pts), -1)), axis=1))
+            wR, wz = (
+                xp.max(xp.reshape(xp.abs(T - q), (k, -1)), axis=1) + 6.3
+                for T, q in (
+                    (Ts["thetaAr"] + Ts["comps"][0], gu),
+                    (Ts["thetaAz"] + Ts["comps"][1], gv),
+                )
+            )
+            return wR, wz
+
+        xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
+        near = 1e-3 + 0.0 * xc
+        dev = device_of(xc)
+        if under_trace(xc):
+            # (the points that the Newton iteration leaves far from their
+            # roots, K at a time, the farthest first, with no derivative: the
+            # final steps carry it)
+            n = xc.shape[0]
+            K = min(8, n)
+            ar = xp.arange(n)
+
+            def step(state):
+                x, y, done = state[0], state[1], state[2]
+                r = residual(x, y, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
+                need = (r >= 1e-6) & (done < 0.5)
+
+                def solve():
+                    idx = xp.argsort(-xp.where(need, r, -1.0))[:K]
+                    wR, wz = wide(idx, K)
+                    tR_k, tz_k = sub(thR_sg, idx), sub(thz_sg, idx)
+                    tu_k, tv_k = nested(
+                        *subs(aux_sg, cu_sg, cv_sg, idx),
+                        tR_k,
+                        tz_k,
+                        tR_k * 1.0,
+                        tz_k * 1.0,
+                        wR,
+                        wz,
+                        24,
+                    )
+                    hit = (ar[:, None] == idx[None, :]) & sub(need, idx)[None, :]
+                    got = xp.any(hit, axis=1)
+
+                    def put(t_k, t):
+                        return xp.where(
+                            got, xp.sum(xp.where(hit, t_k[None, :], 0.0), axis=1), t
+                        )
+
+                    return stop_gradient(
+                        xp.stack([put(tu_k, x), put(tv_k, y), xp.where(got, 1.0, done)])
+                    )
+
+                return lazy_cond(xp, xp.any(need), solve, lambda: state)
+
+            state = iterate_to_fixed_point(
+                step, stop_gradient(xp.stack([xc, yc, 0.0 * xc])), -(-n // K) + 1
+            )
+            tu, tv = nested(
+                aux, chains_u, chains_v, thR, thz, state[0], state[1], near, near, 2
+            )
+            return tu, tv, None
+        tu, tv = nested(aux, chains_u, chains_v, thR, thz, xc, yc, near, near, 1)
+        bad = (
+            as_numpy(residual(tu, tv, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg))
+            >= self._angle_tol
+        )
+        if not numpy.any(bad):
+            return tu, tv, bad
+        ib = numpy.flatnonzero(bad)
+        # (the brackets in chunks of points)
+        wR, wz = (
+            cat(list(w))
+            for w in zip(
+                *(
+                    wide(
+                        asarray_on_device(xp, ib[c0 : c0 + 32], dev),
+                        len(ib[c0 : c0 + 32]),
+                    )
+                    for c0 in range(0, len(ib), 32)
+                )
+            )
+        )
         idx = asarray_on_device(xp, ib, dev)
         tR_b, tz_b = sub(thR, idx), sub(thz, idx)
         tu_b, tv_b = nested(
@@ -11746,8 +11808,8 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             tz_b,
             stop_gradient(tR_b) * 1.0,
             stop_gradient(tz_b) * 1.0,
-            cat(wR) + 6.3,
-            cat(wz) + 6.3,
+            wR,
+            wz,
             24,
         )
         perm = numpy.arange(len(bad))

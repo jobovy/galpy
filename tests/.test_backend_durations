@@ -739,6 +739,8 @@
 "tests/test_backend_actionAngleStaeckelInverse.py::test_tori_from_actions_native[True-shell]": 8.0,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_tori_from_actions_native[True-torus]": 8.0,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_tori_from_actions_native_derivatives": 5.0,
+"tests/test_backend_actionAngleStaeckelInverse.py::test_tori_unconverged_angles_jit": 110.38,
+"tests/test_backend_actionAngleStaeckelInverse.py::test_tori_unconverged_angles_vectorized": 12.18,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_values_match_numpy[explicit-jax]": 22.1,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_values_match_numpy[explicit-torch]": 0.68,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_values_match_numpy[interp-jax]": 47.17,

@@ -1174,17 +1174,14 @@ def test_tori_from_actions_native(rule, u0):
     )
 
 
-@pytest.mark.skipif(torch is None, reason="torch not installed")
-def test_tori_unconverged_angles_vectorized(monkeypatch):
-    # points whose vectorized Newton iteration for the anomalies does not
-    # converge (near-axis tori of a fitted rule): solved all at once from
-    # their requested angles within brackets as wide as their angle
-    # relations can need, as numpy, not torus by torus
+def _unconverged_tori():
+    # two near-axis tori of a fitted rule at angles whose vectorized Newton
+    # iteration for the anomalies does not converge: the keywords that set
+    # them up, the angles, and numpy's points
     from galpy import backend as gb
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
 
-    mod = importlib.import_module("galpy.actionAngle.actionAngleStaeckelInverse")
     with gb.use("numpy", force=True):
         fam = actionAngleStaeckelInverse(
             pot=MWPotential2014,
@@ -1217,6 +1214,20 @@ def test_tori_unconverged_angles_vectorized(monkeypatch):
             kw["jrs"], kw["Lzs"], kw["jzs"], *angles
         )
     )
+    return kw, angles, xn
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_unconverged_angles_vectorized(monkeypatch):
+    # points whose vectorized Newton iteration for the anomalies does not
+    # converge (near-axis tori of a fitted rule): solved all at once from
+    # their requested angles within brackets as wide as their angle
+    # relations can need, as numpy, not torus by torus
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    mod = importlib.import_module("galpy.actionAngle.actionAngleStaeckelInverse")
+    kw, angles, xn = _unconverged_tori()
     with gb.use("torch", force=True):
         aB = actionAngleStaeckelInverse(**kw)
     steps = []
@@ -1240,6 +1251,25 @@ def test_tori_unconverged_angles_vectorized(monkeypatch):
         ]
     )
     assert 24 in steps, "the points were not solved from their requested angles"
+    assert numpy.allclose(xb[:6], xn[:6], rtol=0.0, atol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_tori_unconverged_angles_jit():
+    # under jax.jit, the points that the Newton iteration for the anomalies
+    # leaves far from their roots are solved again from their requested
+    # angles within wide brackets, a few at a time: numpy's points
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+
+    kw, angles, xn = _unconverged_tori()
+    with gb.use("jax", force=True):
+        aB = actionAngleStaeckelInverse(**kw)
+    xb = numpy.asarray(
+        jax.jit(lambda *a: jnp.stack(aB.xvFreqs(*a)))(
+            *(jnp.asarray(t) for t in (kw["jrs"], kw["Lzs"], kw["jzs"], *angles))
+        )
+    )
     assert numpy.allclose(xb[:6], xn[:6], rtol=0.0, atol=1e-9)
 
 
