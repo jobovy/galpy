@@ -275,7 +275,9 @@ at release.]
   ``actionAngleAdiabaticApprox.from_inverse`` and
   ``actionAngleAdiabaticApproxInverse.from_forward``.
 
-- [slot 26]
+- ``actionAngleStaeckelInverse``: explicit tori set up natively on jax and
+  PyTorch are set up in chunks of ``chunk=`` tori (by default about 2 GB of
+  memory each), so that tens of thousands of tori fit, also under ``jax.jit``.
 
 - [slot 27]
 
