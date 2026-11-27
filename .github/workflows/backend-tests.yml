@@ -150,7 +150,13 @@ jobs:
         # merges into BOTH modes of that shard.
         MODE: [eager, jit]
         TEST_FILES:
-          - tests/test_actionAngle.py
+          # test_actionAngle.py: the serial eager-jax shard reached the 75-min
+          # session-timeout (58-75 min by runner, before main's near-axis Staeckel
+          # tests). Two DURATION-BALANCED pytest-split groups from a committed
+          # durations file (eager jax per-test times, the slowest backend; the
+          # report merges the _g<N> artifacts back into one "actionAngle" row).
+          - tests/test_actionAngle.py --splits 2 --group 1 --durations-path tests/.test_actionAngle_durations
+          - tests/test_actionAngle.py --splits 2 --group 2 --durations-path tests/.test_actionAngle_durations
           - tests/test_sphericaldf.py
           # test_actionAngleTorus.py is EXCLUDED from the all-backend goal (it
           # wraps the external C++ Torus library -- never backend-agnostic).
