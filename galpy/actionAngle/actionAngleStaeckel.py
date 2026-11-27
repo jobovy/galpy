@@ -152,13 +152,14 @@ def _bk_bracket_fixed_point(xp, g, need, x, scan=_MODEL_SCAN, undefined=False):
     halvings (each section's points are those of the halvings, evaluated
     together: one evaluation of the rule per section, not per halving, which
     is what an eager backend pays for). Returns the fixed points, nan where
-    no bracket holds one; only when a point is in need (lazy_cond; eagerly,
-    on the points in need alone, as many as the next power of two, so that
-    eager jax compiles few shapes: each point's bracket is its own)"""
+    no bracket holds one; only when a point is in need (lazy_cond; eagerly on
+    torch, on the points in need alone, padded to a bucket_size: each point's
+    bracket is its own; not on eager jax, which compiles every op anew for
+    the shapes that this makes)"""
     n = need.shape[0]
-    if has_concrete_truth_value(need):
+    if "jax" not in name_of_namespace(xp) and has_concrete_truth_value(xp.any(need)):
         sel = numpy.flatnonzero(numpy.asarray(as_numpy(need)))
-        m = 1 << max(len(sel) - 1, 0).bit_length()
+        m = bucket_size(len(sel))
         if len(sel) == 0:
             return numpy.nan + 0.0 * x[0]
         if m < n:

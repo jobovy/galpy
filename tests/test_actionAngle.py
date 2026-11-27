@@ -15230,8 +15230,9 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     from galpy.backend import name_of_namespace, resolve_namespace, use
     from galpy.potential import LogarithmicHaloPotential
 
-    # (the families set up with numpy, the explicit tori on the backend; on a
-    # backend, C and Python are the same backend code, run once)
+    # (the families and the explicit tori set up with numpy, as their
+    # construction on a backend is test_backend_actionAngleStaeckelInverse's;
+    # on a backend, C and Python are the same backend code, run once)
     on_numpy = name_of_namespace(resolve_namespace()) == "numpy"
     wide = dict(setup_interp=True, Rmin=0.7, Rmax=1.5, Rinf=4.0, progressbar=False)
     wide.update(nE=4, nLz=4, nI3=4, mm_npt=32)
@@ -15252,7 +15253,8 @@ def test_actionAngleStaeckelInverse_delta_explicit():
         if "Es" not in kw:
             kw.update(jrs=J[:, 0], jzs=J[:, 2])
         kw.update(mm_npt=32, auxiliary=fam.auxiliary, progressbar=False)
-        return actionAngleStaeckelInverse(pot=lp, delta=delta, Lzs=J[:, 1], **kw)
+        with use("numpy", force=True):
+            return actionAngleStaeckelInverse(pot=lp, delta=delta, Lzs=J[:, 1], **kw)
 
     def points(aA, J):
         # (the frequencies of one torus are floats)
@@ -15301,28 +15303,30 @@ def test_actionAngleStaeckelInverse_delta_explicit():
     J = numpy.array([(0.08, 1.05, 0.06), (0.2, 0.3, 0.6), (0.05, -0.3, 0.8)])
     aAI, aAU = explicit(fit, fit.delta, J), explicit(vary, rule, J)
     again = pickle.loads(pickle.dumps(aAI))
+    # (the points of each set's tori, all transformed at once)
+    pts = {id(aA): [points(aA, j) for j in J] for aA in (aAI, aAU)}
+    assert all(numpy.all(points(again, j) == p) for j, p in zip(J, pts[id(aAI)])), (
+        "A pickled set of explicit tori with a rule does not evaluate identically"
+    )
     for aA, inverse, tol, c in (
         (aA, inverse, tol, c)
         for aA, inverse, tol in ((aAI, fit, 1e-8), (aAI, aAI, 1e-8), (aAU, aAU, 1e-6))
         for c in ((True, False) if on_numpy else (True,))
     ):
         aAF = actionAngleStaeckel(inverse=inverse, c=c)
-        for k, (jr, Lz, jz) in enumerate(J):
-            pts = points(aA, (jr, Lz, jz))
-            assert numpy.all(points(again, (jr, Lz, jz)) == pts) or aA is aAU, (
-                "A pickled set of explicit tori with a rule does not evaluate "
-                "identically"
-            )
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", galpyWarning)
-                out = numpy.array(aAF.actionsFreqsAngles(*pts[:6]))
-                assert numpy.allclose(
-                    numpy.array(aAF.actionsFreqs(*pts[:5])), out[:6], atol=1e-10
-                ) and numpy.allclose(numpy.array(aAF(*pts[:5])), out[:3], atol=1e-10)
+        x = numpy.concatenate(pts[id(aA)], axis=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", galpyWarning)
+            out = numpy.array(aAF.actionsFreqsAngles(*x[:6]))
+            assert numpy.allclose(
+                numpy.array(aAF.actionsFreqs(*x[:5])), out[:6], atol=1e-10
+            ) and numpy.allclose(numpy.array(aAF(*x[:5])), out[:3], atol=1e-10)
+        for k, ((jr, Lz, jz), p) in enumerate(zip(J, pts[id(aA)])):
+            o = out[:, 4 * k : 4 * k + 4]
             dev = numpy.fabs(
-                out - numpy.array([jr, Lz, jz, *pts[6:, 0], 0.0, 0.0, 0.0])[:, None]
+                o - numpy.array([jr, Lz, jz, *p[6:, 0], 0.0, 0.0, 0.0])[:, None]
             )
-            dev[6:] = numpy.fabs(wrap(out[6:] - angs))
+            dev[6:] = numpy.fabs(wrap(o[6:] - angs))
             assert numpy.amax(dev) < (1e-9 if k == 0 else tol), (
                 "The forward transformation in the rule's models does not return "
                 "the actions and angles of an explicit torus of the rule (c=%s): %g"
@@ -17893,8 +17897,8 @@ def test_actionAngleStaeckel_inverse_nearaxis():
     from galpy.potential import MWPotential2014
     from galpy.util import galpyWarning
 
-    # (the families set up with numpy; on a backend, C and Python are the
-    # same backend code, run once)
+    # (the family set up with numpy; on a backend, C and Python are the same
+    # backend code, run once)
     on_numpy = name_of_namespace(resolve_namespace()) == "numpy"
     with use("numpy", force=True):
         fam = actionAngleStaeckelInverse(
@@ -17972,18 +17976,21 @@ def test_actionAngleStaeckel_inverse_nearaxis():
         with pytest.warns(galpyWarning, match="1 of the 1 points are not on"):
             assert numpy.isnan(aAS(*unbound[:5])[0][0])
     # a focal length that follows the tori as well: C against Python
-    with use("numpy", force=True):
-        fam = actionAngleStaeckelInverse(
-            pot=MWPotential2014,
-            delta="fit",
-            u0="torus",
-            setup_interp=True,
-            nE=6,
-            nLz=6,
-            nI3=6,
-            mm_npt=64,
-            progressbar=False,
-        )
+    if not on_numpy:
+        # (C and Python are the same backend code there: the fitted rule
+        # close to the axis on a backend is test_..._inverse_nearaxis_fit's)
+        return None
+    fam = actionAngleStaeckelInverse(
+        pot=MWPotential2014,
+        delta="fit",
+        u0="torus",
+        setup_interp=True,
+        nE=6,
+        nLz=6,
+        nI3=6,
+        mm_npt=64,
+        progressbar=False,
+    )
     x = numpy.array(
         [
             [0.45228688699702013, -0.13050461587844964, 0.01796834670575424,
@@ -17998,10 +18005,10 @@ def test_actionAngleStaeckel_inverse_nearaxis():
         warnings.simplefilter("ignore", galpyWarning)
         out = [
             numpy.array(actionAngleStaeckel(inverse=fam, c=c)(*x))
-            for c in ((True, False) if on_numpy else (True,))
+            for c in (True, False)
         ]
     assert numpy.all(numpy.isfinite(out[0][:, :2])) and numpy.allclose(
-        out[0][:, :2], out[-1][:, :2], rtol=0.0, atol=1e-6
+        out[0][:, :2], out[1][:, :2], rtol=0.0, atol=1e-6
     ), "actionAngleStaeckel(inverse=) with delta='fit' differs between C and Python"
     return None
 
@@ -18048,37 +18055,45 @@ def test_actionAngleStaeckel_inverse_nearaxis_fit():
             [1.545268791580364, 0.004669803341139917, -0.0068426999559747, 0.8500650097427931, 0.38041633315831735],
         ]
     ).T  # fmt: skip
+    # (on a backend, two of the points that are found and one that is on no
+    # torus: an eager backend pays for each step of the bracketing that all
+    # of them take, on arrays the more points the larger)
+    nfound, x = (4, x) if on_numpy else (2, x[:, [0, 2, 4]])
     out = {}
     for c in (True, False) if on_numpy else (True,):
         aAS = actionAngleStaeckel(inverse=fam, c=c)
-        with pytest.warns(galpyWarning, match="3 of the 7 points are not on a torus"):
+        with pytest.warns(
+            galpyWarning,
+            match=f"{x.shape[1] - nfound} of the {x.shape[1]} points are not on a torus",
+        ):
             out[c] = numpy.array(aAS.actionsFreqsAngles(*x, 0.0 * x[0]))
         # (the angular momentum is that of the point itself)
-        assert numpy.all(numpy.isfinite(out[c][:, :4])) and numpy.all(
-            numpy.isnan(numpy.delete(out[c][:, 4:], 1, axis=0))
+        assert numpy.all(numpy.isfinite(out[c][:, :nfound])) and numpy.all(
+            numpy.isnan(numpy.delete(out[c][:, nfound:], 1, axis=0))
         ), (
             f"actionAngleStaeckel(inverse=, c={c}) with a fitted focal length "
             "does not find the tori of points close to the symmetry axis, or "
             "returns values for points that are on none"
         )
     assert numpy.allclose(
-        out[True][:3, :4], out[not on_numpy][:3, :4], rtol=0.0, atol=1e-6
+        out[True][:3, :nfound], out[not on_numpy][:3, :nfound], rtol=0.0, atol=1e-6
     ), (
         "actionAngleStaeckel(inverse=) with a fitted focal length: the actions "
         "from C and Python differ close to the symmetry axis"
     )
     # and the first of them is where its explicit torus puts it
     jr, lz, jz, _, _, _, ar, ap, az = out[True][:, 0]
-    tor = actionAngleStaeckelInverse(
-        pot=MWPotential2014,
-        delta=fam.delta,
-        u0="torus",
-        jrs=[jr],
-        Lzs=[lz],
-        jzs=[jz],
-        mm_npt=512,
-        progressbar=False,
-    )
+    with use("numpy", force=True):
+        tor = actionAngleStaeckelInverse(
+            pot=MWPotential2014,
+            delta=fam.delta,
+            u0="torus",
+            jrs=[jr],
+            Lzs=[lz],
+            jzs=[jz],
+            mm_npt=512,
+            progressbar=False,
+        )
     xt = numpy.array(tor(jr, lz, jz, ar, ap, az)).ravel()
     assert numpy.allclose(xt[:5], x[:, 0], rtol=0.0, atol=1e-3), (
         "actionAngleStaeckel(inverse=) with a fitted focal length: a point "
