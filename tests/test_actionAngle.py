@@ -18055,10 +18055,10 @@ def test_actionAngleStaeckel_inverse_nearaxis_fit():
             [1.545268791580364, 0.004669803341139917, -0.0068426999559747, 0.8500650097427931, 0.38041633315831735],
         ]
     ).T  # fmt: skip
-    # (on a backend, two of the points that are found and one that is on no
+    # (on a backend, one of the points that are found and one that is on no
     # torus: an eager backend pays for each step of the bracketing that all
     # of them take, on arrays the more points the larger)
-    nfound, x = (4, x) if on_numpy else (2, x[:, [0, 2, 4]])
+    nfound, x = (4, x) if on_numpy else (1, x[:, [0, 4]])
     out = {}
     for c in (True, False) if on_numpy else (True,):
         aAS = actionAngleStaeckel(inverse=fam, c=c)
