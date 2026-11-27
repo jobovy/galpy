@@ -1244,6 +1244,52 @@ def test_tori_unconverged_angles_vectorized(monkeypatch):
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_native_inputs():
+    # set up natively from differentiated actions: numpy actions among them
+    # (on the device of the set-up), the frequencies of one torus, and the
+    # errors for unequal lengths, L_z = 0, negative actions, a rule with
+    # negative focal lengths, and actions that are not one of the tori
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.45, mm_npt=32, progressbar=False)
+    Lz, jz = numpy.array([1.0, 0.8]), numpy.array([0.03, 0.01])
+    aN = actionAngleStaeckelInverse(jrs=[0.05, 0.02], Lzs=Lz, jzs=jz, **kw)
+    jr = torch.tensor([0.05, 0.02], requires_grad=True)
+    with gb.use("torch", force=True):
+        aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
+        numpy.testing.assert_allclose(
+            [
+                float(as_numpy(t))
+                for t in aB.Freqs(*(torch.tensor(v) for v in (0.05, 1.0, 0.03)))
+            ],
+            [float(numpy.ravel(t)[0]) for t in aN.Freqs(0.05, 1.0, 0.03)],
+            rtol=1e-9,
+        )
+        with pytest.raises(ValueError, match="not one of the set-up tori"):
+            aB(
+                torch.tensor([0.05, 0.07]),
+                torch.tensor(Lz),
+                torch.tensor(jz),
+                0.1,
+                0.2,
+                0.3,
+            )
+        for bad, match in (
+            (dict(jrs=jr, Lzs=numpy.array([1.0]), jzs=jz), "same length"),
+            (dict(jrs=jr, Lzs=numpy.array([1.0, 0.0]), jzs=jz), "L_z = 0"),
+            (dict(jrs=-jr, Lzs=Lz, jzs=jz), "non-negative"),
+            (
+                dict(jrs=jr, Lzs=Lz, jzs=jz, delta=lambda E, L, f: 0.0 * E - 0.45),
+                "positive focal lengths",
+            ),
+        ):
+            with pytest.raises(ValueError, match=match):
+                actionAngleStaeckelInverse(**{**kw, **bad})
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_tori_from_actions_native_derivatives():
     # the derivatives of a torus's points in its actions through its set-up
     # from them equal finite differences of numpy's tori set up at the

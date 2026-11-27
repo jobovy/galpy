@@ -1127,6 +1127,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 1.0 * conversion.parse_angmom(t, ro=self._ro, vo=self._vo)
                 for t in (Lzs, jrs, jzs)
             )
+            # (numpy actions among them: on the device of the set-up)
+            self._Lzs, jrs, jzs = (
+                t if is_backend_array(t) else self._bk_on_device(xp_bk, t)[0]
+                for t in (self._Lzs, jrs, jzs)
+            )
             if not self._Lzs.shape == jrs.shape == jzs.shape:
                 raise ValueError("jrs, Lzs, and jzs have to have the same length")
             if concretely_true(xp_bk.any(self._Lzs == 0.0)):
