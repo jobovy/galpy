@@ -279,7 +279,9 @@ at release.]
   PyTorch are set up in chunks of ``chunk=`` tori (by default about 2 GB of
   memory each), so that tens of thousands of tori fit, also under ``jax.jit``.
 
-- [slot 27]
+- ``actionAngleStaeckelInverse``: a ``delta='fit'`` family traced in a
+  potential's parameters compiles under ``jax.jit`` in about 12 minutes on a
+  GPU, where it did not finish in over an hour before.
 
 - [slot 28]
 

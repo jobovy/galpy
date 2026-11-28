@@ -1542,6 +1542,34 @@ def test_jax_jit_construction_from_actions_single_curve(forced):
     numpy.testing.assert_allclose(out, ref, rtol=0.0, atol=1e-9)
 
 
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_bracket_steps_roll_under_jax_trace():
+    # the bisections and golden-section searches of the turning points and
+    # of the focal-length fit are one loop under a jax trace (their steps
+    # are not unrolled: a traced delta='fit' family compiles), with numpy's
+    # roots and minima
+    from galpy.actionAngle.actionAngleStaeckelInverse import _bisect, _golden
+
+    lo, hi = numpy.array([0.1, 0.5, 1.0]), numpy.array([2.0, 3.0, 1.6])
+    for helper, fn in (
+        (_bisect, lambda x: x**2 - 1.5),
+        (_golden, lambda x: (x - 1.3) ** 2),
+    ):
+
+        def run(a, b, n):
+            return helper(fn, a, b, n=n)
+
+        sizes = [
+            len(jax.make_jaxpr(lambda a, b: run(a, b, n))(lo, hi).jaxpr.eqns)
+            for n in (10, 40)
+        ]
+        assert sizes[0] == sizes[1]
+        out = jax.jit(lambda a, b: run(a, b, 40))(jnp.asarray(lo), jnp.asarray(hi))
+        numpy.testing.assert_allclose(
+            numpy.asarray(out), run(lo, hi, 40), rtol=0.0, atol=1e-12
+        )
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_shell_face_large_I3_backend():
     # a family set up on a backend: its nodes on the shell face stay on it
