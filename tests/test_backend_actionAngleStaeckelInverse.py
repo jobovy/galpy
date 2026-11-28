@@ -1408,6 +1408,50 @@ def test_tori_from_actions_follow_the_data():
     )
 
 
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.parametrize("case", ["fixed", "rule", "models", "forced"])
+def test_tori_from_actions_chunked(case):
+    # explicit tori set up natively in chunks (chunk=), each chunk on the
+    # auxiliary fitted to all of them: the tables, points and derivatives of
+    # the set-up in one pass, with a fixed focal length, a rule, per-torus
+    # models (as the adiabatic family's inverse gives them), and integrals
+    # solved on numpy under a forced backend; a last chunk shorter than the
+    # others
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    if case == "models":
+        kw = dict(
+            pot=MWPotential2014,
+            mm_npt=32,
+            progressbar=False,
+            _models=(torch.full((3,), 0.45), torch.full((3,), 1.5)),
+        )
+    else:
+        kw = _native_kw(case == "rule")
+    ang = (0.4, 1.0, 2.0)
+
+    def build(chunk):
+        jr = torch.tensor(_NATIVE_J["jrs"], requires_grad=case != "forced")
+        Lz, jz = (torch.tensor(_NATIVE_J[k]) for k in ("Lzs", "jzs"))
+        with gb.use("torch", force=case == "forced"):
+            aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, chunk=chunk, **kw)
+            x = torch.stack(aB(jr, Lz, jz, *(a + 0.0 * jr for a in ang)))
+        g = torch.autograd.grad(x.sum(), jr)[0] if jr.requires_grad else 0.0 * jr
+        return aB, as_numpy(x), as_numpy(g)
+
+    a1, x1, g1 = build(None)
+    a2, x2, g2 = build(2)
+    assert a2._bk["Es"].shape == (3,) and float(a2._GM) == pytest.approx(
+        float(a1._GM), rel=1e-14
+    )
+    numpy.testing.assert_allclose(x2, x1, rtol=0.0, atol=1e-12)
+    numpy.testing.assert_allclose(g2, g1, rtol=1e-9, atol=1e-12)
+    for k in ("_Es", "_jrs", "_Ns", "_Dmus"):
+        numpy.testing.assert_allclose(getattr(a2, k), getattr(a1, k), atol=1e-10)
+
+
 @pytest.mark.skipif(
     torch is None or not torch.cuda.is_available(), reason="CUDA torch not available"
 )
@@ -1476,6 +1520,7 @@ def test_jax_jit_construction_from_actions_single_curve(forced):
     # tori on the model's single reference curve set up from their actions
     # under jax.jit: without a forced backend, the traced actions pick it;
     # under a forced one, the model, set up in the trace, gives V itself
+    # (one torus per chunk: a jax.lax.map over the construction)
     from galpy import backend as gb
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
@@ -1485,7 +1530,7 @@ def test_jax_jit_construction_from_actions_single_curve(forced):
 
     def f(jr, Lz, jz):
         with gb.use("jax", force=True) if forced else contextlib.nullcontext():
-            aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
+            aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, chunk=1, **kw)
             return jnp.stack(aB(jr, Lz, jz, _ANGLES[:2], 1.0, 2.0))
 
     out = numpy.asarray(jax.jit(f)(*(jnp.asarray(J[k]) for k in ("jrs", "Lzs", "jzs"))))

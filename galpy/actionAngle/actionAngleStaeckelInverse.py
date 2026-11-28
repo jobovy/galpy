@@ -923,7 +923,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             are lifted and their tables computed (requires tqdm to be
             installed). Default is True.
         chunk : int, optional
-            jax/torch evaluation of an interpolated family at arrays of actions: evaluate the points in equal chunks of at most this many. The memory of a call is then that of one chunk, and under jax.jit the compiled program is one chunk's, whatever the number of points (the last chunk is padded). Stored as the ``chunk`` attribute, which can be changed. Default is None: all points in one pass.
+            jax/torch evaluation of an interpolated family at arrays of actions: evaluate the points in equal chunks of at most this many. The memory of a call is then that of one chunk, and under jax.jit the compiled program is one chunk's, whatever the number of points (the last chunk is padded). Stored as the ``chunk`` attribute, which can be changed. Default is None: all points in one pass. Explicit tori that are set up natively on jax/torch (from traced or differentiated actions, or under a forced backend) are set up in chunks of at most this many as well, each chunk on the auxiliary fitted to all of them; there the default is about 2 GB of intermediates per chunk (35 million / (mm_nta mm_npt) tori, at least 16).
         delta : float, Quantity, 'fit' or callable, optional
             Focal length of the prolate spheroidal coordinate system, to
             wrap a general axisymmetric potential in the Staeckel
@@ -8264,13 +8264,128 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             - _spec_eval_xp(xp, _offset_spec_coeffs_xp(xp, q), 0.0 * tau[:1])
         )
 
-    def _init_backend(self, *args, **kwargs):
+    def _init_backend(self, xp, *args, **kwargs):
         """_init_backend_tori, leaving the backend construction's per-torus
-        models however it ends"""
+        models however it ends; explicit tori in chunks of at most
+        _bk_construction_chunk() (_init_backend_chunks)"""
         try:
-            return self._init_backend_tori(*args, **kwargs)
+            step = self._bk_construction_chunk()
+            if self._interp or self._Es.shape[0] <= step:
+                return self._init_backend_tori(xp, *args, **kwargs)
+            return self._init_backend_chunks(xp, step, *args, **kwargs)
         finally:
             self._bk_Dt = None
+
+    def _bk_construction_chunk(self):
+        """The number of explicit tori that a backend construction sets up
+        at once: chunk=, else about 2 GB of the construction's intermediates
+        (some 7 ntau npt floats per torus)"""
+        if self.chunk is not None:
+            return self.chunk
+        return max(35_000_000 // (self._ntau * self._npt), 16)
+
+    def _bk_host_tables(self):
+        """numpy copies of the tables of explicit tori set up natively; the
+        second-order tables, which numpy computes on demand (_second_order),
+        are the backend's own"""
+        d2keys = ("d2sups", "d2Ms", "d2Dmus", "d2Dmvs")
+
+        def tonp(t):
+            return numpy.array(as_numpy(stop_gradient(t)))
+
+        for k, t in self._bk.items():
+            if k not in ("xp", "dev", "Es", "Lzs", "I3s") + d2keys:
+                setattr(self, "_" + k, tonp(t))
+        self._d2 = tuple(tonp(self._bk[k]) for k in d2keys)
+
+    def _init_backend_chunks(
+        self, xp, step, Rmin, Rmax, Rinf, nE, nLz, nI3, auxiliary, host_u=None, **kw
+    ):
+        """_init_backend_tori for explicit tori in chunks of step tori
+        (map_row_chunks: a loop, or a jax.lax.map under a trace), so that
+        the memory of the construction is that of one chunk: each chunk
+        sets up its tori (their focal lengths and models, held or under a
+        rule, theirs) on the auxiliary fitted to all of them"""
+        # the per-torus state, set to each chunk's rows in turn (taken before
+        # the auxiliary's fit, which leaves the integrals on numpy)
+        full = {k: getattr(self, k) for k in ("_Es", "_Lzs", "_I3s")}
+        if "_delta_tab" in self.__dict__:
+            full["_delta_tab"] = self._delta_tab
+        models = getattr(self, "_fixed_models", None)
+        names, rows = list(full), list(full.values())
+        if host_u is not None:
+            names.append("host_u")
+            rows.append(host_u)
+        if models is not None:
+            names += ["_m0", "_m1"]
+            rows += list(models)
+        if auxiliary is None:
+            GM, b = self._init_backend_tori(
+                xp,
+                Rmin,
+                Rmax,
+                Rinf,
+                nE,
+                nLz,
+                nI3,
+                None,
+                host_u=host_u,
+                fit_only=True,
+                **kw,
+            )
+            self._bk_Dt = None
+            for k, v in full.items():
+                setattr(self, k, v)
+            auxiliary = IsochronePotential(amp=GM, b=b)
+        keys, dev = [], []
+
+        def chunk(*r):
+            st = dict(zip(names, r))
+            for k in full:
+                setattr(self, k, st[k])
+            if models is not None:
+                self._fixed_models = (st["_m0"], st["_m1"])
+            self._init_backend_tori(
+                xp,
+                Rmin,
+                Rmax,
+                Rinf,
+                nE,
+                nLz,
+                nI3,
+                auxiliary,
+                host_u=st.get("host_u"),
+                **kw,
+            )
+            self._bk_Dt = None
+            if not keys:
+                keys.extend(k for k in self._bk if k not in ("xp", "dev"))
+                dev.append(self._bk["dev"])
+            return tuple(self._bk[k] for k in keys)
+
+        try:
+            outs = map_row_chunks(
+                xp,
+                chunk,
+                [
+                    r if is_backend_array(r) else self._bk_on_device(xp, r)[0]
+                    for r in rows
+                ],
+                step,
+            )
+        finally:
+            for k, v in full.items():
+                setattr(self, k, v)
+            if models is not None:
+                self._fixed_models = models
+        self._bk = {"xp": xp, "dev": dev[0], **dict(zip(keys, outs))}
+        Es = self._bk["Es"]
+        if has_concrete_truth_value(Es[0]) and not under_trace(Es):
+            self._Es, self._Lzs, self._I3s = (
+                numpy.array(as_numpy(stop_gradient(self._bk[k])))
+                for k in ("Es", "Lzs", "I3s")
+            )
+            self._bk_host_tables()
 
     def _init_backend_tori(
         self,
@@ -8284,12 +8399,14 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         auxiliary,
         Lzspacing="linear",
         host_u=None,
+        fit_only=False,
     ):
         """The construction (as _setup_grid, _setup_turning_points,
         _setup_auxiliary and _setup_tori do it) natively in xp, every torus
         at once; host_u, for explicit tori set up from their actions, holds
         the (u_min, u_max, u of the maximum) of their u librations as the
-        solve for their integrals found them"""
+        solve for their integrals found them; with fit_only, only the
+        auxiliary's (GM, b) fitted to the tori"""
         probe = self._bk_probe(xp)
         dev = device_of(probe)
         # (explicit tori set up from traced actions: their integrals are
@@ -8458,6 +8575,10 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         uc = xp.where(udeg, ush, uc_s)
         wu = xp.where(udeg, 0.0, wu_s)
         wv = xp.where(vdeg, 0.0, wv_s)
+        if fit_only:
+            # (the auxiliary of all the tori of a chunked construction:
+            # _init_backend_chunks)
+            return self._bk_fit_auxiliary(xp, f64, concrete, uc, wu, wv)
         # ----- the samples (as _sample_torus)
         tau_np = 2.0 * numpy.pi * (numpy.arange(self._ntau) + 0.5) / self._ntau
         tau, st, ct = f64(tau_np), f64(numpy.sin(tau_np)), f64(numpy.cos(tau_np))
@@ -8918,13 +9039,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             if concrete:
                 self._warn_unresolved(perr_u, self._Es, self._Lzs, self._I3s, "u")
                 self._warn_unresolved(perr_v, self._Es, self._Lzs, self._I3s, "v")
-                d2keys = ("d2sups", "d2Ms", "d2Dmus", "d2Dmvs")
-                for k, t in self._bk.items():
-                    if k not in ("xp", "dev", "Es", "Lzs", "I3s") + d2keys:
-                        setattr(self, "_" + k, tonp(t))
-                # the second-order tables, which numpy computes on demand
-                # (_second_order), are the backend's own
-                self._d2 = tuple(tonp(self._bk[k]) for k in d2keys)
+                self._bk_host_tables()
             return None
         # ----- the interpolation tables (as _setup_tori_interp)
         self._bk_build_interp(
