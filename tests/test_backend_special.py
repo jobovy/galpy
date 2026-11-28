@@ -1555,9 +1555,9 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
     calls = []
     both = mod._both
 
-    def spy(xp, aa, xx, rolled=False):
+    def spy(xp, aa, xx, rolled=False, *counts):
         calls.append((xx.shape, rolled))
-        return both(xp, aa, xx, rolled)
+        return both(xp, aa, xx, rolled, *counts)
 
     monkeypatch.setattr(mod, "_both", spy)
     monkeypatch.setattr(_ns, "device_type", lambda x: "cpu")
@@ -1587,6 +1587,49 @@ def test_gammainc_small_staged_array_takes_series_on_an_accelerator(monkeypatch,
         rtol=5e-14,
         atol=0.0,
     )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_gammainc_constant_order_takes_its_series_terms(monkeypatch):
+    # An order given as one number (a potential's fixed exponent; also a
+    # numpy scalar or a concrete jax scalar) takes the ascending
+    # series' terms it needs (24 at a = 0.6 instead of 120) and, from
+    # _A_SMALL up, not the small-order series; its values are those of the
+    # general counts (a traced order) to rounding, unrolled (CPU) and rolled
+    # (GPU), and scipy's
+    import importlib
+
+    from galpy.backend.special._fallback import gammainc as mod
+
+    _ns = importlib.import_module("galpy.backend._namespaces")
+    assert mod._series_terms(0.6) == 24
+    assert mod._series_terms(200.0) == mod._N_SERIES
+    x = numpy.geomspace(1e-6, 60.0, mod._JAX_MIN_SIZE)
+    calls = []
+    both = mod._both
+
+    def spy(xp, aa, xx, rolled=False, *counts):
+        calls.append(counts)
+        return both(xp, aa, xx, rolled, *counts)
+
+    monkeypatch.setattr(mod, "_both", spy)
+    for staged in ("cpu", "gpu"):
+        monkeypatch.setattr(_ns, "device_type", lambda v, s=staged: s)
+        for a in (0.1, numpy.float64(0.6), jnp.asarray(2.5), 30.0):
+            a0 = float(numpy.ravel(a)[0])
+            for fn, sfn in (
+                (gsp.gammainc, scipy_special.gammainc),
+                (gsp.gammaincc, scipy_special.gammaincc),
+            ):
+                calls.clear()
+                jax.clear_caches()
+                const = numpy.asarray(jax.jit(lambda xx: fn(a, xx))(jnp.asarray(x)))
+                assert calls == [(mod._series_terms(a0), a0 < mod._A_SMALL)]
+                general = numpy.asarray(jax.jit(fn)(jnp.asarray(a0), jnp.asarray(x)))
+                assert calls[-1] == (mod._N_SERIES, True)
+                # (XLA folds a constant order's expressions: rounding)
+                numpy.testing.assert_allclose(const, general, rtol=5e-13, atol=0.0)
+                numpy.testing.assert_allclose(const, sfn(a0, x), rtol=1e-12, atol=0.0)
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)

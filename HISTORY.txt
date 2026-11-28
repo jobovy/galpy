@@ -285,7 +285,9 @@ at release.]
 
 - [slot 28]
 
-- [slot 29]
+- jax's incomplete gamma functions take only the series terms that a constant
+  order needs (as ``PowerSphericalPotentialwCutoff``'s): ``MWPotential2014``
+  compiles and evaluates about a third faster under ``jax.jit``.
 
 - [slot 30]
 
