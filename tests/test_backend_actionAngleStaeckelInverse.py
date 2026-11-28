@@ -9,6 +9,7 @@
 # adaptive reference curve and the target box, jit/vmap/compile, float32, and
 # the construction's and evaluation's checks
 ###############################################################################
+import contextlib
 import copy
 import importlib
 
@@ -1470,10 +1471,12 @@ def test_jax_jit_construction_from_actions():
 
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")
-def test_jax_jit_construction_from_actions_single_curve():
+@pytest.mark.parametrize("forced", [False, True])
+def test_jax_jit_construction_from_actions_single_curve(forced):
     # tori on the model's single reference curve set up from their actions
-    # under jax.jit: the model, set up in the trace, gives V itself (without
-    # a forced backend: the traced actions pick it)
+    # under jax.jit: without a forced backend, the traced actions pick it;
+    # under a forced one, the model, set up in the trace, gives V itself
+    from galpy import backend as gb
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
 
@@ -1481,8 +1484,9 @@ def test_jax_jit_construction_from_actions_single_curve():
     J = {k: numpy.array(v[:2]) for k, v in _NATIVE_J.items()}
 
     def f(jr, Lz, jz):
-        aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
-        return jnp.stack(aB(jr, Lz, jz, _ANGLES[:2], 1.0, 2.0))
+        with gb.use("jax", force=True) if forced else contextlib.nullcontext():
+            aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
+            return jnp.stack(aB(jr, Lz, jz, _ANGLES[:2], 1.0, 2.0))
 
     out = numpy.asarray(jax.jit(f)(*(jnp.asarray(J[k]) for k in ("jrs", "Lzs", "jzs"))))
     ref = numpy.array(
