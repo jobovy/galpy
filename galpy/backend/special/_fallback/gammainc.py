@@ -43,7 +43,7 @@
 import numpy
 from scipy.special import zeta as _zeta
 
-from ..._namespaces import _backend_dtype, name_of_namespace
+from ..._namespaces import _backend_dtype, name_of_namespace, under_trace
 from .._router import gammaln
 
 _A_STIRLING = 14.0  # Stirling prefix at/above this order, naive exponent below
@@ -116,8 +116,8 @@ def _prefix(xp, a, x):
     return xp.where(big, stirling, naive)
 
 
-def _series_P(xp, a, x, pref, rolled=False):
-    """Ascending series for P(a,x), valid (and used) for x < a+1."""
+def _series_P(xp, a, x, pref, rolled=False, n=_N_SERIES):
+    """Ascending series for P(a,x), valid (and used) for x < a+1, of n terms."""
 
     def step(_, carry):
         ap, term, total = carry
@@ -129,9 +129,11 @@ def _series_P(xp, a, x, pref, rolled=False):
     if rolled:
         import jax
 
-        carry = jax.lax.fori_loop(0, _N_SERIES, step, carry, unroll=_GPU_UNROLL)
+        # (a whole number of unrolled blocks)
+        n = -(-n // _GPU_UNROLL) * _GPU_UNROLL
+        carry = jax.lax.fori_loop(0, n, step, carry, unroll=_GPU_UNROLL)
     else:
-        for i in range(_N_SERIES):
+        for i in range(n):
             carry = step(i, carry)
     return carry[2] * pref
 
@@ -206,9 +208,12 @@ def _small_Q(xp, a, x, rolled=False):
     return -xp.expm1(e) - a * xp.exp(e) * total
 
 
-def _both(xp, a, x, rolled=False):
+def _both(xp, a, x, rolled=False, n_series=_N_SERIES, small_order=True):
     """Return (P, Q), each computed by whichever branch is valid there;
-    ``rolled``: the loops as lax.fori_loop (jax on a GPU, see _GPU_UNROLL)."""
+    ``rolled``: the loops as lax.fori_loop (jax on a GPU, see _GPU_UNROLL);
+    ``n_series``: the ascending series' terms (_series_terms for one constant
+    order); ``small_order``: whether an order can be below _A_SMALL (else
+    the small-order series is not computed)."""
     f64 = _backend_dtype(xp, numpy.float64)
     a = xp.astype(xp.asarray(a), f64)
     x = xp.astype(xp.asarray(x), f64)
@@ -227,15 +232,17 @@ def _both(xp, a, x, rolled=False):
     x_cf = xp.where(
         xp.logical_or(use_series, at_inf), a + 1.0, x
     )  # a+1 is the CF's boundary
-    p = _series_P(xp, a, x_ser, _prefix(xp, a, x_ser), rolled)
+    p = _series_P(xp, a, x_ser, _prefix(xp, a, x_ser), rolled, n_series)
     q = _cf_Q(xp, a, x_cf, _prefix(xp, a, x_cf), rolled)
     p_out = xp.where(use_series, p, 1.0 - q)
     q_out = xp.where(use_series, 1.0 - p, q)
-    small = (a < _A_SMALL) & (x > 0.0) & (x < _X_SMALL)
-    # dead branch -> a point inside the region (log(0) / the lgamma series' radius)
-    qs = _small_Q(xp, xp.where(small, a, 0.25), xp.where(small, x, 1.0), rolled)
-    q_out = xp.where(small, qs, q_out)
-    p_out = xp.where(small & ~use_series, 1.0 - qs, p_out)
+    if small_order:
+        small = (a < _A_SMALL) & (x > 0.0) & (x < _X_SMALL)
+        # dead branch -> a point inside the region (log(0) / the lgamma
+        # series' radius)
+        qs = _small_Q(xp, xp.where(small, a, 0.25), xp.where(small, x, 1.0), rolled)
+        q_out = xp.where(small, qs, q_out)
+        p_out = xp.where(small & ~use_series, 1.0 - qs, p_out)
     return (
         xp.where(at_inf, xp.ones_like(p_out), p_out),  # P(a, inf) = 1
         xp.where(at_inf, xp.zeros_like(q_out), q_out),  # Q(a, inf) = 0
@@ -333,7 +340,27 @@ _JAX_FNS = {}
 _JAX_MIN_SIZE = 4096
 
 
-def _jax_incgamma(upper):
+def _constant_order(a):
+    """The order as a float when it is one number known when the call is
+    set up (as a potential's fixed exponent), else None"""
+    if isinstance(a, (int, float, numpy.integer, numpy.floating)):
+        return float(a)
+    return None
+
+
+def _series_terms(a):
+    """The ascending series' terms for one constant order a: up to the term
+    below 2^-56 of the first where the series converges slowest (x = a + 1),
+    and two more, at most _N_SERIES (measured against scipy for a from 0.1
+    to 200, the error stays that of _N_SERIES terms; 24 terms at a = 0.6)"""
+    t, n = 1.0, 0
+    while t >= 2.0**-56 and n < _N_SERIES:
+        n += 1
+        t *= (a + 1.0) / (a + n)
+    return min(n + 2, _N_SERIES)
+
+
+def _jax_incgamma(upper, n_series=_N_SERIES, small_order=True):
     """jax P or Q. STAGED arrays (jit / vmap) take the vectorized series/CF
     when large (>= _JAX_MIN_SIZE) or when jax runs on an accelerator -- jax's
     native gammainc iterates per element in a while_loop, ~100x slower on CPU
@@ -365,10 +392,10 @@ def _jax_incgamma(upper):
         from ..._namespaces import device_type
 
         if device_type(x) != "cpu":
-            return _both(jnp, a, x, rolled=True)[idx]
+            return _both(jnp, a, x, True, n_series, small_order)[idx]
         if x.size < _JAX_MIN_SIZE:
             return native(a, x)
-        return _both(jnp, a, x)[idx]
+        return _both(jnp, a, x, False, n_series, small_order)[idx]
 
     @jax.custom_jvp
     def f(a, x):
@@ -397,11 +424,21 @@ def _dispatch_one(xp, a, x, upper):
     if name_of_namespace(xp) == "jax":
         import jax.numpy as jnp
 
-        if upper not in _JAX_FNS:
-            _JAX_FNS[upper] = _jax_incgamma(upper)
+        # (a constant order needs fewer series terms, and none of the
+        # small-order series from _A_SMALL up)
+        c = _constant_order(a)
+        if c is None and getattr(a, "size", 0) == 1 and not under_trace(a):
+            c = float(numpy.asarray(a).ravel()[0])
+        key = (
+            (upper, _N_SERIES, True)
+            if c is None
+            else (upper, _series_terms(c), c < _A_SMALL)
+        )
+        if key not in _JAX_FNS:
+            _JAX_FNS[key] = _jax_incgamma(*key)
         f64 = _backend_dtype(xp, numpy.float64)
         a, x = jnp.broadcast_arrays(jnp.asarray(a, f64), jnp.asarray(x, f64))
-        return _JAX_FNS[upper](a, x)
+        return _JAX_FNS[key](a, x)
     import torch
 
     # a Python/numpy order lands on the argument tensor's device (torch's default
