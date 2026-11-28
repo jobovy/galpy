@@ -718,6 +718,7 @@
 "tests/test_backend_actionAngleStaeckelInverse.py::test_backend_construction_checks[torch]": 0.85,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_backend_evaluation_checks[jax]": 10.8,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_backend_evaluation_checks[torch]": 0.72,
+"tests/test_backend_actionAngleStaeckelInverse.py::test_bracket_steps_roll_under_jax_trace": 0.56,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_canonical[jax]": 11.42,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_canonical[torch]": 0.51,
 "tests/test_backend_actionAngleStaeckelInverse.py::test_construction_contract[jax]": 13.14,

@@ -546,24 +546,29 @@ def _bk_harmonics_needed_nodes(xp, tabs):
 def _bisect(fn, lo, hi, n=40):
     """The roots of fn between the arrays lo, where it is negative, and hi,
     where it is positive, by n bisections of all of them at once (numpy or
-    a backend's arrays)"""
+    a backend's arrays; a lax.fori_loop under a jax trace: iterate_bracket)"""
     xp = get_namespace(lo, hi)
-    for _ in range(n):
-        mid = 0.5 * (lo + hi)
+
+    def step(c):
+        mid = 0.5 * (c[0] + c[1])
         neg = fn(mid) < 0.0
-        lo, hi = xp.where(neg, mid, lo), xp.where(neg, hi, mid)
-    return 0.5 * (lo + hi)
+        return xp.stack([xp.where(neg, mid, c[0]), xp.where(neg, c[1], mid)])
+
+    c = iterate_bracket(step, xp.stack(xp.broadcast_arrays(lo, hi)), n)
+    return 0.5 * (c[0] + c[1])
 
 
 def _golden(fn, lo, hi, n=40):
     """The minima of fn between the arrays lo and hi, where it has one
     each, by n golden-section steps of all of them at once (numpy or a
-    backend's arrays)"""
+    backend's arrays; a lax.fori_loop under a jax trace: iterate_bracket)"""
     xp = get_namespace(lo, hi)
     g = 0.5 * (numpy.sqrt(5.0) - 1.0)
     a, b = hi - g * (hi - lo), lo + g * (hi - lo)
     fa, fb = fn(a), fn(b)
-    for _ in range(n):
+
+    def step(c):
+        lo, hi, a, b, fa, fb = (c[k] for k in range(6))
         left = fa < fb
         lo, hi = xp.where(left, lo, a), xp.where(left, b, hi)
         a, b = (
@@ -572,7 +577,10 @@ def _golden(fn, lo, hi, n=40):
         )
         fnew = fn(xp.where(left, a, b))
         fa, fb = xp.where(left, fnew, fb), xp.where(left, fa, fnew)
-    return 0.5 * (lo + hi)
+        return xp.stack([lo, hi, a, b, fa, fb])
+
+    c = iterate_bracket(step, xp.stack(xp.broadcast_arrays(lo, hi, a, b, fa, fb)), n)
+    return 0.5 * (c[0] + c[1])
 
 
 def _focal_tori(pot, E, Lz, f, delta, Rm, Rp, rule):
