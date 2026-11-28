@@ -20,6 +20,11 @@ from ..backend._namespaces import (
 )
 from ..backend.interpolate import cubic_spline_coeffs
 
+# the backend reads of many points gather each point's node blocks; they run
+# in chunks of at most this many gathered values (about 270 MB in float64), a
+# loop (jax.lax.map under a trace) only beyond it
+_BK_ROWS = 1 << 25
+
 
 def slope_at_zero(js, ys, dys, xp=numpy):
     """Slope at J = 0 of the polynomial with value 0 there and the given
@@ -311,7 +316,7 @@ class HermiteFamily2D:
                 for ps, pt in zip(p[: len(pss)], p[len(pss) :])
             )
 
-        out = map_row_chunks(xp, read, (i, j, *pss, *pts), max(1, 500_000 // (24 * k)))
+        out = map_row_chunks(xp, read, (i, j, *pss, *pts), max(1, _BK_ROWS // (24 * k)))
         return tuple(xp.reshape(o, tuple(shape) + (k,)) for o in out)
 
     def __call__(self, x, y):
@@ -549,9 +554,9 @@ class HermiteFamily3D:
 
     def ev4_rows(self, x, y, z):
         """ev4 at many points at once (x, y, z: 1-D arrays of one length), in
-        jax/torch: four (npoints, k) arrays, read as batch_all reads them
-        (the eight nodes' blocks gathered, then contracted with the Hermite
-        weights z, y, x in turn)"""
+        jax/torch: four (npoints, k) arrays (the eight nodes' blocks
+        gathered, then contracted with the products of the Hermite weights
+        along z, y and x, of the value and of each derivative, at once)"""
         xp = _ns(x, y, z)
         dev = device_of(x, y, z) if xp is not numpy else device_of(self._nodes)
         xp = xp if xp is not numpy else self._xp
@@ -590,17 +595,25 @@ class HermiteFamily3D:
                 i[:, None, None, None] + o,
                 j[:, None, None, None] + o[:, None],
                 l[:, None, None, None] + o[:, None, None],
-            ]  # (n, zn, yn, xn, 12, k)
-            G = xp.permute_dims(
-                xp.reshape(G, (n, 2, 2, 2, 2, 2, 3, k)), (0, 1, 4, 2, 5, 3, 6, 7)
+            ]  # (n, zn, yn, xn, 12 = (zo, yo, xo), k)
+            # the weights of the 96 quantities, in the gathered order, of
+            # the value and the x, y and z derivatives: one product with the
+            # gathered blocks as they are (no transposed copy of them)
+            Cz = xp.stack([C[:, 0], C[:, 0], C[:, 0], C[:, 1]], axis=1)
+            By = xp.stack([B[:, 0], B[:, 0], B[:, 1], B[:, 0]], axis=1)
+            Ax = xp.stack([A[:, 0], A[:, 1], A[:, 0], A[:, 0]], axis=1)
+            W = (
+                Cz[:, :, :, None, None, :, None, None]
+                * By[:, :, None, :, None, None, :, None]
+                * Ax[:, :, None, None, :, None, None, :]
             )
-            G = xp.reshape(C, (n, 2, 4)) @ xp.reshape(G, (n, 4, 24 * k))
-            G = xp.reshape(B, (n, 1, 2, 4)) @ xp.reshape(G, (n, 2, 4, 6 * k))
-            G = xp.reshape(A, (n, 1, 1, 2, 6)) @ xp.reshape(G, (n, 2, 2, 6, k))
-            return G[:, 0, 0, 0], G[:, 0, 0, 1], G[:, 0, 1, 0], G[:, 1, 0, 0]
+            G = xp.reshape(W, (n, 4, 96)) @ xp.reshape(G, (n, 96, k))
+            return G[:, 0], G[:, 1], G[:, 2], G[:, 3]
 
-        # in chunks of batch_all's size
-        return map_row_chunks(xp, read, (i, j, l, A, B, C), max(1, 500_000 // (96 * k)))
+        # in chunks of at most _BK_ROWS gathered values
+        return map_row_chunks(
+            xp, read, (i, j, l, A, B, C), max(1, _BK_ROWS // (96 * k))
+        )
 
     @staticmethod
     def _cell(nodes, val):

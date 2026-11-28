@@ -1184,8 +1184,9 @@ def test_tori_from_actions_native(rule, u0):
 
 def _unconverged_tori():
     # two near-axis tori of a fitted rule at angles whose vectorized Newton
-    # iteration for the anomalies does not converge: the keywords that set
-    # them up, the angles, and numpy's points
+    # iteration for the anomalies does not converge within two steps
+    # (maxiter=2, which the tests pass to the backend's tori): the keywords
+    # that set them up, the angles, and numpy's points
     from galpy import backend as gb
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
@@ -1237,7 +1238,7 @@ def test_tori_unconverged_angles_vectorized(monkeypatch):
     mod = importlib.import_module("galpy.actionAngle.actionAngleStaeckelInverse")
     kw, angles, xn = _unconverged_tori()
     with gb.use("torch", force=True):
-        aB = actionAngleStaeckelInverse(**kw)
+        aB = actionAngleStaeckelInverse(**kw, maxiter=2)
     steps = []
     brentq = mod._backend_brentq
 
@@ -1272,7 +1273,7 @@ def test_tori_unconverged_angles_jit():
 
     kw, angles, xn = _unconverged_tori()
     with gb.use("jax", force=True):
-        aB = actionAngleStaeckelInverse(**kw)
+        aB = actionAngleStaeckelInverse(**kw, maxiter=2)
     xb = numpy.asarray(
         jax.jit(lambda *a: jnp.stack(aB.xvFreqs(*a)))(
             *(jnp.asarray(t) for t in (kw["jrs"], kw["Lzs"], kw["jzs"], *angles))

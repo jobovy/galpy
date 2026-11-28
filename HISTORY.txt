@@ -283,7 +283,9 @@ at release.]
   potential's parameters compiles under ``jax.jit`` in about 12 minutes on a
   GPU, where it did not finish in over an hour before.
 
-- [slot 28]
+- ``actionAngleStaeckelInverse``: evaluating a family on jax and PyTorch is
+  several times faster (a family whose focal length follows its tori up to ten
+  times) and compiles to fewer kernels under ``jax.jit``.
 
 - [slot 29]
 

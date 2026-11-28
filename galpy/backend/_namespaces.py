@@ -783,13 +783,22 @@ def device_type(x):
     return None if device is None else device.platform
 
 
+_COMPARE_ALL_MAX = 64
+
+
 def searchsorted(xp, a, v, side="left"):
-    """``xp.searchsorted(a, v, side=side)``; on jax off the CPU with the
-    binary search unrolled (``method="scan_unrolled"``): jax's default scan
-    is a loop, of which a GPU pays every step (26x slower for 1000 points
-    in a table of 4000; the unrolled search is 8x slower on the CPU)"""
-    if name_of_namespace(xp) == "jax" and device_type(v) != "cpu":
-        return xp.searchsorted(a, v, side=side, method="scan_unrolled")
+    """``xp.searchsorted(a, v, side=side)``; on jax, a table of at most
+    _COMPARE_ALL_MAX entries is compared with every point at once
+    (``method="compare_all"``: no loop, which a compiled program pays for in
+    kernels), a longer one off the CPU with the binary search unrolled
+    (``method="scan_unrolled"``): jax's default scan is a loop, of which a
+    GPU pays every step (26x slower for 1000 points in a table of 4000; the
+    unrolled search is 8x slower on the CPU)"""
+    if name_of_namespace(xp) == "jax":
+        if a.shape[0] <= _COMPARE_ALL_MAX:
+            return xp.searchsorted(a, v, side=side, method="compare_all")
+        if device_type(v) != "cpu":
+            return xp.searchsorted(a, v, side=side, method="scan_unrolled")
     return xp.searchsorted(a, v, side=side)
 
 
