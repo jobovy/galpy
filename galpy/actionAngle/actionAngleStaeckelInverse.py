@@ -46,6 +46,7 @@ from ..backend._namespaces import (
     namespace_from_arrays,
     picklable_state,
     requires_backend_grad,
+    searchsorted,
     stop_gradient,
     under_jax_trace,
     under_trace,
@@ -253,9 +254,12 @@ def _contract(smt, D):
     return D @ smt if D.ndim == 1 else numpy.einsum("mp,mp->p", smt, D)
 
 
-def _bk_contract(xp, smt, D):
-    """_contract in jax/torch"""
-    return D @ smt if D.ndim == 1 else xp.sum(smt * D, axis=0)
+def _bk_contract_many(xp, smt, Ds):
+    """[_contract(smt, D) for D in Ds] in jax/torch, as one contraction (one
+    kernel under jax.jit instead of one per D)"""
+    D = xp.stack(Ds)
+    out = D @ smt if D.ndim == 2 else xp.sum(smt[None] * D, axis=1)
+    return [out[k] for k in range(len(Ds))]
 
 
 def _listed_to_numpy(*args):
@@ -2438,7 +2442,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
 
         L2 = numpy.maximum.accumulate(numpy.exp(2.0 * lnR) * dPhi)
-        k = xp.clip(xp.searchsorted(like(ell, L2), ell**2), 1, len(L2) - 1)
+        k = xp.clip(searchsorted(xp, like(ell, L2), ell**2), 1, len(L2) - 1)
         # (a point of the scan further on either side: the table's and the
         # potential's own slopes differ in the last digits)
         lnR = like(ell, lnR)
@@ -11022,14 +11026,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             tab["found"] = take(tabs["found"])
         return tab
 
-    def _bk_kernel_u(self, xp, tau, a, e, L, Dm, uc, wu, chains):
-        """_kernel_u in jax/torch"""
+    def _bk_kernel_u(self, xp, tau, a, e, L, Dm, uc, wu, chains, jac=False):
+        """_kernel_u in jax/torch (with jac, also the derivatives of p_u and of
+        the compensations with respect to tau, in closed form)"""
         ms = asarray_on_device(xp, self._nforDm * 1.0, device_of(tau))
         smt, cmt = _harmonics_xp(xp, tau, ms)
-        eta = tau + _bk_contract(xp, smt, Dm)
-        deta = 1.0 + _bk_contract(
-            xp, cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm
+        msc = ms[:, None] if Dm.ndim == 2 else ms
+        # (every contraction with each harmonic matrix at once)
+        Cs = _bk_contract_many(
+            xp, smt, [Dm, *(ch[4] for ch in chains)] + ([msc**2 * Dm] if jac else [])
         )
+        Cc = _bk_contract_many(
+            xp, cmt, [msc * Dm] + ([msc * ch[4] for ch in chains] if jac else [])
+        )
+        eta = tau + Cs[0]
+        deta = 1.0 + Cc[0]
         se, ce = xp.sin(eta), xp.cos(eta)
         rA, pA, gA = self._aAIinv._profile(a, e, eta)
         kap = a * e / (a + self._b)
@@ -11055,21 +11066,60 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         sratio = xp.where(big, se / xp.where(big, st, 1.0), deta)
         pu = pA * gA * sratio * deta / wu
         drA_da, drA_de = self._aAIinv._radius_partials(a, e, eta)
+        S = Cs[1 : 1 + len(chains)]
         comps = [
-            pA * (drA_da * da + drA_de * de + gA * se * _bk_contract(xp, smt, dDm))
-            - pu * (duc - dwu * ct)
-            for da, de, duc, dwu, dDm in chains
+            pA * (drA_da * da + drA_de * de + gA * se * Sk) - pu * (duc - dwu * ct)
+            for (da, de, duc, dwu, _), Sk in zip(chains, S)
         ]
-        return eta, thetaA, dthetaA, Lam, dLam, u, pu, comps
+        out = (eta, thetaA, dthetaA, Lam, dLam, u, pu, comps)
+        if not jac:
+            return out
+        d2eta = -Cs[-1]
+        y = 1.0 - e * ce
+        sA, dy, yb = self._b + a * y, e * se, y + self._b / a
+        # (as _kernel_u: p^A = P sin(eta), and the eta-derivatives of ln P,
+        # of g^A and of the radius partials)
+        P = xp.sqrt(self._GM / (a + self._b)) * a * e / rA
+        dlnP = -gA * se / rA
+        dgA = gA * dy * (1.0 / yb - yb * a**2 / rA**2)
+        dXa = (dy * sA + y * a * dy) / rA - y * sA * gA * se / rA**2
+        dXe = -a * ((a * dy * ce - sA * se) / rA - sA * ce * gA * se / rA**2)
+        dpu = (
+            P
+            * sratio
+            / wu
+            * (
+                ((dlnP * gA + dgA) * se + 2.0 * gA * ce) * deta**2
+                - gA * sratio * ct * deta
+                + gA * se * d2eta
+            )
+        )
+        dpA = P * (dlnP * se + ce) * deta
+        dcomps = [
+            dpA * (drA_da * da + drA_de * de + gA * se * Sk)
+            + pA
+            * ((dXa * da + dXe * de + (dgA * se + gA * ce) * Sk) * deta + gA * se * Ck)
+            - dpu * (duc - dwu * ct)
+            - pu * dwu * st
+            for (da, de, duc, dwu, _), Sk, Ck in zip(chains, S, Cc[1:])
+        ]
+        return (*out, dpu, dcomps)
 
-    def _bk_kernel_v(self, xp, tau, L, c, Dm, wv, chains):
-        """_kernel_v in jax/torch"""
+    def _bk_kernel_v(self, xp, tau, L, c, Dm, wv, chains, jac=False):
+        """_kernel_v in jax/torch (with jac, also the derivatives of p_v and of
+        the compensations with respect to tau, in closed form)"""
         ms = asarray_on_device(xp, self._nforDmv * 1.0, device_of(tau))
         smt, cmt = _harmonics_xp(xp, tau, ms)
-        zeta = tau + _bk_contract(xp, smt, Dm)
-        dzeta = 1.0 + _bk_contract(
-            xp, cmt, ms[:, None] * Dm if Dm.ndim == 2 else ms * Dm
+        msc = ms[:, None] if Dm.ndim == 2 else ms
+        # (every contraction with each harmonic matrix at once)
+        Cs = _bk_contract_many(
+            xp, smt, [Dm, *(ch[2] for ch in chains)] + ([msc**2 * Dm] if jac else [])
         )
+        Cc = _bk_contract_many(
+            xp, cmt, [msc * Dm] + ([msc * ch[2] for ch in chains] if jac else [])
+        )
+        zeta = tau + Cs[0]
+        dzeta = 1.0 + Cc[0]
         sz, cz = xp.sin(zeta), xp.cos(zeta)
         sinth2 = 1.0 - c * cz**2
         fluxA = L * c * sz**2 / sinth2
@@ -11078,13 +11128,37 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         big = xp.abs(st) > 1e-12
         sratio = xp.where(big, sz / xp.where(big, st, 1.0), dzeta)
         pv = L * c * sz * sratio * dzeta / (sinth2 * wv)
+        S = Cs[1 : 1 + len(chains)]
         comps = [
-            -0.5 * L * sz * cz / sinth2 * dc
-            + fluxA * _bk_contract(xp, smt, dDm)
-            + pv * dwv * ct
-            for dc, dwv, dDm in chains
+            -0.5 * L * sz * cz / sinth2 * dc + fluxA * Sk + pv * dwv * ct
+            for (dc, dwv, _), Sk in zip(chains, S)
         ]
-        return zeta, dzeta, v, pv, comps
+        out = (zeta, dzeta, v, pv, comps)
+        if not jac:
+            return out
+        d2zeta = -Cs[-1]
+        ds2 = 2.0 * c * cz * sz * dzeta
+        dpv = (
+            L
+            * c
+            * sratio
+            / wv
+            * (
+                ((2.0 * cz * dzeta - sratio * ct) * dzeta + sz * d2zeta) / sinth2
+                - sz * dzeta * ds2 / sinth2**2
+            )
+        )
+        dA = ((cz**2 - sz**2) * dzeta * sinth2 - sz * cz * ds2) / sinth2**2
+        dflux = L * c * (2.0 * sz * cz * dzeta * sinth2 - sz**2 * ds2) / sinth2**2
+        dcomps = [
+            -0.5 * L * dA * dc
+            + dflux * Sk
+            + fluxA * Ck
+            + dpv * dwv * ct
+            - pv * dwv * st
+            for (dc, dwv, _), Sk, Ck in zip(chains, S, Cc[1:])
+        ]
+        return (*out, dpv, dcomps)
 
     @staticmethod
     def _bk_sel(xp, flag, a, b):
@@ -11094,10 +11168,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             return a if bool(flag) else b
         return xp.where(flag, a, b)
 
-    def _bk_torus_at(self, xp, tu, tv, aux, chains_u, chains_v):
+    def _bk_torus_at(self, xp, tu, tv, aux, chains_u, chains_v, jac=False):
         """_torus_at in jax/torch; a degenerate libration's branch runs alone
         when its flag is concrete, and next to the other (on stand-in tables)
-        when traced"""
+        when traced (with jac, also the Jacobian of the two angle relations
+        as _torus_at's)"""
         ones = 1.0 + 0.0 * tu
         udeg, vdeg = aux["udeg"], aux["vdeg"]
         cu = isinstance(udeg, bool) or has_concrete_truth_value(udeg)
@@ -11114,12 +11189,17 @@ class actionAngleStaeckelInverse(actionAngleInverse):
                 aux["uc"],
                 aux["wu_s"],
                 chains_u,
+                jac,
             )
         if not (cv and bool(vdeg)):
             Tv = self._bk_kernel_v(
-                xp, tv, aux["L"], aux["c"], aux["Dmv"], aux["wv_s"], chains_v
+                xp, tv, aux["L"], aux["c"], aux["Dmv"], aux["wv_s"], chains_v, jac
             )
         zeros = [0.0 * tu] * len(chains_u)
+        # (with jac: dp/dtau and the compensations' tau-derivatives of each
+        # libration, and its coordinate's, zero where it is degenerate)
+        ju = (0.0 * tu, [0.0 * tu, 0.0 * tu], 0.0 * tu)
+        jv = (0.0 * tv, [0.0 * tv, 0.0 * tv], 0.0 * tv)
         if Tu is None:
             thetaAr, dthetaAr, Lam, dLam = (
                 tu,
@@ -11129,35 +11209,77 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
             u, pu, comps_u = aux["uc"] * ones, 0.0 * tu, zeros
         else:
-            _, tAr, dtAr, La, dLa, uu, puu, cmu = Tu
+            _, tAr, dtAr, La, dLa, uu, puu, cmu, *jku = Tu
             sel = lambda dg, other: self._bk_sel(xp, udeg, dg, other)  # noqa: E731
             thetaAr, dthetaAr = sel(tu, tAr), sel(ones, dtAr)
             Lam, dLam = sel(aux["ratio"] * tu, La), sel(aux["ratio"] * ones, dLa)
             u, pu = sel(aux["uc"] * ones, uu), sel(0.0 * tu, puu)
             comps_u = [sel(0.0 * tu, c) for c in cmu]
+            if jac:
+                ju = (
+                    sel(0.0 * tu, jku[0]),
+                    [sel(0.0 * tu, c) for c in jku[1][:2]],
+                    sel(0.0 * tu, aux["wu_s"] * xp.sin(tu)),
+                )
         if Tv is None:
             zeta, dzeta, v, pv = tv, ones, 0.5 * numpy.pi * ones, 0.0 * tv
             comps_v = [0.0 * tv] * len(chains_v)
         else:
-            ze, dze, vv, pvv, cmv = Tv
+            ze, dze, vv, pvv, cmv, *jkv = Tv
             sel = lambda dg, other: self._bk_sel(xp, vdeg, dg, other)  # noqa: E731
             zeta, dzeta = sel(tv, ze), sel(ones, dze)
             v, pv = sel(0.5 * numpy.pi * ones, vv), sel(0.0 * tv, pvv)
             comps_v = [sel(0.0 * tv, c) for c in cmv]
+            if jac:
+                jv = (
+                    sel(0.0 * tv, jkv[0]),
+                    [sel(0.0 * tv, c) for c in jkv[1][:2]],
+                    sel(0.0 * tv, aux["wv_s"] * xp.sin(tv)),
+                )
         comps = [cu_ + cv_ for cu_, cv_ in zip(comps_u, comps_v)]
+        dthetaAz_du = aux["ratio"] * dthetaAr - dLam
+        if jac:
+            J = [
+                dthetaAr + ju[1][0],
+                jv[1][0],
+                dthetaAz_du + ju[1][1],
+                dzeta + jv[1][1],
+            ]
         if "dlnD" in aux:
             # a focal length that follows the tori (_dilate): the coordinates
             # dilate with it, which adds -(R p_R + z p_z) dln(delta)/dJ to
             # each chain's angle and couples the two librations
-            rp = (0.5 * xp.sinh(2.0 * u) * pu - 0.5 * xp.sin(2.0 * v) * pv) / (
-                xp.sinh(u) ** 2 + xp.sin(v) ** 2
-            )
-            comps = [c - rp * aux["dlnD"][k] for k, c in enumerate(comps)]
-        return {
+            shc, snc = 0.5 * xp.sinh(2.0 * u), 0.5 * xp.sin(2.0 * v)
+            den = xp.sinh(u) ** 2 + xp.sin(v) ** 2
+            rp = (shc * pu - snc * pv) / den
+            dl = aux["dlnD"]
+            comps = [c - rp * dl[k] for k, c in enumerate(comps)]
+            if jac:
+                du, dv = ju[2], jv[2]
+                xu = (
+                    xp.cosh(2.0 * u) * du * pu
+                    + shc * ju[0]
+                    - rp * xp.sinh(2.0 * u) * du
+                ) / den
+                xv = (
+                    -(
+                        xp.cos(2.0 * v) * dv * pv
+                        + snc * jv[0]
+                        + rp * xp.sin(2.0 * v) * dv
+                    )
+                    / den
+                )
+                J = [
+                    J[0] - xu * dl[0],
+                    J[1] - xv * dl[0],
+                    J[2] - xu * dl[1],
+                    J[3] - xv * dl[1],
+                ]
+        out = {
             "thetaAr": thetaAr,
             "dthetaAr": dthetaAr,
             "thetaAz": zeta + 0.5 * numpy.pi + aux["ratio"] * thetaAr - Lam,
-            "dthetaAz_du": aux["ratio"] * dthetaAr - dLam,
+            "dthetaAz_du": dthetaAz_du,
             "dthetaAz_dv": dzeta,
             "zeta": zeta,
             "Lam": Lam,
@@ -11169,12 +11291,46 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             "comps_u": comps_u,
             "comps_v": comps_v,
         }
+        if jac:
+            out["jac"] = tuple(J)
+        return out
+
+    def _bk_newton_angles_dilated(self, xp, thR, thz, aux, chains_u, chains_v):
+        """_newton_angles_dilated in jax/torch, on derivative-free inputs:
+        Newton steps with the closed-form Jacobian of the two angle
+        relations, each angle pair frozen at its convergence"""
+
+        def wrap(f):
+            return xp.remainder(f + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+
+        x0 = thR * 1.0
+        T0 = self._bk_torus_at(xp, x0, 0.0 * x0, aux, [], [])
+        y0 = thz - 0.5 * numpy.pi - aux["ratio"] * T0["thetaAr"] + T0["Lam"]
+
+        def step(state):
+            x, y = state[0], state[1]
+            T = self._bk_torus_at(xp, x, y, aux, chains_u, chains_v, jac=True)
+            FR = wrap(T["thetaAr"] + T["comps"][0] - thR)
+            Fz = wrap(T["thetaAz"] + T["comps"][1] - thz)
+            a, b, c, d = T["jac"]
+            go = xp.maximum(xp.abs(FR), xp.abs(Fz)) >= self._angle_tol
+            det = a * d - b * c
+            det = xp.where(xp.abs(det) > 1e-10, det, 1.0)
+            dx = xp.clip(-(d * FR - b * Fz) / det, -0.5, 0.5)
+            dy = xp.clip(-(a * Fz - c * FR) / det, -0.5, 0.5)
+            return xp.stack([xp.where(go, x + dx, x), xp.where(go, y + dy, y)])
+
+        state = iterate_to_fixed_point(step, xp.stack([x0, y0]), self._maxiter)
+        return state[0], state[1]
 
     def _bk_newton_angles(self, xp, thR, thz, aux, chains_u, chains_v):
         """_newton_angles in jax/torch, on derivative-free inputs, each angle
         pair frozen at its convergence; the state carries the anomalies, the
         last iterate's compensations and where they were taken, and the four
-        secant slopes"""
+        secant slopes (a family whose focal length follows its tori:
+        _bk_newton_angles_dilated, as numpy's)"""
+        if "dlnD" in aux:
+            return self._bk_newton_angles_dilated(xp, thR, thz, aux, chains_u, chains_v)
 
         def wrap(f):
             return xp.remainder(f + numpy.pi, 2.0 * numpy.pi) - numpy.pi
@@ -11219,12 +11375,34 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         state = iterate_to_fixed_point(step, state, self._maxiter)
         return state[0], state[1]
 
+    def _bk_polish_angles(self, xp, x0, y0, thR, thz, aux, chains_u, chains_v):
+        """One Newton step of the two angle relations from converged anomalies
+        (x0, y0, whose derivative is not taken), with their closed-form
+        Jacobian: the anomalies stay (to round-off) and carry the
+        implicit-function derivative of both (as a backend brentq's final
+        step, for the pair at once)"""
+        x0, y0 = stop_gradient(x0), stop_gradient(y0)
+        T = self._bk_torus_at(xp, x0, y0, aux, chains_u, chains_v, jac=True)
+        FR = xp.remainder(T["thetaAr"] + T["comps"][0] - thR + numpy.pi, 2.0 * numpy.pi)
+        Fz = xp.remainder(T["thetaAz"] + T["comps"][1] - thz + numpy.pi, 2.0 * numpy.pi)
+        FR, Fz = FR - numpy.pi, Fz - numpy.pi
+        a, b, c, d = T["jac"]
+        det = a * d - b * c
+        det = xp.where(xp.abs(det) > 1e-10, det, 1.0)
+        return (
+            x0 + xp.clip(-(d * FR - b * Fz) / det, -0.5, 0.5),
+            y0 + xp.clip(-(a * Fz - c * FR) / det, -0.5, 0.5),
+        )
+
     def _bk_solve_angles(self, xp, thR, thz, aux, aux_sg, chains_u, chains_v):
         """_solve_angles in jax/torch: the Newton iteration (_bk_newton_angles)
-        on derivative-free copies of the tables (aux_sg), stopped at convergence,
-        then the nested backend brentq -- tau_v(tau_u) solving the vertical
-        relation inside the solve of the radial one -- from there, whose final
-        Newton steps carry the implicit-function derivative of both anomalies"""
+        on derivative-free copies of the tables (aux_sg), stopped at
+        convergence, then one Newton step of both relations
+        (_bk_polish_angles), which carries the implicit-function derivative;
+        angles that the iteration leaves unconverged first go through the
+        nested backend brentq -- tau_v(tau_u) solving the vertical relation
+        inside the solve of the radial one -- within brackets as wide as the
+        angle relations can need (traced: only when some angle needs it)"""
         sgc = lambda cs: [tuple(stop_gradient(t) for t in c) for c in cs]  # noqa: E731
         cu_sg, cv_sg = sgc(chains_u), sgc(chains_v)
         thR_sg, thz_sg = stop_gradient(thR), stop_gradient(thz)
@@ -11242,53 +11420,56 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
         xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
         FR, Fz, _ = resid(xc, yc, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg)
-        done = concretely_true(
-            xp.all(xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol)
-        )
-        if done:
-            sR = sz = 1e-3 + 0.0 * xc
-            ns = 1
-        else:
+        conv = xp.maximum(xp.abs(FR), xp.abs(Fz)) < self._angle_tol
+        if concretely_true(xp.all(conv)):
+            return self._bk_polish_angles(xp, xc, yc, thR, thz, aux, chains_u, chains_v)
+
+        def fallback(x0, y0, ns):
+            # the nested brentq on the derivative-free tables, within
+            # brackets as wide as the angle relations can need: the extremes
+            # on a grid can miss the true ones, but by less than 2 pi, by
+            # which the periodic part of an increasing angle relation can
+            # vary at most (as numpy)
             g = numpy.linspace(0.0, 2.0 * numpy.pi, 48, endpoint=False)
             GU, GV = (
                 asarray_on_device(xp, q.flatten(), device_of(xc))
                 for q in numpy.meshgrid(g, g)
             )
             Ts = self._bk_torus_at(xp, GU, GV, aux_sg, cu_sg, cv_sg)
-            # the extremes on the grid can miss the true ones, but by less
-            # than 2 pi, by which the periodic part of an increasing angle
-            # relation can vary at most (as numpy)
             sR = xp.max(xp.abs(Ts["thetaAr"] + Ts["comps"][0] - GU)) + 6.3 + 0.0 * xc
             sz = xp.max(xp.abs(Ts["thetaAz"] + Ts["comps"][1] - GV)) + 6.3 + 0.0 * xc
-            if has_concrete_truth_value(xc[0]):
-                # unconverged within maxiter: the safeguarded steps from the
-                # requested angles (as the numpy fallback)
-                xc, yc, ns = thR_sg * 1.0, thz_sg * 1.0, 24
-            else:  # traced: the iteration has run to convergence
-                ns = 2
 
-        def fz(yy, xx_):
-            T = self._bk_torus_at(xp, xx_, yy, aux, chains_u, chains_v)
-            return wrap(T["thetaAz"] + T["comps"][1] - thz)
+            def fz(yy, xx_):
+                T = self._bk_torus_at(xp, xx_, yy, aux_sg, cu_sg, cv_sg)
+                return wrap(T["thetaAz"] + T["comps"][1] - thz_sg)
 
-        def tv_of(xx):
-            return _backend_brentq(
-                fz,
-                yc - sz,
-                yc + sz,
-                args=(xx,),
-                guess=yc,
-                newton_steps=ns,
+            def tv_of(xx):
+                return _backend_brentq(
+                    fz, y0 - sz, y0 + sz, args=(xx,), guess=y0, newton_steps=ns
+                )
+
+            def fR(xx):
+                T = self._bk_torus_at(xp, xx, tv_of(xx), aux_sg, cu_sg, cv_sg)
+                return wrap(T["thetaAr"] + T["comps"][0] - thR_sg)
+
+            tu = _backend_brentq(fR, x0 - sR, x0 + sR, guess=x0, newton_steps=ns)
+            return stop_gradient(tu), stop_gradient(tv_of(tu))
+
+        if has_concrete_truth_value(xc[0]):
+            # unconverged within maxiter: the safeguarded steps from the
+            # requested angles (as the numpy fallback)
+            xs, ys = fallback(thR_sg * 1.0, thz_sg * 1.0, 24)
+        else:
+            # traced: from the iterate, on the angles that need it
+            xs, ys = lazy_cond(
+                xp,
+                xp.any(~conv),
+                lambda: tuple(
+                    xp.where(conv, q, f) for q, f in zip((xc, yc), fallback(xc, yc, 24))
+                ),
+                lambda: (xc, yc),
             )
-
-        def fR(xx):
-            T = self._bk_torus_at(xp, xx, tv_of(xx), aux, chains_u, chains_v)
-            return wrap(T["thetaAr"] + T["comps"][0] - thR)
-
-        tu = _backend_brentq(
-            lambda xx: fR(xx), xc - sR, xc + sR, guess=xc, newton_steps=ns
-        )
-        return tu, tv_of(tu)
+        return self._bk_polish_angles(xp, xs, ys, thR, thz, aux, chains_u, chains_v)
 
     def _bk_aux(self, xp, jr, jz, Lz, tab):
         """The auxiliary torus and the three action chains (as _xvFreqs builds
@@ -11758,16 +11939,28 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         x, y, _ = self._bk_interp_coords_rows(
             xp, xp.where(inner, mid[:, 0], jr), xp.where(inner, mid[:, 1], jz), ell
         )
+        # (the face solves only when some torus is on a face)
         if ys[-1] == 1.0:
-            xu, yu = self._bk_face_coords_rows(
-                xp, 0.0 * jr, xp.where(on_u, jz, Amid(1.0)[:, 1]), ell, "u"
-            )
-            x, y = xp.where(on_u, xu, x), xp.where(on_u, yu, y)
+
+            def face_u():
+                xu, yu = self._bk_face_coords_rows(
+                    xp, 0.0 * jr, xp.where(on_u, jz, Amid(1.0)[:, 1]), ell, "u"
+                )
+                return xp.where(on_u, xu, x), xp.where(on_u, yu, y)
+
+            x, y = lazy_cond(xp, xp.any(on_u), face_u, lambda: (x, y))
         if ys[0] == 0.0:
-            xv, yv = self._bk_face_coords_rows(
-                xp, xp.where(on_v, jr, Amid(0.0)[:, 0]), 0.0 * jz, ell, "v"
-            )
-            x, y = xp.where(on_v & ~on_u, xv, x), xp.where(on_v & ~on_u, yv, y)
+
+            def face_v():
+                xv, yv = self._bk_face_coords_rows(
+                    xp, xp.where(on_v, jr, Amid(0.0)[:, 0]), 0.0 * jz, ell, "v"
+                )
+                return (
+                    xp.where(on_v & ~on_u, xv, x),
+                    xp.where(on_v & ~on_u, yv, y),
+                )
+
+            x, y = lazy_cond(xp, xp.any(on_v & ~on_u), face_v, lambda: (x, y))
         tab = self._bk_tables_rows(xp, x, y, ell, Lz, on_u, on_v)
         tab["bad"] = None
         return tab
@@ -11862,14 +12055,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     def _bk_solve_angles_rows(self, xp, thR, thz, aux, aux_sg, chains_u, chains_v):
         """_bk_solve_angles with every point on its own torus: the Newton
-        iteration, vectorized over the points, then the nested backend
-        brentq from there, whose final Newton steps carry the implicit-function
+        iteration, vectorized over the points, then one Newton step of both
+        relations (_bk_polish_angles), which carries the implicit-function
         derivative; the points that this leaves unconverged all at once once
-        more, from their requested angles within brackets as wide as their
-        angle relations can need (as _bk_solve_angles for one torus, whose
-        result is final; traced, before the final steps, those that the
-        Newton iteration leaves far from their roots, a few at a time); also
-        returns which points did not converge (none; None when traced)"""
+        more, through the nested backend brentq from their requested angles
+        within brackets as wide as their angle relations can need (as
+        _bk_solve_angles for one torus, whose result is final; traced, before
+        the final step, those that the Newton iteration leaves far from their
+        roots, a few at a time); also returns which points did not converge
+        (none; None when traced)"""
         sgc = lambda cs: [tuple(stop_gradient(t) for t in c) for c in cs]  # noqa: E731
         cu_sg, cv_sg = sgc(chains_u), sgc(chains_v)
         thR_sg, thz_sg = stop_gradient(thR), stop_gradient(thz)
@@ -11934,7 +12128,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             return wR, wz
 
         xc, yc = self._bk_newton_angles(xp, thR_sg, thz_sg, aux_sg, cu_sg, cv_sg)
-        near = 1e-3 + 0.0 * xc
         dev = device_of(xc)
         if under_trace(xc):
             # (the points that the Newton iteration leaves far from their
@@ -11980,11 +12173,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             state = iterate_to_fixed_point(
                 step, stop_gradient(xp.stack([xc, yc, 0.0 * xc])), -(-n // K) + 1
             )
-            tu, tv = nested(
-                aux, chains_u, chains_v, thR, thz, state[0], state[1], near, near, 2
+            tu, tv = self._bk_polish_angles(
+                xp, state[0], state[1], thR, thz, aux, chains_u, chains_v
             )
             return tu, tv, None
-        tu, tv = nested(aux, chains_u, chains_v, thR, thz, xc, yc, near, near, 1)
+        tu, tv = self._bk_polish_angles(xp, xc, yc, thR, thz, aux, chains_u, chains_v)
         bad = (
             as_numpy(residual(tu, tv, aux_sg, cu_sg, cv_sg, thR_sg, thz_sg))
             >= self._angle_tol
