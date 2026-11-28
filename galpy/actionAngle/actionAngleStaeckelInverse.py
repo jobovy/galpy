@@ -1107,11 +1107,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._axisw = axis_weight
         # A forced backend, or a Staeckel model with jax/torch parameters (the
         # potential's, or a delta= it is wrapped at), builds the family
-        # natively, differentiable in those parameters
+        # natively, differentiable in those parameters; so do traced or
+        # differentiated actions (jrs=, jzs=)
         if backend() != "numpy":
             xp_bk = get_namespace()
         else:
             xp_bk = _pot_grad_namespace(self._staeckelwrap, any_backend=True)
+            if (
+                xp_bk is None
+                and not setup_interp
+                and jrs is not None
+                and (under_trace(Lzs, jrs, jzs) or requires_backend_grad(Lzs, jrs, jzs))
+            ):
+                xp_bk = namespace_from_arrays(
+                    [t for t in (Lzs, jrs, jzs) if is_backend_array(t)]
+                )
         self._bk, host_u = None, None
         varies = self._delta_rule is not None
         if callable(self._delta_rule):
@@ -1133,14 +1143,24 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         )
         found_bk = None
         if traced:
+            # (the set-up on the device of the backend actions, unless the
+            # model has jax/torch parameters: _bk_probe)
+            self._bk_actions_device = device_of(Lzs, jrs, jzs)
+            # (numpy actions among them: on the device of the set-up; a
+            # scalar is one torus)
             self._Lzs, jrs, jzs = (
                 1.0 * conversion.parse_angmom(t, ro=self._ro, vo=self._vo)
+                if is_backend_array(t)
+                else self._bk_on_device(
+                    xp_bk,
+                    conversion._parse_grid_quantity(
+                        t, conversion.parse_angmom, ro=self._ro, vo=self._vo
+                    ),
+                )[0]
                 for t in (Lzs, jrs, jzs)
             )
-            # (numpy actions among them: on the device of the set-up)
             self._Lzs, jrs, jzs = (
-                t if is_backend_array(t) else self._bk_on_device(xp_bk, t)[0]
-                for t in (self._Lzs, jrs, jzs)
+                t if t.ndim else xp_bk.reshape(t, (1,)) for t in (self._Lzs, jrs, jzs)
             )
             if not self._Lzs.shape == jrs.shape == jzs.shape:
                 raise ValueError("jrs, Lzs, and jzs have to have the same length")
@@ -7506,20 +7526,23 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     # the family's, or, while the tori of a family whose focal length follows
     # them are constructed, each torus's (_bk_Dt, of shape (n,))
     _bk_Dt = None
+    _bk_actions_device = None
 
-    def _bk_on_device(self, xp, *arrays):
-        """numpy arrays on the device of a backend construction: that of
-        the Staeckel model's jax/torch parameters, else the default"""
+    def _bk_probe(self, xp):
+        """The model's potential at one point on the device of a backend
+        construction: that of the Staeckel model's jax/torch parameters,
+        else that of the backend actions the tori are set up from, else the
+        default"""
         from ..backend._input import _grad_param
 
         par = _grad_param(self._staeckelwrap)
-        dev = device_of(
-            self._bk_Phi(
-                asarray_on_device(
-                    xp, numpy.ones(1), None if par is None else device_of(par)
-                )
-            )
-        )
+        anchor = self._bk_actions_device if par is None else device_of(par)
+        return self._bk_Phi(asarray_on_device(xp, numpy.ones(1), anchor))
+
+    def _bk_on_device(self, xp, *arrays):
+        """numpy arrays on the device of a backend construction
+        (_bk_probe)"""
+        dev = device_of(self._bk_probe(xp))
         return tuple(
             asarray_on_device(xp, numpy.asarray(a, dtype="float"), dev) for a in arrays
         )
@@ -8267,14 +8290,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         at once; host_u, for explicit tori set up from their actions, holds
         the (u_min, u_max, u of the maximum) of their u librations as the
         solve for their integrals found them"""
-        from ..backend._input import _grad_param
-
-        par = _grad_param(self._staeckelwrap)
-        probe = self._bk_Phi(
-            asarray_on_device(
-                xp, numpy.ones(1), None if par is None else device_of(par)
-            )
-        )
+        probe = self._bk_probe(xp)
         dev = device_of(probe)
         # (explicit tori set up from traced actions: their integrals are
         # traced too)

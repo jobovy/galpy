@@ -574,8 +574,10 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter, width=None, stacked=False):
 
         return _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter, width=width)
     # Anchor on the inputs (device/dtype); * 1.0 promotes integer brackets.
-    lo = xp.asarray(a) * 1.0
-    hi = xp.asarray(b) * 1.0
+    # (backend arrays as they are: torch warns when asarray copies a tensor
+    # that requires a gradient)
+    lo = (a if is_backend_array(a) else xp.asarray(a)) * 1.0
+    hi = (b if is_backend_array(b) else xp.asarray(b)) * 1.0
     slo = xp.sign(f(lo))  # sign of f at the low endpoint
     n = n_bisect_steps(a, b, xtol, maxiter, width=width)
     levels = 1

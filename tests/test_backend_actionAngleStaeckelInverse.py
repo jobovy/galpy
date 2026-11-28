@@ -9,6 +9,7 @@
 # adaptive reference curve and the target box, jit/vmap/compile, float32, and
 # the construction's and evaluation's checks
 ###############################################################################
+import contextlib
 import copy
 import importlib
 
@@ -1380,6 +1381,57 @@ def test_tori_from_actions_native_derivatives():
         numpy.testing.assert_allclose(g, fd, rtol=1e-6, atol=1e-8)
 
 
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_tori_from_actions_follow_the_data():
+    # differentiated actions set up their tori natively without a forced
+    # backend, whatever the potential; a scalar is one torus, and lists and
+    # floats among the actions are numpy's
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.45, mm_npt=32, progressbar=False)
+
+    def numpy_R(jz):
+        aN = actionAngleStaeckelInverse(jrs=0.05, Lzs=[1.0], jzs=jz, **kw)
+        return numpy.ravel(aN(0.05, 1.0, jz, 0.4, 1.0, 2.0)[0])[0]
+
+    jz = torch.tensor(0.03, dtype=torch.float64, requires_grad=True)
+    aB = actionAngleStaeckelInverse(jrs=0.05, Lzs=[1.0], jzs=jz, **kw)
+    assert aB._bk["Es"].shape == (1,) and aB._bk["Es"].requires_grad
+    R = aB(0.05, 1.0, jz, 0.4, 1.0, 2.0)[0]
+    numpy.testing.assert_allclose(
+        numpy.ravel(as_numpy(R))[0], numpy_R(0.03), rtol=0.0, atol=1e-9
+    )
+    (g,) = torch.autograd.grad(R.sum(), jz)
+    numpy.testing.assert_allclose(
+        float(g), _fd(numpy_R, 0.03, 1e-4), rtol=1e-6, atol=1e-8
+    )
+
+
+@pytest.mark.skipif(
+    torch is None or not torch.cuda.is_available(), reason="CUDA torch not available"
+)
+def test_tori_from_cuda_actions_cpu_default_device():
+    # differentiated actions on the GPU with the CPU as the default device
+    # (and a potential with numpy parameters): the tori are set up and
+    # evaluated on the GPU
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, delta=0.45, mm_npt=32, progressbar=False)
+    jz = torch.tensor(0.03, dtype=torch.float64, device="cuda", requires_grad=True)
+    aB = actionAngleStaeckelInverse(jrs=0.05, Lzs=[1.0], jzs=jz, **kw)
+    R = aB(0.05, 1.0, jz, 0.4, 1.0, 2.0)[0]
+    assert aB._bk["Es"].device.type == "cuda" and R.device.type == "cuda"
+    aN = actionAngleStaeckelInverse(jrs=[0.05], Lzs=[1.0], jzs=[0.03], **kw)
+    numpy.testing.assert_allclose(
+        numpy.ravel(as_numpy(R))[0],
+        numpy.ravel(aN(0.05, 1.0, 0.03, 0.4, 1.0, 2.0)[0])[0],
+        rtol=0.0,
+        atol=1e-9,
+    )
+
+
 @pytest.mark.skipif(jax is None, reason="jax not installed")
 def test_jax_jit_construction_from_actions():
     # the whole set-up of tori from their actions, and their evaluation,
@@ -1419,9 +1471,11 @@ def test_jax_jit_construction_from_actions():
 
 
 @pytest.mark.skipif(jax is None, reason="jax not installed")
-def test_jax_jit_construction_from_actions_single_curve():
+@pytest.mark.parametrize("forced", [False, True])
+def test_jax_jit_construction_from_actions_single_curve(forced):
     # tori on the model's single reference curve set up from their actions
-    # under jax.jit: the model, set up in the trace, gives V itself
+    # under jax.jit: without a forced backend, the traced actions pick it;
+    # under a forced one, the model, set up in the trace, gives V itself
     from galpy import backend as gb
     from galpy.actionAngle import actionAngleStaeckelInverse
     from galpy.potential import MWPotential2014
@@ -1430,7 +1484,7 @@ def test_jax_jit_construction_from_actions_single_curve():
     J = {k: numpy.array(v[:2]) for k, v in _NATIVE_J.items()}
 
     def f(jr, Lz, jz):
-        with gb.use("jax", force=True):
+        with gb.use("jax", force=True) if forced else contextlib.nullcontext():
             aB = actionAngleStaeckelInverse(jrs=jr, Lzs=Lz, jzs=jz, **kw)
             return jnp.stack(aB(jr, Lz, jz, _ANGLES[:2], 1.0, 2.0))
 
